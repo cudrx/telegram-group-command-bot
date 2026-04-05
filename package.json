@@ -1,0 +1,31 @@
+{
+  "name": "test-chatbot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0 <25"
+  },
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "migrate": "node --import tsx scripts/migrate.ts",
+    "start": "node dist/index.js",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "dotenv": "^16.4.7",
+    "grammy": "^1.38.3",
+    "openai": "^6.33.0",
+    "zod": "^3.25.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  }
+}

@@ -1,0 +1,8 @@
+.codex
+node_modules/
+dist/
+.env
+coverage/
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal

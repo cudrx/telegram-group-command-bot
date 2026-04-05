@@ -1,0 +1,162 @@
+# Architecture
+
+## MVP Scope
+
+Текущая версия проекта рассчитана на один процесс с `long polling`, локальную `SQLite` и базовую глобальную persona с возможностью chat-specific override по `chat_id`.
+
+Бот умеет:
+
+- читать текстовые сообщения из Telegram;
+- сохранять сообщения, чаты и участников в `SQLite`;
+- хранить chat-scoped память об участниках в виде атомарных фактов вместо одной текстовой сводки;
+- хранить chat-local self-memory самого бота поверх глобального persona-ядра;
+- добавлять per-chat persona override из `config/personas/<chat_id>.md`, если такой файл существует;
+- отвечать на `@mention` и `reply`;
+- иногда случайно вмешиваться в беседу по вероятности из `.env`;
+- запускать фоновое summary, когда чат затих и накопилось достаточно новых сообщений;
+- обновлять summary чата и сжатые профили участников через `Qwen`.
+
+## Component Map
+
+### `src/transport`
+
+Отвечает за Telegram-специфику:
+
+- получает `Update` через `grammY`;
+- нормализует входящее сообщение в локальный формат;
+- не содержит доменных решений о том, отвечать ли боту.
+
+### `src/domain`
+
+Чистая логика проекта:
+
+- определение прямого триггера ответа (`mention`, `reply_to_bot`, `none`);
+- политика случайного вмешательства с `cooldown`;
+- политика запуска idle-summary.
+
+### `src/storage`
+
+Слой хранения на `SQLite`:
+
+- чаты;
+- участники;
+- связи чат ↔ участник;
+- chat-scoped participant memories c `core` / `durable` / `volatile` стабильностью;
+- сообщения;
+- summary и курсор последнего обработанного сообщения.
+- retention старых summarized messages с сохранением небольшого raw-tail для локального контекста.
+
+### `src/llm`
+
+Изолирует работу с `Qwen`:
+
+- сбор prompt-контекста;
+- генерация ответа персонажа;
+- генерация JSON-summary для чата и deltas по participant memories.
+
+### `src/app.ts`
+
+Координирует всё приложение:
+
+- принимает нормализованное сообщение;
+- сохраняет его в БД;
+- решает, должен ли бот отвечать;
+- собирает контекст;
+- вызывает `Qwen`;
+- отправляет ответ в Telegram;
+- запускает periodic sweep для idle-summary.
+
+## Main Flows
+
+### 1. Incoming Message
+
+1. `grammY` получает новое текстовое сообщение.
+2. `normalizeTextMessage` переводит его в локальный `NormalizedMessage`.
+3. `DatabaseClient.saveIncomingMessage` сохраняет чат, участника и сообщение.
+4. `detectDirectTrigger` и `decideReplyAction` определяют, отвечает ли бот.
+5. Если ответ нужен:
+   - подтягивается глобальная persona;
+   - при наличии добавляется chat-specific persona override;
+   - подтягивается chat-local self-memory бота;
+   - берутся recent messages;
+   - берётся текущий summary чата;
+   - собирается chat-local memory context по участнику;
+   - вызывается `Qwen`;
+   - ответ отправляется в Telegram и сохраняется в БД.
+
+### 2. Idle Summary
+
+1. Периодический sweep смотрит кандидатов с `unsummarized_message_count > 0`.
+2. `shouldRunIdleSummary` проверяет:
+   - чат затих на нужное время;
+   - накопилось достаточно новых сообщений.
+3. Берётся новый хвост сообщений после `summary_cursor_message_id`.
+4. `Qwen` возвращает:
+   - обновлённое summary чата;
+   - массив `memoryUpdates`.
+   - массив `selfMemoryUpdates` для локальной памяти персонажа.
+5. БД мержит memory deltas, supersede'ит конфликтующие single-value факты, не даёт self-memory переписать core persona, истекает volatile память и двигает курсор.
+
+## Database Model
+
+### `chats`
+
+Хранит:
+
+- тип чата;
+- title;
+- время последнего сообщения;
+- время последнего ответа бота;
+- текущее summary;
+- курсор последнего summarized message;
+- счётчик новых сообщений после summary.
+
+### `participants`
+
+Хранит:
+
+- `user_id`;
+- username/display name;
+- время последнего появления;
+- сжатый профиль участника.
+
+### `chat_participants`
+
+Хранит факт присутствия участника в чате, время последнего появления и chat-scoped профиль участника.
+
+### `participant_memories`
+
+Хранит атомарные факты о конкретном участнике в конкретном чате:
+
+- `category` и `key` факта;
+- текстовое значение;
+- `stability` (`core` / `durable` / `volatile`);
+- `source_kind` (`explicit` / `observed` / `inferred`);
+- `cardinality` (`single` / `multi`);
+- статус (`active` / `superseded` / `expired`);
+- времена появления, подтверждения и истечения.
+
+Тот же memory-layer используется и для chat-local self-memory бота, но summary не может писать туда `core`-факты или переписывать базовую persona-конфигурацию.
+
+### `messages`
+
+Хранит текстовые сообщения и ответы бота.
+
+## Current Limitations
+
+Это честные ограничения текущего `MVP`, а не забытые детали:
+
+- один процесс и один `SQLite`-файл;
+- одна глобальная persona-основа, опциональные per-chat persona overrides и chat-local self-memory поверх этого слоя;
+- нет админ-команд и веб-интерфейса;
+- нет полноценной очереди задач;
+- observability пока ограничена локальными structured logs;
+- доменные тесты покрыты лучше, чем интеграционный путь `telegram -> db -> llm -> reply`.
+
+## Known Risks To Revisit
+
+Эти вещи стоит улучшить в следующих проходах:
+
+- улучшить стратегию обработки нескольких накопившихся reply-триггеров сверх одного pending-запроса;
+- сделать более аккуратный graceful shutdown;
+- добавить cheap relevance gate для случайных вмешательств, чтобы бот меньше шумел в живых чатах.
