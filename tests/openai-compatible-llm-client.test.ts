@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 
-import { QwenClient } from "../src/llm/qwen-client.js";
+import { OpenAiCompatibleLlmClient } from "../src/llm/openai-compatible-llm-client.js";
 
-describe("QwenClient", () => {
+describe("OpenAiCompatibleLlmClient", () => {
   test("retries retryable completion errors once", async () => {
     let calls = 0;
-    const client = new QwenClient(
+    const client = new OpenAiCompatibleLlmClient(
       {
         apiKey: "key",
         baseUrl: "https://example.com",
@@ -33,7 +33,7 @@ describe("QwenClient", () => {
                 choices: [
                   {
                     message: {
-                      content: "готово"
+                      content: "ready"
                     }
                   }
                 ]
@@ -55,7 +55,7 @@ describe("QwenClient", () => {
         recentMessages: []
       })
     ).resolves.toMatchObject({
-      text: "готово",
+      text: "ready",
       model: "reply-model",
       attemptCount: 2
     });
@@ -64,7 +64,7 @@ describe("QwenClient", () => {
   });
 
   test("parses structured memory updates from summary output", async () => {
-    const client = new QwenClient(
+    const client = new OpenAiCompatibleLlmClient(
       {
         apiKey: "key",
         baseUrl: "https://example.com",
@@ -98,7 +98,7 @@ describe("QwenClient", () => {
                         {
                           category: "relationship",
                           key: "running_joke_with_tom",
-                          valueText: "часто шутит про дедлайны с Томом",
+                          valueText: "teases Tom about deadlines",
                           stability: "durable",
                           sourceKind: "observed",
                           confidence: 0.81,
@@ -141,7 +141,7 @@ describe("QwenClient", () => {
 
   test("does not retry schema errors from summary parsing", async () => {
     let calls = 0;
-    const client = new QwenClient(
+    const client = new OpenAiCompatibleLlmClient(
       {
         apiKey: "key",
         baseUrl: "https://example.com",
