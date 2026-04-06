@@ -11,7 +11,11 @@ import type {
   StoredMessage,
   SummaryResult
 } from "../src/domain/models.js";
-import type { LlmReplyResult, LlmSummaryResult, QwenClient } from "../src/llm/qwen-client.js";
+import type {
+  LlmClient,
+  LlmReplyResult,
+  LlmSummaryResult
+} from "../src/app/chat-orchestrator.js";
 import type { AppLogger, LogFields } from "../src/logging/logger.js";
 import type { DatabaseClient } from "../src/storage/database.js";
 
@@ -256,7 +260,7 @@ describe("ChatOrchestrator", () => {
 
 function createOrchestrator(input: {
   db: FakeDatabaseClient;
-  qwen: Pick<QwenClient, "generateReply" | "summarizeConversation">;
+  qwen: LlmClient;
   replyDispatcher: ReturnType<typeof vi.fn>;
   env?: AppEnv;
   loadPersona?: (filePath: string, chatId?: number) => Promise<string>;
@@ -264,7 +268,7 @@ function createOrchestrator(input: {
 }): ChatOrchestrator {
   return new ChatOrchestrator({
     db: input.db as unknown as DatabaseClient,
-    qwen: input.qwen as QwenClient,
+    qwen: input.qwen,
     env: input.env ?? createEnv(),
     bot: {
       userId: 77,
@@ -285,12 +289,14 @@ function createEnv(): AppEnv {
   return {
     nodeEnv: "test",
     telegramBotToken: "telegram-token",
-    qwenApiKey: "qwen-key",
-    qwenBaseUrl: "https://example.invalid/v1",
-    qwenReplyModel: "reply-model",
-    qwenSummaryModel: "summary-model",
-    qwenTimeoutMs: 20_000,
-    qwenMaxRetries: 1,
+    llmApiKey: "llm-key",
+    llmBaseUrl: "https://example.invalid/v1",
+    llmReplyModel: "reply-model",
+    llmSummaryModel: "summary-model",
+    llmSummaryJsonMode: "response_format",
+    llmTimeoutMs: 20_000,
+    llmMaxRetries: 1,
+    logLlmText: false,
     sqlitePath: "data/test.sqlite",
     personaFile: "config/persona.md",
     interjectProbability: 0,

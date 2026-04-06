@@ -5,7 +5,7 @@
 - `Node.js 20` or `22` LTS
 - `npm 11+`
 - Telegram bot token
-- `Qwen` API key
+- LLM API key
 
 ## Project Files
 
@@ -20,7 +20,7 @@
 Минимально нужны:
 
 - `TELEGRAM_BOT_TOKEN`
-- `QWEN_API_KEY`
+- `LLM_API_KEY`
 
 Полный список смотри в [`../.env.example`](../.env.example).
 
@@ -37,6 +37,10 @@ npm install
 ```bash
 cp .env.example .env
 ```
+
+Если используете не DeepSeek, а другой OpenAI-compatible провайдер, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
+Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
+Если reply-запросы проходят, а summary-запросы отклоняются из-за `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`. В этом режиме summary остаётся включённым, но JSON запрашивается только через prompt.
 
 3. Отредактировать базовую persona:
 
@@ -97,7 +101,7 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - автодеплой;
 - миграции с версиями;
 - интеграционные тесты с реальным Telegram API;
-- smoke-тесты с реальным `Qwen`.
+- smoke-тесты с реальным LLM-провайдером.
 
 ## Memory Model
 

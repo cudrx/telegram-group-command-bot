@@ -75,8 +75,8 @@ vi.mock("../src/storage/database.js", () => ({
   }
 }));
 
-vi.mock("../src/llm/qwen-client.js", () => ({
-  QwenClient: vi.fn().mockImplementation((...args: unknown[]) => {
+vi.mock("../src/llm/openai-compatible-llm-client.js", () => ({
+  OpenAiCompatibleLlmClient: vi.fn().mockImplementation((...args: unknown[]) => {
     qwenConstructor(...args);
     return {};
   })
@@ -143,6 +143,24 @@ describe("createApplication", () => {
   test("logs startup, raw updates, and mention-bearing incoming messages", async () => {
     const { createApplication } = await import("../src/app.js");
     const app = await createApplication(createEnv());
+
+    expect(qwenConstructor).toHaveBeenCalledWith({
+      apiKey: "llm-key",
+      baseUrl: "https://example.com",
+      replyModel: "reply-model",
+      summaryModel: "summary-model",
+      summaryJsonMode: "response_format",
+      timeoutMs: 20_000,
+      maxRetries: 1
+    }, undefined, {
+      logger: expect.objectContaining({
+        child: expect.any(Function),
+        error: expect.any(Function),
+        info: expect.any(Function),
+        warn: expect.any(Function)
+      }),
+      logLlmText: false
+    });
 
     await app.start();
 
@@ -253,12 +271,13 @@ function createEnv(): AppEnv {
   return {
     nodeEnv: "development",
     telegramBotToken: "telegram-token",
-    qwenApiKey: "qwen-key",
-    qwenBaseUrl: "https://example.com",
-    qwenReplyModel: "reply-model",
-    qwenSummaryModel: "summary-model",
-    qwenTimeoutMs: 20_000,
-    qwenMaxRetries: 1,
+    llmApiKey: "llm-key",
+    llmBaseUrl: "https://example.com",
+    llmReplyModel: "reply-model",
+    llmSummaryModel: "summary-model",
+    llmSummaryJsonMode: "response_format",
+    llmTimeoutMs: 20_000,
+    llmMaxRetries: 1,
     sqlitePath: "data/test.sqlite",
     personaFile: "config/persona.md",
     interjectProbability: 0.12,
@@ -267,6 +286,7 @@ function createEnv(): AppEnv {
     minMessagesForSummary: 10,
     messageContextLimit: 16,
     summarySweepIntervalMs: 60_000,
-    messageRetentionDays: 180
+    messageRetentionDays: 180,
+    logLlmText: false
   };
 }

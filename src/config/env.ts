@@ -6,15 +6,19 @@ loadDotenv();
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
-  QWEN_API_KEY: z.string().min(1, "QWEN_API_KEY is required"),
-  QWEN_BASE_URL: z
+  LLM_API_KEY: z.string().min(1, "LLM_API_KEY is required"),
+  LLM_BASE_URL: z
     .string()
-    .url("QWEN_BASE_URL must be a valid URL")
-    .default("https://dashscope-intl.aliyuncs.com/compatible-mode/v1"),
-  QWEN_REPLY_MODEL: z.string().min(1).default("qwen-plus-character"),
-  QWEN_SUMMARY_MODEL: z.string().min(1).default("qwen3.5-flash"),
-  QWEN_TIMEOUT_MS: z.coerce.number().int().positive().default(20_000),
-  QWEN_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(1),
+    .url("LLM_BASE_URL must be a valid URL")
+    .default("https://api.deepseek.com"),
+  LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
+  LLM_SUMMARY_MODEL: z.string().min(1).default("deepseek-chat"),
+  LLM_SUMMARY_JSON_MODE: z
+    .enum(["response_format", "prompt_only"])
+    .default("response_format"),
+  LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
+  LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
+  LOG_LLM_TEXT: z.coerce.boolean().default(false),
   SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
   PERSONA_FILE: z.string().min(1).default("config/persona.md"),
   INTERJECT_PROBABILITY: z.coerce.number().min(0).max(1).default(0.12),
@@ -26,19 +30,17 @@ const envSchema = z.object({
   MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(0).default(180)
 });
 
-export type AppEnv = ReturnType<typeof parseEnv>;
-
-export function parseEnv(
-  rawEnv: Record<string, string | undefined> = process.env
-): {
+type ParsedEnv = {
   nodeEnv: "development" | "test" | "production";
   telegramBotToken: string;
-  qwenApiKey: string;
-  qwenBaseUrl: string;
-  qwenReplyModel: string;
-  qwenSummaryModel: string;
-  qwenTimeoutMs: number;
-  qwenMaxRetries: number;
+  llmApiKey: string;
+  llmBaseUrl: string;
+  llmReplyModel: string;
+  llmSummaryModel: string;
+  llmSummaryJsonMode: "response_format" | "prompt_only";
+  llmTimeoutMs: number;
+  llmMaxRetries: number;
+  logLlmText: boolean;
   sqlitePath: string;
   personaFile: string;
   interjectProbability: number;
@@ -48,21 +50,77 @@ export function parseEnv(
   messageContextLimit: number;
   summarySweepIntervalMs: number;
   messageRetentionDays: number;
-} {
+};
+
+export type AppEnv = ParsedEnv;
+
+export function parseEnv(
+  rawEnv: Record<string, string | undefined> = process.env
+): ParsedEnv {
+  const usesGenericLlmVars =
+    rawEnv.LLM_API_KEY !== undefined ||
+    rawEnv.LLM_BASE_URL !== undefined ||
+    rawEnv.LLM_REPLY_MODEL !== undefined ||
+    rawEnv.LLM_SUMMARY_MODEL !== undefined ||
+    rawEnv.LLM_SUMMARY_JSON_MODE !== undefined ||
+    rawEnv.LLM_TIMEOUT_MS !== undefined ||
+    rawEnv.LLM_MAX_RETRIES !== undefined;
+  const usesLegacyQwenVars =
+    rawEnv.QWEN_API_KEY !== undefined ||
+    rawEnv.QWEN_BASE_URL !== undefined ||
+    rawEnv.QWEN_REPLY_MODEL !== undefined ||
+    rawEnv.QWEN_SUMMARY_MODEL !== undefined ||
+    rawEnv.QWEN_SUMMARY_JSON_MODE !== undefined ||
+    rawEnv.QWEN_TIMEOUT_MS !== undefined ||
+    rawEnv.QWEN_MAX_RETRIES !== undefined;
+
+  if (usesGenericLlmVars && usesLegacyQwenVars) {
+    throw new Error(
+      "Invalid provider config: use either LLM_* or QWEN_* variables for the LLM provider, not both."
+    );
+  }
+
+  const providerEnv = usesGenericLlmVars
+    ? {
+        LLM_API_KEY: rawEnv.LLM_API_KEY,
+        LLM_BASE_URL: rawEnv.LLM_BASE_URL,
+        LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
+        LLM_SUMMARY_MODEL: rawEnv.LLM_SUMMARY_MODEL,
+        LLM_SUMMARY_JSON_MODE: rawEnv.LLM_SUMMARY_JSON_MODE,
+        LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
+        LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES
+      }
+    : {
+        LLM_API_KEY: rawEnv.QWEN_API_KEY,
+        LLM_BASE_URL:
+          rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+        LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus-character",
+        LLM_SUMMARY_MODEL: rawEnv.QWEN_SUMMARY_MODEL ?? "qwen3.5-flash",
+        LLM_SUMMARY_JSON_MODE:
+          rawEnv.QWEN_SUMMARY_JSON_MODE ?? "response_format",
+        LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
+        LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1"
+      };
+
   const parsed = envSchema.parse({
     ...rawEnv,
-    TELEGRAM_BOT_TOKEN: rawEnv.TELEGRAM_BOT_TOKEN ?? rawEnv.BOT_TOKEN
+    TELEGRAM_BOT_TOKEN: rawEnv.TELEGRAM_BOT_TOKEN ?? rawEnv.BOT_TOKEN,
+    ...providerEnv
   });
+
+  assertNoPlaceholderSecrets(parsed);
 
   return {
     nodeEnv: parsed.NODE_ENV,
     telegramBotToken: parsed.TELEGRAM_BOT_TOKEN,
-    qwenApiKey: parsed.QWEN_API_KEY,
-    qwenBaseUrl: parsed.QWEN_BASE_URL,
-    qwenReplyModel: parsed.QWEN_REPLY_MODEL,
-    qwenSummaryModel: parsed.QWEN_SUMMARY_MODEL,
-    qwenTimeoutMs: parsed.QWEN_TIMEOUT_MS,
-    qwenMaxRetries: parsed.QWEN_MAX_RETRIES,
+    llmApiKey: parsed.LLM_API_KEY,
+    llmBaseUrl: parsed.LLM_BASE_URL,
+    llmReplyModel: parsed.LLM_REPLY_MODEL,
+    llmSummaryModel: parsed.LLM_SUMMARY_MODEL,
+    llmSummaryJsonMode: parsed.LLM_SUMMARY_JSON_MODE,
+    llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
+    llmMaxRetries: parsed.LLM_MAX_RETRIES,
+    logLlmText: parsed.LOG_LLM_TEXT,
     sqlitePath: parsed.SQLITE_PATH,
     personaFile: parsed.PERSONA_FILE,
     interjectProbability: parsed.INTERJECT_PROBABILITY,
@@ -77,4 +135,32 @@ export function parseEnv(
 
 export function getEnv(): AppEnv {
   return parseEnv();
+}
+
+function assertNoPlaceholderSecrets(parsed: z.infer<typeof envSchema>): void {
+  if (looksLikePlaceholder(parsed.LLM_API_KEY)) {
+    throw new Error(
+      "LLM_API_KEY contains a placeholder value. Replace it with a real provider key before starting the bot."
+    );
+  }
+
+  if (looksLikePlaceholder(parsed.TELEGRAM_BOT_TOKEN)) {
+    throw new Error(
+      "TELEGRAM_BOT_TOKEN contains a placeholder value. Replace it with a real bot token before starting the bot."
+    );
+  }
+}
+
+function looksLikePlaceholder(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+
+  return (
+    normalized.length === 0 ||
+    normalized.startsWith("your-") ||
+    normalized.includes("-here") ||
+    normalized.includes("example") ||
+    normalized.includes("placeholder") ||
+    normalized === "changeme" ||
+    normalized === "replace-me"
+  );
 }

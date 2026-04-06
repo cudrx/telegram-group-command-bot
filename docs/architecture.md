@@ -14,7 +14,7 @@
 - отвечать на `@mention` и `reply`;
 - иногда случайно вмешиваться в беседу по вероятности из `.env`;
 - запускать фоновое summary, когда чат затих и накопилось достаточно новых сообщений;
-- обновлять summary чата и сжатые профили участников через `Qwen`.
+- обновлять summary чата и сжатые профили участников через OpenAI-compatible LLM слой.
 
 ## Component Map
 
@@ -48,11 +48,12 @@
 
 ### `src/llm`
 
-Изолирует работу с `Qwen`:
+Изолирует работу с OpenAI-compatible LLM слоем:
 
 - сбор prompt-контекста;
 - генерация ответа персонажа;
-- генерация JSON-summary для чата и deltas по participant memories.
+- генерация JSON-summary для чата и deltas по participant memories;
+- выбор summary JSON режима под возможности провайдера: `response_format` или prompt-only fallback.
 
 ### `src/app.ts`
 
@@ -62,7 +63,7 @@
 - сохраняет его в БД;
 - решает, должен ли бот отвечать;
 - собирает контекст;
-- вызывает `Qwen`;
+- вызывает OpenAI-compatible LLM слой;
 - отправляет ответ в Telegram;
 - запускает periodic sweep для idle-summary.
 
@@ -81,7 +82,7 @@
    - берутся recent messages;
    - берётся текущий summary чата;
    - собирается chat-local memory context по участнику;
-   - вызывается `Qwen`;
+   - вызывается LLM слой;
    - ответ отправляется в Telegram и сохраняется в БД.
 
 ### 2. Idle Summary
@@ -91,7 +92,7 @@
    - чат затих на нужное время;
    - накопилось достаточно новых сообщений.
 3. Берётся новый хвост сообщений после `summary_cursor_message_id`.
-4. `Qwen` возвращает:
+4. LLM слой возвращает:
    - обновлённое summary чата;
    - массив `memoryUpdates`.
    - массив `selfMemoryUpdates` для локальной памяти персонажа.

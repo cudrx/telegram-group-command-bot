@@ -3,7 +3,7 @@ import { Bot } from "grammy";
 import type { AppEnv } from "./config/env.js";
 import { loadPersona } from "./config/persona.js";
 import { createLogger, serializeError } from "./logging/logger.js";
-import { QwenClient } from "./llm/qwen-client.js";
+import { OpenAiCompatibleLlmClient } from "./llm/openai-compatible-llm-client.js";
 import { DatabaseClient } from "./storage/database.js";
 import { normalizeTextMessage } from "./transport/telegram/normalize-message.js";
 import { ChatOrchestrator } from "./app/chat-orchestrator.js";
@@ -15,20 +15,26 @@ export type Application = {
 
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
-  const qwen = new QwenClient({
-    apiKey: env.qwenApiKey,
-    baseUrl: env.qwenBaseUrl,
-    replyModel: env.qwenReplyModel,
-    summaryModel: env.qwenSummaryModel,
-    timeoutMs: env.qwenTimeoutMs,
-    maxRetries: env.qwenMaxRetries
-  });
-  const bot = new Bot(env.telegramBotToken);
-  const botInfo = await bot.api.getMe();
   const logger = createLogger({
     service: "telegram-character-bot",
     nodeEnv: env.nodeEnv
   });
+  const qwen = new OpenAiCompatibleLlmClient({
+    apiKey: env.llmApiKey,
+    baseUrl: env.llmBaseUrl,
+    replyModel: env.llmReplyModel,
+    summaryModel: env.llmSummaryModel,
+    summaryJsonMode: env.llmSummaryJsonMode,
+    timeoutMs: env.llmTimeoutMs,
+    maxRetries: env.llmMaxRetries
+  }, undefined, {
+    logger: logger.child({
+      component: "llm"
+    }),
+    logLlmText: env.logLlmText
+  });
+  const bot = new Bot(env.telegramBotToken);
+  const botInfo = await bot.api.getMe();
   logger.info("bot_initialized", {
     botUserId: botInfo.id,
     botUsername: botInfo.username ?? null

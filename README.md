@@ -1,6 +1,6 @@
 # Character Telegram Bot
 
-Минимальная рабочая основа для Telegram-бота-персонажа на `Node.js + TypeScript + grammY + SQLite + Qwen`.
+Минимальная рабочая основа для Telegram-бота-персонажа на `Node.js + TypeScript + grammY + SQLite` с DeepSeek-compatible LLM слоем.
 
 ## Что уже есть
 
@@ -15,7 +15,7 @@
 - фоновый idle-summary после затихания чата
 - единая per-chat координация reply и summary без overlap `LLM`-job'ов
 - prompt hardening для transcript и structured JSON logs
-- `Qwen`-клиент для генерации реплик и summary с timeout/retry
+- generic LLM-клиент для генерации реплик и summary с timeout/retry
 - `Vitest`-тесты, `TypeScript` typecheck и сборка
 - `GitHub Actions` `CI` на `push` в `main`
 
@@ -24,7 +24,7 @@
 - Node.js `20` or `22` LTS
 - npm `11+`
 - Telegram bot token
-- Qwen API key
+- LLM API key
 
 ## Локальный запуск
 
@@ -40,12 +40,16 @@ npm install
 cp .env.example .env
 ```
 
+`.env.example` настроен под DeepSeek по умолчанию. Если вы хотите использовать другого OpenAI-compatible провайдера, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
+Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
+Если обычные reply-запросы работают, а summary падает из-за неподдерживаемого `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`: тогда бот будет просить строгий JSON только через prompt, без API-level structured-output флага.
+
 3. Проверьте или отредактируйте базовую persona в [`config/persona.md`](./config/persona.md).
 
 4. Если нужен отдельный образ для конкретного чата, создайте файл `config/personas/<chat_id>.md`.
    Бот автоматически добавит его поверх базовой persona только в этом чате.
 
-5. Подготовьте SQLite-схему.
+5. Если это первичная установка или после изменения схемы, подготовьте SQLite-схему.
 
 ```bash
 npm run migrate
@@ -60,12 +64,13 @@ npm run dev
 ## Основные переменные окружения
 
 - `TELEGRAM_BOT_TOKEN` или `BOT_TOKEN`
-- `QWEN_API_KEY`
-- `QWEN_BASE_URL`
-- `QWEN_REPLY_MODEL`
-- `QWEN_SUMMARY_MODEL`
-- `QWEN_TIMEOUT_MS`
-- `QWEN_MAX_RETRIES`
+- `LLM_API_KEY`
+- `LLM_BASE_URL`
+- `LLM_REPLY_MODEL`
+- `LLM_SUMMARY_MODEL`
+- `LLM_SUMMARY_JSON_MODE`
+- `LLM_TIMEOUT_MS`
+- `LLM_MAX_RETRIES`
 - `INTERJECT_PROBABILITY`
 - `INTERJECT_COOLDOWN_MINUTES`
 - `CHAT_IDLE_MINUTES`
@@ -77,7 +82,7 @@ npm run dev
 
 ## Проверки
 
-- `npm run migrate`
+- `npm run migrate` (только при первичной установке или изменении схемы)
 - `npm run typecheck`
 - `npm test`
 - `npm run build`
@@ -86,11 +91,15 @@ npm run dev
 
 - `src/domain` — правила ответа и summary
 - `src/storage` — `SQLite` и доступ к данным
-- `src/llm` — prompt helpers и `Qwen`-клиент
+- `src/llm` — prompt helpers и OpenAI-compatible LLM layer
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI
 - `docs/backlog/ideas.md` — идеи на следующие версии
+
+## Migration Note
+
+Переход на `LLM_*` идет без жесткого breakage: старые `QWEN_*` переменные окружения временно продолжают работать как алиасы. Но `LLM_*` и `QWEN_*` нельзя смешивать в effective runtime environment, независимо от того, приходят ли они из `.env`, shell exports или других источников: миграция должна быть целиком в одном namespace, потому что mixed namespaces parser отклоняет.
 
 ## Следующие версии
 
