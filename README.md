@@ -41,6 +41,7 @@ cp .env.example .env
 ```
 
 `.env.example` настроен под DeepSeek по умолчанию. Если вы хотите использовать другого OpenAI-compatible провайдера, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
+Важно: summary-путь в текущей реализации использует `response_format: { type: "json_object" }`, поэтому для полной совместимости нужен провайдер, который поддерживает такой structured JSON response. Иначе потребуется адаптация `src/llm/openai-compatible-llm-client.ts` или отключение summary-сценария.
 
 3. Проверьте или отредактируйте базовую persona в [`config/persona.md`](./config/persona.md).
 

@@ -39,6 +39,7 @@ cp .env.example .env
 ```
 
 Если используете не DeepSeek, а другой OpenAI-compatible провайдер, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
+Для полного feature parity провайдер также должен поддерживать structured JSON response через `response_format: { type: "json_object" }`, потому что summary-генерация опирается на этот контракт.
 
 3. Отредактировать базовую persona:
 
