@@ -13,6 +13,7 @@ describe("parseEnv", () => {
     expect(env.llmBaseUrl).toBe("https://api.deepseek.com");
     expect(env.llmReplyModel).toBe("deepseek-chat");
     expect(env.llmSummaryModel).toBe("deepseek-chat");
+    expect(env.llmSummaryJsonMode).toBe("response_format");
     expect(env.llmTimeoutMs).toBe(45_000);
     expect(env.llmMaxRetries).toBe(2);
     expect(env.interjectProbability).toBe(0.12);
@@ -37,6 +38,7 @@ describe("parseEnv", () => {
     expect(env.llmBaseUrl).toBe("https://legacy.example.com/v1");
     expect(env.llmReplyModel).toBe("legacy-reply");
     expect(env.llmSummaryModel).toBe("legacy-summary");
+    expect(env.llmSummaryJsonMode).toBe("response_format");
     expect(env.llmTimeoutMs).toBe(30_000);
     expect(env.llmMaxRetries).toBe(3);
   });
@@ -53,8 +55,29 @@ describe("parseEnv", () => {
     );
     expect(env.llmReplyModel).toBe("qwen-plus-character");
     expect(env.llmSummaryModel).toBe("qwen3.5-flash");
+    expect(env.llmSummaryJsonMode).toBe("response_format");
     expect(env.llmTimeoutMs).toBe(20_000);
     expect(env.llmMaxRetries).toBe(1);
+  });
+
+  test("allows prompt_only summary json mode for generic providers", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      LLM_SUMMARY_JSON_MODE: "prompt_only"
+    });
+
+    expect(env.llmSummaryJsonMode).toBe("prompt_only");
+  });
+
+  test("parses LOG_LLM_TEXT as a boolean flag", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      LOG_LLM_TEXT: "true"
+    });
+
+    expect(env.logLlmText).toBe(true);
   });
 
   test("rejects mixed LLM and QWEN provider namespaces", () => {
@@ -75,5 +98,14 @@ describe("parseEnv", () => {
         INTERJECT_PROBABILITY: "1.5",
       }),
     ).toThrow(/INTERJECT_PROBABILITY/i);
+  });
+
+  test("rejects placeholder LLM api keys", () => {
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: "telegram-token",
+        LLM_API_KEY: "your-gemini-api-key"
+      })
+    ).toThrow(/placeholder/i);
   });
 });

@@ -91,6 +91,9 @@ export function buildSummaryPrompt(input: {
       "  ]",
       "}"
     ].join("\n"),
+    "Return only a single valid JSON object.",
+    "Do not wrap the JSON in markdown fences.",
+    "Do not add explanations before or after the JSON.",
     "Only include participants that actually appeared in the provided message chunk.",
     "Only store facts that are useful beyond this chunk.",
     "Use selfMemoryUpdates only for the bot's chat-local evolving memory: promises, recurring jokes, local relationships, or habits in this specific chat.",
@@ -101,6 +104,7 @@ export function buildSummaryPrompt(input: {
     "stability meanings: core = almost never changes, durable = can change but usually slowly, volatile = temporary/current.",
     "sourceKind meanings: explicit = the participant stated it directly, observed = plainly visible in the transcript, inferred = weak inference.",
     "cardinality meanings: single = one current value should win, multi = multiple values can coexist.",
+    "If you are unsure about a field, keep the arrays smaller rather than inventing data.",
     "Do not infer ethnicity, nationality, religion, health, politics, or similar sensitive traits unless explicitly self-stated."
   ].join("\n");
 }

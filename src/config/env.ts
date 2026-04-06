@@ -13,8 +13,12 @@ const envSchema = z.object({
     .default("https://api.deepseek.com"),
   LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
   LLM_SUMMARY_MODEL: z.string().min(1).default("deepseek-chat"),
+  LLM_SUMMARY_JSON_MODE: z
+    .enum(["response_format", "prompt_only"])
+    .default("response_format"),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
+  LOG_LLM_TEXT: z.coerce.boolean().default(false),
   SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
   PERSONA_FILE: z.string().min(1).default("config/persona.md"),
   INTERJECT_PROBABILITY: z.coerce.number().min(0).max(1).default(0.12),
@@ -33,8 +37,10 @@ type ParsedEnv = {
   llmBaseUrl: string;
   llmReplyModel: string;
   llmSummaryModel: string;
+  llmSummaryJsonMode: "response_format" | "prompt_only";
   llmTimeoutMs: number;
   llmMaxRetries: number;
+  logLlmText: boolean;
   sqlitePath: string;
   personaFile: string;
   interjectProbability: number;
@@ -56,6 +62,7 @@ export function parseEnv(
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
     rawEnv.LLM_SUMMARY_MODEL !== undefined ||
+    rawEnv.LLM_SUMMARY_JSON_MODE !== undefined ||
     rawEnv.LLM_TIMEOUT_MS !== undefined ||
     rawEnv.LLM_MAX_RETRIES !== undefined;
   const usesLegacyQwenVars =
@@ -63,6 +70,7 @@ export function parseEnv(
     rawEnv.QWEN_BASE_URL !== undefined ||
     rawEnv.QWEN_REPLY_MODEL !== undefined ||
     rawEnv.QWEN_SUMMARY_MODEL !== undefined ||
+    rawEnv.QWEN_SUMMARY_JSON_MODE !== undefined ||
     rawEnv.QWEN_TIMEOUT_MS !== undefined ||
     rawEnv.QWEN_MAX_RETRIES !== undefined;
 
@@ -78,6 +86,7 @@ export function parseEnv(
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
         LLM_SUMMARY_MODEL: rawEnv.LLM_SUMMARY_MODEL,
+        LLM_SUMMARY_JSON_MODE: rawEnv.LLM_SUMMARY_JSON_MODE,
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
         LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES
       }
@@ -87,6 +96,8 @@ export function parseEnv(
           rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus-character",
         LLM_SUMMARY_MODEL: rawEnv.QWEN_SUMMARY_MODEL ?? "qwen3.5-flash",
+        LLM_SUMMARY_JSON_MODE:
+          rawEnv.QWEN_SUMMARY_JSON_MODE ?? "response_format",
         LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
         LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1"
       };
@@ -97,6 +108,8 @@ export function parseEnv(
     ...providerEnv
   });
 
+  assertNoPlaceholderSecrets(parsed);
+
   return {
     nodeEnv: parsed.NODE_ENV,
     telegramBotToken: parsed.TELEGRAM_BOT_TOKEN,
@@ -104,8 +117,10 @@ export function parseEnv(
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
     llmSummaryModel: parsed.LLM_SUMMARY_MODEL,
+    llmSummaryJsonMode: parsed.LLM_SUMMARY_JSON_MODE,
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
+    logLlmText: parsed.LOG_LLM_TEXT,
     sqlitePath: parsed.SQLITE_PATH,
     personaFile: parsed.PERSONA_FILE,
     interjectProbability: parsed.INTERJECT_PROBABILITY,
@@ -120,4 +135,32 @@ export function parseEnv(
 
 export function getEnv(): AppEnv {
   return parseEnv();
+}
+
+function assertNoPlaceholderSecrets(parsed: z.infer<typeof envSchema>): void {
+  if (looksLikePlaceholder(parsed.LLM_API_KEY)) {
+    throw new Error(
+      "LLM_API_KEY contains a placeholder value. Replace it with a real provider key before starting the bot."
+    );
+  }
+
+  if (looksLikePlaceholder(parsed.TELEGRAM_BOT_TOKEN)) {
+    throw new Error(
+      "TELEGRAM_BOT_TOKEN contains a placeholder value. Replace it with a real bot token before starting the bot."
+    );
+  }
+}
+
+function looksLikePlaceholder(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+
+  return (
+    normalized.length === 0 ||
+    normalized.startsWith("your-") ||
+    normalized.includes("-here") ||
+    normalized.includes("example") ||
+    normalized.includes("placeholder") ||
+    normalized === "changeme" ||
+    normalized === "replace-me"
+  );
 }

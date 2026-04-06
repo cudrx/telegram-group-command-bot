@@ -2,6 +2,7 @@ import OpenAI from "openai";
 import { z } from "zod";
 
 import type { StoredMessage, SummaryResult } from "../domain/models.js";
+import type { AppLogger } from "../logging/logger.js";
 import {
   buildReplyPrompt,
   buildSummaryPrompt,
@@ -63,10 +64,15 @@ export class OpenAiCompatibleLlmClient {
       baseUrl: string;
       replyModel: string;
       summaryModel: string;
+      summaryJsonMode: "response_format" | "prompt_only";
       timeoutMs: number;
       maxRetries: number;
     },
-    client?: OpenAI
+    client?: OpenAI,
+    private readonly options: {
+      logger?: AppLogger;
+      logLlmText?: boolean;
+    } = {}
   ) {
     this.client =
       client ??
@@ -92,6 +98,10 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmReplyResult> {
     const prompt = buildReplyPrompt(input);
     const startedAt = Date.now();
+    this.logLlmText("llm_reply_prompt", {
+      model: this.config.replyModel,
+      promptText: prompt
+    });
     const completion = await this.withRetry(() =>
       this.createCompletion({
         model: this.config.replyModel,
@@ -115,6 +125,11 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Reply model returned empty content");
     }
 
+    this.logLlmText("llm_reply_response", {
+      model: this.config.replyModel,
+      responseText: reply
+    });
+
     return {
       text: reply,
       model: this.config.replyModel,
@@ -131,18 +146,26 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmSummaryResult> {
     const prompt = buildSummaryPrompt(input);
     const startedAt = Date.now();
+    this.logLlmText("llm_summary_prompt", {
+      model: this.config.summaryModel,
+      promptText: prompt
+    });
     const completion = await this.withRetry(() =>
       this.createCompletion({
         model: this.config.summaryModel,
         temperature: 0.2,
-        response_format: {
-          type: "json_object"
-        },
+        ...(this.config.summaryJsonMode === "response_format"
+          ? {
+              response_format: {
+                type: "json_object" as const
+              }
+            }
+          : {}),
         messages: [
           {
             role: "system",
             content:
-              "You compress group chat conversations into a short chat summary, participant memory deltas, and chat-local self-memory deltas for the bot."
+              "You compress group chat conversations into a short chat summary, participant memory deltas, and chat-local self-memory deltas for the bot. Return only a valid JSON object."
           },
           {
             role: "user",
@@ -156,6 +179,11 @@ export class OpenAiCompatibleLlmClient {
     if (!raw) {
       throw new Error("Summary model returned empty content");
     }
+
+    this.logLlmText("llm_summary_response", {
+      model: this.config.summaryModel,
+      responseText: raw
+    });
 
     return {
       result: summarySchema.parse(extractJsonObject(raw)),
@@ -182,10 +210,22 @@ export class OpenAiCompatibleLlmClient {
         };
       } catch (error) {
         if (attemptCount > this.config.maxRetries || !isRetriableError(error)) {
-          throw error;
+          throw enrichProviderError(error, this.config);
         }
       }
     }
+  }
+
+  private logLlmText(event: string, payload: {
+    model: string;
+    promptText?: string;
+    responseText?: string;
+  }): void {
+    if (!this.options.logLlmText) {
+      return;
+    }
+
+    this.options.logger?.info(event, payload);
   }
 }
 
@@ -221,4 +261,74 @@ function isRetriableError(error: unknown): boolean {
     code === "ETIMEDOUT" ||
     code === "UND_ERR_CONNECT_TIMEOUT"
   );
+}
+
+function enrichProviderError(
+  error: unknown,
+  config: {
+    apiKey: string;
+    baseUrl: string;
+    replyModel: string;
+    summaryModel: string;
+    summaryJsonMode: "response_format" | "prompt_only";
+    timeoutMs: number;
+    maxRetries: number;
+  }
+): unknown {
+  if (!error || typeof error !== "object") {
+    return error;
+  }
+
+  const maybeError = error as Error & { status?: unknown };
+  const status =
+    typeof maybeError.status === "number" ? maybeError.status : undefined;
+  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+
+  if (status !== 400) {
+    return error;
+  }
+
+  const hints: string[] = [];
+
+  if (isGeminiBaseUrl(config.baseUrl)) {
+    hints.push(
+      "Gemini OpenAI-compatible endpoint detected. Verify LLM_BASE_URL points to https://generativelanguage.googleapis.com/v1beta/openai/ and that LLM_API_KEY is a real Gemini API key, not a placeholder."
+    );
+
+    if (config.summaryJsonMode === "response_format") {
+      hints.push(
+        "If reply requests start working but summary requests still fail, switch LLM_SUMMARY_JSON_MODE=prompt_only."
+      );
+    }
+  }
+
+  if (looksLikePlaceholderApiKey(config.apiKey)) {
+    hints.push(
+      "LLM_API_KEY still looks like a placeholder value and should be replaced before runtime."
+    );
+  }
+
+  if (hints.length === 0) {
+    return error;
+  }
+
+  const enriched = new Error(`${message} ${hints.join(" ")}`.trim(), {
+    cause: error
+  });
+
+  enriched.name = maybeError.name;
+
+  return Object.assign(enriched, {
+    status
+  });
+}
+
+function isGeminiBaseUrl(baseUrl: string): boolean {
+  return baseUrl.includes("generativelanguage.googleapis.com");
+}
+
+function looksLikePlaceholderApiKey(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+
+  return normalized.startsWith("your-") || normalized.includes("placeholder");
 }

@@ -149,8 +149,17 @@ describe("createApplication", () => {
       baseUrl: "https://example.com",
       replyModel: "reply-model",
       summaryModel: "summary-model",
+      summaryJsonMode: "response_format",
       timeoutMs: 20_000,
       maxRetries: 1
+    }, undefined, {
+      logger: expect.objectContaining({
+        child: expect.any(Function),
+        error: expect.any(Function),
+        info: expect.any(Function),
+        warn: expect.any(Function)
+      }),
+      logLlmText: false
     });
 
     await app.start();
@@ -266,6 +275,7 @@ function createEnv(): AppEnv {
     llmBaseUrl: "https://example.com",
     llmReplyModel: "reply-model",
     llmSummaryModel: "summary-model",
+    llmSummaryJsonMode: "response_format",
     llmTimeoutMs: 20_000,
     llmMaxRetries: 1,
     sqlitePath: "data/test.sqlite",
@@ -276,6 +286,7 @@ function createEnv(): AppEnv {
     minMessagesForSummary: 10,
     messageContextLimit: 16,
     summarySweepIntervalMs: 60_000,
-    messageRetentionDays: 180
+    messageRetentionDays: 180,
+    logLlmText: false
   };
 }
