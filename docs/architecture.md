@@ -14,7 +14,7 @@
 - отвечать на `@mention` и `reply`;
 - иногда случайно вмешиваться в беседу по вероятности из `.env`;
 - запускать фоновое summary, когда чат затих и накопилось достаточно новых сообщений;
-- обновлять summary чата и сжатые профили участников через DeepSeek-compatible LLM слой.
+- обновлять summary чата и сжатые профили участников через OpenAI-compatible LLM слой.
 
 ## Component Map
 
@@ -48,11 +48,12 @@
 
 ### `src/llm`
 
-Изолирует работу с DeepSeek/OpenAI-compatible LLM слоем:
+Изолирует работу с OpenAI-compatible LLM слоем:
 
 - сбор prompt-контекста;
 - генерация ответа персонажа;
-- генерация JSON-summary для чата и deltas по participant memories.
+- генерация JSON-summary для чата и deltas по participant memories;
+- выбор summary JSON режима под возможности провайдера: `response_format` или prompt-only fallback.
 
 ### `src/app.ts`
 
@@ -62,7 +63,7 @@
 - сохраняет его в БД;
 - решает, должен ли бот отвечать;
 - собирает контекст;
-- вызывает DeepSeek/OpenAI-compatible LLM слой;
+- вызывает OpenAI-compatible LLM слой;
 - отправляет ответ в Telegram;
 - запускает periodic sweep для idle-summary.
 

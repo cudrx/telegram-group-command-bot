@@ -41,7 +41,8 @@ cp .env.example .env
 ```
 
 `.env.example` настроен под DeepSeek по умолчанию. Если вы хотите использовать другого OpenAI-compatible провайдера, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
-Важно: summary-путь в текущей реализации использует `response_format: { type: "json_object" }`, поэтому для полной совместимости нужен провайдер, который поддерживает такой structured JSON response. Иначе потребуется адаптация `src/llm/openai-compatible-llm-client.ts` или отключение summary-сценария.
+Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
+Если обычные reply-запросы работают, а summary падает из-за неподдерживаемого `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`: тогда бот будет просить строгий JSON только через prompt, без API-level structured-output флага.
 
 3. Проверьте или отредактируйте базовую persona в [`config/persona.md`](./config/persona.md).
 
@@ -67,6 +68,7 @@ npm run dev
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
 - `LLM_SUMMARY_MODEL`
+- `LLM_SUMMARY_JSON_MODE`
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
 - `INTERJECT_PROBABILITY`
@@ -89,7 +91,7 @@ npm run dev
 
 - `src/domain` — правила ответа и summary
 - `src/storage` — `SQLite` и доступ к данным
-- `src/llm` — prompt helpers и DeepSeek/OpenAI-compatible LLM layer
+- `src/llm` — prompt helpers и OpenAI-compatible LLM layer
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI
