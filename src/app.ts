@@ -16,12 +16,12 @@ export type Application = {
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
   const qwen = new QwenClient({
-    apiKey: env.qwenApiKey,
-    baseUrl: env.qwenBaseUrl,
-    replyModel: env.qwenReplyModel,
-    summaryModel: env.qwenSummaryModel,
-    timeoutMs: env.qwenTimeoutMs,
-    maxRetries: env.qwenMaxRetries
+    apiKey: env.llmApiKey,
+    baseUrl: env.llmBaseUrl,
+    replyModel: env.llmReplyModel,
+    summaryModel: env.llmSummaryModel,
+    timeoutMs: env.llmTimeoutMs,
+    maxRetries: env.llmMaxRetries
   });
   const bot = new Bot(env.telegramBotToken);
   const botInfo = await bot.api.getMe();

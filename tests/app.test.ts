@@ -144,6 +144,15 @@ describe("createApplication", () => {
     const { createApplication } = await import("../src/app.js");
     const app = await createApplication(createEnv());
 
+    expect(qwenConstructor).toHaveBeenCalledWith({
+      apiKey: "llm-key",
+      baseUrl: "https://example.com",
+      replyModel: "reply-model",
+      summaryModel: "summary-model",
+      timeoutMs: 20_000,
+      maxRetries: 1
+    });
+
     await app.start();
 
     expect(loggerInfo).toHaveBeenCalledWith("bot_initialized", {
@@ -253,12 +262,12 @@ function createEnv(): AppEnv {
   return {
     nodeEnv: "development",
     telegramBotToken: "telegram-token",
-    qwenApiKey: "qwen-key",
-    qwenBaseUrl: "https://example.com",
-    qwenReplyModel: "reply-model",
-    qwenSummaryModel: "summary-model",
-    qwenTimeoutMs: 20_000,
-    qwenMaxRetries: 1,
+    llmApiKey: "llm-key",
+    llmBaseUrl: "https://example.com",
+    llmReplyModel: "reply-model",
+    llmSummaryModel: "summary-model",
+    llmTimeoutMs: 20_000,
+    llmMaxRetries: 1,
     sqlitePath: "data/test.sqlite",
     personaFile: "config/persona.md",
     interjectProbability: 0.12,
