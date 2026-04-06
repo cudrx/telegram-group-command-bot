@@ -11,7 +11,11 @@ import type {
   StoredMessage,
   SummaryResult
 } from "../src/domain/models.js";
-import type { LlmReplyResult, LlmSummaryResult, QwenClient } from "../src/llm/qwen-client.js";
+import type {
+  LlmClient,
+  LlmReplyResult,
+  LlmSummaryResult
+} from "../src/app/chat-orchestrator.js";
 import type { AppLogger, LogFields } from "../src/logging/logger.js";
 import type { DatabaseClient } from "../src/storage/database.js";
 
@@ -256,7 +260,7 @@ describe("ChatOrchestrator", () => {
 
 function createOrchestrator(input: {
   db: FakeDatabaseClient;
-  qwen: Pick<QwenClient, "generateReply" | "summarizeConversation">;
+  qwen: LlmClient;
   replyDispatcher: ReturnType<typeof vi.fn>;
   env?: AppEnv;
   loadPersona?: (filePath: string, chatId?: number) => Promise<string>;
@@ -264,7 +268,7 @@ function createOrchestrator(input: {
 }): ChatOrchestrator {
   return new ChatOrchestrator({
     db: input.db as unknown as DatabaseClient,
-    qwen: input.qwen as QwenClient,
+    qwen: input.qwen,
     env: input.env ?? createEnv(),
     bot: {
       userId: 77,

@@ -2,13 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import type { AppEnv } from "../config/env.js";
 import { shouldRunIdleSummary } from "../domain/idle-summary-policy.js";
-import type { ChatState, NormalizedMessage } from "../domain/models.js";
+import type { ChatState, NormalizedMessage, StoredMessage } from "../domain/models.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
-import type {
-  LlmReplyResult,
-  LlmSummaryResult,
-  QwenClient
-} from "../llm/qwen-client.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
 import {
@@ -28,11 +23,65 @@ export type SentBotMessage = {
   createdAt: string;
 };
 
+export type LlmReplyResult = {
+  text: string;
+  model: string;
+  latencyMs: number;
+  attemptCount: number;
+  promptTokensEstimate: number;
+};
+
+export type LlmSummaryResult = {
+  result: {
+    chatSummary: string;
+    memoryUpdates: Array<{
+      userId: number;
+      category: string;
+      key: string;
+      valueText: string;
+      stability: "core" | "durable" | "volatile";
+      sourceKind: "explicit" | "observed" | "inferred";
+      confidence: number;
+      cardinality: "single" | "multi";
+    }>;
+    selfMemoryUpdates: Array<{
+      category: string;
+      key: string;
+      valueText: string;
+      stability: "core" | "durable" | "volatile";
+      sourceKind: "explicit" | "observed" | "inferred";
+      confidence: number;
+      cardinality: "single" | "multi";
+    }>;
+  };
+  model: string;
+  latencyMs: number;
+  attemptCount: number;
+  promptTokensEstimate: number;
+};
+
 export type ReplyDispatcher = (input: {
   chatId: number;
   replyToMessageId: number;
   text: string;
 }) => Promise<SentBotMessage>;
+
+export type LlmClient = {
+  generateReply(input: {
+    persona: string;
+    chatSummary: string | null;
+    selfMemoryContext: string | null;
+    participantMemoryContext: string | null;
+    targetDisplayName: string;
+    reason: string;
+    recentMessages: StoredMessage[];
+  }): Promise<LlmReplyResult>;
+  summarizeConversation(input: {
+    chatTitle: string | null;
+    currentSummary: string | null;
+    messages: StoredMessage[];
+  }): Promise<LlmSummaryResult>;
+};
 
 export class ChatOrchestrator {
   private readonly jobs: ChatJobCoordinator;
@@ -40,7 +89,7 @@ export class ChatOrchestrator {
   constructor(
     private readonly deps: {
       db: DatabaseClient;
-      qwen: QwenClient;
+      qwen: LlmClient;
       env: AppEnv;
       bot: BotIdentity;
       replyDispatcher: ReplyDispatcher;

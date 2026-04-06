@@ -75,8 +75,8 @@ vi.mock("../src/storage/database.js", () => ({
   }
 }));
 
-vi.mock("../src/llm/qwen-client.js", () => ({
-  QwenClient: vi.fn().mockImplementation((...args: unknown[]) => {
+vi.mock("../src/llm/openai-compatible-llm-client.js", () => ({
+  OpenAiCompatibleLlmClient: vi.fn().mockImplementation((...args: unknown[]) => {
     qwenConstructor(...args);
     return {};
   })

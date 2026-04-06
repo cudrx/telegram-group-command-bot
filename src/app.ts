@@ -3,7 +3,7 @@ import { Bot } from "grammy";
 import type { AppEnv } from "./config/env.js";
 import { loadPersona } from "./config/persona.js";
 import { createLogger, serializeError } from "./logging/logger.js";
-import { QwenClient } from "./llm/qwen-client.js";
+import { OpenAiCompatibleLlmClient } from "./llm/openai-compatible-llm-client.js";
 import { DatabaseClient } from "./storage/database.js";
 import { normalizeTextMessage } from "./transport/telegram/normalize-message.js";
 import { ChatOrchestrator } from "./app/chat-orchestrator.js";
@@ -15,7 +15,7 @@ export type Application = {
 
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
-  const qwen = new QwenClient({
+  const qwen = new OpenAiCompatibleLlmClient({
     apiKey: env.llmApiKey,
     baseUrl: env.llmBaseUrl,
     replyModel: env.llmReplyModel,
