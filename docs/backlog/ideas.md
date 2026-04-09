@@ -1,23 +1,44 @@
-# Product Backlog Ideas
+# Идеи для Product Backlog
 
-## Next Features
+## Направление продукта
 
-- Add manual notes on participants on top of auto-generated profiles.
-- Add per-participant summary and fun stats command for the chat.
-- Add on-demand "what happened while we were away" summary command.
-- Add configurable per-chat persona instead of one global persona.
-- Add admin commands for changing `INTERJECT_PROBABILITY` and cooldown without redeploy.
+- Делать бота в первую очередь как развлекательного участника общего чата с друзьями, а не как универсального ассистента.
+- В первую очередь развивать функции, которые усиливают веселье, узнаваемость участников, социальный контекст и локальные шутки чата, а не общую утилитарность.
 
-## Smarter LLM Usage
+## Социальный интеллект
 
-- Move profile updates to a structured JSON schema with confidence scores.
-- Store profile snapshots over time to reduce summary drift.
-- Split long chat history into rolling windows before idle-summary compression.
-- Add lightweight relevance scoring before random interjections.
+- Отслеживать групповую динамику, а не только отдельные факты об участниках: кто с кем шутит, кто кого поддерживает, какие пары и компании часто возникают, какие локальные мемы живут в чате и какие мини-сюжеты быстро появляются и исчезают.
+- Добавить ручные заметки об участниках поверх автоматически собранных профилей.
+- Добавить команду для краткой сводки по участнику и забавной статистики по чату.
+- Добавить команду по запросу: «что произошло, пока нас не было».
 
-## Operations
+## Мультимодальность
 
-- Add Docker and deployment docs for a small VPS.
-- Add structured logging and error reporting.
-- Add healthcheck endpoint or watchdog-friendly heartbeat logs.
-- Add graceful retries and dead-letter handling for failed summary jobs.
+- Читать изображения: понимать фото, мемы и скриншоты, а потом использовать этот контекст в ответах и summary.
+- Смотреть видео: извлекать суть из коротких роликов и реагировать на них в чате.
+- Слушать аудио: понимать голосовые сообщения и короткие аудиофрагменты, а потом использовать их в памяти и ответах.
+- Отправлять картинки: генерировать или подбирать визуальные ответы, когда это смешнее или выразительнее обычного текста.
+
+## Эксперименты с персоной
+
+- Добавить игровой режим «мимикрия под участника»: временно подмешивать одного из участников чата в активную персону, чтобы бот отвечал в его стиле ради развлечения.
+- Добавить быстрое переключение persona/mode для конкретного чата, чтобы можно было легко включать и выключать такие эксперименты без ручного редактирования файлов.
+
+## Политика ответа
+
+- Заменить чисто случайные вмешательства на более осмысленный слой принятия решения: стоит ли вообще отвечать, социально ли релевантно сообщение и не будет ли лучше промолчать.
+- Добавить лёгкую оценку релевантности перед случайными вмешательствами, чтобы бот реже влезал не к месту.
+- Добавить админ-команды для изменения порогов ответа, `INTERJECT_PROBABILITY` и cooldown без редеплоя.
+
+## Более умное использование LLM
+
+- Перевести обновления профилей на структурированную JSON-схему с `confidence score`.
+- Хранить снимки профилей во времени, чтобы уменьшить drift в summary.
+- Разбивать длинную историю чата на скользящие окна перед idle-summary compression.
+
+## Эксплуатация
+
+- Добавить Docker и документацию по деплою на небольшой VPS.
+- Добавить структурированные логи и отчётность по ошибкам.
+- Добавить `healthcheck`-endpoint или heartbeat-логи, удобные для watchdog.
+- Добавить аккуратные ретраи и dead-letter handling для упавших summary jobs.

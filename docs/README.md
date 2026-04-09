@@ -24,6 +24,8 @@ Use these locations consistently:
   local development workflow
 - [`/docs/backlog/ideas.md`](/home/tom/Documents/Projects/test-chatbot/docs/backlog/ideas.md)
   backlog, notes, and rough ideas
+- [`/docs/todo/`](/home/tom/Documents/Projects/test-chatbot/docs/todo)
+  working notes and agreed feature formulations before full design/spec work
 - [`/docs/superpowers/plans/`](/home/tom/Documents/Projects/test-chatbot/docs/superpowers/plans)
   all planning documents: design docs, TЗ, implementation plans, rollout plans
 
