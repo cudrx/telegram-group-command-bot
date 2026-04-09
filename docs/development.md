@@ -76,13 +76,53 @@ npm run dev
 - `npm test` — `Vitest`
 - `npm run typecheck` — `TypeScript` без `emit`
 - `npm run build` — сборка в `dist/`
-- `npm start` — запуск собранного `dist/index.js`
+- `npm start` — запуск собранного `dist/src/index.js`
+
+## Local Docker Workflow
+
+Для локального smoke-check контейнера используется корневой [`../compose.yml`](../compose.yml). Он запускает `node:20-bookworm-slim` и использует локальные `dist/`, `node_modules/`, `config/` и `.env` через bind mounts.
+
+1. Подготовить `.env`:
+
+```bash
+cp .env.example .env
+```
+
+2. Собрать `dist/` и проверить итоговый compose-конфиг:
+
+```bash
+npm run build
+docker compose config
+```
+
+3. Поднять контейнер:
+
+```bash
+docker compose up -d
+```
+
+4. Проверить состояние и логи:
+
+```bash
+docker compose ps
+docker compose logs bot --tail=50
+```
+
+5. Остановить контейнер:
+
+```bash
+docker compose down
+```
+
+`SQLite` при этом сохраняется в локальной папке `./data`, которая монтируется в `/app/data` внутри контейнера.
+
+Если Docker отвечает `permission denied while trying to connect to the docker API`, используйте `sudo` для этих команд или добавьте пользователя в группу `docker` и заново войдите в сессию.
 
 ## CI
 
 Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml).
 
-На `push` в `main` он делает:
+На `push` и `pull_request` он делает:
 
 1. `npm ci`
 2. `npm run typecheck`
@@ -100,10 +140,50 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 
 ## What Is Not Automated Yet
 
-- автодеплой;
 - миграции с версиями;
 - интеграционные тесты с реальным Telegram API;
 - smoke-тесты с реальным LLM-провайдером.
+
+## Production Deploy
+
+Workflow деплоя лежит в [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml).
+
+### GitHub Secrets
+
+- `DEPLOY_HOST` — IP или домен VPS
+- `DEPLOY_PORT` — SSH-порт сервера
+- `DEPLOY_USER` — SSH-пользователь
+- `DEPLOY_PATH` — каталог деплоя, например `/opt/test-chatbot`
+- `DEPLOY_SSH_KEY` — приватный ключ, который GitHub Actions использует для входа на сервер
+- `SERVER_GHCR_USERNAME` — GitHub username, у которого есть `read:packages`
+- `SERVER_GHCR_TOKEN` — PAT с правом `read:packages` для `docker login ghcr.io` на VPS
+
+### One-Time VPS Bootstrap
+
+```bash
+mkdir -p /opt/test-chatbot/data
+cp deploy/.env.server.example /opt/test-chatbot/.env
+```
+
+После копирования замените плейсхолдеры в `/opt/test-chatbot/.env` на реальные значения и установите:
+
+```dotenv
+GHCR_IMAGE=ghcr.io/<github-owner>/test-chatbot
+IMAGE_TAG=latest
+SQLITE_PATH=/app/data/bot.sqlite
+```
+
+Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
+
+### Rollback
+
+Чтобы откатиться на предыдущую версию, на VPS временно установите более старый `IMAGE_TAG` в `/opt/test-chatbot/.env` и выполните:
+
+```bash
+cd /opt/test-chatbot
+docker compose --env-file .env -f compose.yml pull bot
+docker compose --env-file .env -f compose.yml up -d bot
+```
 
 ## Memory Model
 
