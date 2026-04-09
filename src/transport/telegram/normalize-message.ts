@@ -15,12 +15,11 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     return null;
   }
 
-  const fullName = [message.from?.first_name, message.from?.last_name]
-    .filter(Boolean)
-    .join(" ")
-    .trim();
-  const displayName =
-    message.from?.username ?? (fullName.length > 0 ? fullName : "Unknown");
+  const displayName = formatParticipantDisplayName({
+    firstName: message.from?.first_name ?? null,
+    lastName: message.from?.last_name ?? null,
+    username: message.from?.username ?? null
+  });
   const chatTitle = "title" in message.chat ? message.chat.title ?? null : null;
 
   return {
@@ -33,6 +32,7 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     fromUserId: message.from?.id ?? null,
     fromUsername: message.from?.username ?? null,
     fromFirstName: message.from?.first_name ?? null,
+    fromLastName: message.from?.last_name ?? null,
     fromDisplayName: displayName,
     isBot: message.from?.is_bot ?? false,
     entities: (message.entities ?? []).map((entity) => ({
@@ -42,6 +42,32 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     })),
     replyToUserId: message.reply_to_message?.from?.id ?? null
   };
+}
+
+export function formatParticipantDisplayName(input: {
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+}): string {
+  const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+
+  if (fullName.length > 0 && input.username) {
+    return `${fullName} (@${input.username})`;
+  }
+
+  if (input.firstName && input.username) {
+    return `${input.firstName} (@${input.username})`;
+  }
+
+  if (fullName.length > 0) {
+    return fullName;
+  }
+
+  if (input.username) {
+    return `@${input.username}`;
+  }
+
+  return "Unknown";
 }
 
 function normalizeChatType(type: string): ChatType {

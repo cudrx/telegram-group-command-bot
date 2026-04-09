@@ -49,6 +49,10 @@ describe("OpenAiCompatibleLlmClient", () => {
       chatSummary: null,
       selfMemoryContext: null,
       participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
       targetDisplayName: "Tom",
       reason: "mention",
       recentMessages: []
@@ -118,6 +122,10 @@ describe("OpenAiCompatibleLlmClient", () => {
         chatSummary: null,
         selfMemoryContext: null,
         participantMemoryContext: null,
+        socialIntent: false,
+        socialIntentReason: null,
+        resolvedParticipants: [],
+        socialParticipantContexts: [],
         targetDisplayName: "Tom",
         reason: "mention",
         recentMessages: []
@@ -345,6 +353,10 @@ describe("OpenAiCompatibleLlmClient", () => {
         chatSummary: null,
         selfMemoryContext: null,
         participantMemoryContext: null,
+        socialIntent: false,
+        socialIntentReason: null,
+        resolvedParticipants: [],
+        socialParticipantContexts: [],
         targetDisplayName: "Tom",
         reason: "mention",
         recentMessages: []

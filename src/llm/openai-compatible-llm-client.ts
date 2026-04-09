@@ -92,6 +92,17 @@ export class OpenAiCompatibleLlmClient {
     chatSummary: string | null;
     selfMemoryContext: string | null;
     participantMemoryContext: string | null;
+    socialIntent: boolean;
+    socialIntentReason: string | null;
+    resolvedParticipants: Array<{
+      userId: number;
+      displayName: string;
+    }>;
+    socialParticipantContexts: Array<{
+      userId: number;
+      displayName: string;
+      participantMemoryContext: string | null;
+    }>;
     targetDisplayName: string;
     reason: string;
     recentMessages: StoredMessage[];
