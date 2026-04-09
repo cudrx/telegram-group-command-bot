@@ -10,8 +10,10 @@
 ## Project Files
 
 - [`README.md`](../README.md) — быстрый старт
+- [`docs/README.md`](./README.md) — каноническая структура Markdown-документов
 - [`docs/architecture.md`](./architecture.md) — устройство проекта
 - [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
+- [`docs/superpowers/plans/`](./superpowers/plans/) — все design docs, ТЗ и implementation plans
 - [`config/persona.md`](../config/persona.md) — базовый образ персонажа
 - `config/personas/<chat_id>.md` — необязательный override для конкретного чата
 
