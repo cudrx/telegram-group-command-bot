@@ -55,7 +55,7 @@ describe("OpenAiCompatibleLlmClient", () => {
       socialParticipantContexts: [],
       targetDisplayName: "Tom",
       reason: "mention",
-      recentMessages: []
+      replyContext: createReplyContext()
     });
 
     expect(logger.info).toHaveBeenCalledWith(
@@ -128,7 +128,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         socialParticipantContexts: [],
         targetDisplayName: "Tom",
         reason: "mention",
-        recentMessages: []
+        replyContext: createReplyContext()
       })
     ).resolves.toMatchObject({
       text: "ready",
@@ -137,6 +137,132 @@ describe("OpenAiCompatibleLlmClient", () => {
     });
 
     expect(calls).toBe(2);
+  });
+
+  test("uses neutral reply request settings without anti-loop system prompt wording", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+
+    const client = new OpenAiCompatibleLlmClient(
+      {
+        apiKey: "key",
+        baseUrl: "https://example.com",
+        replyModel: "reply-model",
+        summaryModel: "summary-model",
+        summaryJsonMode: "response_format",
+        timeoutMs: 20_000,
+        maxRetries: 1
+      },
+      {
+        chat: {
+          completions: {
+            create: async (input: Record<string, unknown>) => {
+              requestBody = input;
+
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: "ready"
+                    }
+                  }
+                ]
+              };
+            }
+          }
+        }
+      } as never
+    );
+
+    await client.generateReply({
+      persona: "Persona",
+      chatSummary: null,
+      selfMemoryContext: null,
+      participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
+      targetDisplayName: "Tom",
+      reason: "reply_to_bot",
+      replyContext: createReplyContext({
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 42,
+          senderDisplayName: "Tom",
+          text: "почему кот",
+          createdAt: "2026-04-03T12:02:00.000Z",
+          isBot: false,
+          replyToMessageId: 2
+        },
+        anchorBotMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 77,
+          senderDisplayName: "Хрюпа",
+          text: "кривой ответ",
+          createdAt: "2026-04-03T12:01:00.000Z",
+          isBot: true,
+          replyToMessageId: 1
+        },
+        anchorParentMessage: {
+          chatId: 1,
+          messageId: 1,
+          userId: 42,
+          senderDisplayName: "Tom",
+          text: "ну чо",
+          createdAt: "2026-04-03T12:00:00.000Z",
+          isBot: false,
+          replyToMessageId: null
+        },
+        transcriptMessages: [
+          {
+            chatId: 1,
+            messageId: 1,
+            userId: 42,
+            senderDisplayName: "Tom",
+            text: "ну чо",
+            createdAt: "2026-04-03T12:00:00.000Z",
+            isBot: false,
+            replyToMessageId: null
+          },
+          {
+            chatId: 1,
+            messageId: 2,
+            userId: 77,
+            senderDisplayName: "Хрюпа",
+            text: "кривой ответ",
+            createdAt: "2026-04-03T12:01:00.000Z",
+            isBot: true,
+            replyToMessageId: 1
+          },
+          {
+            chatId: 1,
+            messageId: 3,
+            userId: 42,
+            senderDisplayName: "Tom",
+            text: "почему кот",
+            createdAt: "2026-04-03T12:02:00.000Z",
+            isBot: false,
+            replyToMessageId: 2
+          }
+        ]
+      })
+    });
+
+    expect(requestBody?.temperature).toBe(0.9);
+    expect(requestBody?.messages).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "system",
+          content:
+            "You are a fun Telegram group chat character. Stay fully in character, answer naturally, and do not break the fourth wall."
+        })
+      ])
+    );
+    expect(JSON.stringify(requestBody?.messages)).not.toContain(
+      "avoid getting stuck in repeated metaphors or phrasing"
+    );
   });
 
   test("parses structured memory updates from summary output", async () => {
@@ -359,8 +485,59 @@ describe("OpenAiCompatibleLlmClient", () => {
         socialParticipantContexts: [],
         targetDisplayName: "Tom",
         reason: "mention",
-        recentMessages: []
+        replyContext: createReplyContext()
       })
     ).rejects.toThrow(/Gemini|LLM_API_KEY|LLM_BASE_URL/i);
   });
 });
+
+function createReplyContext(overrides: Partial<{
+  triggerMessage: {
+    chatId: number;
+    messageId: number;
+    userId: number | null;
+    senderDisplayName: string;
+    text: string;
+    createdAt: string;
+    isBot: boolean;
+    replyToMessageId: number | null;
+  } | null;
+  anchorBotMessage: {
+    chatId: number;
+    messageId: number;
+    userId: number | null;
+    senderDisplayName: string;
+    text: string;
+    createdAt: string;
+    isBot: boolean;
+    replyToMessageId: number | null;
+  } | null;
+  anchorParentMessage: {
+    chatId: number;
+    messageId: number;
+    userId: number | null;
+    senderDisplayName: string;
+    text: string;
+    createdAt: string;
+    isBot: boolean;
+    replyToMessageId: number | null;
+  } | null;
+  transcriptMessages: Array<{
+    chatId: number;
+    messageId: number;
+    userId: number | null;
+    senderDisplayName: string;
+    text: string;
+    createdAt: string;
+    isBot: boolean;
+    replyToMessageId: number | null;
+  }>;
+}> = {}) {
+  return {
+    triggerMessage: null,
+    anchorBotMessage: null,
+    anchorParentMessage: null,
+    transcriptMessages: [],
+    ...overrides
+  };
+}

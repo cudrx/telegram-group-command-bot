@@ -35,16 +35,8 @@ export function buildReplyPrompt(input: {
   }>;
   targetDisplayName: string;
   reason: string;
-  replyContext?: ReplyContext;
-  recentMessages?: StoredMessage[];
+  replyContext: ReplyContext;
 }): string {
-  const replyContext = input.replyContext ?? {
-    triggerMessage: input.recentMessages?.[input.recentMessages.length - 1] ?? null,
-    anchorBotMessage: null,
-    anchorParentMessage: null,
-    transcriptMessages: input.recentMessages ?? []
-  };
-
   return [
     "Global persona:",
     input.persona,
@@ -70,17 +62,13 @@ export function buildReplyPrompt(input: {
     formatSocialParticipantContexts(input.socialParticipantContexts),
     "",
     "Current message:",
-    formatSingleMessage(replyContext.triggerMessage),
+    formatSingleMessage(input.replyContext.triggerMessage),
     "",
     "Message of yours being replied to:",
-    formatSingleMessage(replyContext.anchorBotMessage),
+    formatSingleMessage(input.replyContext.anchorBotMessage),
     "",
     "Earlier human context:",
-    formatReplyContextMessages(replyContext.transcriptMessages),
-    "",
-    "If people question or mock one of your earlier metaphors, drop it instead of repeating or explaining it.",
-    "Do not reuse a distinctive image, noun, or joke from your own recent replies unless the chat clearly embraces it as a running bit.",
-    'Do not fall into repeated reply templates like "<name>, ты как..." or "ты в очередной раз доказал...". Vary sentence shape and prefer direct plain replies when possible.',
+    formatReplyContextMessages(input.replyContext.transcriptMessages),
     "",
     "Reply in Russian. Keep it concise, natural, and in-character. Usually answer in 1-2 short lines. Keep the tone dry rather than theatrical. Use at most one emoji, and only when it adds something. Do not stretch the reply into a mini-bit or monologue. Match the chat's informal energy without overusing emojis. Avoid mentioning that you are an AI model."
   ].join("\n");

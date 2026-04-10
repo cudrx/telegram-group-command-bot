@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { z } from "zod";
 
-import type { StoredMessage, SummaryResult } from "../domain/models.js";
+import type { ReplyContext, StoredMessage, SummaryResult } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
 import {
   buildReplyPrompt,
@@ -105,7 +105,7 @@ export class OpenAiCompatibleLlmClient {
     }>;
     targetDisplayName: string;
     reason: string;
-    recentMessages: StoredMessage[];
+    replyContext: ReplyContext;
   }): Promise<LlmReplyResult> {
     const prompt = buildReplyPrompt(input);
     const startedAt = Date.now();
