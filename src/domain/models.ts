@@ -33,7 +33,7 @@ export type ReplyContext = {
   triggerMessage: StoredMessage | null;
   anchorBotMessage: StoredMessage | null;
   anchorParentMessage: StoredMessage | null;
-  transcriptMessages: StoredMessage[];
+  priorContextMessages: StoredMessage[];
 };
 
 export type ChatState = {

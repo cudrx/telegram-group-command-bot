@@ -30,7 +30,7 @@ export function buildReplyContext(input: {
     anchorBotMessage !== null && anchorBotMessage.replyToMessageId !== null
       ? input.db.getMessageByTelegramMessageId(input.chatId, anchorBotMessage.replyToMessageId)
       : null;
-  const transcriptMessages = buildTranscriptMessages(input.db, {
+  const priorContextMessages = buildPriorContextMessages(input.db, {
     reason: input.reason,
     chatId: input.chatId,
     triggerMessage,
@@ -44,11 +44,11 @@ export function buildReplyContext(input: {
     triggerMessage,
     anchorBotMessage,
     anchorParentMessage,
-    transcriptMessages
+    priorContextMessages
   };
 }
 
-function buildTranscriptMessages(
+function buildPriorContextMessages(
   db: ReplyContextDb,
   input: {
     reason: "mention" | "reply_to_bot" | "direct_message" | "interjection";
@@ -61,36 +61,27 @@ function buildTranscriptMessages(
   }
 ): StoredMessage[] {
   const lookbackLimit = Math.max(input.messageContextLimit - 1, 0);
-  const transcriptMessages = db.getMessagesBefore(
+  const priorMessages = db.getMessagesBefore(
     input.chatId,
     input.triggerMessageId,
     lookbackLimit
   );
 
-  if (input.reason === "reply_to_bot" && input.anchorParentMessage) {
-    const anchorParentMessage = input.anchorParentMessage;
-    const localTranscript = transcriptMessages.filter(
-      (message) => message.messageId >= anchorParentMessage.messageId
-    );
-
-    return compactTranscript([
-      ...localTranscript,
-      anchorParentMessage,
-      input.anchorBotMessage,
-      input.triggerMessage
-    ]);
-  }
-
   if (input.reason === "reply_to_bot" && input.anchorBotMessage) {
-    const anchorBotMessage = input.anchorBotMessage;
-    const localTranscript = transcriptMessages.filter(
-      (message) => message.messageId >= anchorBotMessage.messageId
+    const lowerBound =
+      input.anchorParentMessage?.messageId ?? input.anchorBotMessage.messageId;
+    const localPriorContext = priorMessages.filter(
+      (message) =>
+        message.messageId >= lowerBound &&
+        message.messageId !== input.anchorBotMessage?.messageId &&
+        message.messageId !== input.triggerMessage.messageId &&
+        !message.isBot
     );
 
-    return compactTranscript([...localTranscript, anchorBotMessage, input.triggerMessage]);
+    return compactTranscript(localPriorContext);
   }
 
-  return compactTranscript([...transcriptMessages, input.triggerMessage]);
+  return compactTranscript(priorMessages.filter((message) => !message.isBot));
 }
 
 function emptyReplyContext(): ReplyContext {
@@ -98,7 +89,7 @@ function emptyReplyContext(): ReplyContext {
     triggerMessage: null,
     anchorBotMessage: null,
     anchorParentMessage: null,
-    transcriptMessages: []
+    priorContextMessages: []
   };
 }
 

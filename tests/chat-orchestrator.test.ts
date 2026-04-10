@@ -86,12 +86,12 @@ describe("ChatOrchestrator", () => {
       text: "второй ответ"
     });
 
-    const secondCallMessages =
-      generateReply.mock.calls[1]?.[0]?.replyContext?.transcriptMessages as
-        | StoredMessage[]
+    const secondCallTriggerMessage =
+      generateReply.mock.calls[1]?.[0]?.replyContext?.triggerMessage as
+        | StoredMessage
         | undefined;
 
-    expect(secondCallMessages?.map((message) => message.messageId)).toContain(2);
+    expect(secondCallTriggerMessage?.messageId).toBe(2);
   });
 
   test("retains the original replyToMessageId when storing generated bot replies", async () => {

@@ -86,7 +86,78 @@ test("builds causal reply context for reply_to_bot without replaying the whole b
   expect(context.triggerMessage?.messageId).toBe(102);
   expect(context.anchorBotMessage?.messageId).toBe(101);
   expect(context.anchorParentMessage?.messageId).toBe(100);
-  expect(context.transcriptMessages.map((message) => message.messageId)).toEqual([100, 101, 102]);
+  expect(context.priorContextMessages.map((message) => message.messageId)).toEqual([100]);
+});
+
+test("keeps reply_to_bot prior context human-only without duplicating anchor or trigger", () => {
+  const db = new FakeDatabaseClient();
+
+  db.seedStoredMessages(1, [
+    {
+      messageId: 35000,
+      userId: 42,
+      senderDisplayName: "Артём",
+      text: "@hrupa_bot доброе утро",
+      isBot: false,
+      replyToMessageId: null,
+      createdAt: "2026-04-10T19:56:24.000Z",
+      chatId: 1
+    },
+    {
+      messageId: 35001,
+      userId: 77,
+      senderDisplayName: "Хрюпа",
+      text: "Доброе. Уже пять утра, Артём, ты где-то в будущем или просто сонный?",
+      isBot: true,
+      replyToMessageId: 35000,
+      createdAt: "2026-04-10T19:56:25.000Z",
+      chatId: 1
+    },
+    {
+      messageId: 35002,
+      userId: 42,
+      senderDisplayName: "Артём",
+      text: "так это у тебя а нидерландах 5 утра, а у нас 11 вечера",
+      isBot: false,
+      replyToMessageId: 35001,
+      createdAt: "2026-04-10T19:57:06.000Z",
+      chatId: 1
+    },
+    {
+      messageId: 35003,
+      userId: 77,
+      senderDisplayName: "Хрюпа",
+      text: "А ты чё, в Нидерландах живёшь или просто сонный? У нас ещё вечер.",
+      isBot: true,
+      replyToMessageId: 35002,
+      createdAt: "2026-04-10T19:57:07.000Z",
+      chatId: 1
+    },
+    {
+      messageId: 35004,
+      userId: 42,
+      senderDisplayName: "Артём",
+      text: "кто сонный?",
+      isBot: false,
+      replyToMessageId: 35003,
+      createdAt: "2026-04-10T19:57:22.000Z",
+      chatId: 1
+    }
+  ]);
+
+  const context = buildReplyContext({
+    db,
+    chatId: 1,
+    triggerMessageId: 35004,
+    reason: "reply_to_bot",
+    messageContextLimit: 16
+  });
+
+  expect(context.triggerMessage?.messageId).toBe(35004);
+  expect(context.anchorBotMessage?.messageId).toBe(35003);
+  expect(context.anchorParentMessage?.messageId).toBe(35002);
+  expect(context.priorContextMessages.map((message) => message.messageId)).toEqual([35002]);
+  expect(context.priorContextMessages.every((message) => !message.isBot)).toBe(true);
 });
 
 test("falls back to a recent window for non-reply triggers", () => {
@@ -136,7 +207,7 @@ test("falls back to a recent window for non-reply triggers", () => {
 
   expect(context.anchorBotMessage).toBeNull();
   expect(context.anchorParentMessage).toBeNull();
-  expect(context.transcriptMessages.map((message) => message.messageId)).toEqual([99, 100, 102]);
+  expect(context.priorContextMessages.map((message) => message.messageId)).toEqual([99, 100]);
 });
 
 test("keeps reply_to_bot causal when the anchor bot parent message is missing", () => {
@@ -195,5 +266,5 @@ test("keeps reply_to_bot causal when the anchor bot parent message is missing", 
 
   expect(context.anchorBotMessage?.messageId).toBe(101);
   expect(context.anchorParentMessage).toBeNull();
-  expect(context.transcriptMessages.map((message) => message.messageId)).toEqual([101, 102]);
+  expect(context.priorContextMessages.map((message) => message.messageId)).toEqual([]);
 });

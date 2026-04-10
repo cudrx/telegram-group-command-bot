@@ -215,7 +215,7 @@ describe("OpenAiCompatibleLlmClient", () => {
           isBot: false,
           replyToMessageId: null
         },
-        transcriptMessages: [
+        priorContextMessages: [
           {
             chatId: 1,
             messageId: 1,
@@ -225,26 +225,6 @@ describe("OpenAiCompatibleLlmClient", () => {
             createdAt: "2026-04-03T12:00:00.000Z",
             isBot: false,
             replyToMessageId: null
-          },
-          {
-            chatId: 1,
-            messageId: 2,
-            userId: 77,
-            senderDisplayName: "Хрюпа",
-            text: "кривой ответ",
-            createdAt: "2026-04-03T12:01:00.000Z",
-            isBot: true,
-            replyToMessageId: 1
-          },
-          {
-            chatId: 1,
-            messageId: 3,
-            userId: 42,
-            senderDisplayName: "Tom",
-            text: "почему кот",
-            createdAt: "2026-04-03T12:02:00.000Z",
-            isBot: false,
-            replyToMessageId: 2
           }
         ]
       })
@@ -522,7 +502,7 @@ function createReplyContext(overrides: Partial<{
     isBot: boolean;
     replyToMessageId: number | null;
   } | null;
-  transcriptMessages: Array<{
+  priorContextMessages: Array<{
     chatId: number;
     messageId: number;
     userId: number | null;
@@ -537,7 +517,7 @@ function createReplyContext(overrides: Partial<{
     triggerMessage: null,
     anchorBotMessage: null,
     anchorParentMessage: null,
-    transcriptMessages: [],
+    priorContextMessages: [],
     ...overrides
   };
 }
