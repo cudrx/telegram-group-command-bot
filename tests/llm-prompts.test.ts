@@ -250,6 +250,48 @@ describe("prompt builders", () => {
     expect(prompt).toContain("No stored participant memory.");
   });
 
+  test("warns participant descriptions against inventing traits without stored memory", () => {
+    const prompt = buildReplyPrompt({
+      persona: "Ты Хрюпа",
+      chatSummary: null,
+      selfMemoryContext: null,
+      participantMemoryContext: null,
+      socialIntent: true,
+      socialIntentReason: "participant_description_request",
+      resolvedParticipants: [
+        { userId: 126, displayName: "Хачик (@loudsplash)" }
+      ],
+      socialParticipantContexts: [
+        {
+          userId: 126,
+          displayName: "Хачик (@loudsplash)",
+          participantMemoryContext: null
+        }
+      ],
+      targetDisplayName: "Артём (@artyomwebdev)",
+      reason: "mention",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 35045,
+          userId: 84626969,
+          senderDisplayName: "Артём (@artyomwebdev)",
+          text: "@hrupa_bot опиши Хачика",
+          createdAt: "2026-04-10T20:22:32.000Z",
+          isBot: false,
+          replyToMessageId: null
+        },
+        anchorBotMessage: null,
+        anchorParentMessage: null,
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain("Participant description evidence rules:");
+    expect(prompt).toContain("Do not invent stable traits, background, relationships, or habits for resolved participants.");
+    expect(prompt).toContain("No stored participant memory. Treat this participant as not well known yet.");
+  });
+
   test("summary prompt describes structured memory updates", () => {
     const prompt = buildSummaryPrompt({
       chatTitle: "Friends",

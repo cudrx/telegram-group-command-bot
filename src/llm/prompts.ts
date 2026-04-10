@@ -61,6 +61,9 @@ export function buildReplyPrompt(input: {
     "Participant social context bundle:",
     formatSocialParticipantContexts(input.socialParticipantContexts),
     "",
+    "Participant description evidence rules:",
+    formatParticipantDescriptionEvidenceRules(input),
+    "",
     "Current message:",
     formatSingleMessage(input.replyContext.triggerMessage),
     "",
@@ -207,11 +210,45 @@ function formatSocialParticipantContexts(
   }
 
   return contexts
-    .map(
-      (context) =>
-        `- user#${context.userId} ${sanitizePromptText(context.displayName)}: ${
-          context.participantMemoryContext ?? "No stored participant memory."
-        }`
-    )
+    .map((context) => {
+      const memoryContext =
+        context.participantMemoryContext ??
+        "No stored participant memory. Treat this participant as not well known yet.";
+
+      return `- user#${context.userId} ${sanitizePromptText(context.displayName)}: ${memoryContext}`;
+    })
     .join("\n");
+}
+
+function formatParticipantDescriptionEvidenceRules(input: {
+  socialIntentReason: string | null;
+  resolvedParticipants: Array<{ userId: number; displayName: string }>;
+  socialParticipantContexts: Array<{
+    userId: number;
+    displayName: string;
+    participantMemoryContext: string | null;
+  }>;
+}): string {
+  if (
+    input.socialIntentReason !== "participant_description_request" ||
+    input.resolvedParticipants.length === 0
+  ) {
+    return "No participant description request detected.";
+  }
+
+  const missingMemory = input.socialParticipantContexts
+    .filter((context) => context.participantMemoryContext === null)
+    .map((context) => sanitizePromptText(context.displayName));
+
+  const missingMemoryLine =
+    missingMemory.length === 0
+      ? "All resolved participants have stored memory context."
+      : `No stored participant memory for: ${missingMemory.join(", ")}. Treat these participants as not well known yet.`;
+
+  return [
+    "Do not invent stable traits, background, relationships, or habits for resolved participants.",
+    "Base participant descriptions only on stored participant memory and clearly visible fresh chat context.",
+    "If stored memory is missing, say that you have not figured the person out yet and keep any observation tentative.",
+    missingMemoryLine
+  ].join("\n");
 }
