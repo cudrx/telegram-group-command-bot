@@ -96,7 +96,7 @@
    - подтягивается глобальная persona;
    - при наличии добавляется chat-specific persona override;
    - подтягивается chat-local self-memory бота;
-   - берутся recent messages;
+   - собирается causal reply context; для обычных триггеров он может включать bounded raw-tail, но для `reply_to_bot` не должен подменяться плоским recent-window;
    - берётся текущий summary чата;
    - собирается chat-local memory context по участнику;
    - вызывается LLM слой;
