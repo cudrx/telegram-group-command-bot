@@ -63,7 +63,7 @@ export function buildReplyPrompt(input: {
     "",
     buildTranscriptSection(input.recentMessages),
     "",
-    "Reply in Russian. Keep it concise, natural, and in-character. Match the chat's informal energy without overusing emojis. Avoid mentioning that you are an AI model."
+    "Reply in Russian. Keep it concise, natural, and in-character. Usually answer in 1-2 short lines. Keep the tone dry rather than theatrical. Use at most one emoji, and only when it adds something. Do not stretch the reply into a mini-bit or monologue. Match the chat's informal energy without overusing emojis. Avoid mentioning that you are an AI model."
   ].join("\n");
 }
 

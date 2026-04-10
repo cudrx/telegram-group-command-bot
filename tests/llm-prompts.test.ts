@@ -117,6 +117,27 @@ describe("prompt builders", () => {
     expect(prompt).toContain("without overusing emojis");
   });
 
+  test("reply prompt explicitly keeps khryupa short, dry, and low-emoji", () => {
+    const prompt = buildReplyPrompt({
+      persona: "Ты Хрюпа",
+      chatSummary: null,
+      selfMemoryContext: null,
+      participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
+      targetDisplayName: "Артём",
+      reason: "reply_to_bot",
+      recentMessages: []
+    });
+
+    expect(prompt).toContain("Usually answer in 1-2 short lines.");
+    expect(prompt).toContain("Keep the tone dry rather than theatrical.");
+    expect(prompt).toContain("Use at most one emoji, and only when it adds something.");
+    expect(prompt).toContain("Do not stretch the reply into a mini-bit or monologue.");
+  });
+
   test("includes resolved social participants in reply prompts", () => {
     const prompt = buildReplyPrompt({
       persona: "будь дерзким, но добрым",
