@@ -403,6 +403,52 @@ describe("ChatOrchestrator", () => {
     );
   });
 
+  test("passes participant description requests through the social QA context path", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.seedParticipantAliases(1, "хачика", [
+      createAliasRecord(1, 126, "Хачик", "Хачик (@loudsplash)")
+    ]);
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("пока не раскусил"));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher: vi.fn().mockResolvedValue({
+        messageId: 1006,
+        createdAt: "2026-04-03T12:10:00.000Z"
+      })
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 4,
+        text: "@fun_bot опиши Хачика",
+        entities: [{ type: "mention", offset: 0, length: 8 }]
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socialIntent: true,
+        socialIntentReason: "participant_description_request",
+        resolvedParticipants: [
+          { userId: 126, displayName: "Хачик (@loudsplash)" }
+        ],
+        socialParticipantContexts: [
+          {
+            userId: 126,
+            displayName: "Хачик (@loudsplash)",
+            participantMemoryContext: null
+          }
+        ]
+      })
+    );
+  });
+
   test("passes trigger text into social analysis and structured reply context into prompt generation", async () => {
     const db = new FakeDatabaseClient();
 
