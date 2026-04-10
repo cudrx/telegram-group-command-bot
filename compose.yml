@@ -1,0 +1,23 @@
+services:
+  bot:
+    image: node:20-bookworm-slim
+    container_name: test-chatbot-local
+    restart: unless-stopped
+    init: true
+    working_dir: /app
+    command: ["node", "dist/src/index.js"]
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      SQLITE_PATH: /app/data/bot.sqlite
+    volumes:
+      - ./dist:/app/dist:ro
+      - ./node_modules:/app/node_modules:ro
+      - ./data:/app/data
+      - ./config:/app/config:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

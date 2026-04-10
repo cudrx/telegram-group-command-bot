@@ -17,7 +17,8 @@
 - prompt hardening для transcript и structured JSON logs
 - generic LLM-клиент для генерации реплик и summary с timeout/retry
 - `Vitest`-тесты, `TypeScript` typecheck и сборка
-- `GitHub Actions` `CI` на `push` в `main`
+- `GitHub Actions` `CI` на `push` и `pull_request`
+- автодеплой Docker image из `GHCR` на VPS после `push` в `main`
 
 ## Требования
 
@@ -96,6 +97,51 @@ npm run dev
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI
 - `docs/backlog/ideas.md` — идеи на следующие версии
+
+## Docker Deployment
+
+Продакшн-деплой использует готовый Docker image из `GHCR`, а не собирает приложение на сервере.
+
+- GitHub Actions после `push` в `main` прогоняет `typecheck`, `test` и `build`
+- затем публикует image в `ghcr.io`
+- после этого workflow по `SSH` обновляет deploy-артефакты на VPS и делает `docker compose pull && docker compose up -d`
+
+`SQLite` не хранится внутри контейнера. Файл базы лежит на VPS в bind mount-папке `./data`, которая на сервере должна находиться рядом с `compose.yml`, например в `/opt/test-chatbot/data/bot.sqlite`.
+
+## Local Docker Check
+
+Для локальной проверки контейнера используется корневой [`compose.yml`](./compose.yml). Он запускает официальный `node:20-bookworm-slim`, а код, `dist/` и `node_modules/` монтируются с хоста. Поэтому локальный smoke-check не зависит от сборки production image.
+
+1. Подготовьте `.env`, если его еще нет:
+
+```bash
+cp .env.example .env
+```
+
+2. Соберите приложение и проверьте compose-конфиг:
+
+```bash
+npm run build
+docker compose config
+```
+
+3. Проверьте, что контейнер поднялся:
+
+```bash
+docker compose up -d
+docker compose ps
+docker compose logs bot --tail=50
+```
+
+Если `TELEGRAM_BOT_TOKEN` и `LLM_API_KEY` валидные, в логах должен появиться успешный старт long polling.
+
+4. Остановите локальный контейнер:
+
+```bash
+docker compose down
+```
+
+Если команды Docker отвечают `permission denied while trying to connect to the docker API`, запустите их через `sudo` или добавьте пользователя в группу `docker`, затем перелогиньтесь.
 
 ## Migration Note
 

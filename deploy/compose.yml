@@ -1,0 +1,18 @@
+services:
+  bot:
+    image: ${GHCR_IMAGE:?set GHCR_IMAGE}:${IMAGE_TAG:-latest}
+    container_name: test-chatbot
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      SQLITE_PATH: /app/data/bot.sqlite
+    volumes:
+      - ./data:/app/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
