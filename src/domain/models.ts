@@ -29,6 +29,13 @@ export type StoredMessage = {
   replyToMessageId: number | null;
 };
 
+export type ReplyContext = {
+  triggerMessage: StoredMessage | null;
+  anchorBotMessage: StoredMessage | null;
+  anchorParentMessage: StoredMessage | null;
+  transcriptMessages: StoredMessage[];
+};
+
 export type ChatState = {
   chatId: number;
   chatType: ChatType;

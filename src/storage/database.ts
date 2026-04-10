@@ -536,6 +536,36 @@ export class DatabaseClient {
       .map((row) => ({ ...row, isBot: Boolean(row.isBot) }));
   }
 
+  getMessagesBefore(
+    chatId: number,
+    beforeMessageId: number,
+    limit: number
+  ): StoredMessage[] {
+    type StoredMessageRow = Omit<StoredMessage, "isBot"> & { isBot: number };
+
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            chat_id AS chatId,
+            telegram_message_id AS messageId,
+            user_id AS userId,
+            sender_display_name AS senderDisplayName,
+            text,
+            created_at AS createdAt,
+            is_bot AS isBot,
+            reply_to_telegram_message_id AS replyToMessageId
+          FROM messages
+          WHERE chat_id = ? AND telegram_message_id < ?
+          ORDER BY telegram_message_id DESC
+          LIMIT ?
+        `
+      )
+      .all(chatId, beforeMessageId, limit) as StoredMessageRow[];
+
+    return rows.reverse().map((row) => ({ ...row, isBot: Boolean(row.isBot) }));
+  }
+
   getMessagesSince(chatId: number, telegramMessageId: number): StoredMessage[] {
     type StoredMessageRow = Omit<StoredMessage, "isBot"> & { isBot: number };
 
