@@ -414,6 +414,115 @@ describeWithSqlite("DatabaseClient", () => {
 
     db.close();
   });
+
+  test("stores participant aliases per chat and resolves them without cross-chat bleed", () => {
+    const db = createDatabase();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        chatId: 1,
+        messageId: 1,
+        createdAt: "2026-04-03T12:00:00.000Z",
+        text: "я тут",
+        fromUserId: 42,
+        fromUsername: "oleg_dev",
+        fromFirstName: "Олег",
+        fromLastName: "Иванов",
+        fromDisplayName: "Олег Иванов (@oleg_dev)"
+      })
+    );
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        chatId: 2,
+        messageId: 1,
+        createdAt: "2026-04-03T12:01:00.000Z",
+        text: "и я тут",
+        fromUserId: 99,
+        fromUsername: "oleg_other",
+        fromFirstName: "Олег",
+        fromLastName: "Петров",
+        fromDisplayName: "Олег Петров (@oleg_other)"
+      })
+    );
+
+    expect(db.getParticipantProfile(1, 42)?.displayName).toBe("Олег Иванов (@oleg_dev)");
+    expect(db.getParticipantAliases(1, "олег")).toEqual([
+      expect.objectContaining({
+        chatId: 1,
+        userId: 42,
+        aliasKind: "first_name",
+        aliasNormalized: "олег"
+      })
+    ]);
+    expect(db.getParticipantAliases(1, "oleg_dev")).toEqual([
+      expect.objectContaining({
+        chatId: 1,
+        userId: 42,
+        aliasKind: "username"
+      })
+    ]);
+    expect(db.getParticipantAliases(2, "олег").map((alias) => alias.userId)).toEqual([99]);
+
+    db.close();
+  });
+
+  test("migrates legacy databases by adding last_name and participant_aliases", () => {
+    const filename = createDatabaseFile();
+    const legacyDb = new Database(filename);
+
+    legacyDb.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY,
+        chat_type TEXT NOT NULL,
+        title TEXT,
+        last_message_at TEXT,
+        last_bot_message_at TEXT,
+        summary_text TEXT,
+        summary_updated_at TEXT,
+        summary_cursor_message_id INTEGER NOT NULL DEFAULT 0,
+        unsummarized_message_count INTEGER NOT NULL DEFAULT 0
+      );
+
+      CREATE TABLE participants (
+        user_id INTEGER PRIMARY KEY,
+        username TEXT,
+        display_name TEXT NOT NULL,
+        first_name TEXT,
+        last_seen_at TEXT NOT NULL,
+        profile_summary_text TEXT,
+        profile_updated_at TEXT
+      );
+
+      CREATE TABLE chat_participants (
+        chat_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        PRIMARY KEY (chat_id, user_id)
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (chat_id, telegram_message_id)
+      );
+    `);
+    legacyDb.close();
+
+    const db = DatabaseClient.open(filename);
+
+    expect(db.getSchemaColumns("participants")).toContain("last_name");
+    expect(db.getSchemaColumns("participant_aliases")).toEqual(
+      expect.arrayContaining(["chat_id", "user_id", "alias_text", "alias_normalized", "alias_kind"])
+    );
+
+    db.close();
+  });
 });
 
 function createDatabase(): DatabaseClient {
@@ -433,6 +542,11 @@ function createIncomingMessage(input: {
   messageId: number;
   createdAt: string;
   text: string;
+  fromUserId?: number;
+  fromUsername?: string | null;
+  fromFirstName?: string | null;
+  fromLastName?: string | null;
+  fromDisplayName?: string;
 }) {
   return {
     chatId: input.chatId,
@@ -441,10 +555,11 @@ function createIncomingMessage(input: {
     messageId: input.messageId,
     text: input.text,
     createdAt: input.createdAt,
-    fromUserId: 42,
-    fromUsername: "tom",
-    fromFirstName: "Tom",
-    fromDisplayName: "Tom",
+    fromUserId: input.fromUserId ?? 42,
+    fromUsername: input.fromUsername ?? "tom",
+    fromFirstName: input.fromFirstName ?? "Tom",
+    fromLastName: input.fromLastName ?? null,
+    fromDisplayName: input.fromDisplayName ?? "Tom",
     isBot: false,
     entities: [],
     replyToUserId: null

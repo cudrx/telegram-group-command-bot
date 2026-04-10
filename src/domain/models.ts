@@ -10,6 +10,7 @@ export type NormalizedMessage = {
   fromUserId: number | null;
   fromUsername: string | null;
   fromFirstName: string | null;
+  fromLastName: string | null;
   fromDisplayName: string;
   isBot: boolean;
   entities: Array<{ type: string; offset: number; length: number }>;
@@ -43,8 +44,58 @@ export type ParticipantProfile = {
   userId: number;
   username: string | null;
   displayName: string;
+  lastName?: string | null;
   profileSummaryText: string | null;
   profileUpdatedAt: string | null;
+};
+
+export type ParticipantAliasKind =
+  | "username"
+  | "first_name"
+  | "full_name"
+  | "canonical_label";
+
+export type ParticipantAliasRecord = {
+  chatId: number;
+  userId: number;
+  aliasText: string;
+  aliasNormalized: string;
+  aliasKind: ParticipantAliasKind;
+  confidence: number;
+  lastSeenAt: string;
+  displayName: string;
+};
+
+export type ResolvedParticipant = {
+  userId: number;
+  displayName: string;
+};
+
+export type AmbiguousParticipantCandidate = {
+  candidate: string;
+  matches: ResolvedParticipant[];
+};
+
+export type ParticipantReferenceResolution = {
+  resolvedParticipants: ResolvedParticipant[];
+  ambiguousParticipants: AmbiguousParticipantCandidate[];
+  unresolvedCandidates: string[];
+};
+
+export type SocialIntentReason =
+  | "relationship_question"
+  | "support_question"
+  | "participant_status_question";
+
+export type SocialIntentResult = {
+  isSocialQa: boolean;
+  reason: SocialIntentReason | null;
+};
+
+export type ResolvedParticipantContext = {
+  userId: number;
+  displayName: string;
+  participantMemoryContext: string | null;
 };
 
 export type ParticipantMemoryStability = "core" | "durable" | "volatile";

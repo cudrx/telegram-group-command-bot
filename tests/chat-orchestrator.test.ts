@@ -3,11 +3,13 @@ import { describe, expect, test, vi } from "vitest";
 import { ChatOrchestrator } from "../src/app/chat-orchestrator.js";
 import type { AppEnv } from "../src/config/env.js";
 import type {
+  ParticipantAliasRecord,
   ChatState,
   ChatType,
   NormalizedMessage,
   ParticipantMemory,
   ParticipantProfile,
+  ResolvedParticipantContext,
   StoredMessage,
   SummaryResult
 } from "../src/domain/models.js";
@@ -256,6 +258,107 @@ describe("ChatOrchestrator", () => {
 
     expect(loadPersona).toHaveBeenCalledWith("config/persona.md", 777);
   });
+
+  test("returns a clarification reply instead of calling the llm for ambiguous participant names", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.seedParticipantAliases(1, "олег", [
+      createAliasRecord(1, 42, "Олег", "Олег (@oleg_dev)"),
+      createAliasRecord(1, 99, "Олег", "Олег (@oleg_other)")
+    ]);
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно вызываться"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1004,
+      createdAt: "2026-04-03T12:08:00.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: "@fun_bot что между Олегом и Артуром?",
+        entities: [{ type: "mention", offset: 0, length: 8 }]
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining("Олег (@oleg_dev)")
+      })
+    );
+  });
+
+  test("passes resolved participant bundles into reply generation for social questions", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.seedParticipantProfile(1, 7, {
+      chatId: 1,
+      userId: 7,
+      username: "artur_dev",
+      displayName: "Артур (@artur_dev)",
+      profileSummaryText: "[durable] runs_project: true",
+      profileUpdatedAt: "2026-04-03T12:00:00.000Z"
+    });
+    db.seedParticipantAliases(1, "олегом", [
+      createAliasRecord(1, 42, "Олег", "Олег (@oleg_dev)")
+    ]);
+    db.seedParticipantAliases(1, "артуром", [
+      createAliasRecord(1, 7, "Артур", "Артур (@artur_dev)")
+    ]);
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher: vi.fn().mockResolvedValue({
+        messageId: 1005,
+        createdAt: "2026-04-03T12:09:00.000Z"
+      })
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 3,
+        text: "@fun_bot что между Олегом и Артуром?",
+        entities: [{ type: "mention", offset: 0, length: 8 }]
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        socialIntent: true,
+        socialIntentReason: "relationship_question",
+        resolvedParticipants: [
+          { userId: 42, displayName: "Олег (@oleg_dev)" },
+          { userId: 7, displayName: "Артур (@artur_dev)" }
+        ],
+        socialParticipantContexts: [
+          {
+            userId: 42,
+            displayName: "Олег (@oleg_dev)",
+            participantMemoryContext: null
+          },
+          {
+            userId: 7,
+            displayName: "Артур (@artur_dev)",
+            participantMemoryContext: "[durable] runs_project: true"
+          }
+        ]
+      })
+    );
+  });
 });
 
 function createOrchestrator(input: {
@@ -327,10 +430,29 @@ function createIncomingMessage(input: {
     fromUserId: 42,
     fromUsername: "tom",
     fromFirstName: "Tom",
+    fromLastName: null,
     fromDisplayName: "Tom",
     isBot: false,
     entities: input.entities ?? [],
     replyToUserId: null
+  };
+}
+
+function createAliasRecord(
+  chatId: number,
+  userId: number,
+  aliasText: string,
+  displayName: string
+): ParticipantAliasRecord {
+  return {
+    chatId,
+    userId,
+    aliasText,
+    aliasNormalized: aliasText.toLowerCase(),
+    aliasKind: "first_name",
+    confidence: 1,
+    lastSeenAt: "2026-04-03T12:00:00.000Z",
+    displayName
   };
 }
 
@@ -395,6 +517,7 @@ class FakeDatabaseClient {
   private readonly messages = new Map<number, StoredMessage[]>();
   private readonly profiles = new Map<string, ParticipantProfile>();
   private readonly memories = new Map<string, ParticipantMemory[]>();
+  private readonly aliases = new Map<string, ParticipantAliasRecord[]>();
 
   saveIncomingMessage(message: NormalizedMessage): boolean {
     const chat = this.ensureChat(message.chatId, message.chatType, message.chatTitle);
@@ -508,6 +631,12 @@ class FakeDatabaseClient {
     return this.getParticipantProfile(chatId, userId)?.profileSummaryText ?? null;
   }
 
+  getParticipantAliases(chatId: number, aliasNormalized: string): ParticipantAliasRecord[] {
+    return (this.aliases.get(this.getAliasKey(chatId, aliasNormalized)) ?? []).map((alias) => ({
+      ...alias
+    }));
+  }
+
   getRecentMessages(chatId: number, limit: number): StoredMessage[] {
     const storedMessages = this.messages.get(chatId) ?? [];
 
@@ -566,6 +695,25 @@ class FakeDatabaseClient {
 
   close(): void {}
 
+  seedParticipantAliases(
+    chatId: number,
+    aliasNormalized: string,
+    aliases: ParticipantAliasRecord[]
+  ): void {
+    this.aliases.set(
+      this.getAliasKey(chatId, aliasNormalized),
+      aliases.map((alias) => ({ ...alias }))
+    );
+  }
+
+  seedParticipantProfile(
+    chatId: number,
+    userId: number,
+    profile: ParticipantProfile
+  ): void {
+    this.profiles.set(this.getProfileKey(chatId, userId), { ...profile });
+  }
+
   private ensureChat(chatId: number, chatType: ChatType, chatTitle: string | null): ChatState {
     const existing = this.chats.get(chatId);
 
@@ -599,6 +747,10 @@ class FakeDatabaseClient {
 
   private getProfileKey(chatId: number, userId: number): string {
     return `${chatId}:${userId}`;
+  }
+
+  private getAliasKey(chatId: number, aliasNormalized: string): string {
+    return `${chatId}:${aliasNormalized}`;
   }
 
   private applyMemoryUpdate(

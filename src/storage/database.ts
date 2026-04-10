@@ -18,6 +18,8 @@ import {
 import type {
   ChatState,
   NormalizedMessage,
+  ParticipantAliasKind,
+  ParticipantAliasRecord,
   ParticipantMemory,
   ParticipantMemoryCardinality,
   ParticipantMemorySourceKind,
@@ -46,6 +48,7 @@ CREATE TABLE IF NOT EXISTS participants (
   username TEXT,
   display_name TEXT NOT NULL,
   first_name TEXT,
+  last_name TEXT,
   last_seen_at TEXT NOT NULL,
   profile_summary_text TEXT,
   profile_updated_at TEXT
@@ -98,6 +101,18 @@ CREATE TABLE IF NOT EXISTS messages (
   UNIQUE (chat_id, telegram_message_id)
 );
 
+CREATE TABLE IF NOT EXISTS participant_aliases (
+  chat_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  alias_text TEXT NOT NULL,
+  alias_normalized TEXT NOT NULL,
+  alias_kind TEXT NOT NULL,
+  confidence REAL NOT NULL,
+  last_seen_at TEXT NOT NULL,
+  UNIQUE (chat_id, user_id, alias_normalized, alias_kind),
+  FOREIGN KEY (chat_id, user_id) REFERENCES chat_participants(chat_id, user_id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at
   ON messages(chat_id, created_at);
 
@@ -106,6 +121,9 @@ CREATE INDEX IF NOT EXISTS idx_participant_memories_lookup
 
 CREATE INDEX IF NOT EXISTS idx_participant_memories_context
   ON participant_memories(chat_id, user_id, status, is_pinned, stability, confidence, last_seen_at);
+
+CREATE INDEX IF NOT EXISTS idx_participant_aliases_lookup
+  ON participant_aliases(chat_id, alias_normalized);
 `;
 
 export class DatabaseClient {
@@ -161,6 +179,7 @@ export class DatabaseClient {
           username: incoming.fromUsername,
           displayName: incoming.fromDisplayName,
           firstName: incoming.fromFirstName,
+          lastName: incoming.fromLastName,
           seenAt: incoming.createdAt
         });
       }
@@ -258,7 +277,8 @@ export class DatabaseClient {
           userId: outgoing.userId,
           username: outgoing.username,
           displayName: outgoing.displayName,
-          firstName: outgoing.displayName,
+          firstName: null,
+          lastName: null,
           seenAt: outgoing.createdAt
         });
 
@@ -421,6 +441,7 @@ export class DatabaseClient {
             cp.user_id AS userId,
             p.username AS username,
             p.display_name AS displayName,
+            p.last_name AS lastName,
             cp.profile_summary_text AS profileSummaryText,
             cp.profile_updated_at AS profileUpdatedAt
           FROM chat_participants cp
@@ -436,6 +457,37 @@ export class DatabaseClient {
 
   getParticipantMemoryContext(chatId: number, userId: number): string | null {
     return this.getParticipantProfile(chatId, userId)?.profileSummaryText ?? null;
+  }
+
+  getParticipantAliases(chatId: number, aliasNormalized: string): ParticipantAliasRecord[] {
+    return this.db
+      .prepare(
+        `
+          SELECT
+            pa.chat_id AS chatId,
+            pa.user_id AS userId,
+            pa.alias_text AS aliasText,
+            pa.alias_normalized AS aliasNormalized,
+            pa.alias_kind AS aliasKind,
+            pa.confidence AS confidence,
+            pa.last_seen_at AS lastSeenAt,
+            p.display_name AS displayName
+          FROM participant_aliases pa
+          INNER JOIN participants p
+            ON p.user_id = pa.user_id
+          WHERE pa.chat_id = ? AND pa.alias_normalized = ?
+          ORDER BY pa.user_id ASC
+        `
+      )
+      .all(chatId, normalizeParticipantAlias(aliasNormalized)) as ParticipantAliasRecord[];
+  }
+
+  getSchemaColumns(tableName: string): string[] {
+    return (
+      this.db
+        .prepare(`PRAGMA table_info(${tableName})`)
+        .all() as Array<{ name: string }>
+    ).map((column) => column.name);
   }
 
   listParticipantMemories(
@@ -563,7 +615,8 @@ export class DatabaseClient {
             userId: currentBotIdentity.userId,
             username: currentBotIdentity.username,
             displayName: currentBotIdentity.displayName,
-            firstName: currentBotIdentity.displayName,
+            firstName: null,
+            lastName: null,
             seenAt: timestamp
           });
 
@@ -1020,17 +1073,19 @@ function upsertChatParticipant(
     username: string | null;
     displayName: string;
     firstName: string | null;
+    lastName: string | null;
     seenAt: string;
   }
 ): void {
   db.prepare(
     `
-      INSERT INTO participants (user_id, username, display_name, first_name, last_seen_at)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO participants (user_id, username, display_name, first_name, last_name, last_seen_at)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET
         username = excluded.username,
         display_name = excluded.display_name,
         first_name = excluded.first_name,
+        last_name = excluded.last_name,
         last_seen_at = excluded.last_seen_at
     `
   ).run(
@@ -1038,6 +1093,7 @@ function upsertChatParticipant(
     input.username,
     input.displayName,
     input.firstName,
+    input.lastName,
     input.seenAt
   );
 
@@ -1049,6 +1105,114 @@ function upsertChatParticipant(
         last_seen_at = excluded.last_seen_at
     `
   ).run(input.chatId, input.userId, input.seenAt);
+
+  upsertParticipantAliases(db, input);
+}
+
+function upsertParticipantAliases(
+  db: Database.Database,
+  input: {
+    chatId: number;
+    userId: number;
+    username: string | null;
+    displayName: string;
+    firstName: string | null;
+    lastName: string | null;
+    seenAt: string;
+  }
+): void {
+  const aliases = buildParticipantAliases(input);
+
+  db.prepare(`DELETE FROM participant_aliases WHERE chat_id = ? AND user_id = ?`).run(
+    input.chatId,
+    input.userId
+  );
+
+  const statement = db.prepare(
+    `
+      INSERT INTO participant_aliases (
+        chat_id,
+        user_id,
+        alias_text,
+        alias_normalized,
+        alias_kind,
+        confidence,
+        last_seen_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(chat_id, user_id, alias_normalized, alias_kind) DO UPDATE SET
+        alias_text = excluded.alias_text,
+        confidence = excluded.confidence,
+        last_seen_at = excluded.last_seen_at
+    `
+  );
+
+  for (const alias of aliases) {
+    statement.run(
+      input.chatId,
+      input.userId,
+      alias.aliasText,
+      alias.aliasNormalized,
+      alias.aliasKind,
+      1,
+      input.seenAt
+    );
+  }
+}
+
+function buildParticipantAliases(input: {
+  username: string | null;
+  displayName: string;
+  firstName: string | null;
+  lastName: string | null;
+}): Array<{
+  aliasText: string;
+  aliasNormalized: string;
+  aliasKind: ParticipantAliasKind;
+}> {
+  const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+  const aliases = new Map<string, { aliasText: string; aliasKind: ParticipantAliasKind }>();
+
+  const addAlias = (aliasText: string | null, aliasKind: ParticipantAliasKind) => {
+    const normalized = normalizeParticipantAlias(aliasText);
+
+    if (!normalized) {
+      return;
+    }
+
+    aliases.set(`${aliasKind}:${normalized}`, { aliasText: aliasText!.trim(), aliasKind });
+  };
+
+  addAlias(input.username, "username");
+  addAlias(input.firstName, "first_name");
+  addAlias(fullName, "full_name");
+  addAlias(stripUsernameFromDisplayName(input.displayName), "canonical_label");
+
+  return Array.from(aliases.entries()).map(([key, value]) => ({
+    aliasText: value.aliasText,
+    aliasNormalized: key.slice(key.indexOf(":") + 1),
+    aliasKind: value.aliasKind
+  }));
+}
+
+function normalizeParticipantAlias(value: string | null): string {
+  if (!value) {
+    return "";
+  }
+
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/^@+/, "")
+    .replace(/ё/g, "е")
+    .replace(/\s+/g, " ");
+}
+
+function stripUsernameFromDisplayName(displayName: string): string {
+  return displayName
+    .replace(/\s*\(@[^)]+\)\s*/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function pruneResolvedParticipantMemories(
@@ -1168,9 +1332,30 @@ function getMessageRetentionCutoff(now: string, retentionDays: number): string |
 }
 
 function migrateExistingSchema(db: Database.Database): void {
+  ensureColumn(db, "participants", "last_name", "TEXT");
   ensureColumn(db, "chat_participants", "profile_summary_text", "TEXT");
   ensureColumn(db, "chat_participants", "profile_updated_at", "TEXT");
+  ensureParticipantAliasesTable(db);
   backfillChatParticipantProfiles(db);
+}
+
+function ensureParticipantAliasesTable(db: Database.Database): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS participant_aliases (
+      chat_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      alias_text TEXT NOT NULL,
+      alias_normalized TEXT NOT NULL,
+      alias_kind TEXT NOT NULL,
+      confidence REAL NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      UNIQUE (chat_id, user_id, alias_normalized, alias_kind),
+      FOREIGN KEY (chat_id, user_id) REFERENCES chat_participants(chat_id, user_id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_participant_aliases_lookup
+      ON participant_aliases(chat_id, alias_normalized);
+  `);
 }
 
 function ensureColumn(

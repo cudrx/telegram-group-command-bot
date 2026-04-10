@@ -2,7 +2,17 @@ import { randomUUID } from "node:crypto";
 
 import type { AppEnv } from "../config/env.js";
 import { shouldRunIdleSummary } from "../domain/idle-summary-policy.js";
-import type { ChatState, NormalizedMessage, StoredMessage } from "../domain/models.js";
+import {
+  extractReferenceCandidates,
+  resolveParticipantReferences
+} from "../domain/participant-reference-resolution.js";
+import { detectSocialIntent } from "../domain/social-intent.js";
+import type {
+  ChatState,
+  NormalizedMessage,
+  ResolvedParticipantContext,
+  StoredMessage
+} from "../domain/models.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
@@ -72,6 +82,13 @@ export type LlmClient = {
     chatSummary: string | null;
     selfMemoryContext: string | null;
     participantMemoryContext: string | null;
+    socialIntent: boolean;
+    socialIntentReason: string | null;
+    resolvedParticipants: Array<{
+      userId: number;
+      displayName: string;
+    }>;
+    socialParticipantContexts: ResolvedParticipantContext[];
     targetDisplayName: string;
     reason: string;
     recentMessages: StoredMessage[];
@@ -323,15 +340,61 @@ export class ChatOrchestrator {
             request.chatId,
             request.fromUserId
           );
+    const socialIntent = detectSocialIntent(
+      recentMessages[recentMessages.length - 1]?.text ?? ""
+    );
+    const resolution = this.resolveParticipantsForReply(
+      request.chatId,
+      recentMessages[recentMessages.length - 1]?.text ?? ""
+    );
+    const firstAmbiguousParticipant = resolution.ambiguousParticipants[0];
+
+    if (socialIntent.isSocialQa && firstAmbiguousParticipant) {
+      return {
+        text: buildClarificationReply(firstAmbiguousParticipant),
+        model: "deterministic-clarification",
+        latencyMs: 0,
+        attemptCount: 0,
+        promptTokensEstimate: 0
+      };
+    }
+
+    const socialParticipantContexts = resolution.resolvedParticipants.map((participant) => ({
+      userId: participant.userId,
+      displayName: participant.displayName,
+      participantMemoryContext: this.deps.db.getParticipantMemoryContext(
+        request.chatId,
+        participant.userId
+      )
+    }));
 
     return this.deps.qwen.generateReply({
       persona,
       chatSummary: chatState.summaryText,
       selfMemoryContext,
       participantMemoryContext,
+      socialIntent: socialIntent.isSocialQa,
+      socialIntentReason: socialIntent.reason,
+      resolvedParticipants: resolution.resolvedParticipants,
+      socialParticipantContexts,
       targetDisplayName: request.fromDisplayName,
       reason: request.reason,
       recentMessages
+    });
+  }
+
+  private resolveParticipantsForReply(chatId: number, text: string) {
+    const aliases = new Map<string, ReturnType<DatabaseClient["getParticipantAliases"]>[number]>();
+
+    for (const candidate of extractReferenceCandidates(text)) {
+      for (const alias of this.deps.db.getParticipantAliases(chatId, candidate)) {
+        aliases.set(`${alias.userId}:${alias.aliasNormalized}`, alias);
+      }
+    }
+
+    return resolveParticipantReferences({
+      text,
+      aliases: Array.from(aliases.values())
     });
   }
 
@@ -424,6 +487,15 @@ export class ChatOrchestrator {
       now
     });
   }
+}
+
+function buildClarificationReply(input: {
+  candidate: string;
+  matches: Array<{ userId: number; displayName: string }>;
+}): string {
+  const options = input.matches.slice(0, 3).map((match) => match.displayName).join(" или ");
+
+  return `Ты про ${options}? Уточни, и я нормально раскопаю контекст.`;
 }
 
 function toPendingReplyRequest(

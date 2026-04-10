@@ -22,6 +22,17 @@ export function buildReplyPrompt(input: {
   chatSummary: string | null;
   selfMemoryContext: string | null;
   participantMemoryContext: string | null;
+  socialIntent: boolean;
+  socialIntentReason: string | null;
+  resolvedParticipants: Array<{
+    userId: number;
+    displayName: string;
+  }>;
+  socialParticipantContexts: Array<{
+    userId: number;
+    displayName: string;
+    participantMemoryContext: string | null;
+  }>;
   targetDisplayName: string;
   reason: string;
   recentMessages: StoredMessage[];
@@ -42,9 +53,17 @@ export function buildReplyPrompt(input: {
     "Chat-local participant memory:",
     input.participantMemoryContext ?? "No participant memory yet.",
     "",
+    `Social intent: ${input.socialIntentReason ?? "no special social question detected."}`,
+    "",
+    "Resolved participants:",
+    formatResolvedParticipants(input.resolvedParticipants),
+    "",
+    "Participant social context bundle:",
+    formatSocialParticipantContexts(input.socialParticipantContexts),
+    "",
     buildTranscriptSection(input.recentMessages),
     "",
-    "Reply in Russian. Keep it playful, concise, and in-character. Avoid mentioning that you are an AI model."
+    "Reply in Russian. Keep it concise, natural, and in-character. Match the chat's informal energy without overusing emojis. Avoid mentioning that you are an AI model."
   ].join("\n");
 }
 
@@ -143,4 +162,37 @@ function sanitizePromptText(value: string): string {
       `[quoted-${role.toLowerCase()}-marker]`
     )
     .trim();
+}
+
+function formatResolvedParticipants(
+  participants: Array<{ userId: number; displayName: string }>
+): string {
+  if (participants.length === 0) {
+    return "No resolved third-party participants.";
+  }
+
+  return participants
+    .map((participant) => `- user#${participant.userId} ${sanitizePromptText(participant.displayName)}`)
+    .join("\n");
+}
+
+function formatSocialParticipantContexts(
+  contexts: Array<{
+    userId: number;
+    displayName: string;
+    participantMemoryContext: string | null;
+  }>
+): string {
+  if (contexts.length === 0) {
+    return "No resolved participant social context.";
+  }
+
+  return contexts
+    .map(
+      (context) =>
+        `- user#${context.userId} ${sanitizePromptText(context.displayName)}: ${
+          context.participantMemoryContext ?? "No stored participant memory."
+        }`
+    )
+    .join("\n");
 }
