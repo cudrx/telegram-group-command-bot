@@ -31,6 +31,7 @@ export function buildReplyContext(input: {
       ? input.db.getMessageByTelegramMessageId(input.chatId, anchorBotMessage.replyToMessageId)
       : null;
   const transcriptMessages = buildTranscriptMessages(input.db, {
+    reason: input.reason,
     chatId: input.chatId,
     triggerMessage,
     anchorBotMessage,
@@ -50,6 +51,7 @@ export function buildReplyContext(input: {
 function buildTranscriptMessages(
   db: ReplyContextDb,
   input: {
+    reason: "mention" | "reply_to_bot" | "direct_message" | "interjection";
     chatId: number;
     triggerMessage: StoredMessage;
     anchorBotMessage: StoredMessage | null;
@@ -64,20 +66,31 @@ function buildTranscriptMessages(
     input.triggerMessageId,
     lookbackLimit
   );
-  const transcriptById = new Map<number, StoredMessage>();
 
-  for (const message of [
-    ...transcriptMessages,
-    input.anchorParentMessage,
-    input.anchorBotMessage,
-    input.triggerMessage
-  ]) {
-    if (message) {
-      transcriptById.set(message.messageId, message);
-    }
+  if (input.reason === "reply_to_bot" && input.anchorParentMessage) {
+    const anchorParentMessage = input.anchorParentMessage;
+    const localTranscript = transcriptMessages.filter(
+      (message) => message.messageId >= anchorParentMessage.messageId
+    );
+
+    return compactTranscript([
+      ...localTranscript,
+      anchorParentMessage,
+      input.anchorBotMessage,
+      input.triggerMessage
+    ]);
   }
 
-  return Array.from(transcriptById.values()).sort((left, right) => left.messageId - right.messageId);
+  if (input.reason === "reply_to_bot" && input.anchorBotMessage) {
+    const anchorBotMessage = input.anchorBotMessage;
+    const localTranscript = transcriptMessages.filter(
+      (message) => message.messageId >= anchorBotMessage.messageId
+    );
+
+    return compactTranscript([...localTranscript, anchorBotMessage, input.triggerMessage]);
+  }
+
+  return compactTranscript([...transcriptMessages, input.triggerMessage]);
 }
 
 function emptyReplyContext(): ReplyContext {
@@ -87,4 +100,16 @@ function emptyReplyContext(): ReplyContext {
     anchorParentMessage: null,
     transcriptMessages: []
   };
+}
+
+function compactTranscript(messages: Array<StoredMessage | null>): StoredMessage[] {
+  const transcriptById = new Map<number, StoredMessage>();
+
+  for (const message of messages) {
+    if (message) {
+      transcriptById.set(message.messageId, message);
+    }
+  }
+
+  return Array.from(transcriptById.values()).sort((left, right) => left.messageId - right.messageId);
 }
