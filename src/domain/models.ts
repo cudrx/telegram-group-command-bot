@@ -15,6 +15,7 @@ export type NormalizedMessage = {
   isBot: boolean;
   entities: Array<{ type: string; offset: number; length: number }>;
   replyToUserId: number | null;
+  replyToMessageId: number | null;
 };
 
 export type StoredMessage = {
@@ -25,6 +26,7 @@ export type StoredMessage = {
   text: string;
   createdAt: string;
   isBot: boolean;
+  replyToMessageId: number | null;
 };
 
 export type ChatState = {

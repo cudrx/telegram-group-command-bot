@@ -434,7 +434,8 @@ function createIncomingMessage(input: {
     fromDisplayName: "Tom",
     isBot: false,
     entities: input.entities ?? [],
-    replyToUserId: null
+    replyToUserId: null,
+    replyToMessageId: null
   };
 }
 
@@ -534,7 +535,8 @@ class FakeDatabaseClient {
       senderDisplayName: message.fromDisplayName,
       text: message.text,
       createdAt: message.createdAt,
-      isBot: message.isBot
+      isBot: message.isBot,
+      replyToMessageId: message.replyToMessageId
     });
     this.messages.set(message.chatId, storedMessages);
     chat.lastMessageAt = message.createdAt;
@@ -566,6 +568,7 @@ class FakeDatabaseClient {
     userId: number;
     username: string | null;
     displayName: string;
+    replyToMessageId?: number | null;
   }): void {
     const chat = this.ensureChat(input.chatId, input.chatType as ChatType, input.chatTitle);
     const storedMessages = this.messages.get(input.chatId) ?? [];
@@ -588,7 +591,8 @@ class FakeDatabaseClient {
       senderDisplayName: input.displayName,
       text: input.text,
       createdAt: input.createdAt,
-      isBot: true
+      isBot: true,
+      replyToMessageId: input.replyToMessageId ?? null
     });
     this.messages.set(input.chatId, storedMessages);
     chat.lastMessageAt = input.createdAt;

@@ -6,6 +6,7 @@ import Database from "better-sqlite3";
 import { afterEach, describe, expect, test } from "vitest";
 
 import { DatabaseClient } from "../src/storage/database.js";
+import { normalizeTextMessage } from "../src/transport/telegram/normalize-message.js";
 
 const tempDirectories: string[] = [];
 const describeWithSqlite = canUseBetterSqlite() ? describe : describe.skip;
@@ -17,6 +18,102 @@ afterEach(() => {
 });
 
 describeWithSqlite("DatabaseClient", () => {
+  test("persists reply_to_message_id on incoming and bot messages", () => {
+    const db = DatabaseClient.open(":memory:");
+
+    db.saveIncomingMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 10,
+      text: "первое сообщение",
+      createdAt: "2026-04-10T12:00:00.000Z",
+      fromUserId: 42,
+      fromUsername: "tom",
+      fromFirstName: "Tom",
+      fromLastName: null,
+      fromDisplayName: "Tom",
+      isBot: false,
+      entities: [],
+      replyToUserId: null,
+      replyToMessageId: null
+    });
+
+    db.saveIncomingMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 11,
+      text: "ответ на первое",
+      createdAt: "2026-04-10T12:00:10.000Z",
+      fromUserId: 99,
+      fromUsername: "oleg",
+      fromFirstName: "Олег",
+      fromLastName: null,
+      fromDisplayName: "Олег (@oleg)",
+      isBot: false,
+      entities: [],
+      replyToUserId: 42,
+      replyToMessageId: 10
+    });
+
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 12,
+      text: "бот ответил",
+      createdAt: "2026-04-10T12:00:20.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 11
+    });
+
+    expect(db.getMessageByTelegramMessageId(1, 11)).toMatchObject({
+      messageId: 11,
+      replyToMessageId: 10
+    });
+    expect(db.getMessageByTelegramMessageId(1, 12)).toMatchObject({
+      messageId: 12,
+      replyToMessageId: 11
+    });
+
+    db.close();
+  });
+
+  test("normalizes explicit reply links from Telegram messages", () => {
+    const ctx = {
+      message: {
+        message_id: 345,
+        date: 1_744_300_000,
+        text: "ответ",
+        entities: [],
+        reply_to_message: {
+          message_id: 345,
+          from: {
+            id: 77,
+            is_bot: false
+          }
+        },
+        from: {
+          id: 99,
+          is_bot: false,
+          first_name: "Олег"
+        },
+        chat: {
+          id: 1,
+          type: "group"
+        }
+      }
+    } as never;
+
+    expect(normalizeTextMessage(ctx)).toMatchObject({
+      replyToUserId: 77,
+      replyToMessageId: 345
+    });
+  });
+
   test("keeps newer messages unsummarized when summary applies through an older cursor", () => {
     const db = createDatabase();
 
@@ -520,6 +617,7 @@ describeWithSqlite("DatabaseClient", () => {
     expect(db.getSchemaColumns("participant_aliases")).toEqual(
       expect.arrayContaining(["chat_id", "user_id", "alias_text", "alias_normalized", "alias_kind"])
     );
+    expect(db.getSchemaColumns("messages")).toContain("reply_to_telegram_message_id");
 
     db.close();
   });
@@ -562,7 +660,8 @@ function createIncomingMessage(input: {
     fromDisplayName: input.fromDisplayName ?? "Tom",
     isBot: false,
     entities: [],
-    replyToUserId: null
+    replyToUserId: null,
+    replyToMessageId: null
   };
 }
 

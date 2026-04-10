@@ -97,6 +97,7 @@ CREATE TABLE IF NOT EXISTS messages (
   text TEXT NOT NULL,
   created_at TEXT NOT NULL,
   is_bot INTEGER NOT NULL DEFAULT 0,
+  reply_to_telegram_message_id INTEGER,
   FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
   UNIQUE (chat_id, telegram_message_id)
 );
@@ -194,9 +195,10 @@ export class DatabaseClient {
               sender_display_name,
               text,
               created_at,
-              is_bot
+              is_bot,
+              reply_to_telegram_message_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
           `
         )
         .run(
@@ -206,7 +208,8 @@ export class DatabaseClient {
           incoming.fromDisplayName,
           incoming.text,
           incoming.createdAt,
-          incoming.isBot ? 1 : 0
+          incoming.isBot ? 1 : 0,
+          incoming.replyToMessageId
         );
 
       if (result.changes > 0) {
@@ -239,6 +242,7 @@ export class DatabaseClient {
     userId: number;
     username: string | null;
     displayName: string;
+    replyToMessageId?: number | null;
   }): void {
     const transaction = this.db.transaction(
       (outgoing: {
@@ -251,6 +255,7 @@ export class DatabaseClient {
         userId: number;
         username: string | null;
         displayName: string;
+        replyToMessageId?: number | null;
       }) => {
         this.db
           .prepare(
@@ -292,9 +297,10 @@ export class DatabaseClient {
                 sender_display_name,
                 text,
                 created_at,
-                is_bot
+                is_bot,
+                reply_to_telegram_message_id
               )
-              VALUES (?, ?, ?, ?, ?, ?, 1)
+              VALUES (?, ?, ?, ?, ?, ?, 1, ?)
             `
           )
           .run(
@@ -303,7 +309,8 @@ export class DatabaseClient {
             outgoing.userId,
             outgoing.displayName,
             outgoing.text,
-            outgoing.createdAt
+            outgoing.createdAt,
+            outgoing.replyToMessageId ?? null
           );
 
         if (result.changes > 0) {
@@ -514,7 +521,8 @@ export class DatabaseClient {
             sender_display_name AS senderDisplayName,
             text,
             created_at AS createdAt,
-            is_bot AS isBot
+            is_bot AS isBot,
+            reply_to_telegram_message_id AS replyToMessageId
           FROM messages
           WHERE chat_id = ?
           ORDER BY telegram_message_id DESC
@@ -541,7 +549,8 @@ export class DatabaseClient {
             sender_display_name AS senderDisplayName,
             text,
             created_at AS createdAt,
-            is_bot AS isBot
+            is_bot AS isBot,
+            reply_to_telegram_message_id AS replyToMessageId
           FROM messages
           WHERE chat_id = ? AND telegram_message_id > ?
           ORDER BY telegram_message_id ASC
@@ -550,6 +559,30 @@ export class DatabaseClient {
       .all(chatId, telegramMessageId) as StoredMessageRow[];
 
     return rows.map((row) => ({ ...row, isBot: Boolean(row.isBot) }));
+  }
+
+  getMessageByTelegramMessageId(chatId: number, messageId: number): StoredMessage | null {
+    const row = this.db
+      .prepare(
+        `
+          SELECT
+            chat_id AS chatId,
+            telegram_message_id AS messageId,
+            user_id AS userId,
+            sender_display_name AS senderDisplayName,
+            text,
+            created_at AS createdAt,
+            is_bot AS isBot,
+            reply_to_telegram_message_id AS replyToMessageId
+          FROM messages
+          WHERE chat_id = ? AND telegram_message_id = ?
+        `
+      )
+      .get(chatId, messageId) as
+      | (Omit<StoredMessage, "isBot"> & { isBot: number })
+      | undefined;
+
+    return row ? { ...row, isBot: Boolean(row.isBot) } : null;
   }
 
   applySummary(
@@ -1335,6 +1368,7 @@ function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, "participants", "last_name", "TEXT");
   ensureColumn(db, "chat_participants", "profile_summary_text", "TEXT");
   ensureColumn(db, "chat_participants", "profile_updated_at", "TEXT");
+  ensureColumn(db, "messages", "reply_to_telegram_message_id", "INTEGER");
   ensureParticipantAliasesTable(db);
   backfillChatParticipantProfiles(db);
 }

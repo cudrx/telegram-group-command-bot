@@ -40,7 +40,8 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
       offset: entity.offset,
       length: entity.length
     })),
-    replyToUserId: message.reply_to_message?.from?.id ?? null
+    replyToUserId: message.reply_to_message?.from?.id ?? null,
+    replyToMessageId: message.reply_to_message?.message_id ?? null
   };
 }
 

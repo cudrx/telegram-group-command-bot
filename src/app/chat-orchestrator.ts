@@ -243,7 +243,8 @@ export class ChatOrchestrator {
         createdAt: sent.createdAt,
         userId: this.deps.bot.userId,
         username: this.deps.bot.username,
-        displayName: this.deps.bot.displayName
+        displayName: this.deps.bot.displayName,
+        replyToMessageId: request.replyToMessageId
       });
 
       logger.info("reply_job_completed", {
