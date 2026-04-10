@@ -18,6 +18,21 @@ describe("social-intent", () => {
     });
   });
 
+  test("detects participant description requests", () => {
+    expect(detectSocialIntent("опиши Хачика")).toEqual({
+      isSocialQa: true,
+      reason: "participant_description_request"
+    });
+    expect(detectSocialIntent("что скажешь про Артура?")).toEqual({
+      isSocialQa: true,
+      reason: "participant_description_request"
+    });
+    expect(detectSocialIntent("@fun_bot расскажи про Олега")).toEqual({
+      isSocialQa: true,
+      reason: "participant_description_request"
+    });
+  });
+
   test("ignores non-social direct triggers", () => {
     expect(detectSocialIntent("@fun_bot расскажи анекдот")).toEqual({
       isSocialQa: false,

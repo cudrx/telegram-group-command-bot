@@ -94,7 +94,8 @@ export type ParticipantReferenceResolution = {
 export type SocialIntentReason =
   | "relationship_question"
   | "support_question"
-  | "participant_status_question";
+  | "participant_status_question"
+  | "participant_description_request";
 
 export type SocialIntentResult = {
   isSocialQa: boolean;
