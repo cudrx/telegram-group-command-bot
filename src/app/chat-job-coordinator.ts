@@ -7,7 +7,8 @@ export type PendingReplyRequest = {
   chatId: number;
   chatType: ChatType;
   chatTitle: string | null;
-  replyToMessageId: number;
+  triggerMessageId: number;
+  triggerReplyToMessageId: number | null;
   fromUserId: number | null;
   fromDisplayName: string;
   createdAt: string;
@@ -143,7 +144,7 @@ function pickPreferredReply(
     return current;
   }
 
-  return next.replyToMessageId >= current.replyToMessageId ? next : current;
+  return next.triggerMessageId >= current.triggerMessageId ? next : current;
 }
 
 function getReplyPriority(reason: ReplyReason): number {

@@ -10,6 +10,7 @@ import { detectSocialIntent } from "../domain/social-intent.js";
 import type {
   ChatState,
   NormalizedMessage,
+  ReplyContext,
   ResolvedParticipantContext,
   StoredMessage
 } from "../domain/models.js";
@@ -21,6 +22,7 @@ import {
   type PendingReplyRequest,
   type ReplyReason
 } from "./chat-job-coordinator.js";
+import { buildReplyContext } from "./reply-context-builder.js";
 
 export type BotIdentity = {
   userId: number;
@@ -91,7 +93,7 @@ export type LlmClient = {
     socialParticipantContexts: ResolvedParticipantContext[];
     targetDisplayName: string;
     reason: string;
-    recentMessages: StoredMessage[];
+    replyContext: ReplyContext;
   }): Promise<LlmReplyResult>;
   summarizeConversation(input: {
     chatTitle: string | null;
@@ -224,13 +226,13 @@ export class ChatOrchestrator {
     try {
       logger.info("reply_job_started", {
         replyReason: request.reason,
-        replyToMessageId: request.replyToMessageId
+        replyToMessageId: request.triggerMessageId
       });
 
       const result = await this.executeReplyGeneration(request);
       const sent = await this.deps.replyDispatcher({
         chatId: request.chatId,
-        replyToMessageId: request.replyToMessageId,
+        replyToMessageId: request.triggerMessageId,
         text: result.text
       });
 
@@ -244,12 +246,12 @@ export class ChatOrchestrator {
         userId: this.deps.bot.userId,
         username: this.deps.bot.username,
         displayName: this.deps.bot.displayName,
-        replyToMessageId: request.replyToMessageId
+        replyToMessageId: request.triggerMessageId
       });
 
       logger.info("reply_job_completed", {
         replyReason: request.reason,
-        replyToMessageId: request.replyToMessageId,
+        replyToMessageId: request.triggerMessageId,
         llmLatencyMs: result.latencyMs,
         llmAttempts: result.attemptCount,
         llmModel: result.model,
@@ -326,10 +328,14 @@ export class ChatOrchestrator {
       this.deps.env.personaFile,
       request.chatId
     );
-    const recentMessages = this.deps.db.getRecentMessages(
-      request.chatId,
-      this.deps.env.messageContextLimit
-    );
+    const replyContext = buildReplyContext({
+      db: this.deps.db,
+      chatId: request.chatId,
+      triggerMessageId: request.triggerMessageId,
+      reason: request.reason,
+      messageContextLimit: this.deps.env.messageContextLimit
+    });
+    const triggerText = replyContext.triggerMessage?.text ?? "";
     const selfMemoryContext = this.deps.db.getParticipantMemoryContext(
       request.chatId,
       this.deps.bot.userId
@@ -341,13 +347,8 @@ export class ChatOrchestrator {
             request.chatId,
             request.fromUserId
           );
-    const socialIntent = detectSocialIntent(
-      recentMessages[recentMessages.length - 1]?.text ?? ""
-    );
-    const resolution = this.resolveParticipantsForReply(
-      request.chatId,
-      recentMessages[recentMessages.length - 1]?.text ?? ""
-    );
+    const socialIntent = detectSocialIntent(triggerText);
+    const resolution = this.resolveParticipantsForReply(request.chatId, triggerText);
     const firstAmbiguousParticipant = resolution.ambiguousParticipants[0];
 
     if (socialIntent.isSocialQa && firstAmbiguousParticipant) {
@@ -380,7 +381,7 @@ export class ChatOrchestrator {
       socialParticipantContexts,
       targetDisplayName: request.fromDisplayName,
       reason: request.reason,
-      recentMessages
+      replyContext
     });
   }
 
@@ -456,7 +457,7 @@ export class ChatOrchestrator {
         this.deps.logger.child({
           correlationId: randomUUID(),
           chatId,
-          messageId: next.request.replyToMessageId,
+          messageId: next.request.triggerMessageId,
           drainedFromPending: true
         })
       );
@@ -507,7 +508,8 @@ function toPendingReplyRequest(
     chatId: message.chatId,
     chatType: message.chatType,
     chatTitle: message.chatTitle,
-    replyToMessageId: message.messageId,
+    triggerMessageId: message.messageId,
+    triggerReplyToMessageId: message.replyToMessageId,
     fromUserId: message.fromUserId,
     fromDisplayName: message.fromDisplayName,
     createdAt: message.createdAt,

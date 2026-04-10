@@ -1,4 +1,4 @@
-import type { StoredMessage } from "../domain/models.js";
+import type { ReplyContext, StoredMessage } from "../domain/models.js";
 
 export type PromptMessage = Pick<
   StoredMessage,
@@ -35,8 +35,16 @@ export function buildReplyPrompt(input: {
   }>;
   targetDisplayName: string;
   reason: string;
-  recentMessages: StoredMessage[];
+  replyContext?: ReplyContext;
+  recentMessages?: StoredMessage[];
 }): string {
+  const replyContext = input.replyContext ?? {
+    triggerMessage: input.recentMessages?.[input.recentMessages.length - 1] ?? null,
+    anchorBotMessage: null,
+    anchorParentMessage: null,
+    transcriptMessages: input.recentMessages ?? []
+  };
+
   return [
     "Global persona:",
     input.persona,
@@ -61,7 +69,18 @@ export function buildReplyPrompt(input: {
     "Participant social context bundle:",
     formatSocialParticipantContexts(input.socialParticipantContexts),
     "",
-    buildTranscriptSection(input.recentMessages),
+    "Current message:",
+    formatSingleMessage(replyContext.triggerMessage),
+    "",
+    "Message of yours being replied to:",
+    formatSingleMessage(replyContext.anchorBotMessage),
+    "",
+    "Earlier human context:",
+    formatReplyContextMessages(replyContext.transcriptMessages),
+    "",
+    "If people question or mock one of your earlier metaphors, drop it instead of repeating or explaining it.",
+    "Do not reuse a distinctive image, noun, or joke from your own recent replies unless the chat clearly embraces it as a running bit.",
+    'Do not fall into repeated reply templates like "<name>, ты как..." or "ты в очередной раз доказал...". Vary sentence shape and prefer direct plain replies when possible.',
     "",
     "Reply in Russian. Keep it concise, natural, and in-character. Usually answer in 1-2 short lines. Keep the tone dry rather than theatrical. Use at most one emoji, and only when it adds something. Do not stretch the reply into a mini-bit or monologue. Match the chat's informal energy without overusing emojis. Avoid mentioning that you are an AI model."
   ].join("\n");
@@ -152,6 +171,18 @@ function buildTranscriptSection(messages: PromptMessage[]): string {
     formatConversationForLlm(messages),
     "END CHAT TRANSCRIPT"
   ].join("\n");
+}
+
+function formatSingleMessage(message: PromptMessage | null): string {
+  if (!message) {
+    return "No message available.";
+  }
+
+  return formatConversationForLlm([message]);
+}
+
+function formatReplyContextMessages(messages: PromptMessage[]): string {
+  return buildTranscriptSection(messages);
 }
 
 function sanitizePromptText(value: string): string {

@@ -87,7 +87,9 @@ describe("ChatOrchestrator", () => {
     });
 
     const secondCallMessages =
-      generateReply.mock.calls[1]?.[0]?.recentMessages as StoredMessage[] | undefined;
+      generateReply.mock.calls[1]?.[0]?.replyContext?.transcriptMessages as
+        | StoredMessage[]
+        | undefined;
 
     expect(secondCallMessages?.map((message) => message.messageId)).toContain(2);
   });
@@ -400,6 +402,73 @@ describe("ChatOrchestrator", () => {
       })
     );
   });
+
+  test("passes trigger text into social analysis and structured reply context into prompt generation", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 10,
+      text: "ну чо",
+      createdAt: "2026-04-10T12:00:00.000Z",
+      fromUserId: 42,
+      fromUsername: "tom",
+      fromFirstName: "Tom",
+      fromLastName: null,
+      fromDisplayName: "Tom",
+      isBot: false,
+      entities: [],
+      replyToUserId: null,
+      replyToMessageId: null
+    });
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 11,
+      text: "кривой ответ",
+      createdAt: "2026-04-10T12:00:05.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Хрюпа",
+      replyToMessageId: 10
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher: vi.fn().mockResolvedValue({
+        messageId: 1006,
+        createdAt: "2026-04-10T12:00:20.000Z"
+      })
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 12,
+        text: "почему кот",
+        replyToUserId: 77,
+        replyToMessageId: 11
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyContext: expect.objectContaining({
+          triggerMessage: expect.objectContaining({ messageId: 12 }),
+          anchorBotMessage: expect.objectContaining({ messageId: 11 }),
+          anchorParentMessage: expect.objectContaining({ messageId: 10 })
+        }),
+        socialIntentReason: null
+      })
+    );
+  });
 });
 
 function createOrchestrator(input: {
@@ -460,6 +529,7 @@ function createIncomingMessage(input: {
   chatId?: number;
   chatType?: ChatType;
   entities?: Array<{ type: string; offset: number; length: number }>;
+  replyToUserId?: number | null;
   replyToMessageId?: number | null;
 }): NormalizedMessage {
   return {
@@ -476,7 +546,7 @@ function createIncomingMessage(input: {
     fromDisplayName: "Tom",
     isBot: false,
     entities: input.entities ?? [],
-    replyToUserId: null,
+    replyToUserId: input.replyToUserId ?? null,
     replyToMessageId: input.replyToMessageId ?? null
   };
 }
@@ -687,6 +757,19 @@ class FakeDatabaseClient {
     const storedMessages = this.messages.get(chatId) ?? [];
 
     return storedMessages.slice(-limit).map((message) => ({ ...message }));
+  }
+
+  getMessageByTelegramMessageId(chatId: number, messageId: number): StoredMessage | null {
+    return (
+      (this.messages.get(chatId) ?? []).find((message) => message.messageId === messageId) ?? null
+    );
+  }
+
+  getMessagesBefore(chatId: number, beforeMessageId: number, limit: number): StoredMessage[] {
+    return (this.messages.get(chatId) ?? [])
+      .filter((message) => message.messageId < beforeMessageId)
+      .slice(-limit)
+      .map((message) => ({ ...message }));
   }
 
   getMessagesSince(chatId: number, telegramMessageId: number): StoredMessage[] {
