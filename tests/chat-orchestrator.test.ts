@@ -92,6 +92,47 @@ describe("ChatOrchestrator", () => {
     expect(secondCallMessages?.map((message) => message.messageId)).toContain(2);
   });
 
+  test("retains the original replyToMessageId when storing generated bot replies", async () => {
+    const db = new FakeDatabaseClient();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: "2026-04-03T12:00:30.000Z"
+    });
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: "@fun_bot ответь",
+        entities: [{ type: "mention", offset: 0, length: 8 }],
+        replyToMessageId: 41
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: 1
+      })
+    );
+    expect(db.getRecentMessages(1, 10)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          messageId: 1001,
+          replyToMessageId: 1
+        })
+      ])
+    );
+  });
+
   test("defers summary work while a reply job is active and runs it afterwards", async () => {
     const db = new FakeDatabaseClient();
     const deferredReply = createDeferred<LlmReplyResult>();
@@ -419,6 +460,7 @@ function createIncomingMessage(input: {
   chatId?: number;
   chatType?: ChatType;
   entities?: Array<{ type: string; offset: number; length: number }>;
+  replyToMessageId?: number | null;
 }): NormalizedMessage {
   return {
     chatId: input.chatId ?? 1,
@@ -435,7 +477,7 @@ function createIncomingMessage(input: {
     isBot: false,
     entities: input.entities ?? [],
     replyToUserId: null,
-    replyToMessageId: null
+    replyToMessageId: input.replyToMessageId ?? null
   };
 }
 

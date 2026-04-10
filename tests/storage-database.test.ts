@@ -78,6 +78,25 @@ describeWithSqlite("DatabaseClient", () => {
       messageId: 12,
       replyToMessageId: 11
     });
+    expect(
+      db.getRecentMessages(1, 10).map((message) => ({
+        messageId: message.messageId,
+        replyToMessageId: message.replyToMessageId
+      }))
+    ).toEqual([
+      { messageId: 10, replyToMessageId: null },
+      { messageId: 11, replyToMessageId: 10 },
+      { messageId: 12, replyToMessageId: 11 }
+    ]);
+    expect(
+      db.getMessagesSince(1, 10).map((message) => ({
+        messageId: message.messageId,
+        replyToMessageId: message.replyToMessageId
+      }))
+    ).toEqual([
+      { messageId: 11, replyToMessageId: 10 },
+      { messageId: 12, replyToMessageId: 11 }
+    ]);
 
     db.close();
   });
@@ -85,7 +104,7 @@ describeWithSqlite("DatabaseClient", () => {
   test("normalizes explicit reply links from Telegram messages", () => {
     const ctx = {
       message: {
-        message_id: 345,
+        message_id: 346,
         date: 1_744_300_000,
         text: "ответ",
         entities: [],
