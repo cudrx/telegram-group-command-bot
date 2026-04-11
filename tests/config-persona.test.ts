@@ -57,6 +57,14 @@ describe("loadPersona", () => {
     expect(persona).toContain("не вылизывай пунктуацию");
     expect(persona).not.toContain("хаос");
   });
+
+  test("base persona keeps teasing from becoming direct personal insults", () => {
+    const persona = readFileSync("config/persona.md", "utf8");
+
+    expect(persona).toContain("Лёгкая токсичность не значит прямые оскорбления собеседника");
+    expect(persona).toContain("Не называй человека дураком");
+    expect(persona).toContain("Если человек жалуется, что ты быкуешь");
+  });
 });
 
 function createPersonaFixture(input: {

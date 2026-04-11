@@ -181,6 +181,61 @@ describe("prompt builders", () => {
     expect(prompt).toContain("Do not stretch the reply into a mini-bit or monologue.");
   });
 
+  test("reply prompt keeps friendly teasing from turning into direct insults", () => {
+    const prompt = buildReplyPrompt({
+      persona: "Ты Хрюпа",
+      chatSummary: null,
+      participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
+      targetDisplayName: "Артём",
+      reason: "direct_message",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 123,
+          userId: 84626969,
+          senderDisplayName: "Артём (@artyomwebdev)",
+          text: "этр разве шутка? шутка это когда смешно",
+          createdAt: "2026-04-11T16:00:02.000Z",
+          isBot: false,
+          replyToMessageId: null
+        },
+        anchorBotMessage: null,
+        anchorParentMessage: null,
+        priorContextMessages: [
+          {
+            chatId: 1,
+            messageId: 117,
+            userId: 84626969,
+            senderDisplayName: "Артём (@artyomwebdev)",
+            text: "почему я дурак? я твой создатель вообще-то",
+            createdAt: "2026-04-11T15:59:03.000Z",
+            isBot: false,
+            replyToMessageId: null
+          },
+          {
+            chatId: 1,
+            messageId: 121,
+            userId: 84626969,
+            senderDisplayName: "Артём (@artyomwebdev)",
+            text: "так может расскажешь все таки шутку?",
+            createdAt: "2026-04-11T15:59:39.000Z",
+            isBot: false,
+            replyToMessageId: null
+          }
+        ]
+      }
+    });
+
+    expect(prompt).toContain("Light toxicity does not mean directly insulting the person you are replying to.");
+    expect(prompt).toContain("Do not call the user");
+    expect(prompt).toContain("If the user says you are being rude");
+    expect(prompt).toContain("If the user asks for a joke, give the joke first");
+  });
+
   test("reply prompt discourages polished narration and random themed metaphors", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",
