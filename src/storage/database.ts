@@ -12,7 +12,6 @@ import {
   normalizeParticipantMemoryValue,
   pickMoreStableMemoryStability,
   pickStrongerMemorySource,
-  shouldRejectBotSelfMemoryUpdate,
   shouldRejectParticipantMemoryUpdate
 } from "../domain/participant-memory.js";
 import type {
@@ -619,24 +618,14 @@ export class DatabaseClient {
     chatId: number,
     result: SummaryResult,
     appliedThroughMessageId: number,
-    updatedAt: string,
-    botIdentity?: {
-      userId: number;
-      username: string | null;
-      displayName: string;
-    }
+    updatedAt: string
   ): void {
     const transaction = this.db.transaction(
       (
         targetChatId: number,
         summary: SummaryResult,
         cursorMessageId: number,
-        timestamp: string,
-        currentBotIdentity?: {
-          userId: number;
-          username: string | null;
-          displayName: string;
-        }
+        timestamp: string
       ) => {
         this.db
           .prepare(
@@ -669,40 +658,12 @@ export class DatabaseClient {
           mergeParticipantMemory(this.db, targetChatId, update, timestamp);
         }
 
-        if (
-          currentBotIdentity &&
-          summary.selfMemoryUpdates.length > 0
-        ) {
-          upsertChatParticipant(this.db, {
-            chatId: targetChatId,
-            userId: currentBotIdentity.userId,
-            username: currentBotIdentity.username,
-            displayName: currentBotIdentity.displayName,
-            firstName: null,
-            lastName: null,
-            seenAt: timestamp
-          });
-
-          for (const update of summary.selfMemoryUpdates) {
-            mergeParticipantMemory(
-              this.db,
-              targetChatId,
-              {
-                ...update,
-                userId: currentBotIdentity.userId
-              },
-              timestamp,
-              "bot_self"
-            );
-          }
-        }
-
         refreshParticipantProfileCachesForChat(this.db, targetChatId, timestamp);
         pruneResolvedParticipantMemories(this.db, targetChatId, timestamp);
       }
     );
 
-    transaction(chatId, result, appliedThroughMessageId, updatedAt, botIdentity);
+    transaction(chatId, result, appliedThroughMessageId, updatedAt);
   }
 
   close(): void {
@@ -724,10 +685,9 @@ function mergeParticipantMemory(
   db: Database.Database,
   chatId: number,
   update: ParticipantMemoryUpdate,
-  timestamp: string,
-  memoryScope: "participant" | "bot_self" = "participant"
+  timestamp: string
 ): void {
-  const normalized = normalizeMemoryUpdate(update, memoryScope);
+  const normalized = normalizeMemoryUpdate(update);
 
   if (!normalized) {
     return;
@@ -894,8 +854,7 @@ function supersedeConflictingMemories(
 }
 
 function normalizeMemoryUpdate(
-  update: ParticipantMemoryUpdate,
-  memoryScope: "participant" | "bot_self"
+  update: ParticipantMemoryUpdate
 ): StoredMemoryUpdate | null {
   const normalizedKey = normalizeParticipantMemoryKey(update.key);
   const normalizedValue = normalizeParticipantMemoryValue(update.valueText);
@@ -909,12 +868,7 @@ function normalizeMemoryUpdate(
     confidence: clampParticipantMemoryConfidence(update.confidence)
   };
 
-  const shouldReject =
-    memoryScope === "bot_self"
-      ? shouldRejectBotSelfMemoryUpdate(candidate)
-      : shouldRejectParticipantMemoryUpdate(candidate);
-
-  if (shouldReject) {
+  if (shouldRejectParticipantMemoryUpdate(candidate)) {
     return null;
   }
 

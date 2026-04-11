@@ -152,18 +152,7 @@ export type ParticipantMemoryUpdate = {
   cardinality: ParticipantMemoryCardinality;
 };
 
-export type BotSelfMemoryUpdate = {
-  category: string;
-  key: string;
-  valueText: string;
-  stability: ParticipantMemoryStability;
-  sourceKind: ParticipantMemorySourceKind;
-  confidence: number;
-  cardinality: ParticipantMemoryCardinality;
-};
-
 export type SummaryResult = {
   chatSummary: string;
   memoryUpdates: ParticipantMemoryUpdate[];
-  selfMemoryUpdates: BotSelfMemoryUpdate[];
 };

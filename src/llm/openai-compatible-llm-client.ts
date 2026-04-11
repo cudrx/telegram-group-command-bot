@@ -22,17 +22,6 @@ const summarySchema = z.object({
       confidence: z.number().min(0).max(1),
       cardinality: z.enum(["single", "multi"])
     })
-  ).default([]),
-  selfMemoryUpdates: z.array(
-    z.object({
-      category: z.string().min(1),
-      key: z.string().min(1),
-      valueText: z.string().min(1),
-      stability: z.enum(["core", "durable", "volatile"]),
-      sourceKind: z.enum(["explicit", "observed", "inferred"]),
-      confidence: z.number().min(0).max(1),
-      cardinality: z.enum(["single", "multi"])
-    })
   ).default([])
 });
 
@@ -91,7 +80,6 @@ export class OpenAiCompatibleLlmClient {
   async generateReply(input: {
     persona: string;
     chatSummary: string | null;
-    selfMemoryContext: string | null;
     participantMemoryContext: string | null;
     socialIntent: boolean;
     socialIntentReason: string | null;
@@ -177,7 +165,7 @@ export class OpenAiCompatibleLlmClient {
           {
             role: "system",
             content:
-              "You compress group chat conversations into a short chat summary, participant memory deltas, and chat-local self-memory deltas for the bot. Return only a valid JSON object."
+              "You compress group chat conversations into a short chat summary and participant memory deltas. Return only a valid JSON object."
           },
           {
             role: "user",
