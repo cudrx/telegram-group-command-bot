@@ -9,6 +9,7 @@
 - читать текстовые сообщения из Telegram;
 - сохранять сообщения, чаты и участников в `SQLite`;
 - хранить chat-scoped память об участниках в виде атомарных фактов вместо одной текстовой сводки;
+- хранить chat-scoped aliases участников для deterministic participant resolution;
 - не хранить долгосрочную self-memory самого бота в MVP; в prompt для ответа допускается только конкретное bot-сообщение, на которое отвечают, внутри causal reply context;
 - добавлять per-chat persona override из `config/personas/<chat_id>.md`, если такой файл существует;
 - отвечать на `@mention` и `reply`;
@@ -24,18 +25,18 @@
 - любые новые данные и новые фичи должны явно учитывать наличие нескольких чатов одновременно;
 - при этом данные каждого чата должны оставаться строго изолированными внутри этого чата;
 - по умолчанию новая память, social context, relationship data и aliases считаются `chat-scoped`, пока явно не принято другое решение;
-- cross-chat leakage недопустим: данные, выводы и локальные социальные связи из одного чата не должны использоваться в другом.
+- cross-chat leakage недопустим: данные, выводы и локальные социальные связи из одного чата не должны использоваться в другом;
 - сухая аналитика ситуации и persona-слой должны оставаться разделёнными;
 - аналитический слой отвечает за наблюдение, классификацию и структурированное описание происходящего в чате;
 - persona-слой отвечает за стиль, тон, позицию и способ реакции на уже описанную ситуацию;
-- persona не должна подменять собой слой аналитики и определять, что "происходит" в чате на уровне архитектуры.
+- persona не должна подменять собой слой аналитики и определять, что "происходит" в чате на уровне архитектуры;
 - для `reply_to_bot` генерация ответа должна опираться в первую очередь на causal reply context: текущее сообщение, bot-сообщение, на которое отвечают, его parent-сообщение и связанный prior context;
 - плоское окно recent messages не должно подменять causal reply context для `reply_to_bot`, потому что оно теряет причинную связь между репликами;
 - reply prompt context не должен дублировать текущее trigger-сообщение или bot-сообщение, на которое отвечают, внутри фонового transcript; `Current message` и `Message of yours being replied to` являются каноническими местами для этих сообщений, а `Earlier human context` содержит только предыдущий человеческий контекст;
-- временные phrase-specific bans про конкретные метафоры или шаблоны не являются поддерживаемым архитектурным safeguard; устойчивость должна обеспечиваться структурированным контекстом ответа и тем, что summary/memory подаются как аналитический фон, а не как текст для копирования.
-- если `chatSummary` описывает повтор фразы, зацикливание, malfunction или ошибку времени, reply prompt должен трактовать это как поведение, которого нужно избегать, а не как running joke или стиль для продолжения; distinctive phrases не следует копировать без необходимости.
-- bot-derived long-term memory не является частью prompt для генерации ответа; из bot-authored текста допустимо только конкретное bot-сообщение, на которое отвечают, внутри causal reply context.
-- idle summary возвращает только participant `memoryUpdates`; bot self-memory deltas не генерируются.
+- временные phrase-specific bans про конкретные метафоры или шаблоны не являются поддерживаемым архитектурным safeguard; устойчивость должна обеспечиваться структурированным контекстом ответа и тем, что summary/memory подаются как аналитический фон, а не как текст для копирования;
+- если `chatSummary` описывает повтор фразы, зацикливание, malfunction или ошибку времени, reply prompt должен трактовать это как поведение, которого нужно избегать, а не как running joke или стиль для продолжения; distinctive phrases не следует копировать без необходимости;
+- bot-derived long-term memory не является частью prompt для генерации ответа; из bot-authored текста допустимо только конкретное bot-сообщение, на которое отвечают, внутри causal reply context;
+- idle summary возвращает только participant `memoryUpdates`; bot self-memory deltas не генерируются;
 - social-QA ответы про участников должны быть evidence-bound: если stored participant memory отсутствует, бот не должен выдумывать устойчивые черты характера, биографию, отношения или привычки; допустимы только осторожные наблюдения из свежего видимого контекста.
 
 ## Component Map
@@ -54,7 +55,8 @@
 
 - определение прямого триггера ответа (`mention`, `reply_to_bot`, `none`);
 - политика случайного вмешательства с `cooldown`;
-- политика запуска idle-summary.
+- политика запуска idle-summary;
+- social intent detection и deterministic participant reference resolution.
 
 ### `src/storage`
 
@@ -63,9 +65,10 @@
 - чаты;
 - участники;
 - связи чат ↔ участник;
+- aliases участников внутри конкретного чата;
 - chat-scoped participant memories c `core` / `durable` / `volatile` стабильностью;
-- сообщения;
-- summary и курсор последнего обработанного сообщения.
+- сообщения с `reply_to` связями;
+- summary и курсор последнего обработанного сообщения;
 - retention старых summarized messages с сохранением небольшого raw-tail для локального контекста.
 
 ### `src/llm`
@@ -77,9 +80,9 @@
 - генерация JSON-summary для чата и deltas по participant memories;
 - выбор summary JSON режима под возможности провайдера: `response_format` или prompt-only fallback.
 
-### `src/app.ts`
+### `src/app`
 
-Координирует всё приложение:
+Координирует приложение:
 
 - принимает нормализованное сообщение;
 - сохраняет его в БД;
@@ -87,7 +90,8 @@
 - собирает контекст;
 - вызывает OpenAI-compatible LLM слой;
 - отправляет ответ в Telegram;
-- запускает periodic sweep для idle-summary.
+- запускает periodic sweep для idle-summary;
+- не даёт reply и summary LLM jobs для одного чата накладываться друг на друга, сохраняя один pending reply и один pending summary.
 
 ## Main Flows
 
@@ -103,7 +107,8 @@
    - long-term bot self-memory не подтягивается и не участвует в reply generation;
    - собирается causal reply context; для обычных триггеров он может включать bounded prior human context, но для `reply_to_bot` не должен подменяться плоским recent-window;
    - берётся текущий summary чата;
-   - собирается chat-local memory context по участнику;
+   - при social-QA резолвятся участники только внутри текущего чата; при неоднозначности бот просит уточнение без LLM-вызова;
+   - собирается chat-local memory context по участнику и resolved social context bundle;
    - вызывается LLM слой;
    - ответ отправляется в Telegram и сохраняется в БД.
 
@@ -139,13 +144,23 @@
 Хранит:
 
 - `user_id`;
-- username/display name;
+- username, first name, last name и display name;
 - время последнего появления;
 - сжатый профиль участника.
 
 ### `chat_participants`
 
 Хранит факт присутствия участника в чате, время последнего появления и chat-scoped профиль участника.
+
+### `participant_aliases`
+
+Хранит chat-scoped aliases для deterministic participant resolution:
+
+- `chat_id` и `user_id`;
+- исходный `alias_text` и нормализованный `alias_normalized`;
+- `alias_kind`;
+- `confidence`;
+- время последнего наблюдения.
 
 ### `participant_memories`
 
@@ -162,7 +177,7 @@
 
 ### `messages`
 
-Хранит текстовые сообщения и ответы бота.
+Хранит текстовые сообщения, ответы бота и `reply_to_telegram_message_id`, когда сообщение является ответом.
 
 ## Current Limitations
 

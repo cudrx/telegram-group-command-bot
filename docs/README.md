@@ -27,11 +27,13 @@ Use these locations consistently:
 - [`/docs/todo/`](/home/tom/Documents/Projects/test-chatbot/docs/todo)
   working notes and agreed feature formulations before full design/spec work
 - [`/docs/superpowers/plans/`](/home/tom/Documents/Projects/test-chatbot/docs/superpowers/plans)
-  all planning documents: design docs, TЗ, implementation plans, rollout plans
+  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans
 
 ## Rules
 
 - Do not create `docs/superpowers/specs/`.
 - Do not scatter planning Markdown across ad hoc directories.
+- Keep no more than 5 files in `docs/superpowers/plans/`; remove the oldest implemented plans when adding new ones.
+- After implementing a plan, review `README.md`, `docs/architecture.md`, and `docs/development.md`, then update them if the implemented behavior changed the project.
 - If a new `.md` file does not clearly fit an existing bucket, update this file first and then add the document.
 - Prefer extending an existing document over creating a near-duplicate one.

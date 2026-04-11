@@ -1,17 +1,20 @@
 # Character Telegram Bot
 
-Минимальная рабочая основа для Telegram-бота-персонажа на `Node.js + TypeScript + grammY + SQLite` с DeepSeek-compatible LLM слоем.
+Минимальная рабочая основа для Telegram-бота-персонажа на `Node.js + TypeScript + grammY + SQLite` с OpenAI-compatible LLM слоем.
 
 ## Что уже есть
 
 - long polling через `grammY`
 - локальная `SQLite`-база для чатов, сообщений и профилей участников
 - chat-scoped память по участникам: `core` / `durable` / `volatile` факты
-- chat-local self-memory для самого персонажа поверх глобальной persona
+- human-first labels и chat-scoped aliases для deterministic participant resolution
 - per-chat persona overrides через `config/personas/<chat_id>.md`
 - дедупликация, supersede конфликтующих фактов и TTL для временной памяти
 - глобальная persona-основа из [`config/persona.md`](./config/persona.md)
 - доменная логика ответа: `mention` / `reply` / редкое случайное вмешательство
+- causal reply context для ответов на сообщения бота без плоского replay всего recent-window
+- evidence-bound social QA: бот не выдумывает устойчивые описания участников без памяти или свежего видимого контекста
+- в MVP нет долгосрочной self-memory бота в reply и summary paths
 - фоновый idle-summary после затихания чата
 - единая per-chat координация reply и summary без overlap `LLM`-job'ов
 - prompt hardening для transcript и structured JSON logs
@@ -41,7 +44,7 @@ npm install
 cp .env.example .env
 ```
 
-`.env.example` настроен под DeepSeek по умолчанию. Если вы хотите использовать другого OpenAI-compatible провайдера, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
+`.env.example` настроен под OpenAI-compatible провайдера по умолчанию. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
 Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
 Если обычные reply-запросы работают, а summary падает из-за неподдерживаемого `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`: тогда бот будет просить строгий JSON только через prompt, без API-level structured-output флага.
 
@@ -91,8 +94,8 @@ npm run dev
 ## Структура
 
 - `src/domain` — правила ответа и summary
-- `src/storage` — `SQLite` и доступ к данным
-- `src/llm` — prompt helpers и OpenAI-compatible LLM layer
+- `src/storage` — `SQLite`, сообщения, participant memories и aliases
+- `src/llm` — prompt helpers, reply generation и OpenAI-compatible summary layer
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI
@@ -143,9 +146,9 @@ docker compose down
 
 Если команды Docker отвечают `permission denied while trying to connect to the docker API`, запустите их через `sudo` или добавьте пользователя в группу `docker`, затем перелогиньтесь.
 
-## Migration Note
+## Provider Migration Note
 
-Переход на `LLM_*` идет без жесткого breakage: старые `QWEN_*` переменные окружения временно продолжают работать как алиасы. Но `LLM_*` и `QWEN_*` нельзя смешивать в effective runtime environment, независимо от того, приходят ли они из `.env`, shell exports или других источников: миграция должна быть целиком в одном namespace, потому что mixed namespaces parser отклоняет.
+Провайдер настраивается через `LLM_*`. Старые `QWEN_*` переменные окружения временно продолжают работать как алиасы. Но `LLM_*` и `QWEN_*` нельзя смешивать в effective runtime environment, независимо от того, приходят ли они из `.env`, shell exports или других источников: миграция должна быть целиком в одном namespace, потому что mixed namespaces parser отклоняет.
 
 ## Следующие версии
 

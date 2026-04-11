@@ -13,7 +13,7 @@
 - [`docs/README.md`](./README.md) — каноническая структура Markdown-документов
 - [`docs/architecture.md`](./architecture.md) — устройство проекта
 - [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
-- [`docs/superpowers/plans/`](./superpowers/plans/) — все design docs, ТЗ и implementation plans
+- [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
 - [`config/persona.md`](../config/persona.md) — базовый образ персонажа
 - `config/personas/<chat_id>.md` — необязательный override для конкретного чата
 
@@ -40,7 +40,7 @@ npm install
 cp .env.example .env
 ```
 
-Если используете не DeepSeek, а другой OpenAI-compatible провайдер, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
+Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
 Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
 Если reply-запросы проходят, а summary-запросы отклоняются из-за `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`. В этом режиме summary остаётся включённым, но JSON запрашивается только через prompt.
 
@@ -143,6 +143,16 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - миграции с версиями;
 - интеграционные тесты с реальным Telegram API;
 - smoke-тесты с реальным LLM-провайдером.
+
+## Documentation Maintenance
+
+После реализации каждого плана нужно просмотреть и при необходимости обновить как минимум:
+
+- [`../README.md`](../README.md) — если изменились возможности, запуск, переменные окружения или деплой;
+- [`./architecture.md`](./architecture.md) — если изменились инварианты, компоненты, потоки данных или модель БД;
+- [`./development.md`](./development.md) — если изменились workflow, проверки, CI/CD, деплой, repair steps или maintenance-правила.
+
+`docs/superpowers/plans/` не является архивом всех завершённых работ. Держите там не больше 5 планов: когда появляются новые планы, удаляйте самые старые уже реализованные, а устойчивые решения переносите в основные документы.
 
 ## Production Deploy
 

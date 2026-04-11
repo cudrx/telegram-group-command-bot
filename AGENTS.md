@@ -25,7 +25,9 @@ These instructions describe how Codex should work in this repository unless the 
 
 - All planning documents, design docs, implementation plans, and task briefs must live in `docs/superpowers/plans/`.
 - Do not create alternative planning directories such as `docs/superpowers/specs/`.
+- Keep `docs/superpowers/plans/` to at most 5 plan files by removing the oldest implemented plans once their durable decisions are reflected in the main docs.
 - Before adding a new Markdown document, follow the repository documentation structure described in `docs/README.md`.
+- After implementing a plan, always review `README.md`, `docs/architecture.md`, and `docs/development.md`; update them when behavior, architecture, workflow, deployment, data repair, or documentation policy changed.
 
 ## Communication
 
