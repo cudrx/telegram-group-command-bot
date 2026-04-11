@@ -132,9 +132,11 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmReplyResult> {
     const prompt = buildReplyPrompt(input);
     const startedAt = Date.now();
-    this.logLlmText("llm_reply_prompt", {
+    this.logLlmText("llm.reply.request", {
+      kind: "reply",
       model: this.config.replyModel,
-      promptText: prompt
+      temperature: this.config.replyTemperature,
+      prompt
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
@@ -159,9 +161,13 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Reply model returned empty content");
     }
 
-    this.logLlmText("llm_reply_response", {
+    this.logLlmText("llm.reply.response", {
+      kind: "reply",
       model: this.config.replyModel,
-      responseText: reply
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt),
+      response: reply
     });
 
     return {
@@ -180,9 +186,11 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmSummaryResult> {
     const prompt = buildSummaryPrompt(input);
     const startedAt = Date.now();
-    this.logLlmText("llm_summary_prompt", {
+    this.logLlmText("llm.summary.request", {
+      kind: "summary",
       model: this.config.summaryModel,
-      promptText: prompt
+      temperature: 0.2,
+      prompt
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
@@ -214,9 +222,13 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Summary model returned empty content");
     }
 
-    this.logLlmText("llm_summary_response", {
+    this.logLlmText("llm.summary.response", {
+      kind: "summary",
       model: this.config.summaryModel,
-      responseText: raw
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt),
+      response: raw
     });
 
     return {
@@ -237,9 +249,11 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmInterventionAnalysisResult> {
     const prompt = buildInterventionAnalysisPrompt(input);
     const startedAt = Date.now();
-    this.logLlmText("llm_intervention_analysis_prompt", {
+    this.logLlmText("llm.intervention.request", {
+      kind: "intervention",
       model: this.config.summaryModel,
-      promptText: prompt
+      temperature: 0.2,
+      prompt
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
@@ -271,9 +285,13 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Intervention analysis model returned empty content");
     }
 
-    this.logLlmText("llm_intervention_analysis_response", {
+    this.logLlmText("llm.intervention.response", {
+      kind: "intervention",
       model: this.config.summaryModel,
-      responseText: raw
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt),
+      response: raw
     });
 
     return {
@@ -308,9 +326,14 @@ export class OpenAiCompatibleLlmClient {
   }
 
   private logLlmText(event: string, payload: {
+    kind: "reply" | "summary" | "intervention";
     model: string;
-    promptText?: string;
-    responseText?: string;
+    temperature?: number;
+    latencyMs?: number;
+    attemptCount?: number;
+    promptTokensEstimate?: number;
+    prompt?: string;
+    response?: string;
   }): void {
     if (!this.options.logLlmText) {
       return;

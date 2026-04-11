@@ -111,6 +111,7 @@ function formatPrettyLog(
   event: string,
   fields: LogFields
 ): string {
+  const useColor = shouldColorizeLogs();
   const entries = Object.entries(fields);
   const timestamp = typeof fields.timestamp === "string"
     ? fields.timestamp
@@ -118,9 +119,9 @@ function formatPrettyLog(
   const body = entries
     .filter(([key]) => key !== "timestamp")
     .sort(([left], [right]) => compareLogKeys(left, right))
-    .flatMap(([key, value]) => formatLogField(key, value));
+    .flatMap(([key, value]) => formatLogField(key, value, useColor));
 
-  const lines = [`[${timestamp}] ${level.toUpperCase()} ${event}`];
+  const lines = [formatLogHeader(timestamp, level, event, useColor)];
 
   if (body.length > 0) {
     lines.push("", ...body);
@@ -137,25 +138,47 @@ function compareLogKeys(left: string, right: string): number {
 
 function getLogKeyPriority(key: string): number {
   switch (key) {
-    case "errorMessage":
+    case "chatId":
       return 0;
-    case "errorCode":
+    case "messageId":
       return 1;
-    case "errorStatus":
+    case "correlationId":
       return 2;
-    case "errorName":
+    case "errorMessage":
       return 3;
-    case "service":
+    case "errorCode":
       return 4;
-    case "nodeEnv":
+    case "errorStatus":
       return 5;
+    case "errorName":
+      return 6;
+    case "service":
+      return 7;
+    case "nodeEnv":
+      return 8;
+    case "kind":
+      return 9;
+    case "model":
+      return 10;
+    case "temperature":
+      return 11;
+    case "latencyMs":
+      return 12;
+    case "attemptCount":
+      return 13;
+    case "promptTokensEstimate":
+      return 14;
+    case "prompt":
+      return 90;
+    case "response":
+      return 91;
     default:
       return 10;
   }
 }
 
-function formatLogField(key: string, value: unknown): string[] {
-  const label = toLogLabel(key);
+function formatLogField(key: string, value: unknown, useColor: boolean): string[] {
+  const label = colorize(toLogLabel(key), "label", useColor);
 
   if (value === undefined) {
     return [];
@@ -180,6 +203,61 @@ function formatLogField(key: string, value: unknown): string[] {
       .map((line) => `  ${line}`)
       .join("\n")
   ];
+}
+
+function formatLogHeader(
+  timestamp: string,
+  level: "info" | "warn" | "error",
+  event: string,
+  useColor: boolean
+): string {
+  const renderedLevel = colorize(level.toUpperCase(), level, useColor);
+  const renderedEvent = colorize(event, "event", useColor);
+
+  return `[${timestamp}] ${renderedLevel} ${renderedEvent}`;
+}
+
+function shouldColorizeLogs(): boolean {
+  if (process.env.NO_COLOR !== undefined) {
+    return false;
+  }
+
+  if (process.env.FORCE_COLOR !== undefined && process.env.FORCE_COLOR !== "0") {
+    return true;
+  }
+
+  return Boolean(process.stdout.isTTY || process.stderr.isTTY);
+}
+
+function colorize(
+  value: string,
+  kind: "info" | "warn" | "error" | "label" | "event",
+  enabled: boolean
+): string {
+  if (!enabled) {
+    return value;
+  }
+
+  const color = getAnsiColor(kind);
+
+  return `\u001b[${color}m${value}\u001b[0m`;
+}
+
+function getAnsiColor(
+  kind: "info" | "warn" | "error" | "label" | "event"
+): string {
+  switch (kind) {
+    case "info":
+      return "36";
+    case "warn":
+      return "33";
+    case "error":
+      return "31";
+    case "label":
+      return "90";
+    case "event":
+      return "2";
+  }
 }
 
 function toLogLabel(key: string): string {

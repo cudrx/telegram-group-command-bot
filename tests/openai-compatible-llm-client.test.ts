@@ -60,16 +60,18 @@ describe("OpenAiCompatibleLlmClient", () => {
     });
 
     expect(logger.info).toHaveBeenCalledWith(
-      "llm_reply_prompt",
+      "llm.reply.request",
       expect.objectContaining({
-        promptText: expect.any(String),
+        kind: "reply",
+        prompt: expect.any(String),
         model: "reply-model"
       })
     );
     expect(logger.info).toHaveBeenCalledWith(
-      "llm_reply_response",
+      "llm.reply.response",
       expect.objectContaining({
-        responseText: "ready",
+        kind: "reply",
+        response: "ready",
         model: "reply-model"
       })
     );

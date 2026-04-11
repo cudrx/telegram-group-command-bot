@@ -75,6 +75,7 @@ npm run dev
 - `LLM_SUMMARY_JSON_MODE`
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
+- `LOG_LLM_TEXT`
 - `INTERJECT_PROBABILITY`
 - `INTERJECT_COOLDOWN_MINUTES`
 - `CHAT_IDLE_MINUTES`
@@ -83,6 +84,13 @@ npm run dev
 - `MESSAGE_RETENTION_DAYS`
 - `SQLITE_PATH`
 - `PERSONA_FILE`
+
+## Логи
+
+По умолчанию бот пишет компактные multiline-логи для чтения глазами в `docker compose logs`.
+Если нужно увидеть, что именно уходит в LLM и что возвращается, включите `LOG_LLM_TEXT=true`: появятся события `llm.reply.request/response`, `llm.summary.request/response` и `llm.intervention.request/response` с полными prompt/response секциями.
+
+Цвет можно принудительно включить через `FORCE_COLOR=1`; отключить через стандартный `NO_COLOR=1`.
 
 ## Проверки
 
