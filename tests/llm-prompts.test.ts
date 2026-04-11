@@ -210,7 +210,7 @@ describe("prompt builders", () => {
     expect(prompt).toContain("Casual lowercase and imperfect punctuation are acceptable");
   });
 
-  test("reply prompt relies on structured context instead of anti-loop warning text", () => {
+  test("reply prompt avoids old over-specific anti-loop templates", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",
       chatSummary: null,
@@ -234,6 +234,51 @@ describe("prompt builders", () => {
     expect(prompt).not.toContain("Do not reuse a distinctive image");
     expect(prompt).not.toContain('Do not fall into repeated reply templates like "<name>, ты как..."');
     expect(prompt).not.toContain("ты в очередной раз доказал");
+  });
+
+  test("reply prompt treats repeated-joke memories as anti-examples instead of style to reuse", () => {
+    const prompt = buildReplyPrompt({
+      persona: "Ты Хрюпа",
+      chatSummary:
+        "The bot appears to be stuck in a loop, especially around 'Олег, ты как ведро с водой — всё капает, но ни разу не выливаешь'.",
+      selfMemoryContext:
+        "[durable] recurring_joke_with_oleg: repeats the 'ведро с водой' line every time Oleg speaks, creating a looped joke",
+      participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
+      targetDisplayName: "Артём",
+      reason: "reply_to_bot",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 35088,
+          userId: 84626969,
+          senderDisplayName: "Артём (@artyomwebdev)",
+          text: "ты опять сломался дурачок?",
+          createdAt: "2026-04-11T09:20:50.000Z",
+          isBot: false,
+          replyToMessageId: 35086
+        },
+        anchorBotMessage: {
+          chatId: 1,
+          messageId: 35086,
+          userId: 77,
+          senderDisplayName: "Хрюпа",
+          text: "теперь тут как ведро с водой — всё капает, но ни разу не выливаешь",
+          createdAt: "2026-04-11T09:19:56.000Z",
+          isBot: true,
+          replyToMessageId: 35085
+        },
+        anchorParentMessage: null,
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain("Chat summary and memory are descriptive background, not wording to copy.");
+    expect(prompt).toContain("If they describe a repeated phrase, loop, malfunction, or time mistake, avoid continuing that behavior.");
+    expect(prompt).toContain("Do not reuse distinctive wording from chat summary, self memory, participant memory, or your previous reply.");
   });
 
   test("includes resolved social participants in reply prompts", () => {
@@ -344,6 +389,8 @@ describe("prompt builders", () => {
     expect(prompt).toContain("stability meanings: core = almost never changes");
     expect(prompt).toContain("Do not infer ethnicity, nationality, religion, health, politics");
     expect(prompt).toContain("Never use selfMemoryUpdates to rewrite the bot's core persona");
+    expect(prompt).toContain("describe it as behavior to avoid rather than a joke to continue");
+    expect(prompt).toContain("Do not copy exact distinctive bot phrases into chatSummary or selfMemoryUpdates");
     expect(prompt).toContain("Return only a single valid JSON object.");
     expect(prompt).toContain("Do not wrap the JSON in markdown fences.");
     expect(prompt).toContain("Do not add explanations before or after the JSON.");

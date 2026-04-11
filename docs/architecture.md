@@ -32,7 +32,8 @@
 - для `reply_to_bot` генерация ответа должна опираться в первую очередь на causal reply context: текущее сообщение, bot-сообщение, на которое отвечают, его parent-сообщение и связанный prior context;
 - плоское окно recent messages не должно подменять causal reply context для `reply_to_bot`, потому что оно теряет причинную связь между репликами;
 - reply prompt context не должен дублировать текущее trigger-сообщение или bot-сообщение, на которое отвечают, внутри фонового transcript; `Current message` и `Message of yours being replied to` являются каноническими местами для этих сообщений, а `Earlier human context` содержит только предыдущий человеческий контекст;
-- временные anti-loop prompt-формулировки про повтор метафор или шаблонов не являются поддерживаемым архитектурным safeguard; устойчивость должна обеспечиваться структурированным контекстом ответа.
+- временные phrase-specific bans про конкретные метафоры или шаблоны не являются поддерживаемым архитектурным safeguard; устойчивость должна обеспечиваться структурированным контекстом ответа и тем, что summary/memory подаются как аналитический фон, а не как текст для копирования.
+- если `chatSummary`, participant memory или chat-local self-memory описывают повтор фразы, зацикливание, malfunction или ошибку времени, reply prompt должен трактовать это как поведение, которого нужно избегать, а не как running joke или стиль для продолжения.
 - social-QA ответы про участников должны быть evidence-bound: если stored participant memory отсутствует, бот не должен выдумывать устойчивые черты характера, биографию, отношения или привычки; допустимы только осторожные наблюдения из свежего видимого контекста.
 
 ## Component Map
@@ -98,6 +99,7 @@
    - подтягивается глобальная persona;
    - при наличии добавляется chat-specific persona override;
    - подтягивается chat-local self-memory бота;
+   - self-memory используется только как аналитический фон о локальной динамике чата, а не как источник готовых фраз для следующей реплики;
    - собирается causal reply context; для обычных триггеров он может включать bounded prior human context, но для `reply_to_bot` не должен подменяться плоским recent-window;
    - берётся текущий summary чата;
    - собирается chat-local memory context по участнику;
@@ -115,7 +117,8 @@
    - обновлённое summary чата;
    - массив `memoryUpdates`.
    - массив `selfMemoryUpdates` для локальной памяти персонажа.
-5. БД мержит memory deltas, supersede'ит конфликтующие single-value факты, не даёт self-memory переписать core persona, истекает volatile память и двигает курсор.
+5. Summary prompt должен описывать повторяющиеся ошибки, loops и time mistakes как поведение, которого нужно избегать, и не копировать точные distinctive bot phrases без необходимости.
+6. БД мержит memory deltas, supersede'ит конфликтующие single-value факты, не даёт self-memory переписать core persona, истекает volatile память и двигает курсор.
 
 ## Database Model
 
