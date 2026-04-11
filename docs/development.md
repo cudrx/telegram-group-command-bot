@@ -106,7 +106,21 @@ docker compose up -d
 
 ```bash
 docker compose ps
-docker compose logs bot --tail=50
+docker compose logs bot --tail=100 -f
+```
+
+Для полного LLM input/output включите в `.env`:
+
+```dotenv
+LOG_LLM_TEXT=true
+FORCE_COLOR=1
+```
+
+Затем перезапустите контейнер и смотрите логи:
+
+```bash
+docker compose up -d
+docker compose logs bot --tail=200 -f
 ```
 
 5. Остановить контейнер:

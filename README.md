@@ -92,6 +92,21 @@ npm run dev
 
 Цвет можно принудительно включить через `FORCE_COLOR=1`; отключить через стандартный `NO_COLOR=1`.
 
+Смотреть логи локального контейнера:
+
+```bash
+docker compose logs bot --tail=100 -f
+```
+
+Если нужно видеть полный LLM input/output, включите это в `.env`, перезапустите контейнер и откройте логи:
+
+```bash
+LOG_LLM_TEXT=true
+FORCE_COLOR=1
+docker compose up -d
+docker compose logs bot --tail=200 -f
+```
+
 ## Проверки
 
 - `npm run migrate` (только при первичной установке или изменении схемы)
