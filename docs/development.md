@@ -136,7 +136,8 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
 - начать с повышенного `INTERJECT_COOLDOWN_MINUTES`, чтобы бот не спамил;
-- держать низкий `INTERJECT_PROBABILITY`, пока не станет понятна динамика.
+- держать низкий `INTERJECT_PROBABILITY`, пока не станет понятна динамика;
+- помнить, что `INTERJECT_PROBABILITY` теперь включает только cheap candidate gate: после него бот всё равно запускает structured intervention analysis и может промолчать.
 
 ## What Is Not Automated Yet
 

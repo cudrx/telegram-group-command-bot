@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { AppEnv } from "../config/env.js";
 import { shouldRunIdleSummary } from "../domain/idle-summary-policy.js";
+import { isFreshInterventionDecision } from "../domain/intervention-analysis.js";
 import {
   extractReferenceCandidates,
   resolveParticipantReferences
@@ -9,6 +10,7 @@ import {
 import { detectSocialIntent } from "../domain/social-intent.js";
 import type {
   ChatState,
+  InterventionDecision,
   NormalizedMessage,
   ReplyContext,
   ResolvedParticipantContext,
@@ -52,6 +54,14 @@ export type LlmSummaryResult = {
   promptTokensEstimate: number;
 };
 
+export type LlmInterventionAnalysisResult = {
+  result: InterventionDecision;
+  model: string;
+  latencyMs: number;
+  attemptCount: number;
+  promptTokensEstimate: number;
+};
+
 export type ReplyDispatcher = (input: {
   chatId: number;
   replyToMessageId: number;
@@ -79,6 +89,13 @@ export type LlmClient = {
     currentSummary: string | null;
     messages: StoredMessage[];
   }): Promise<LlmSummaryResult>;
+  analyzeIntervention(input: {
+    chatTitle: string | null;
+    chatSummary: string | null;
+    messages: StoredMessage[];
+    lastBotMessageAt: string | null;
+    now: string;
+  }): Promise<LlmInterventionAnalysisResult>;
 };
 
 export class ChatOrchestrator {
@@ -208,7 +225,16 @@ export class ChatOrchestrator {
         replyToMessageId: request.triggerMessageId
       });
 
-      const result = await this.executeReplyGeneration(request);
+      const result = await this.executeReplyGeneration(request, logger);
+
+      if (!result) {
+        logger.info("reply_job_skipped", {
+          replyReason: request.reason,
+          replyToMessageId: request.triggerMessageId
+        });
+        return;
+      }
+
       const sent = await this.deps.replyDispatcher({
         chatId: request.chatId,
         replyToMessageId: request.triggerMessageId,
@@ -282,8 +308,9 @@ export class ChatOrchestrator {
   }
 
   private async executeReplyGeneration(
-    request: PendingReplyRequest
-  ): Promise<LlmReplyResult> {
+    request: PendingReplyRequest,
+    logger: AppLogger
+  ): Promise<LlmReplyResult | null> {
     const chatState = this.deps.db.getChatState(request.chatId);
     const now = this.deps.now();
 
@@ -297,6 +324,15 @@ export class ChatOrchestrator {
       messageRetentionDays: this.deps.env.messageRetentionDays,
       minMessagesToKeep: this.deps.env.messageContextLimit
     });
+
+    const interventionReason =
+      request.reason === "interjection"
+        ? await this.analyzeInterventionRequest(request, chatState, logger)
+        : null;
+
+    if (request.reason === "interjection" && interventionReason === null) {
+      return null;
+    }
 
     const persona = await this.deps.loadPersona(
       this.deps.env.personaFile,
@@ -349,9 +385,72 @@ export class ChatOrchestrator {
       resolvedParticipants: resolution.resolvedParticipants,
       socialParticipantContexts,
       targetDisplayName: request.fromDisplayName,
-      reason: request.reason,
+      reason: interventionReason ?? request.reason,
       replyContext
     });
+  }
+
+  private async analyzeInterventionRequest(
+    request: PendingReplyRequest,
+    chatState: ChatState,
+    logger: AppLogger
+  ): Promise<string | null> {
+    const analyzedThroughMessageId = request.triggerMessageId;
+    const messages = this.deps.db.getMessagesBefore(
+      request.chatId,
+      analyzedThroughMessageId + 1,
+      this.deps.env.messageContextLimit
+    );
+    const analysis = await this.deps.qwen.analyzeIntervention({
+      chatTitle: chatState.title,
+      chatSummary: chatState.summaryText,
+      messages,
+      lastBotMessageAt: chatState.lastBotMessageAt,
+      now: request.createdAt
+    });
+    const decision = analysis.result;
+
+    logger.info("intervention_analysis_completed", {
+      analyzedThroughMessageId,
+      shouldIntervene: decision.shouldIntervene,
+      situationKind: decision.situationKind,
+      goal: decision.goal,
+      intensity: decision.intensity,
+      confidence: decision.confidence,
+      llmLatencyMs: analysis.latencyMs,
+      llmAttempts: analysis.attemptCount,
+      llmModel: analysis.model,
+      promptTokensEstimate: analysis.promptTokensEstimate
+    });
+
+    if (!decision.shouldIntervene) {
+      return null;
+    }
+
+    const latestMessageId = getLatestMessageId(
+      this.deps.db.getRecentMessages(request.chatId, 1)
+    );
+
+    if (
+      latestMessageId === null ||
+      !isFreshInterventionDecision({
+        analyzedThroughMessageId,
+        latestMessageId
+      })
+    ) {
+      logger.info("intervention_analysis_dropped_stale", {
+        analyzedThroughMessageId,
+        latestMessageId
+      });
+      return null;
+    }
+
+    const goal = decision.goal ?? "engage";
+    const situation = decision.situationKind ?? "unknown";
+    const intensity = decision.intensity ?? "unknown";
+    const reason = decision.reason ?? "analysis says intervention is useful";
+
+    return `structured_intervention:${goal}; situation=${situation}; intensity=${intensity}; confidence=${decision.confidence}; reason=${reason}`;
   }
 
   private resolveParticipantsForReply(chatId: number, text: string) {
@@ -493,4 +592,8 @@ function toReplyReason(
   }
 
   return reason;
+}
+
+function getLatestMessageId(messages: StoredMessage[]): number | null {
+  return messages[messages.length - 1]?.messageId ?? null;
 }

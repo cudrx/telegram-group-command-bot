@@ -5,6 +5,7 @@ These instructions describe how Codex should work in this repository unless the 
 ## Branching
 
 - Work with regular git branches.
+- For large implementation, debugging, or review tasks, prefer creating a new regular git branch before editing.
 - Do not create git worktrees by default.
 - Use the current workspace unless the user explicitly asks for a separate worktree.
 

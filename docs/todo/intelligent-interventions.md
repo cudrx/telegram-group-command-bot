@@ -2,9 +2,9 @@
 
 ## Статус
 
-Черновая формулировка запроса перед полноценной проектной документацией и планом реализации.
+Часть `v1` реализуется в плане [`../superpowers/plans/2026-04-11-intelligent-interventions-v1.md`](../superpowers/plans/2026-04-11-intelligent-interventions-v1.md).
 
-Полноценное ТЗ и детальный implementation plan будут подготовлены позже, после закрытия других текущих задач.
+В `v1` реализуется conservative path: входящее non-direct group-сообщение проходит cheap probability/cooldown gate, затем structured LLM-анализ окна, затем persona reply generation только если `shouldIntervene = true`. Таймерный сценарий `silence_after_activity` остаётся отдельным следующим шагом.
 
 ## Зачем это нужно
 
@@ -203,7 +203,7 @@
 
 - persona;
 - chat summary;
-- self-memory;
+- participant memory без долгосрочной self-memory бота;
 - participant/social context;
 - recent messages;
 - структурированная аналитика ситуации;

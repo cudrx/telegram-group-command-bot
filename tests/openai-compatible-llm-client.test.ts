@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
+import type { StoredMessage } from "../src/domain/models.js";
 import { OpenAiCompatibleLlmClient } from "../src/llm/openai-compatible-llm-client.js";
 
 describe("OpenAiCompatibleLlmClient", () => {
@@ -431,6 +432,127 @@ describe("OpenAiCompatibleLlmClient", () => {
     expect(calls).toBe(1);
   });
 
+  test("analyzes intervention decisions with the summary model and structured JSON", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+
+    const client = new OpenAiCompatibleLlmClient(
+      {
+        apiKey: "key",
+        baseUrl: "https://example.com",
+        replyModel: "reply-model",
+        replyTemperature: 0.6,
+        summaryModel: "summary-model",
+        summaryJsonMode: "response_format",
+        timeoutMs: 20_000,
+        maxRetries: 1
+      },
+      {
+        chat: {
+          completions: {
+            create: async (input: Record<string, unknown>) => {
+              requestBody = input;
+
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        shouldIntervene: true,
+                        situationKind: "debate",
+                        goal: "provoke",
+                        intensity: "medium",
+                        reason: "participants are actively arguing but still engaged",
+                        confidence: 0.77
+                      })
+                    }
+                  }
+                ]
+              };
+            }
+          }
+        }
+      } as never
+    );
+
+    const result = await client.analyzeIntervention({
+      chatTitle: "Friends",
+      chatSummary: "Олег и Том спорят про деплой",
+      messages: createStoredMessages(),
+      lastBotMessageAt: "2026-04-03T11:50:00.000Z",
+      now: "2026-04-03T12:01:00.000Z"
+    });
+
+    expect(result).toMatchObject({
+      result: {
+        shouldIntervene: true,
+        situationKind: "debate",
+        goal: "provoke",
+        intensity: "medium",
+        reason: "participants are actively arguing but still engaged",
+        confidence: 0.77
+      },
+      model: "summary-model"
+    });
+    expect(requestBody).toMatchObject({
+      model: "summary-model",
+      temperature: 0.2,
+      response_format: { type: "json_object" }
+    });
+    expect(JSON.stringify(requestBody?.messages)).toContain("BEGIN CHAT TRANSCRIPT");
+    expect(JSON.stringify(requestBody?.messages)).toContain("engage");
+  });
+
+  test("rejects malformed intervention decisions without retrying schema errors", async () => {
+    let calls = 0;
+    const client = new OpenAiCompatibleLlmClient(
+      {
+        apiKey: "key",
+        baseUrl: "https://example.com",
+        replyModel: "reply-model",
+        replyTemperature: 0.6,
+        summaryModel: "summary-model",
+        summaryJsonMode: "response_format",
+        timeoutMs: 20_000,
+        maxRetries: 1
+      },
+      {
+        chat: {
+          completions: {
+            create: async () => {
+              calls += 1;
+
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: JSON.stringify({
+                        shouldIntervene: true,
+                        goal: "manufacture_chaos",
+                        confidence: 2
+                      })
+                    }
+                  }
+                ]
+              };
+            }
+          }
+        }
+      } as never
+    );
+
+    await expect(
+      client.analyzeIntervention({
+        chatTitle: "Friends",
+        chatSummary: null,
+        messages: createStoredMessages(),
+        lastBotMessageAt: null,
+        now: "2026-04-03T12:01:00.000Z"
+      })
+    ).rejects.toThrow();
+
+    expect(calls).toBe(1);
+  });
+
   test("adds Gemini-specific diagnostics to bare 400 provider errors", async () => {
     const client = new OpenAiCompatibleLlmClient(
       {
@@ -525,4 +647,29 @@ function createReplyContext(overrides: Partial<{
     priorContextMessages: [],
     ...overrides
   };
+}
+
+function createStoredMessages(): StoredMessage[] {
+  return [
+    {
+      chatId: 1,
+      messageId: 1,
+      userId: 42,
+      senderDisplayName: "Tom",
+      text: "ну что деплоим?",
+      createdAt: "2026-04-03T12:00:00.000Z",
+      isBot: false,
+      replyToMessageId: null
+    },
+    {
+      chatId: 1,
+      messageId: 2,
+      userId: 43,
+      senderDisplayName: "Олег",
+      text: "сначала тесты, герой",
+      createdAt: "2026-04-03T12:01:00.000Z",
+      isBot: false,
+      replyToMessageId: null
+    }
+  ];
 }
