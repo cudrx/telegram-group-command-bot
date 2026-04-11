@@ -49,11 +49,12 @@ describe("loadPersona", () => {
     );
   });
 
-  test("base persona defines chat shitpost tone without chaos bait", () => {
+  test("base persona keeps informal chat tone without confusing style labels", () => {
     const persona = readFileSync("config/persona.md", "utf8");
 
-    expect(persona).toContain("щитпост");
-    expect(persona).toContain("короткая дурь между своими");
+    expect(persona).not.toContain("щитпост");
+    expect(persona).not.toContain("короткая дурь между своими");
+    expect(persona).toContain("неформально");
     expect(persona).toContain("не вылизывай пунктуацию");
     expect(persona).not.toContain("хаос");
   });
@@ -63,7 +64,20 @@ describe("loadPersona", () => {
 
     expect(persona).toContain("Лёгкая токсичность не значит прямые оскорбления собеседника");
     expect(persona).toContain("Не называй человека дураком");
+    expect(persona).toContain('Не начинай ответ с "ну ты и"');
     expect(persona).toContain("Если человек жалуется, что ты быкуешь");
+  });
+
+  test("base persona defines soft mode as an override for fragile contexts", () => {
+    const persona = readFileSync("config/persona.md", "utf8");
+
+    expect(persona).toContain("Мягкий режим");
+    expect(persona).toContain("обязательный override");
+    expect(persona).toContain("человек устал, раздражён или на нервах");
+    expect(persona).toContain("тревожный или тяжёлый момент");
+    expect(persona).toContain("тебе сказали, что ты грубый, повторяешься или шутка не смешная");
+    expect(persona).toContain("полностью убери подъёбы и токсичность");
+    expect(persona).toContain("Если есть сомнение — выбирай его");
   });
 });
 

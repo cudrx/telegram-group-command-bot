@@ -75,9 +75,24 @@ npm run dev
 - `npm run dev` — локальный запуск через `tsx watch`
 - `npm run migrate` — создаёт `SQLite`-схему
 - `npm test` — `Vitest`
+- `npm run eval:llm:manual` — ручной платный прогон реальных reply-ответов `LLM`; не для CI
 - `npm run typecheck` — `TypeScript` без `emit`
 - `npm run build` — сборка в `dist/`
 - `npm start` — запуск собранного `dist/src/index.js`
+
+## Manual LLM Reply Evals
+
+Manual reply evals call the real configured OpenAI-compatible reply model and write local reports into `.eval-runs/`. They are not part of CI and should be run only when intentionally spending provider credits to inspect reply quality.
+
+Run:
+
+```bash
+npm run eval:llm:manual
+```
+
+The command reads `.env`, supports both `LLM_*` and legacy `QWEN_*` provider variables, loads `config/persona.md`, runs the fixed V1 reply scenario pack, and writes both Markdown and JSON reports. After a run, ask Codex to review the newest `.eval-runs/*-llm-reply-eval.md` report and judge each answer manually against the checklist.
+
+V1 covers `generateReply` behavior only. Summary/memory extraction through SQLite and intervention analysis need separate eval plans so reply style failures do not get mixed with memory-pipeline failures.
 
 ## Local Docker Workflow
 
