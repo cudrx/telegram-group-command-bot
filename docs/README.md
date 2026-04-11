@@ -35,5 +35,6 @@ Use these locations consistently:
 - Do not scatter planning Markdown across ad hoc directories.
 - Keep no more than 5 files in `docs/superpowers/plans/`; remove the oldest implemented plans when adding new ones.
 - After implementing a plan, review `README.md`, `docs/architecture.md`, and `docs/development.md`, then update them if the implemented behavior changed the project.
+- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/todo/`, and `docs/superpowers/plans/`; remove or update stale backlog ideas, todo notes, and implemented plan details once durable decisions are reflected in the main docs.
 - If a new `.md` file does not clearly fit an existing bucket, update this file first and then add the document.
 - Prefer extending an existing document over creating a near-duplicate one.

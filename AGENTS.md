@@ -29,6 +29,7 @@ These instructions describe how Codex should work in this repository unless the 
 - Keep `docs/superpowers/plans/` to at most 5 plan files by removing the oldest implemented plans once their durable decisions are reflected in the main docs.
 - Before adding a new Markdown document, follow the repository documentation structure described in `docs/README.md`.
 - After implementing a plan, always review `README.md`, `docs/architecture.md`, and `docs/development.md`; update them when behavior, architecture, workflow, deployment, data repair, or documentation policy changed.
+- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/todo/`, and `docs/superpowers/plans/`; remove or update stale backlog ideas, todo notes, and implemented plan details once their durable decisions are reflected in the main docs.
 
 ## Communication
 
