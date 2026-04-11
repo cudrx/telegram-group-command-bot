@@ -19,6 +19,7 @@
 - единая per-chat координация reply и summary без overlap `LLM`-job'ов
 - prompt hardening для transcript и structured JSON logs
 - generic LLM-клиент для генерации реплик, structured intervention analysis и summary с timeout/retry
+- ручной `LLM` reply-eval runner для проверки реальных ответов модели вне CI
 - `Vitest`-тесты, `TypeScript` typecheck и сборка
 - `GitHub Actions` `CI` на `push` и `pull_request`
 - автодеплой Docker image из `GHCR` на VPS после `push` в `main`
@@ -112,6 +113,7 @@ docker compose logs bot --tail=200 -f
 - `npm run migrate` (только при первичной установке или изменении схемы)
 - `npm run typecheck`
 - `npm test`
+- `npm run eval:llm:manual` (ручная платная проверка реальных LLM-ответов; не для CI)
 - `npm run build`
 
 ## Структура
