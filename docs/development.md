@@ -185,6 +185,91 @@ docker compose --env-file .env -f compose.yml pull bot
 docker compose --env-file .env -f compose.yml up -d bot
 ```
 
+### SQLite Repair After Deploy
+
+Run this only after deploying the code that removes bot self-memory from reply and summary paths. The commands below repair the production database for chat `-1002155313986` and bot `user_id = 7378889635`. They assume the example `DEPLOY_PATH` of `/opt/test-chatbot`; if your server uses a different deploy path, adjust `DB` and `BACKUP`.
+
+1. Backup first:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+BACKUP=/opt/test-chatbot/data/bot-before-bot-self-memory-removal-2026-04-11.sqlite
+sqlite3 "$DB" ".backup '$BACKUP'"
+```
+
+2. Dry-run query before changing anything:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+sqlite3 "$DB" -header -column <<'SQL'
+SELECT COUNT(*) AS active_bot_memory_rows
+FROM participant_memories
+WHERE chat_id = -1002155313986
+  AND user_id = 7378889635
+  AND status = 'active';
+
+SELECT chat_id, user_id, profile_summary_text
+FROM chat_participants
+WHERE chat_id = -1002155313986
+  AND user_id = 7378889635;
+
+SELECT chat_id, summary_text, summary_updated_at
+FROM chats
+WHERE chat_id = -1002155313986;
+SQL
+```
+
+3. Repair transaction:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+sqlite3 "$DB" <<'SQL'
+BEGIN IMMEDIATE;
+
+UPDATE participant_memories
+SET status = 'rejected'
+WHERE chat_id = -1002155313986
+  AND user_id = 7378889635
+  AND status = 'active';
+
+UPDATE chat_participants
+SET profile_summary_text = NULL,
+    profile_updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE chat_id = -1002155313986
+  AND user_id = 7378889635;
+
+UPDATE chats
+SET summary_text = NULL,
+    summary_updated_at = NULL
+WHERE chat_id = -1002155313986;
+
+COMMIT;
+SQL
+```
+
+4. Verification queries:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+sqlite3 "$DB" -header -column <<'SQL'
+SELECT status, COUNT(*) AS rows
+FROM participant_memories
+WHERE chat_id = -1002155313986
+  AND user_id = 7378889635
+GROUP BY status
+ORDER BY status;
+
+SELECT chat_id, user_id, profile_summary_text
+FROM chat_participants
+WHERE chat_id = -1002155313986
+  AND user_id = 7378889635;
+
+SELECT chat_id, summary_text, summary_updated_at
+FROM chats
+WHERE chat_id = -1002155313986;
+SQL
+```
+
 ## Memory Model
 
 Память об участниках хранится строго внутри каждого чата.
@@ -194,6 +279,6 @@ docker compose --env-file .env -f compose.yml up -d bot
 - `volatile` — временные факты с TTL;
 - conflicting `single` memories supersede предыдущие значения;
 - `profile_summary_text` теперь служит кэшем-выжимкой поверх structured memories.
-- у бота есть отдельная chat-local self-memory поверх `config/persona.md`; она хранит только эволюционирующие локальные штуки, но не переписывает core persona.
+- у бота нет отдельной long-term chat-local self-memory в MVP; bot-derived long-term memory не должна попадать в reply generation.
 - при наличии `config/personas/<chat_id>.md` этот файл добавляется поверх базовой persona только для соответствующего чата.
 - старые `messages` можно автоматически подчищать через `MESSAGE_RETENTION_DAYS`; удаляются только сообщения, уже покрытые `summary`, а небольшой сырой хвост сохраняется.
