@@ -1,9 +1,15 @@
 import OpenAI from "openai";
 import { z } from "zod";
 
-import type { ReplyContext, StoredMessage, SummaryResult } from "../domain/models.js";
+import type {
+  InterventionDecision,
+  ReplyContext,
+  StoredMessage,
+  SummaryResult
+} from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
 import {
+  buildInterventionAnalysisPrompt,
   buildReplyPrompt,
   buildSummaryPrompt,
   extractJsonObject
@@ -25,6 +31,26 @@ const summarySchema = z.object({
   ).default([])
 });
 
+const interventionDecisionSchema = z.object({
+  shouldIntervene: z.boolean(),
+  situationKind: z.string().min(1).nullable().default(null),
+  goal: z
+    .enum(["engage", "deescalate", "provoke", "joke", "support"])
+    .nullable()
+    .default(null),
+  intensity: z.enum(["low", "medium", "high"]).nullable().default(null),
+  reason: z.string().min(1).nullable().default(null),
+  confidence: z.number().min(0).max(1)
+}).superRefine((decision, ctx) => {
+  if (decision.shouldIntervene && decision.goal === null) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Intervention goal is required when shouldIntervene is true",
+      path: ["goal"]
+    });
+  }
+});
+
 export type LlmReplyResult = {
   text: string;
   model: string;
@@ -35,6 +61,14 @@ export type LlmReplyResult = {
 
 export type LlmSummaryResult = {
   result: SummaryResult;
+  model: string;
+  latencyMs: number;
+  attemptCount: number;
+  promptTokensEstimate: number;
+};
+
+export type LlmInterventionAnalysisResult = {
+  result: InterventionDecision;
   model: string;
   latencyMs: number;
   attemptCount: number;
@@ -98,9 +132,11 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmReplyResult> {
     const prompt = buildReplyPrompt(input);
     const startedAt = Date.now();
-    this.logLlmText("llm_reply_prompt", {
+    this.logLlmText("llm.reply.request", {
+      kind: "reply",
       model: this.config.replyModel,
-      promptText: prompt
+      temperature: this.config.replyTemperature,
+      prompt
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
@@ -125,9 +161,13 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Reply model returned empty content");
     }
 
-    this.logLlmText("llm_reply_response", {
+    this.logLlmText("llm.reply.response", {
+      kind: "reply",
       model: this.config.replyModel,
-      responseText: reply
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt),
+      response: reply
     });
 
     return {
@@ -146,9 +186,11 @@ export class OpenAiCompatibleLlmClient {
   }): Promise<LlmSummaryResult> {
     const prompt = buildSummaryPrompt(input);
     const startedAt = Date.now();
-    this.logLlmText("llm_summary_prompt", {
+    this.logLlmText("llm.summary.request", {
+      kind: "summary",
       model: this.config.summaryModel,
-      promptText: prompt
+      temperature: 0.2,
+      prompt
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
@@ -180,13 +222,80 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Summary model returned empty content");
     }
 
-    this.logLlmText("llm_summary_response", {
+    this.logLlmText("llm.summary.response", {
+      kind: "summary",
       model: this.config.summaryModel,
-      responseText: raw
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt),
+      response: raw
     });
 
     return {
       result: summarySchema.parse(extractJsonObject(raw)),
+      model: this.config.summaryModel,
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt)
+    };
+  }
+
+  async analyzeIntervention(input: {
+    chatTitle: string | null;
+    chatSummary: string | null;
+    messages: StoredMessage[];
+    lastBotMessageAt: string | null;
+    now: string;
+  }): Promise<LlmInterventionAnalysisResult> {
+    const prompt = buildInterventionAnalysisPrompt(input);
+    const startedAt = Date.now();
+    this.logLlmText("llm.intervention.request", {
+      kind: "intervention",
+      model: this.config.summaryModel,
+      temperature: 0.2,
+      prompt
+    });
+    const completion = await this.withRetry(() =>
+      this.createCompletion({
+        model: this.config.summaryModel,
+        temperature: 0.2,
+        ...(this.config.summaryJsonMode === "response_format"
+          ? {
+              response_format: {
+                type: "json_object" as const
+              }
+            }
+          : {}),
+        messages: [
+          {
+            role: "system",
+            content:
+              "You analyze group-chat dynamics for a Telegram bot. Return only a valid JSON object."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      })
+    );
+    const raw = completion.value.choices[0]?.message.content?.trim();
+
+    if (!raw) {
+      throw new Error("Intervention analysis model returned empty content");
+    }
+
+    this.logLlmText("llm.intervention.response", {
+      kind: "intervention",
+      model: this.config.summaryModel,
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate: estimateTokens(prompt),
+      response: raw
+    });
+
+    return {
+      result: interventionDecisionSchema.parse(extractJsonObject(raw)),
       model: this.config.summaryModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
@@ -217,9 +326,14 @@ export class OpenAiCompatibleLlmClient {
   }
 
   private logLlmText(event: string, payload: {
+    kind: "reply" | "summary" | "intervention";
     model: string;
-    promptText?: string;
-    responseText?: string;
+    temperature?: number;
+    latencyMs?: number;
+    attemptCount?: number;
+    promptTokensEstimate?: number;
+    prompt?: string;
+    response?: string;
   }): void {
     if (!this.options.logLlmText) {
       return;

@@ -43,6 +43,7 @@ cp .env.example .env
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
 Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
 Если reply-запросы проходят, а summary-запросы отклоняются из-за `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`. В этом режиме summary остаётся включённым, но JSON запрашивается только через prompt.
+Для отладки LLM-ввода и вывода установите `LOG_LLM_TEXT=true`; для цветных multiline-логов в `docker compose logs` можно добавить `FORCE_COLOR=1`. Если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
 3. Отредактировать базовую persona:
 
@@ -136,7 +137,8 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
 - начать с повышенного `INTERJECT_COOLDOWN_MINUTES`, чтобы бот не спамил;
-- держать низкий `INTERJECT_PROBABILITY`, пока не станет понятна динамика.
+- держать низкий `INTERJECT_PROBABILITY`, пока не станет понятна динамика;
+- помнить, что `INTERJECT_PROBABILITY` теперь включает только cheap candidate gate: после него бот всё равно запускает structured intervention analysis и может промолчать.
 
 ## What Is Not Automated Yet
 

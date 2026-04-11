@@ -1,5 +1,21 @@
 export type ChatType = "private" | "group" | "supergroup" | "channel" | "unknown";
 
+export type InterventionGoal =
+  | "engage"
+  | "deescalate"
+  | "provoke"
+  | "joke"
+  | "support";
+
+export type InterventionDecision = {
+  shouldIntervene: boolean;
+  situationKind: string | null;
+  goal: InterventionGoal | null;
+  intensity: "low" | "medium" | "high" | null;
+  reason: string | null;
+  confidence: number;
+};
+
 export type NormalizedMessage = {
   chatId: number;
   chatType: ChatType;

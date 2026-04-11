@@ -11,14 +11,14 @@
 - per-chat persona overrides через `config/personas/<chat_id>.md`
 - дедупликация, supersede конфликтующих фактов и TTL для временной памяти
 - глобальная persona-основа из [`config/persona.md`](./config/persona.md)
-- доменная логика ответа: `mention` / `reply` / редкое случайное вмешательство
+- доменная логика ответа: `mention` / `reply` / редкое самостоятельное вмешательство через structured intervention analysis
 - causal reply context для ответов на сообщения бота без плоского replay всего recent-window
 - evidence-bound social QA: бот не выдумывает устойчивые описания участников без памяти или свежего видимого контекста
 - в MVP нет долгосрочной self-memory бота в reply и summary paths
 - фоновый idle-summary после затихания чата
 - единая per-chat координация reply и summary без overlap `LLM`-job'ов
 - prompt hardening для transcript и structured JSON logs
-- generic LLM-клиент для генерации реплик и summary с timeout/retry
+- generic LLM-клиент для генерации реплик, structured intervention analysis и summary с timeout/retry
 - `Vitest`-тесты, `TypeScript` typecheck и сборка
 - `GitHub Actions` `CI` на `push` и `pull_request`
 - автодеплой Docker image из `GHCR` на VPS после `push` в `main`
@@ -75,6 +75,7 @@ npm run dev
 - `LLM_SUMMARY_JSON_MODE`
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
+- `LOG_LLM_TEXT`
 - `INTERJECT_PROBABILITY`
 - `INTERJECT_COOLDOWN_MINUTES`
 - `CHAT_IDLE_MINUTES`
@@ -83,6 +84,13 @@ npm run dev
 - `MESSAGE_RETENTION_DAYS`
 - `SQLITE_PATH`
 - `PERSONA_FILE`
+
+## Логи
+
+По умолчанию бот пишет компактные multiline-логи для чтения глазами в `docker compose logs`.
+Если нужно увидеть, что именно уходит в LLM и что возвращается, включите `LOG_LLM_TEXT=true`: появятся события `llm.reply.request/response`, `llm.summary.request/response` и `llm.intervention.request/response` с полными prompt/response секциями.
+
+Цвет можно принудительно включить через `FORCE_COLOR=1`; отключить через стандартный `NO_COLOR=1`.
 
 ## Проверки
 
@@ -93,9 +101,9 @@ npm run dev
 
 ## Структура
 
-- `src/domain` — правила ответа и summary
+- `src/domain` — правила ответа, structured intervention analysis и summary
 - `src/storage` — `SQLite`, сообщения, participant memories и aliases
-- `src/llm` — prompt helpers, reply generation и OpenAI-compatible summary layer
+- `src/llm` — prompt helpers, reply generation, intervention analysis и OpenAI-compatible summary layer
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI

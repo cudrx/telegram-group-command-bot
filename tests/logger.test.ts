@@ -35,6 +35,49 @@ describe("logger", () => {
     expect(output).toContain('"model": "reply-model"');
   });
 
+  test("adds readable ANSI color when forced and disables it with NO_COLOR", () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const originalForceColor = process.env.FORCE_COLOR;
+    const originalNoColor = process.env.NO_COLOR;
+
+    try {
+      process.env.FORCE_COLOR = "1";
+      delete process.env.NO_COLOR;
+
+      createLogger().info("llm.reply.request", {
+        chatId: 42,
+        prompt: "hello"
+      });
+
+      process.env.NO_COLOR = "1";
+
+      createLogger().info("llm.reply.response", {
+        chatId: 42,
+        response: "hi"
+      });
+    } finally {
+      if (originalForceColor === undefined) {
+        delete process.env.FORCE_COLOR;
+      } else {
+        process.env.FORCE_COLOR = originalForceColor;
+      }
+
+      if (originalNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = originalNoColor;
+      }
+    }
+
+    const coloredOutput = infoSpy.mock.calls[0]?.[0];
+    const plainOutput = infoSpy.mock.calls[1]?.[0];
+
+    expect(coloredOutput).toContain("\u001b[");
+    expect(coloredOutput).toContain("INFO");
+    expect(plainOutput).not.toContain("\u001b[");
+    expect(plainOutput).toContain("INFO llm.reply.response");
+  });
+
   test("extracts optional status and code from error objects", () => {
     const error = new Error("provider failed") as Error & {
       code?: string;

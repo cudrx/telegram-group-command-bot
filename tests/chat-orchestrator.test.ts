@@ -15,6 +15,7 @@ import type {
 } from "../src/domain/models.js";
 import type {
   LlmClient,
+  LlmInterventionAnalysisResult,
   LlmReplyResult,
   LlmSummaryResult
 } from "../src/app/chat-orchestrator.js";
@@ -500,19 +501,196 @@ describe("ChatOrchestrator", () => {
       })
     );
   });
+
+  test("analyzes random-gated group messages before generating intervention replies", async () => {
+    const db = new FakeDatabaseClient();
+    const analyzeIntervention = vi.fn().mockResolvedValue(
+      createInterventionAnalysisResult({
+        shouldIntervene: true,
+        situationKind: "debate",
+        goal: "provoke",
+        intensity: "medium",
+        reason: "participants are actively arguing but still engaged",
+        confidence: 0.77
+      })
+    );
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("ну вы и устроили"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1007,
+      createdAt: "2026-04-03T12:11:00.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        analyzeIntervention,
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      env: {
+        ...createEnv(),
+        interjectProbability: 1
+      }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 20,
+        text: "а вот тут ты не прав",
+        createdAt: "2026-04-03T12:10:00.000Z"
+      })
+    );
+
+    expect(analyzeIntervention).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatTitle: "Friends",
+        messages: expect.arrayContaining([
+          expect.objectContaining({ messageId: 20 })
+        ]),
+        now: "2026-04-03T12:10:00.000Z"
+      })
+    );
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: expect.stringContaining("structured_intervention:provoke")
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyToMessageId: 20,
+        text: "ну вы и устроили"
+      })
+    );
+  });
+
+  test("does not generate an intervention reply when analysis says to stay quiet", async () => {
+    const db = new FakeDatabaseClient();
+    const analyzeIntervention = vi.fn().mockResolvedValue(
+      createInterventionAnalysisResult({
+        shouldIntervene: false,
+        situationKind: "active",
+        goal: null,
+        intensity: "low",
+        reason: "conversation is already moving without the bot",
+        confidence: 0.82
+      })
+    );
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно быть"));
+    const replyDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        analyzeIntervention,
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      env: {
+        ...createEnv(),
+        interjectProbability: 1
+      }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 21,
+        text: "просто болтаем"
+      })
+    );
+
+    expect(analyzeIntervention).toHaveBeenCalledTimes(1);
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+  });
+
+  test("drops stale intervention decisions when newer messages arrive during analysis", async () => {
+    const db = new FakeDatabaseClient();
+    const deferredAnalysis = createDeferred<LlmInterventionAnalysisResult>();
+    const analyzeIntervention = vi
+      .fn()
+      .mockImplementationOnce(async () => deferredAnalysis.promise);
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("поздний ответ"));
+    const replyDispatcher = vi.fn();
+    const randomValues = [0, 1];
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        analyzeIntervention,
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      random: () => randomValues.shift() ?? 1,
+      env: {
+        ...createEnv(),
+        interjectProbability: 1
+      }
+    });
+
+    const firstRun = orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 22,
+        text: "ну все началось",
+        createdAt: "2026-04-03T12:12:00.000Z"
+      })
+    );
+
+    await flushMicrotasks();
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 23,
+        text: "уже другая сцена",
+        createdAt: "2026-04-03T12:12:05.000Z"
+      })
+    );
+
+    deferredAnalysis.resolve(
+      createInterventionAnalysisResult({
+        shouldIntervene: true,
+        situationKind: "debate",
+        goal: "joke",
+        intensity: "medium",
+        reason: "old context looked joke-worthy",
+        confidence: 0.7
+      })
+    );
+
+    await firstRun;
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+  });
 });
 
 function createOrchestrator(input: {
   db: FakeDatabaseClient;
-  qwen: LlmClient;
+  qwen: Pick<LlmClient, "generateReply" | "summarizeConversation"> &
+    Partial<Pick<LlmClient, "analyzeIntervention">>;
   replyDispatcher: ReturnType<typeof vi.fn>;
   env?: AppEnv;
   loadPersona?: (filePath: string, chatId?: number) => Promise<string>;
   now?: () => string;
+  random?: () => number;
 }): ChatOrchestrator {
   return new ChatOrchestrator({
     db: input.db as unknown as DatabaseClient,
-    qwen: input.qwen,
+    qwen: {
+      analyzeIntervention:
+        input.qwen.analyzeIntervention ??
+        vi.fn().mockResolvedValue(
+          createInterventionAnalysisResult({
+            shouldIntervene: false,
+            situationKind: null,
+            goal: null,
+            intensity: null,
+            reason: "default test stub",
+            confidence: 1
+          })
+        ),
+      generateReply: input.qwen.generateReply,
+      summarizeConversation: input.qwen.summarizeConversation
+    },
     env: input.env ?? createEnv(),
     bot: {
       userId: 77,
@@ -524,7 +702,7 @@ function createOrchestrator(input: {
       input.loadPersona ??
       (async (_filePath: string, _chatId?: number) => "ты весёлый персонаж"),
     logger: createNoopLogger(),
-    random: () => 0,
+    random: input.random ?? (() => 0),
     now: input.now ?? (() => "2026-04-03T12:10:00.000Z")
   });
 }
@@ -621,6 +799,18 @@ function createSummaryResult(chatSummary: string): LlmSummaryResult {
     latencyMs: 30,
     attemptCount: 1,
     promptTokensEstimate: 55
+  };
+}
+
+function createInterventionAnalysisResult(
+  result: LlmInterventionAnalysisResult["result"]
+): LlmInterventionAnalysisResult {
+  return {
+    result,
+    model: "summary-model",
+    latencyMs: 20,
+    attemptCount: 1,
+    promptTokensEstimate: 64
   };
 }
 
