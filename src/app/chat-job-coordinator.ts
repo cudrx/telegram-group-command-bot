@@ -8,7 +8,6 @@ export type PendingReplyRequest = {
   chatType: ChatType;
   chatTitle: string | null;
   triggerMessageId: number;
-  triggerReplyToMessageId: number | null;
   fromUserId: number | null;
   fromDisplayName: string;
   createdAt: string;

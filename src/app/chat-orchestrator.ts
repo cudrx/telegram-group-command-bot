@@ -509,7 +509,6 @@ function toPendingReplyRequest(
     chatType: message.chatType,
     chatTitle: message.chatTitle,
     triggerMessageId: message.messageId,
-    triggerReplyToMessageId: message.replyToMessageId,
     fromUserId: message.fromUserId,
     fromDisplayName: message.fromDisplayName,
     createdAt: message.createdAt,
