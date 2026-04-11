@@ -12,6 +12,7 @@ const envSchema = z.object({
     .url("LLM_BASE_URL must be a valid URL")
     .default("https://api.deepseek.com"),
   LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
+  LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
   LLM_SUMMARY_MODEL: z.string().min(1).default("deepseek-chat"),
   LLM_SUMMARY_JSON_MODE: z
     .enum(["response_format", "prompt_only"])
@@ -36,6 +37,7 @@ type ParsedEnv = {
   llmApiKey: string;
   llmBaseUrl: string;
   llmReplyModel: string;
+  llmReplyTemperature: number;
   llmSummaryModel: string;
   llmSummaryJsonMode: "response_format" | "prompt_only";
   llmTimeoutMs: number;
@@ -61,6 +63,7 @@ export function parseEnv(
     rawEnv.LLM_API_KEY !== undefined ||
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
+    rawEnv.LLM_REPLY_TEMPERATURE !== undefined ||
     rawEnv.LLM_SUMMARY_MODEL !== undefined ||
     rawEnv.LLM_SUMMARY_JSON_MODE !== undefined ||
     rawEnv.LLM_TIMEOUT_MS !== undefined ||
@@ -69,6 +72,7 @@ export function parseEnv(
     rawEnv.QWEN_API_KEY !== undefined ||
     rawEnv.QWEN_BASE_URL !== undefined ||
     rawEnv.QWEN_REPLY_MODEL !== undefined ||
+    rawEnv.QWEN_REPLY_TEMPERATURE !== undefined ||
     rawEnv.QWEN_SUMMARY_MODEL !== undefined ||
     rawEnv.QWEN_SUMMARY_JSON_MODE !== undefined ||
     rawEnv.QWEN_TIMEOUT_MS !== undefined ||
@@ -85,6 +89,7 @@ export function parseEnv(
         LLM_API_KEY: rawEnv.LLM_API_KEY,
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
+        LLM_REPLY_TEMPERATURE: rawEnv.LLM_REPLY_TEMPERATURE,
         LLM_SUMMARY_MODEL: rawEnv.LLM_SUMMARY_MODEL,
         LLM_SUMMARY_JSON_MODE: rawEnv.LLM_SUMMARY_JSON_MODE,
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
@@ -95,6 +100,7 @@ export function parseEnv(
         LLM_BASE_URL:
           rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus-character",
+        LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? "0.6",
         LLM_SUMMARY_MODEL: rawEnv.QWEN_SUMMARY_MODEL ?? "qwen3.5-flash",
         LLM_SUMMARY_JSON_MODE:
           rawEnv.QWEN_SUMMARY_JSON_MODE ?? "response_format",
@@ -116,6 +122,7 @@ export function parseEnv(
     llmApiKey: parsed.LLM_API_KEY,
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
+    llmReplyTemperature: parsed.LLM_REPLY_TEMPERATURE,
     llmSummaryModel: parsed.LLM_SUMMARY_MODEL,
     llmSummaryJsonMode: parsed.LLM_SUMMARY_JSON_MODE,
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,

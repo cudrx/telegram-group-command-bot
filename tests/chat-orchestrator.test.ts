@@ -551,6 +551,7 @@ function createEnv(): AppEnv {
     llmApiKey: "llm-key",
     llmBaseUrl: "https://example.invalid/v1",
     llmReplyModel: "reply-model",
+    llmReplyTemperature: 0.6,
     llmSummaryModel: "summary-model",
     llmSummaryJsonMode: "response_format",
     llmTimeoutMs: 20_000,

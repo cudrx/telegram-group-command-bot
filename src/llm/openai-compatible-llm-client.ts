@@ -63,6 +63,7 @@ export class OpenAiCompatibleLlmClient {
       apiKey: string;
       baseUrl: string;
       replyModel: string;
+      replyTemperature: number;
       summaryModel: string;
       summaryJsonMode: "response_format" | "prompt_only";
       timeoutMs: number;
@@ -116,12 +117,12 @@ export class OpenAiCompatibleLlmClient {
     const completion = await this.withRetry(() =>
       this.createCompletion({
         model: this.config.replyModel,
-        temperature: 0.9,
+        temperature: this.config.replyTemperature,
         messages: [
           {
             role: "system",
             content:
-              "You are a fun Telegram group chat character. Stay fully in character, answer naturally, and do not break the fourth wall."
+              "Ты Хрюпа в дружеском Telegram-чате. Отвечай как живой участник чата: коротко, по-русски, без ассистентского тона, литературных метафор и объяснения своей роли."
           },
           {
             role: "user",

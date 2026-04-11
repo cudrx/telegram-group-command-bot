@@ -23,6 +23,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     apiKey: env.llmApiKey,
     baseUrl: env.llmBaseUrl,
     replyModel: env.llmReplyModel,
+    replyTemperature: env.llmReplyTemperature,
     summaryModel: env.llmSummaryModel,
     summaryJsonMode: env.llmSummaryJsonMode,
     timeoutMs: env.llmTimeoutMs,

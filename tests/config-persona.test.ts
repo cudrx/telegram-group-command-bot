@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -47,6 +47,15 @@ describe("loadPersona", () => {
     expect(getChatPersonaFilePath("config/persona.md", -100123)).toBe(
       path.join("config", "personas", "-100123.md")
     );
+  });
+
+  test("base persona defines chat shitpost tone without chaos bait", () => {
+    const persona = readFileSync("config/persona.md", "utf8");
+
+    expect(persona).toContain("щитпост");
+    expect(persona).toContain("короткая дурь между своими");
+    expect(persona).toContain("не вылизывай пунктуацию");
+    expect(persona).not.toContain("хаос");
   });
 });
 

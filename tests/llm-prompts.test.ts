@@ -183,6 +183,33 @@ describe("prompt builders", () => {
     expect(prompt).toContain("Do not stretch the reply into a mini-bit or monologue.");
   });
 
+  test("reply prompt discourages polished narration and random themed metaphors", () => {
+    const prompt = buildReplyPrompt({
+      persona: "Ты Хрюпа",
+      chatSummary: null,
+      selfMemoryContext: null,
+      participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
+      targetDisplayName: "Олег",
+      reason: "reply_to_bot",
+      replyContext: {
+        triggerMessage: null,
+        anchorBotMessage: null,
+        anchorParentMessage: null,
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain("Author of current message: Олег");
+    expect(prompt).not.toContain("Current target participant: Олег");
+    expect(prompt).toContain("Do not open with the author's name unless it is needed for clarity.");
+    expect(prompt).toContain("Do not invent holiday, epic, cosmic, or other themed metaphors");
+    expect(prompt).toContain("Casual lowercase and imperfect punctuation are acceptable");
+  });
+
   test("reply prompt relies on structured context instead of anti-loop warning text", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",

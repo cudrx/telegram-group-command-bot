@@ -18,6 +18,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "key",
         baseUrl: "https://example.com",
         replyModel: "reply-model",
+        replyTemperature: 0.6,
         summaryModel: "summary-model",
         summaryJsonMode: "response_format",
         timeoutMs: 20_000,
@@ -81,6 +82,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "key",
         baseUrl: "https://example.com",
         replyModel: "reply-model",
+        replyTemperature: 0.6,
         summaryModel: "summary-model",
         summaryJsonMode: "response_format",
         timeoutMs: 20_000,
@@ -147,6 +149,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "key",
         baseUrl: "https://example.com",
         replyModel: "reply-model",
+        replyTemperature: 0.6,
         summaryModel: "summary-model",
         summaryJsonMode: "response_format",
         timeoutMs: 20_000,
@@ -230,13 +233,13 @@ describe("OpenAiCompatibleLlmClient", () => {
       })
     });
 
-    expect(requestBody?.temperature).toBe(0.9);
+    expect(requestBody?.temperature).toBe(0.6);
     expect(requestBody?.messages).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           role: "system",
           content:
-            "You are a fun Telegram group chat character. Stay fully in character, answer naturally, and do not break the fourth wall."
+            "Ты Хрюпа в дружеском Telegram-чате. Отвечай как живой участник чата: коротко, по-русски, без ассистентского тона, литературных метафор и объяснения своей роли."
         })
       ])
     );
@@ -253,6 +256,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "key",
         baseUrl: "https://example.com",
         replyModel: "reply-model",
+        replyTemperature: 0.6,
         summaryModel: "summary-model",
         summaryJsonMode: "response_format",
         timeoutMs: 20_000,
@@ -338,6 +342,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "key",
         baseUrl: "https://example.com",
         replyModel: "reply-model",
+        replyTemperature: 0.6,
         summaryModel: "summary-model",
         summaryJsonMode: "prompt_only",
         timeoutMs: 20_000,
@@ -389,6 +394,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "key",
         baseUrl: "https://example.com",
         replyModel: "reply-model",
+        replyTemperature: 0.6,
         summaryModel: "summary-model",
         summaryJsonMode: "response_format",
         timeoutMs: 20_000,
@@ -432,6 +438,7 @@ describe("OpenAiCompatibleLlmClient", () => {
         apiKey: "real-key",
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai/",
         replyModel: "gemini-2.5-flash",
+        replyTemperature: 0.6,
         summaryModel: "gemini-2.5-flash",
         summaryJsonMode: "response_format",
         timeoutMs: 20_000,

@@ -12,6 +12,7 @@ describe("parseEnv", () => {
     expect(env.llmApiKey).toBe("llm-key");
     expect(env.llmBaseUrl).toBe("https://api.deepseek.com");
     expect(env.llmReplyModel).toBe("deepseek-chat");
+    expect(env.llmReplyTemperature).toBe(0.6);
     expect(env.llmSummaryModel).toBe("deepseek-chat");
     expect(env.llmSummaryJsonMode).toBe("response_format");
     expect(env.llmTimeoutMs).toBe(45_000);
@@ -68,6 +69,26 @@ describe("parseEnv", () => {
     });
 
     expect(env.llmSummaryJsonMode).toBe("prompt_only");
+  });
+
+  test("parses reply temperature for generic providers", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      LLM_REPLY_TEMPERATURE: "0.45"
+    });
+
+    expect(env.llmReplyTemperature).toBe(0.45);
+  });
+
+  test("parses reply temperature for legacy qwen providers", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      QWEN_API_KEY: "legacy-qwen-key",
+      QWEN_REPLY_TEMPERATURE: "0.5"
+    });
+
+    expect(env.llmReplyTemperature).toBe(0.5);
   });
 
   test("parses LOG_LLM_TEXT as a boolean flag", () => {
