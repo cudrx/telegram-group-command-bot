@@ -12,7 +12,8 @@ import type {
   NormalizedMessage,
   ReplyContext,
   ResolvedParticipantContext,
-  StoredMessage
+  StoredMessage,
+  SummaryResult
 } from "../domain/models.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
@@ -44,28 +45,7 @@ export type LlmReplyResult = {
 };
 
 export type LlmSummaryResult = {
-  result: {
-    chatSummary: string;
-    memoryUpdates: Array<{
-      userId: number;
-      category: string;
-      key: string;
-      valueText: string;
-      stability: "core" | "durable" | "volatile";
-      sourceKind: "explicit" | "observed" | "inferred";
-      confidence: number;
-      cardinality: "single" | "multi";
-    }>;
-    selfMemoryUpdates: Array<{
-      category: string;
-      key: string;
-      valueText: string;
-      stability: "core" | "durable" | "volatile";
-      sourceKind: "explicit" | "observed" | "inferred";
-      confidence: number;
-      cardinality: "single" | "multi";
-    }>;
-  };
+  result: SummaryResult;
   model: string;
   latencyMs: number;
   attemptCount: number;
@@ -82,7 +62,6 @@ export type LlmClient = {
   generateReply(input: {
     persona: string;
     chatSummary: string | null;
-    selfMemoryContext: string | null;
     participantMemoryContext: string | null;
     socialIntent: boolean;
     socialIntentReason: string | null;
@@ -283,12 +262,7 @@ export class ChatOrchestrator {
         chatId,
         result.summary.result,
         result.lastMessageId,
-        result.updatedAt,
-        {
-          userId: this.deps.bot.userId,
-          username: this.deps.bot.username,
-          displayName: this.deps.bot.displayName
-        }
+        result.updatedAt
       );
 
       logger.info("summary_job_completed", {
@@ -336,10 +310,6 @@ export class ChatOrchestrator {
       messageContextLimit: this.deps.env.messageContextLimit
     });
     const triggerText = replyContext.triggerMessage?.text ?? "";
-    const selfMemoryContext = this.deps.db.getParticipantMemoryContext(
-      request.chatId,
-      this.deps.bot.userId
-    );
     const participantMemoryContext =
       request.fromUserId === null
         ? null
@@ -373,7 +343,6 @@ export class ChatOrchestrator {
     return this.deps.qwen.generateReply({
       persona,
       chatSummary: chatState.summaryText,
-      selfMemoryContext,
       participantMemoryContext,
       socialIntent: socialIntent.isSocialQa,
       socialIntentReason: socialIntent.reason,

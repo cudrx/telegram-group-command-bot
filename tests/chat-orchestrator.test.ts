@@ -200,7 +200,7 @@ describe("ChatOrchestrator", () => {
     expect(db.getChatState(1)?.summaryText).toBe("обновлённая выжимка");
   });
 
-  test("passes self-memory of the bot into reply generation", async () => {
+  test("does not pass bot self-memory into reply generation", async () => {
     const db = new FakeDatabaseClient();
 
     db.saveIncomingMessage(
@@ -224,26 +224,10 @@ describe("ChatOrchestrator", () => {
       1,
       {
         chatSummary: "summary",
-        memoryUpdates: [],
-        selfMemoryUpdates: [
-          {
-            category: "relationship",
-            key: "running_joke_with_tom",
-            valueText: "часто шутит про дедлайны с Томом",
-            stability: "durable",
-            sourceKind: "observed",
-            confidence: 0.81,
-            cardinality: "single"
-          }
-        ]
+        memoryUpdates: []
       },
       2,
-      "2026-04-03T12:05:00.000Z",
-      {
-        userId: 77,
-        username: "fun_bot",
-        displayName: "Fun Bot"
-      }
+      "2026-04-03T12:05:00.000Z"
     );
 
     const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
@@ -269,9 +253,10 @@ describe("ChatOrchestrator", () => {
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        selfMemoryContext: expect.stringContaining("running_joke_with_tom: часто шутит про дедлайны с Томом")
+        replyContext: expect.any(Object)
       })
     );
+    expect(generateReply.mock.calls[0]?.[0]).not.toHaveProperty("selfMemoryContext");
   });
 
   test("loads persona with chat-specific context for the current chat", async () => {
@@ -630,8 +615,7 @@ function createSummaryResult(chatSummary: string): LlmSummaryResult {
   return {
     result: {
       chatSummary,
-      memoryUpdates: [],
-      selfMemoryUpdates: []
+      memoryUpdates: []
     },
     model: "summary-model",
     latencyMs: 30,
@@ -829,12 +813,7 @@ class FakeDatabaseClient {
     chatId: number,
     result: SummaryResult,
     appliedThroughMessageId: number,
-    updatedAt: string,
-    botIdentity?: {
-      userId: number;
-      username: string | null;
-      displayName: string;
-    }
+    updatedAt: string
   ): void {
     const chat = this.chats.get(chatId);
 
@@ -849,23 +828,6 @@ class FakeDatabaseClient {
 
     for (const update of result.memoryUpdates) {
       this.applyMemoryUpdate(chatId, update.userId, update, updatedAt);
-    }
-
-    if (botIdentity) {
-      this.profiles.set(this.getProfileKey(chatId, botIdentity.userId), {
-        chatId,
-        userId: botIdentity.userId,
-        username: botIdentity.username,
-        displayName: botIdentity.displayName,
-        profileSummaryText: this.profiles.get(this.getProfileKey(chatId, botIdentity.userId))
-          ?.profileSummaryText ?? null,
-        profileUpdatedAt: this.profiles.get(this.getProfileKey(chatId, botIdentity.userId))
-          ?.profileUpdatedAt ?? null
-      });
-
-      for (const update of result.selfMemoryUpdates) {
-        this.applyMemoryUpdate(chatId, botIdentity.userId, update, updatedAt);
-      }
     }
   }
 
@@ -932,7 +894,7 @@ class FakeDatabaseClient {
   private applyMemoryUpdate(
     chatId: number,
     userId: number,
-    update: SummaryResult["memoryUpdates"][number] | SummaryResult["selfMemoryUpdates"][number],
+    update: SummaryResult["memoryUpdates"][number],
     updatedAt: string
   ): void {
     const profileKey = this.getProfileKey(chatId, userId);

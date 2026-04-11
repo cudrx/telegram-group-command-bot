@@ -59,7 +59,6 @@ describe("prompt builders", () => {
     const prompt = buildReplyPrompt({
       persona: "будь дерзким, но добрым",
       chatSummary: null,
-      selfMemoryContext: "[durable] running_joke_with_tom: шутит про дедлайны",
       participantMemoryContext: "[core] height: высокий; [durable] favorite_club: Ливерпуль",
       socialIntent: false,
       socialIntentReason: null,
@@ -116,7 +115,7 @@ describe("prompt builders", () => {
     expect(prompt).toContain("Current message:");
     expect(prompt).toContain("Message of yours being replied to:");
     expect(prompt).toContain("Earlier human context:");
-    expect(prompt).toContain("Chat-local self memory:");
+    expect(prompt).not.toContain("Chat-local self memory:");
     expect(prompt).toContain("Chat-local participant memory:");
     expect(prompt).toContain("Social intent: no special social question detected.");
     expect(prompt).toContain("Resolved participants:");
@@ -135,7 +134,6 @@ describe("prompt builders", () => {
         "Можешь мягко подъебнуть, но если человеку тяжело, поддерживаешь по-доброму"
       ].join("\n"),
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -161,7 +159,6 @@ describe("prompt builders", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -187,7 +184,6 @@ describe("prompt builders", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -214,7 +210,6 @@ describe("prompt builders", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -241,8 +236,6 @@ describe("prompt builders", () => {
       persona: "Ты Хрюпа",
       chatSummary:
         "The bot appears to be stuck in a loop, especially around 'Олег, ты как ведро с водой — всё капает, но ни разу не выливаешь'.",
-      selfMemoryContext:
-        "[durable] recurring_joke_with_oleg: repeats the 'ведро с водой' line every time Oleg speaks, creating a looped joke",
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -285,7 +278,6 @@ describe("prompt builders", () => {
     const prompt = buildReplyPrompt({
       persona: "будь дерзким, но добрым",
       chatSummary: "в чате спокойно",
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: true,
       socialIntentReason: "relationship_question",
@@ -326,7 +318,6 @@ describe("prompt builders", () => {
     const prompt = buildReplyPrompt({
       persona: "Ты Хрюпа",
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: true,
       socialIntentReason: "participant_description_request",
@@ -383,14 +374,13 @@ describe("prompt builders", () => {
     });
 
     expect(prompt).toContain("memoryUpdates");
-    expect(prompt).toContain("selfMemoryUpdates");
+    expect(prompt).not.toContain("selfMemoryUpdates");
     expect(prompt).toContain('"key": "favorite_club"');
-    expect(prompt).toContain('"key": "running_joke_with_tom"');
     expect(prompt).toContain("stability meanings: core = almost never changes");
     expect(prompt).toContain("Do not infer ethnicity, nationality, religion, health, politics");
-    expect(prompt).toContain("Never use selfMemoryUpdates to rewrite the bot's core persona");
-    expect(prompt).toContain("describe it as behavior to avoid rather than a joke to continue");
-    expect(prompt).toContain("Do not copy exact distinctive bot phrases into chatSummary or selfMemoryUpdates");
+    expect(prompt).toContain("Do not create long-term memory about the bot's own behavior");
+    expect(prompt).toContain("describe that only in chatSummary as an anti-pattern to avoid");
+    expect(prompt).toContain("Do not copy exact distinctive bot phrases into chatSummary");
     expect(prompt).toContain("Return only a single valid JSON object.");
     expect(prompt).toContain("Do not wrap the JSON in markdown fences.");
     expect(prompt).toContain("Do not add explanations before or after the JSON.");
@@ -401,13 +391,12 @@ describe("prompt builders", () => {
 describe("extractJsonObject", () => {
   test("extracts json from fenced code block", () => {
     const parsed = extractJsonObject(
-      '```json\n{"chatSummary":"test","memoryUpdates":[],"selfMemoryUpdates":[]}\n```'
+      '```json\n{"chatSummary":"test","memoryUpdates":[]}\n```'
     );
 
     expect(parsed).toEqual({
       chatSummary: "test",
-      memoryUpdates: [],
-      selfMemoryUpdates: []
+      memoryUpdates: []
     });
   });
 });

@@ -48,7 +48,6 @@ describe("OpenAiCompatibleLlmClient", () => {
     await client.generateReply({
       persona: "Persona",
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -122,7 +121,6 @@ describe("OpenAiCompatibleLlmClient", () => {
       client.generateReply({
         persona: "Persona",
         chatSummary: null,
-        selfMemoryContext: null,
         participantMemoryContext: null,
         socialIntent: false,
         socialIntentReason: null,
@@ -179,7 +177,6 @@ describe("OpenAiCompatibleLlmClient", () => {
     await client.generateReply({
       persona: "Persona",
       chatSummary: null,
-      selfMemoryContext: null,
       participantMemoryContext: null,
       socialIntent: false,
       socialIntentReason: null,
@@ -285,17 +282,6 @@ describe("OpenAiCompatibleLlmClient", () => {
                             confidence: 0.9,
                             cardinality: "single"
                           }
-                        ],
-                        selfMemoryUpdates: [
-                          {
-                            category: "relationship",
-                            key: "running_joke_with_tom",
-                            valueText: "teases Tom about deadlines",
-                            stability: "durable",
-                            sourceKind: "observed",
-                            confidence: 0.81,
-                            cardinality: "single"
-                          }
                         ]
                       })
                     }
@@ -307,6 +293,25 @@ describe("OpenAiCompatibleLlmClient", () => {
         }
       } as never
     );
+
+    const summary = await client.summarizeConversation({
+      chatTitle: "Friends",
+      currentSummary: null,
+      messages: []
+    });
+
+    expect(summary).toMatchObject({
+      result: {
+        chatSummary: "test",
+        memoryUpdates: [
+          {
+            userId: 42,
+            key: "favorite_club"
+          }
+        ]
+      }
+    });
+    expect(summary).not.toHaveProperty("result.selfMemoryUpdates");
 
     await expect(
       client.summarizeConversation({
@@ -321,11 +326,6 @@ describe("OpenAiCompatibleLlmClient", () => {
           {
             userId: 42,
             key: "favorite_club"
-          }
-        ],
-        selfMemoryUpdates: [
-          {
-            key: "running_joke_with_tom"
           }
         ]
       }
@@ -359,7 +359,7 @@ describe("OpenAiCompatibleLlmClient", () => {
                   {
                     message: {
                       content:
-                        '```json\n{"chatSummary":"test","memoryUpdates":[],"selfMemoryUpdates":[]}\n```'
+                        '```json\n{"chatSummary":"test","memoryUpdates":[]}\n```'
                     }
                   }
                 ]
@@ -379,8 +379,7 @@ describe("OpenAiCompatibleLlmClient", () => {
     ).resolves.toMatchObject({
       result: {
         chatSummary: "test",
-        memoryUpdates: [],
-        selfMemoryUpdates: []
+        memoryUpdates: []
       }
     });
 
@@ -464,7 +463,6 @@ describe("OpenAiCompatibleLlmClient", () => {
       client.generateReply({
         persona: "Persona",
         chatSummary: null,
-        selfMemoryContext: null,
         participantMemoryContext: null,
         socialIntent: false,
         socialIntentReason: null,

@@ -7,7 +7,6 @@ import {
   normalizeParticipantMemoryValue,
   pickMoreStableMemoryStability,
   pickStrongerMemorySource,
-  shouldRejectBotSelfMemoryUpdate,
   shouldRejectParticipantMemoryUpdate
 } from "../../src/domain/participant-memory.js";
 import type { ParticipantMemory } from "../../src/domain/models.js";
@@ -48,20 +47,6 @@ describe("participant-memory", () => {
         cardinality: "single"
       })
     ).toBe(false);
-  });
-
-  test("rejects bot self-memory updates that try to rewrite core persona", () => {
-    expect(
-      shouldRejectBotSelfMemoryUpdate({
-        category: "identity",
-        key: "persona",
-        valueText: "теперь строгий модератор",
-        stability: "core",
-        sourceKind: "observed",
-        confidence: 0.92,
-        cardinality: "single"
-      })
-    ).toBe(true);
   });
 
   test("gives volatile memories a TTL and keeps durable/core memories without expiry", () => {

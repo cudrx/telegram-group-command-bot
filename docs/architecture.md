@@ -9,7 +9,7 @@
 - читать текстовые сообщения из Telegram;
 - сохранять сообщения, чаты и участников в `SQLite`;
 - хранить chat-scoped память об участниках в виде атомарных фактов вместо одной текстовой сводки;
-- хранить chat-local self-memory самого бота поверх глобального persona-ядра;
+- не хранить долгосрочную self-memory самого бота в MVP; в prompt для ответа допускается только конкретное bot-сообщение, на которое отвечают, внутри causal reply context;
 - добавлять per-chat persona override из `config/personas/<chat_id>.md`, если такой файл существует;
 - отвечать на `@mention` и `reply`;
 - иногда случайно вмешиваться в беседу по вероятности из `.env`;
@@ -33,7 +33,9 @@
 - плоское окно recent messages не должно подменять causal reply context для `reply_to_bot`, потому что оно теряет причинную связь между репликами;
 - reply prompt context не должен дублировать текущее trigger-сообщение или bot-сообщение, на которое отвечают, внутри фонового transcript; `Current message` и `Message of yours being replied to` являются каноническими местами для этих сообщений, а `Earlier human context` содержит только предыдущий человеческий контекст;
 - временные phrase-specific bans про конкретные метафоры или шаблоны не являются поддерживаемым архитектурным safeguard; устойчивость должна обеспечиваться структурированным контекстом ответа и тем, что summary/memory подаются как аналитический фон, а не как текст для копирования.
-- если `chatSummary`, participant memory или chat-local self-memory описывают повтор фразы, зацикливание, malfunction или ошибку времени, reply prompt должен трактовать это как поведение, которого нужно избегать, а не как running joke или стиль для продолжения.
+- если `chatSummary` описывает повтор фразы, зацикливание, malfunction или ошибку времени, reply prompt должен трактовать это как поведение, которого нужно избегать, а не как running joke или стиль для продолжения; distinctive phrases не следует копировать без необходимости.
+- bot-derived long-term memory не является частью prompt для генерации ответа; из bot-authored текста допустимо только конкретное bot-сообщение, на которое отвечают, внутри causal reply context.
+- idle summary возвращает только participant `memoryUpdates`; bot self-memory deltas не генерируются.
 - social-QA ответы про участников должны быть evidence-bound: если stored participant memory отсутствует, бот не должен выдумывать устойчивые черты характера, биографию, отношения или привычки; допустимы только осторожные наблюдения из свежего видимого контекста.
 
 ## Component Map
@@ -98,8 +100,7 @@
 5. Если ответ нужен:
    - подтягивается глобальная persona;
    - при наличии добавляется chat-specific persona override;
-   - подтягивается chat-local self-memory бота;
-   - self-memory используется только как аналитический фон о локальной динамике чата, а не как источник готовых фраз для следующей реплики;
+   - long-term bot self-memory не подтягивается и не участвует в reply generation;
    - собирается causal reply context; для обычных триггеров он может включать bounded prior human context, но для `reply_to_bot` не должен подменяться плоским recent-window;
    - берётся текущий summary чата;
    - собирается chat-local memory context по участнику;
@@ -115,10 +116,9 @@
 3. Берётся новый хвост сообщений после `summary_cursor_message_id`.
 4. LLM слой возвращает:
    - обновлённое summary чата;
-   - массив `memoryUpdates`.
-   - массив `selfMemoryUpdates` для локальной памяти персонажа.
+   - массив `memoryUpdates` только для участников.
 5. Summary prompt должен описывать повторяющиеся ошибки, loops и time mistakes как поведение, которого нужно избегать, и не копировать точные distinctive bot phrases без необходимости.
-6. БД мержит memory deltas, supersede'ит конфликтующие single-value факты, не даёт self-memory переписать core persona, истекает volatile память и двигает курсор.
+6. БД мержит memory deltas, supersede'ит конфликтующие single-value факты, истекает volatile память и двигает курсор.
 
 ## Database Model
 
@@ -158,8 +158,7 @@
 - `cardinality` (`single` / `multi`);
 - статус (`active` / `superseded` / `expired`);
 - времена появления, подтверждения и истечения.
-
-Тот же memory-layer используется и для chat-local self-memory бота, но summary не может писать туда `core`-факты или переписывать базовую persona-конфигурацию.
+В MVP этот слой не используется для долгосрочной self-memory бота.
 
 ### `messages`
 
@@ -170,7 +169,8 @@
 Это честные ограничения текущего `MVP`, а не забытые детали:
 
 - один процесс и один `SQLite`-файл;
-- одна глобальная persona-основа, опциональные per-chat persona overrides и chat-local self-memory поверх этого слоя;
+- одна глобальная persona-основа и опциональные per-chat persona overrides;
+- никакой долгосрочной bot self-memory в reply path и summary path;
 - нет админ-команд и веб-интерфейса;
 - нет полноценной очереди задач;
 - observability пока ограничена локальными structured logs;

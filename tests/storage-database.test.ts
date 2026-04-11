@@ -157,8 +157,7 @@ describeWithSqlite("DatabaseClient", () => {
       1,
       {
         chatSummary: "краткая выжимка",
-        memoryUpdates: [],
-        selfMemoryUpdates: []
+        memoryUpdates: []
       },
       1,
       "2026-04-03T12:05:00.000Z"
@@ -205,8 +204,7 @@ describeWithSqlite("DatabaseClient", () => {
             confidence: 0.9,
             cardinality: "single"
           }
-        ],
-        selfMemoryUpdates: []
+        ]
       },
       1,
       "2026-04-03T12:02:00.000Z"
@@ -226,8 +224,7 @@ describeWithSqlite("DatabaseClient", () => {
             confidence: 0.95,
             cardinality: "single"
           }
-        ],
-        selfMemoryUpdates: []
+        ]
       },
       1,
       "2026-04-03T12:03:00.000Z"
@@ -280,8 +277,7 @@ describeWithSqlite("DatabaseClient", () => {
             confidence: 0.8,
             cardinality: "single"
           }
-        ],
-        selfMemoryUpdates: []
+        ]
       },
       1,
       "2026-04-03T12:00:00.000Z"
@@ -301,8 +297,7 @@ describeWithSqlite("DatabaseClient", () => {
             confidence: 0.95,
             cardinality: "single"
           }
-        ],
-        selfMemoryUpdates: []
+        ]
       },
       1,
       "2026-04-10T12:00:00.000Z"
@@ -445,8 +440,7 @@ describeWithSqlite("DatabaseClient", () => {
       1,
       {
         chatSummary: "summary",
-        memoryUpdates: [],
-        selfMemoryUpdates: []
+        memoryUpdates: []
       },
       3,
       "2026-04-02T12:00:00.000Z"
@@ -459,74 +453,6 @@ describeWithSqlite("DatabaseClient", () => {
     });
 
     expect(db.getRecentMessages(1, 10).map((message) => message.messageId)).toEqual([3, 4]);
-
-    db.close();
-  });
-
-  test("stores bot self-memory in the same chat-local memory layer without rewriting core persona", () => {
-    const db = createDatabase();
-
-    db.saveIncomingMessage(
-      createIncomingMessage({
-        chatId: 1,
-        messageId: 1,
-        createdAt: "2026-04-03T12:00:00.000Z",
-        text: "@bot погнали"
-      })
-    );
-    db.saveBotMessage({
-      chatId: 1,
-      chatType: "group",
-      chatTitle: "Friends",
-      messageId: 2,
-      text: "я тут, как всегда, шучу про дедлайны",
-      createdAt: "2026-04-03T12:01:00.000Z",
-      userId: 77,
-      username: "fun_bot",
-      displayName: "Fun Bot"
-    });
-
-    db.applySummary(
-      1,
-      {
-        chatSummary: "summary",
-        memoryUpdates: [],
-        selfMemoryUpdates: [
-          {
-            category: "relationship",
-            key: "running_joke_with_tom",
-            valueText: "часто шутит про дедлайны с Томом",
-            stability: "durable",
-            sourceKind: "observed",
-            confidence: 0.81,
-            cardinality: "single"
-          },
-          {
-            category: "identity",
-            key: "persona",
-            valueText: "теперь строгий модератор",
-            stability: "core",
-            sourceKind: "observed",
-            confidence: 0.9,
-            cardinality: "single"
-          }
-        ]
-      },
-      2,
-      "2026-04-03T12:02:00.000Z",
-      {
-        userId: 77,
-        username: "fun_bot",
-        displayName: "Fun Bot"
-      }
-    );
-
-    expect(db.getParticipantMemoryContext(1, 77)).toContain(
-      "running_joke_with_tom"
-    );
-    expect(db.getParticipantMemoryContext(1, 77)).not.toContain(
-      "строгий модератор"
-    );
 
     db.close();
   });

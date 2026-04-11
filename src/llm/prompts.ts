@@ -20,7 +20,6 @@ export function formatConversationForLlm(messages: PromptMessage[]): string {
 export function buildReplyPrompt(input: {
   persona: string;
   chatSummary: string | null;
-  selfMemoryContext: string | null;
   participantMemoryContext: string | null;
   socialIntent: boolean;
   socialIntentReason: string | null;
@@ -55,9 +54,6 @@ export function buildReplyPrompt(input: {
     "",
     "Chat summary:",
     input.chatSummary ?? "No summary yet.",
-    "",
-    "Chat-local self memory:",
-    input.selfMemoryContext ?? "No self memory yet.",
     "",
     "Chat-local participant memory:",
     input.participantMemoryContext ?? "No participant memory yet.",
@@ -116,17 +112,6 @@ export function buildSummaryPrompt(input: {
       '      "cardinality": "single"',
       "    }",
       "  ],",
-      '  "selfMemoryUpdates": [',
-      "    {",
-      '      "category": "relationship",',
-      '      "key": "running_joke_with_tom",',
-      '      "valueText": "часто шутит про дедлайны с Томом",',
-      '      "stability": "durable",',
-      '      "sourceKind": "observed",',
-      '      "confidence": 0.81,',
-      '      "cardinality": "single"',
-      "    }",
-      "  ]",
       "}"
     ].join("\n"),
     "Return only a single valid JSON object.",
@@ -134,11 +119,9 @@ export function buildSummaryPrompt(input: {
     "Do not add explanations before or after the JSON.",
     "Only include participants that actually appeared in the provided message chunk.",
     "Only store facts that are useful beyond this chunk.",
-    "Use selfMemoryUpdates only for the bot's chat-local evolving memory: promises, recurring jokes, local relationships, or habits in this specific chat.",
-    "If the bot repeated a phrase, got stuck in a loop, malfunctioned, or made a time mistake, describe it as behavior to avoid rather than a joke to continue.",
-    "Do not copy exact distinctive bot phrases into chatSummary or selfMemoryUpdates unless the exact wording is necessary to understand the event.",
-    "Never use selfMemoryUpdates to rewrite the bot's core persona, name, global role, or system rules.",
-    "For selfMemoryUpdates, only use durable or volatile stability.",
+    "Do not create long-term memory about the bot's own behavior, identity, habits, repeated phrases, loops, or time mistakes.",
+    "If the bot repeated a phrase, got stuck in a loop, malfunctioned, or made a time mistake, describe that only in chatSummary as an anti-pattern to avoid.",
+    "Do not copy exact distinctive bot phrases into chatSummary unless the exact wording is necessary to understand the event.",
     "Use category values like identity, appearance, preference, background, relationship, activity.",
     "Use snake_case keys.",
     "stability meanings: core = almost never changes, durable = can change but usually slowly, volatile = temporary/current.",

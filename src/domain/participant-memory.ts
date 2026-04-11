@@ -1,5 +1,4 @@
 import type {
-  BotSelfMemoryUpdate,
   ParticipantMemory,
   ParticipantMemorySourceKind,
   ParticipantMemoryStability,
@@ -20,19 +19,6 @@ const SENSITIVE_MEMORY_KEYS = new Set([
   "sexual_orientation",
   "gender_identity"
 ]);
-const RESERVED_BOT_SELF_MEMORY_KEYS = new Set([
-  "persona",
-  "identity",
-  "character",
-  "role",
-  "name",
-  "bot_name",
-  "system_prompt",
-  "developer_prompt",
-  "policy",
-  "instruction"
-]);
-
 export function normalizeParticipantMemoryKey(input: string): string {
   return input
     .trim()
@@ -58,22 +44,6 @@ export function shouldRejectParticipantMemoryUpdate(
   update: ParticipantMemoryUpdate
 ): boolean {
   return shouldRejectMemoryUpdate(update);
-}
-
-export function shouldRejectBotSelfMemoryUpdate(
-  update: BotSelfMemoryUpdate
-): boolean {
-  if (shouldRejectMemoryUpdate(update)) {
-    return true;
-  }
-
-  const normalizedKey = normalizeParticipantMemoryKey(update.key);
-
-  return (
-    update.stability === "core" ||
-    update.sourceKind === "inferred" ||
-    RESERVED_BOT_SELF_MEMORY_KEYS.has(normalizedKey)
-  );
 }
 
 export function isSensitiveParticipantMemoryKey(key: string): boolean {
