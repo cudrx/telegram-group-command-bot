@@ -20,6 +20,8 @@ const botOn = vi.fn();
 const botCatch = vi.fn();
 const botUse = vi.fn();
 const botSendMessage = vi.fn();
+const botSendChatAction = vi.fn();
+const chatOrchestratorConstructor = vi.fn();
 
 const botState: {
   middleware: ((ctx: { update: Record<string, unknown> }, next: () => Promise<void>) => Promise<void>) | undefined;
@@ -35,7 +37,8 @@ vi.mock("grammy", () => {
   class Bot {
     public readonly api = {
       getMe: botGetMe,
-      sendMessage: botSendMessage
+      sendMessage: botSendMessage,
+      sendChatAction: botSendChatAction
     };
 
     constructor(public readonly token: string) {}
@@ -103,10 +106,14 @@ vi.mock("../src/logging/logger.js", () => ({
 }));
 
 vi.mock("../src/app/chat-orchestrator.js", () => ({
-  ChatOrchestrator: vi.fn().mockImplementation(() => ({
-    handleIncomingMessage,
-    runIdleSummarySweep
-  }))
+  ChatOrchestrator: vi.fn().mockImplementation((...args: unknown[]) => {
+    chatOrchestratorConstructor(...args);
+
+    return {
+      handleIncomingMessage,
+      runIdleSummarySweep
+    };
+  })
 }));
 
 describe("createApplication", () => {
@@ -162,6 +169,15 @@ describe("createApplication", () => {
       }),
       logLlmText: false
     });
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          sendTyping?: (chatId: number) => Promise<void>;
+        }
+      | undefined;
+
+    expect(orchestratorDeps?.sendTyping).toEqual(expect.any(Function));
+    await orchestratorDeps?.sendTyping?.(-1001);
+    expect(botSendChatAction).toHaveBeenCalledWith(-1001, "typing");
 
     await app.start();
 
@@ -289,6 +305,13 @@ function createEnv(): AppEnv {
     messageContextLimit: 16,
     summarySweepIntervalMs: 60_000,
     messageRetentionDays: 180,
-    logLlmText: false
+    logLlmText: false,
+    replyToBotLoopCooldownMs: 15_000,
+    replyToBotMinIntervalMs: 2500,
+    replyRecentBotMessagesForGuard: 8,
+    replyLoopBreakerText: "я зациклился, приторможу",
+    replyMinTypingMs: 900,
+    replyMaxTypingMs: 2200,
+    replyTypingRefreshMs: 4000
   };
 }

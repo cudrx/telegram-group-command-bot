@@ -502,6 +502,452 @@ describe("ChatOrchestrator", () => {
     );
   });
 
+  test("skips the llm and sends a deterministic loop breaker for repeated reply-to-bot chains", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 100,
+        text: "@fun_bot они тебя обижают?",
+        entities: [{ type: "mention", offset: 0, length: 8 }],
+        createdAt: "2026-04-13T08:59:57.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 101,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T08:59:58.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 100
+    });
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 102,
+        text: "Ты анальная пробка?",
+        replyToUserId: 77,
+        replyToMessageId: 101,
+        createdAt: "2026-04-13T08:59:59.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 103,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T09:00:00.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 102
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно вызываться"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1008,
+      createdAt: "2026-04-13T09:00:11.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      now: () => "2026-04-13T09:00:10.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 104,
+        text: "Ты анальная пробка?",
+        replyToUserId: 77,
+        replyToMessageId: 103,
+        createdAt: "2026-04-13T09:00:10.000Z"
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyToMessageId: 104,
+        text: "я зациклился, приторможу"
+      })
+    );
+  });
+
+  test("skips repeated loop breaker replies without calling the llm", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 110,
+        text: "Ты анальная пробка?",
+        createdAt: "2026-04-13T09:00:00.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 111,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T09:00:01.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 110
+    });
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 112,
+        text: "Ты анальная пробка?",
+        replyToUserId: 77,
+        replyToMessageId: 111,
+        createdAt: "2026-04-13T09:00:02.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 113,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T09:00:03.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 112
+    });
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 114,
+      text: "я зациклился, приторможу",
+      createdAt: "2026-04-13T09:00:04.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 112
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно вызываться"));
+    const replyDispatcher = vi.fn();
+    const sendTyping = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      sendTyping,
+      now: () => "2026-04-13T09:00:10.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 115,
+        text: "Ты анальная пробка?",
+        replyToUserId: 77,
+        replyToMessageId: 113,
+        createdAt: "2026-04-13T09:00:10.000Z"
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(sendTyping).not.toHaveBeenCalled();
+  });
+
+  test("keeps queued reply-to-bot loops recent relative to the trigger time", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 210,
+        text: "Ты анальная пробка?",
+        createdAt: "2026-04-13T09:00:00.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 211,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T09:00:01.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 210
+    });
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 212,
+        text: "Ты анальная пробка?",
+        replyToUserId: 77,
+        replyToMessageId: 211,
+        createdAt: "2026-04-13T09:00:02.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 213,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T09:00:03.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 212
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно вызываться"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1011,
+      createdAt: "2026-04-13T09:05:00.000Z"
+    });
+    const sendTyping = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      sendTyping,
+      now: () => "2026-04-13T09:05:00.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 214,
+        text: "Ты анальная пробка?",
+        replyToUserId: 77,
+        replyToMessageId: 213,
+        createdAt: "2026-04-13T09:00:10.000Z"
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "я зациклился, приторможу"
+      })
+    );
+    expect(sendTyping).toHaveBeenCalledWith(1);
+  });
+
+  test("skips non-looping reply-to-bot messages inside the short group cooldown", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 120,
+        text: "ну чо",
+        createdAt: "2026-04-13T09:00:00.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 121,
+      text: "да тут я",
+      createdAt: "2026-04-13T09:00:01.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 120
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно вызываться"));
+    const replyDispatcher = vi.fn();
+    const sendTyping = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      sendTyping,
+      now: () => "2026-04-13T09:00:02.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 122,
+        text: "а сейчас?",
+        replyToUserId: 77,
+        replyToMessageId: 121,
+        createdAt: "2026-04-13T09:00:02.000Z"
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(sendTyping).not.toHaveBeenCalled();
+  });
+
+  test("does not apply the reply-to-bot cooldown to private chats", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveBotMessage({
+      chatId: 99,
+      chatType: "private",
+      chatTitle: null,
+      messageId: 200,
+      text: "да тут я",
+      createdAt: "2026-04-13T09:00:01.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: null
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("частный ответ"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1009,
+      createdAt: "2026-04-13T09:00:02.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      now: () => "2026-04-13T09:00:02.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        chatId: 99,
+        chatType: "private",
+        messageId: 201,
+        text: "а сейчас?",
+        replyToUserId: 77,
+        replyToMessageId: 200,
+        createdAt: "2026-04-13T09:00:02.000Z"
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledTimes(1);
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "частный ответ"
+      })
+    );
+  });
+
+  test("replaces duplicate llm output with deterministic loop breaker", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 130,
+      text: "ну ты и говно, да\nа я тут просто сижу, как винтик в дыре",
+      createdAt: "2026-04-13T09:00:00.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: null
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(
+        createReplyResult("ну ты и говно да а я просто сижу как винтик в дыре")
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1010,
+      createdAt: "2026-04-13T09:00:10.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      now: () => "2026-04-13T09:00:10.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 131,
+        text: "@fun_bot повтори?",
+        entities: [{ type: "mention", offset: 0, length: 8 }],
+        createdAt: "2026-04-13T09:00:10.000Z"
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledTimes(1);
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "я зациклился, приторможу"
+      })
+    );
+  });
+
+  test("allows normal short duplicate llm output without replacing it", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 140,
+      text: "да",
+      createdAt: "2026-04-13T09:00:00.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: null
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("да"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1012,
+      createdAt: "2026-04-13T09:00:10.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply,
+        summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
+      },
+      replyDispatcher,
+      now: () => "2026-04-13T09:00:10.000Z"
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 141,
+        text: "@fun_bot да?",
+        entities: [{ type: "mention", offset: 0, length: 8 }],
+        createdAt: "2026-04-13T09:00:10.000Z"
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: "да"
+      })
+    );
+  });
+
   test("analyzes random-gated group messages before generating intervention replies", async () => {
     const db = new FakeDatabaseClient();
     const analyzeIntervention = vi.fn().mockResolvedValue(
@@ -577,6 +1023,7 @@ describe("ChatOrchestrator", () => {
     );
     const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно быть"));
     const replyDispatcher = vi.fn();
+    const sendTyping = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
       qwen: {
@@ -585,6 +1032,7 @@ describe("ChatOrchestrator", () => {
         summarizeConversation: vi.fn().mockResolvedValue(createSummaryResult("summary"))
       },
       replyDispatcher,
+      sendTyping,
       env: {
         ...createEnv(),
         interjectProbability: 1
@@ -601,6 +1049,7 @@ describe("ChatOrchestrator", () => {
     expect(analyzeIntervention).toHaveBeenCalledTimes(1);
     expect(generateReply).not.toHaveBeenCalled();
     expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(sendTyping).not.toHaveBeenCalled();
   });
 
   test("drops stale intervention decisions when newer messages arrive during analysis", async () => {
@@ -672,6 +1121,8 @@ function createOrchestrator(input: {
   loadPersona?: (filePath: string, chatId?: number) => Promise<string>;
   now?: () => string;
   random?: () => number;
+  sendTyping?: (chatId: number) => Promise<void>;
+  delay?: (ms: number) => Promise<void>;
 }): ChatOrchestrator {
   return new ChatOrchestrator({
     db: input.db as unknown as DatabaseClient,
@@ -698,6 +1149,8 @@ function createOrchestrator(input: {
       displayName: "Fun Bot"
     },
     replyDispatcher: input.replyDispatcher,
+    sendTyping: input.sendTyping ?? (async (_chatId: number) => {}),
+    delay: input.delay ?? (async (_ms: number) => {}),
     loadPersona:
       input.loadPersona ??
       (async (_filePath: string, _chatId?: number) => "ты весёлый персонаж"),
@@ -728,7 +1181,14 @@ function createEnv(): AppEnv {
     minMessagesForSummary: 10,
     messageContextLimit: 16,
     summarySweepIntervalMs: 60_000,
-    messageRetentionDays: 180
+    messageRetentionDays: 180,
+    replyToBotLoopCooldownMs: 15_000,
+    replyToBotMinIntervalMs: 2500,
+    replyRecentBotMessagesForGuard: 8,
+    replyLoopBreakerText: "я зациклился, приторможу",
+    replyMinTypingMs: 0,
+    replyMaxTypingMs: 0,
+    replyTypingRefreshMs: 4000
   };
 }
 

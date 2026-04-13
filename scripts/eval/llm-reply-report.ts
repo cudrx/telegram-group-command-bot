@@ -14,6 +14,7 @@ export type ManualReplyEvalResult = {
 };
 
 export type ManualReplyEvalRun = {
+  evalName: string;
   startedAt: string;
   model: string;
   baseUrl: string;
@@ -25,6 +26,7 @@ export function formatManualReplyEvalMarkdown(run: ManualReplyEvalRun): string {
   return [
     "# Manual LLM Reply Eval",
     "",
+    `Eval: \`${run.evalName}\``,
     `Started: \`${run.startedAt}\``,
     `Model: \`${run.model}\``,
     `Base URL: \`${run.baseUrl}\``,

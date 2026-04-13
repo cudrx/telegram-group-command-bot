@@ -101,6 +101,43 @@ describe("parseEnv", () => {
     expect(env.logLlmText).toBe(true);
   });
 
+  test("applies reply safety and typing defaults", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key"
+    });
+
+    expect(env.replyToBotLoopCooldownMs).toBe(15_000);
+    expect(env.replyToBotMinIntervalMs).toBe(2500);
+    expect(env.replyRecentBotMessagesForGuard).toBe(8);
+    expect(env.replyLoopBreakerText).toBe("я зациклился, приторможу");
+    expect(env.replyMinTypingMs).toBe(900);
+    expect(env.replyMaxTypingMs).toBe(2200);
+    expect(env.replyTypingRefreshMs).toBe(4000);
+  });
+
+  test("parses reply safety and typing overrides", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      REPLY_TO_BOT_LOOP_COOLDOWN_MS: "7000",
+      REPLY_TO_BOT_MIN_INTERVAL_MS: "1200",
+      REPLY_RECENT_BOT_MESSAGES_FOR_GUARD: "5",
+      REPLY_LOOP_BREAKER_TEXT: "стоп, я повторяюсь",
+      REPLY_MIN_TYPING_MS: "100",
+      REPLY_MAX_TYPING_MS: "200",
+      REPLY_TYPING_REFRESH_MS: "3000"
+    });
+
+    expect(env.replyToBotLoopCooldownMs).toBe(7000);
+    expect(env.replyToBotMinIntervalMs).toBe(1200);
+    expect(env.replyRecentBotMessagesForGuard).toBe(5);
+    expect(env.replyLoopBreakerText).toBe("стоп, я повторяюсь");
+    expect(env.replyMinTypingMs).toBe(100);
+    expect(env.replyMaxTypingMs).toBe(200);
+    expect(env.replyTypingRefreshMs).toBe(3000);
+  });
+
   test("rejects mixed LLM and QWEN provider namespaces", () => {
     expect(() =>
       parseEnv({
@@ -128,5 +165,16 @@ describe("parseEnv", () => {
         LLM_API_KEY: "your-gemini-api-key"
       })
     ).toThrow(/placeholder/i);
+  });
+
+  test("rejects reply typing min values above max values", () => {
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: "telegram-token",
+        LLM_API_KEY: "llm-key",
+        REPLY_MIN_TYPING_MS: "300",
+        REPLY_MAX_TYPING_MS: "200"
+      })
+    ).toThrow(/REPLY_MIN_TYPING_MS must be less than or equal to REPLY_MAX_TYPING_MS\./i);
   });
 });

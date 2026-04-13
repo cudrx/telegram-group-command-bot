@@ -345,6 +345,51 @@ describe("prompt builders", () => {
     expect(prompt).toContain("Do not reuse distinctive wording from chat summary, self memory, participant memory, or your previous reply.");
   });
 
+  test("reply prompt treats omitted anchor bot text as a safety redaction", () => {
+    const prompt = buildReplyPrompt({
+      persona: "будь коротким",
+      chatSummary: null,
+      participantMemoryContext: null,
+      socialIntent: false,
+      socialIntentReason: null,
+      resolvedParticipants: [],
+      socialParticipantContexts: [],
+      targetDisplayName: "Хачик",
+      reason: "reply_to_bot",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 12,
+          userId: 126,
+          senderDisplayName: "Хачик",
+          text: "Ты анальная пробка?",
+          createdAt: "2026-04-13T09:00:10.000Z",
+          isBot: false,
+          replyToMessageId: 11
+        },
+        anchorBotMessage: {
+          chatId: 1,
+          messageId: 11,
+          userId: 77,
+          senderDisplayName: "Хрюпа",
+          text: "[previous bot reply omitted because it appears repetitive or unsafe to copy]",
+          createdAt: "2026-04-13T09:00:09.000Z",
+          isBot: true,
+          replyToMessageId: 10
+        },
+        anchorParentMessage: null,
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain(
+      "[previous bot reply omitted because it appears repetitive or unsafe to copy]"
+    );
+    expect(prompt).toContain(
+      "If the bot message being replied to is omitted, answer only the current user message and earlier human context; do not reconstruct or imitate the omitted wording."
+    );
+  });
+
   test("includes resolved social participants in reply prompts", () => {
     const prompt = buildReplyPrompt({
       persona: "будь дерзким, но добрым",

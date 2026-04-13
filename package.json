@@ -13,7 +13,9 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "eval:llm:manual": "tsx scripts/eval/run-llm-reply-eval.ts"
+    "eval:llm:base": "tsx scripts/eval/run-llm-reply-base-eval.ts",
+    "eval:llm:advanced": "tsx scripts/eval/run-llm-reply-advanced-eval.ts",
+    "eval:llm:manual": "npm run eval:llm:base"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",
