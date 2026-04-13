@@ -13,6 +13,7 @@
 - глобальная persona-основа из [`config/persona.md`](./config/persona.md)
 - доменная логика ответа: `mention` / `reply` / редкое самостоятельное вмешательство через structured intervention analysis
 - causal reply context для ответов на сообщения бота без плоского replay всего recent-window
+- deterministic reply loop guards и Telegram typing indicators для менее спамных ответов
 - evidence-bound social QA: бот не выдумывает устойчивые описания участников без памяти или свежего видимого контекста
 - в MVP нет долгосрочной self-memory бота в reply и summary paths
 - фоновый idle-summary после затихания чата
@@ -79,6 +80,13 @@ npm run dev
 - `LOG_LLM_TEXT`
 - `INTERJECT_PROBABILITY`
 - `INTERJECT_COOLDOWN_MINUTES`
+- `REPLY_TO_BOT_LOOP_COOLDOWN_MS`
+- `REPLY_TO_BOT_MIN_INTERVAL_MS`
+- `REPLY_RECENT_BOT_MESSAGES_FOR_GUARD`
+- `REPLY_LOOP_BREAKER_TEXT`
+- `REPLY_MIN_TYPING_MS`
+- `REPLY_MAX_TYPING_MS`
+- `REPLY_TYPING_REFRESH_MS`
 - `CHAT_IDLE_MINUTES`
 - `MIN_MESSAGES_FOR_SUMMARY`
 - `MESSAGE_CONTEXT_LIMIT`
@@ -113,7 +121,8 @@ docker compose logs bot --tail=200 -f
 - `npm run migrate` (только при первичной установке или изменении схемы)
 - `npm run typecheck`
 - `npm test`
-- `npm run eval:llm:manual` (ручная платная проверка реальных LLM-ответов; не для CI)
+- `npm run eval:llm:base` (ручная платная проверка 3 базовых LLM-ответов; не для CI)
+- `npm run eval:llm:advanced` (ручная платная проверка 3 пограничных LLM-ответов; не для CI)
 - `npm run build`
 
 ## Структура

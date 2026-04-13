@@ -44,6 +44,7 @@ cp .env.example .env
 Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
 Если reply-запросы проходят, а summary-запросы отклоняются из-за `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`. В этом режиме summary остаётся включённым, но JSON запрашивается только через prompt.
 Для отладки LLM-ввода и вывода установите `LOG_LLM_TEXT=true`; для цветных multiline-логов в `docker compose logs` можно добавить `FORCE_COLOR=1`. Если цвет мешает парсингу, используйте `NO_COLOR=1`.
+Для экономии free-tier LLM usage deterministic reply guards должны оставаться до LLM-вызовов. Не переносите loop detection в prompt-only инструкции или отдельный LLM-классификатор: повторяющиеся reply-chain, короткий `reply_to_bot` cooldown и duplicate-output fallback должны работать локально.
 
 3. Отредактировать базовую persona:
 
@@ -75,7 +76,8 @@ npm run dev
 - `npm run dev` — локальный запуск через `tsx watch`
 - `npm run migrate` — создаёт `SQLite`-схему
 - `npm test` — `Vitest`
-- `npm run eval:llm:manual` — ручной платный прогон реальных reply-ответов `LLM`; не для CI
+- `npm run eval:llm:base` — ручной платный прогон 3 базовых reply-ответов `LLM`; не для CI
+- `npm run eval:llm:advanced` — ручной платный прогон 3 пограничных reply-ответов `LLM`; не для CI
 - `npm run typecheck` — `TypeScript` без `emit`
 - `npm run build` — сборка в `dist/`
 - `npm start` — запуск собранного `dist/src/index.js`
@@ -84,15 +86,21 @@ npm run dev
 
 Manual reply evals call the real configured OpenAI-compatible reply model and write local reports into `.eval-runs/`. They are not part of CI and should be run only when intentionally spending provider credits to inspect reply quality.
 
-Run:
+Run the cheap base pack first:
 
 ```bash
-npm run eval:llm:manual
+npm run eval:llm:base
 ```
 
-The command reads `.env`, supports both `LLM_*` and legacy `QWEN_*` provider variables, loads `config/persona.md`, runs the fixed V1 reply scenario pack, and writes both Markdown and JSON reports. After a run, ask Codex to review the newest `.eval-runs/*-llm-reply-eval.md` report and judge each answer manually against the checklist.
+If base looks suspicious or you are intentionally spending more credits on boundary cases, run:
 
-V1 covers `generateReply` behavior only. Summary/memory extraction through SQLite and intervention analysis need separate eval plans so reply style failures do not get mixed with memory-pipeline failures.
+```bash
+npm run eval:llm:advanced
+```
+
+Both commands read `.env`, support both `LLM_*` and legacy `QWEN_*` provider variables, load `config/persona.md`, and write Markdown/JSON reports into `.eval-runs/`. Output filenames include `base` or `advanced`. After a run, ask Codex to review the newest `.eval-runs/*-llm-reply-eval.md` report and judge each answer manually against the checklist.
+
+The base paid pack covers real `generateReply` behavior that can expose prompt regressions around omitted bot anchors, loop complaints, and normal short replies. The advanced pack covers pressure to quote omitted text, insult escalation during loop complaints, and slightly longer short-duplicate replies. Deterministic loop guards, cooldown skips, postflight replacement, and Telegram typing are covered by non-network `Vitest` tests instead of paid evals. Summary/memory extraction through SQLite and intervention analysis need separate eval plans so reply style failures do not get mixed with memory-pipeline failures.
 
 ## Local Docker Workflow
 
@@ -313,6 +321,43 @@ FROM chats
 WHERE chat_id = -1002155313986;
 SQL
 ```
+
+### SQLite Repair After Reply Loop Guard Deploy
+
+Run this only after deploying the reply loop guard code for the main production chat `-1002155313986`. This clears stale summary text that describes old bot loops without resetting `summary_cursor_message_id`, so the bot does not spend extra LLM tokens re-summarizing the old full chat.
+
+1. Backup first:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+BACKUP=/opt/test-chatbot/data/bot-before-reply-loop-guard-2026-04-13.sqlite
+sqlite3 "$DB" ".backup '$BACKUP'"
+```
+
+2. Clear stale summary text only:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+sqlite3 "$DB" <<'SQL'
+UPDATE chats
+SET summary_text = NULL,
+    summary_updated_at = NULL
+WHERE chat_id = -1002155313986;
+SQL
+```
+
+3. Verify that the cursor stayed in place:
+
+```bash
+DB=/opt/test-chatbot/data/bot.sqlite
+sqlite3 "$DB" -header -column <<'SQL'
+SELECT chat_id, summary_text, summary_updated_at, summary_cursor_message_id
+FROM chats
+WHERE chat_id = -1002155313986;
+SQL
+```
+
+Expected: `summary_text` and `summary_updated_at` are `NULL`, while `summary_cursor_message_id` stays unchanged.
 
 ## Memory Model
 
