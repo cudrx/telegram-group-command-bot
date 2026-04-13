@@ -24,8 +24,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     baseUrl: env.llmBaseUrl,
     replyModel: env.llmReplyModel,
     replyTemperature: env.llmReplyTemperature,
-    summaryModel: env.llmSummaryModel,
-    summaryJsonMode: env.llmSummaryJsonMode,
     timeoutMs: env.llmTimeoutMs,
     maxRetries: env.llmMaxRetries
   }, undefined, {
@@ -70,8 +68,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     random: Math.random,
     now: () => new Date().toISOString()
   });
-  let summarySweepTimer: NodeJS.Timeout | null = null;
-
   bot.use(async (ctx, next) => {
     const message = ctx.update.message;
 
@@ -116,11 +112,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
   return {
     async start() {
-      summarySweepTimer = setInterval(() => {
-        void orchestrator.runIdleSummarySweep();
-      }, env.summarySweepIntervalMs);
-      summarySweepTimer.unref();
-
       logger.info("bot_polling_started", {
         allowedUpdates: ["message"]
       });
@@ -131,10 +122,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     },
 
     async stop() {
-      if (summarySweepTimer) {
-        clearInterval(summarySweepTimer);
-      }
-
       bot.stop();
       db.close();
     }

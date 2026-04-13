@@ -49,14 +49,7 @@ describe("detectDirectTrigger", () => {
 describe("decideReplyAction", () => {
   test("always replies to direct mentions", () => {
     const decision = decideReplyAction({
-      directTrigger: "mention",
-      allowDirectMessages: false,
-      allowInterjections: true,
-      interjectProbability: 0.12,
-      randomValue: 0.99,
-      cooldownMs: 1_800_000,
-      lastBotMessageAt: null,
-      now: "2026-04-03T12:00:00.000Z"
+      directTrigger: "mention"
     });
 
     expect(decision).toEqual({
@@ -65,57 +58,36 @@ describe("decideReplyAction", () => {
     });
   });
 
-  test("always replies to ordinary direct messages in private chat", () => {
+  test("ignores ordinary private direct messages without mention or reply", () => {
     const decision = decideReplyAction({
-      directTrigger: "none",
-      allowDirectMessages: true,
-      allowInterjections: false,
-      interjectProbability: 0.12,
-      randomValue: 0.99,
-      cooldownMs: 1_800_000,
-      lastBotMessageAt: null,
-      now: "2026-04-03T12:00:00.000Z"
-    });
-
-    expect(decision).toEqual({
-      shouldReply: true,
-      reason: "direct_message"
-    });
-  });
-
-  test("allows random interjection when cooldown has passed and probability hits", () => {
-    const decision = decideReplyAction({
-      directTrigger: "none",
-      allowDirectMessages: false,
-      allowInterjections: true,
-      interjectProbability: 0.12,
-      randomValue: 0.05,
-      cooldownMs: 1_800_000,
-      lastBotMessageAt: "2026-04-03T11:00:00.000Z",
-      now: "2026-04-03T12:00:00.000Z"
-    });
-
-    expect(decision).toEqual({
-      shouldReply: true,
-      reason: "interjection"
-    });
-  });
-
-  test("stays silent when direct trigger is absent and random roll misses", () => {
-    const decision = decideReplyAction({
-      directTrigger: "none",
-      allowDirectMessages: false,
-      allowInterjections: true,
-      interjectProbability: 0.12,
-      randomValue: 0.8,
-      cooldownMs: 1_800_000,
-      lastBotMessageAt: null,
-      now: "2026-04-03T12:00:00.000Z"
+      directTrigger: "none"
     });
 
     expect(decision).toEqual({
       shouldReply: false,
       reason: "ignore"
+    });
+  });
+
+  test("ignores ordinary group messages instead of interjecting", () => {
+    const decision = decideReplyAction({
+      directTrigger: "none"
+    });
+
+    expect(decision).toEqual({
+      shouldReply: false,
+      reason: "ignore"
+    });
+  });
+
+  test("always replies to replies to the bot", () => {
+    const decision = decideReplyAction({
+      directTrigger: "reply_to_bot"
+    });
+
+    expect(decision).toEqual({
+      shouldReply: true,
+      reason: "reply_to_bot"
     });
   });
 });

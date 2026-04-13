@@ -10,7 +10,7 @@ export function buildReplyContext(input: {
   db: ReplyContextDb;
   chatId: number;
   triggerMessageId: number;
-  reason: "mention" | "reply_to_bot" | "direct_message" | "interjection";
+  reason: "mention" | "reply_to_bot";
   messageContextLimit: number;
 }): ReplyContext {
   const triggerMessage = input.db.getMessageByTelegramMessageId(
@@ -51,7 +51,7 @@ export function buildReplyContext(input: {
 function buildPriorContextMessages(
   db: ReplyContextDb,
   input: {
-    reason: "mention" | "reply_to_bot" | "direct_message" | "interjection";
+    reason: "mention" | "reply_to_bot";
     chatId: number;
     triggerMessage: StoredMessage;
     anchorBotMessage: StoredMessage | null;
