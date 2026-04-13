@@ -1,74 +1,11 @@
 import OpenAI from "openai";
-import { z } from "zod";
 
-import type {
-  InterventionDecision,
-  ReplyContext,
-  StoredMessage,
-  SummaryResult
-} from "../domain/models.js";
+import type { ReplyContext } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
-import {
-  buildInterventionAnalysisPrompt,
-  buildReplyPrompt,
-  buildSummaryPrompt,
-  extractJsonObject
-} from "./prompts.js";
-
-const summarySchema = z.object({
-  chatSummary: z.string().min(1),
-  memoryUpdates: z.array(
-    z.object({
-      userId: z.number().int(),
-      category: z.string().min(1),
-      key: z.string().min(1),
-      valueText: z.string().min(1),
-      stability: z.enum(["core", "durable", "volatile"]),
-      sourceKind: z.enum(["explicit", "observed", "inferred"]),
-      confidence: z.number().min(0).max(1),
-      cardinality: z.enum(["single", "multi"])
-    })
-  ).default([])
-});
-
-const interventionDecisionSchema = z.object({
-  shouldIntervene: z.boolean(),
-  situationKind: z.string().min(1).nullable().default(null),
-  goal: z
-    .enum(["engage", "deescalate", "provoke", "joke", "support"])
-    .nullable()
-    .default(null),
-  intensity: z.enum(["low", "medium", "high"]).nullable().default(null),
-  reason: z.string().min(1).nullable().default(null),
-  confidence: z.number().min(0).max(1)
-}).superRefine((decision, ctx) => {
-  if (decision.shouldIntervene && decision.goal === null) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Intervention goal is required when shouldIntervene is true",
-      path: ["goal"]
-    });
-  }
-});
+import { buildReplyPrompt } from "./prompts.js";
 
 export type LlmReplyResult = {
   text: string;
-  model: string;
-  latencyMs: number;
-  attemptCount: number;
-  promptTokensEstimate: number;
-};
-
-export type LlmSummaryResult = {
-  result: SummaryResult;
-  model: string;
-  latencyMs: number;
-  attemptCount: number;
-  promptTokensEstimate: number;
-};
-
-export type LlmInterventionAnalysisResult = {
-  result: InterventionDecision;
   model: string;
   latencyMs: number;
   attemptCount: number;
@@ -87,8 +24,6 @@ export class OpenAiCompatibleLlmClient {
       baseUrl: string;
       replyModel: string;
       replyTemperature: number;
-      summaryModel: string;
-      summaryJsonMode: "response_format" | "prompt_only";
       timeoutMs: number;
       maxRetries: number;
     },
@@ -113,19 +48,6 @@ export class OpenAiCompatibleLlmClient {
 
   async generateReply(input: {
     persona: string;
-    chatSummary: string | null;
-    participantMemoryContext: string | null;
-    socialIntent: boolean;
-    socialIntentReason: string | null;
-    resolvedParticipants: Array<{
-      userId: number;
-      displayName: string;
-    }>;
-    socialParticipantContexts: Array<{
-      userId: number;
-      displayName: string;
-      participantMemoryContext: string | null;
-    }>;
     targetDisplayName: string;
     reason: string;
     replyContext: ReplyContext;
@@ -179,130 +101,6 @@ export class OpenAiCompatibleLlmClient {
     };
   }
 
-  async summarizeConversation(input: {
-    chatTitle: string | null;
-    currentSummary: string | null;
-    messages: StoredMessage[];
-  }): Promise<LlmSummaryResult> {
-    const prompt = buildSummaryPrompt(input);
-    const startedAt = Date.now();
-    this.logLlmText("llm.summary.request", {
-      kind: "summary",
-      model: this.config.summaryModel,
-      temperature: 0.2,
-      prompt
-    });
-    const completion = await this.withRetry(() =>
-      this.createCompletion({
-        model: this.config.summaryModel,
-        temperature: 0.2,
-        ...(this.config.summaryJsonMode === "response_format"
-          ? {
-              response_format: {
-                type: "json_object" as const
-              }
-            }
-          : {}),
-        messages: [
-          {
-            role: "system",
-            content:
-              "You compress group chat conversations into a short chat summary and participant memory deltas. Return only a valid JSON object."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
-      })
-    );
-    const raw = completion.value.choices[0]?.message.content?.trim();
-
-    if (!raw) {
-      throw new Error("Summary model returned empty content");
-    }
-
-    this.logLlmText("llm.summary.response", {
-      kind: "summary",
-      model: this.config.summaryModel,
-      latencyMs: Date.now() - startedAt,
-      attemptCount: completion.attemptCount,
-      promptTokensEstimate: estimateTokens(prompt),
-      response: raw
-    });
-
-    return {
-      result: summarySchema.parse(extractJsonObject(raw)),
-      model: this.config.summaryModel,
-      latencyMs: Date.now() - startedAt,
-      attemptCount: completion.attemptCount,
-      promptTokensEstimate: estimateTokens(prompt)
-    };
-  }
-
-  async analyzeIntervention(input: {
-    chatTitle: string | null;
-    chatSummary: string | null;
-    messages: StoredMessage[];
-    lastBotMessageAt: string | null;
-    now: string;
-  }): Promise<LlmInterventionAnalysisResult> {
-    const prompt = buildInterventionAnalysisPrompt(input);
-    const startedAt = Date.now();
-    this.logLlmText("llm.intervention.request", {
-      kind: "intervention",
-      model: this.config.summaryModel,
-      temperature: 0.2,
-      prompt
-    });
-    const completion = await this.withRetry(() =>
-      this.createCompletion({
-        model: this.config.summaryModel,
-        temperature: 0.2,
-        ...(this.config.summaryJsonMode === "response_format"
-          ? {
-              response_format: {
-                type: "json_object" as const
-              }
-            }
-          : {}),
-        messages: [
-          {
-            role: "system",
-            content:
-              "You analyze group-chat dynamics for a Telegram bot. Return only a valid JSON object."
-          },
-          {
-            role: "user",
-            content: prompt
-          }
-        ]
-      })
-    );
-    const raw = completion.value.choices[0]?.message.content?.trim();
-
-    if (!raw) {
-      throw new Error("Intervention analysis model returned empty content");
-    }
-
-    this.logLlmText("llm.intervention.response", {
-      kind: "intervention",
-      model: this.config.summaryModel,
-      latencyMs: Date.now() - startedAt,
-      attemptCount: completion.attemptCount,
-      promptTokensEstimate: estimateTokens(prompt),
-      response: raw
-    });
-
-    return {
-      result: interventionDecisionSchema.parse(extractJsonObject(raw)),
-      model: this.config.summaryModel,
-      latencyMs: Date.now() - startedAt,
-      attemptCount: completion.attemptCount,
-      promptTokensEstimate: estimateTokens(prompt)
-    };
-  }
-
   private async withRetry<T>(operation: () => Promise<T>): Promise<{
     value: T;
     attemptCount: number;
@@ -326,7 +124,7 @@ export class OpenAiCompatibleLlmClient {
   }
 
   private logLlmText(event: string, payload: {
-    kind: "reply" | "summary" | "intervention";
+    kind: "reply";
     model: string;
     temperature?: number;
     latencyMs?: number;
@@ -382,11 +180,6 @@ function enrichProviderError(
   config: {
     apiKey: string;
     baseUrl: string;
-    replyModel: string;
-    summaryModel: string;
-    summaryJsonMode: "response_format" | "prompt_only";
-    timeoutMs: number;
-    maxRetries: number;
   }
 ): unknown {
   if (!error || typeof error !== "object") {
@@ -408,12 +201,6 @@ function enrichProviderError(
     hints.push(
       "Gemini OpenAI-compatible endpoint detected. Verify LLM_BASE_URL points to https://generativelanguage.googleapis.com/v1beta/openai/ and that LLM_API_KEY is a real Gemini API key, not a placeholder."
     );
-
-    if (config.summaryJsonMode === "response_format") {
-      hints.push(
-        "If reply requests start working but summary requests still fail, switch LLM_SUMMARY_JSON_MODE=prompt_only."
-      );
-    }
   }
 
   if (looksLikePlaceholderApiKey(config.apiKey)) {

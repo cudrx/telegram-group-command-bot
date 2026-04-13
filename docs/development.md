@@ -15,7 +15,6 @@
 - [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
 - [`config/persona.md`](../config/persona.md) — базовый образ персонажа
-- `config/personas/<chat_id>.md` — необязательный override для конкретного чата
 
 ## Environment
 
@@ -40,11 +39,8 @@ npm install
 cp .env.example .env
 ```
 
-Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и `LLM_SUMMARY_MODEL`.
-Если провайдер поддерживает OpenAI-style structured JSON через `response_format: { type: "json_object" }`, оставьте `LLM_SUMMARY_JSON_MODE=response_format`.
-Если reply-запросы проходят, а summary-запросы отклоняются из-за `response_format`, переключите `LLM_SUMMARY_JSON_MODE=prompt_only`. В этом режиме summary остаётся включённым, но JSON запрашивается только через prompt.
+Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL` и `LLM_REPLY_MODEL`.
 Для отладки LLM-ввода и вывода установите `LOG_LLM_TEXT=true`; для цветных multiline-логов в `docker compose logs` можно добавить `FORCE_COLOR=1`. Если цвет мешает парсингу, используйте `NO_COLOR=1`.
-Для экономии free-tier LLM usage deterministic reply guards должны оставаться до LLM-вызовов. Не переносите loop detection в prompt-only инструкции или отдельный LLM-классификатор: повторяющиеся reply-chain, короткий `reply_to_bot` cooldown и duplicate-output fallback должны работать локально.
 
 3. Отредактировать базовую persona:
 
@@ -52,20 +48,13 @@ cp .env.example .env
 $EDITOR config/persona.md
 ```
 
-4. При необходимости создать per-chat override:
-
-```bash
-mkdir -p config/personas
-$EDITOR config/personas/<chat_id>.md
-```
-
-5. Подготовить БД:
+4. Подготовить БД:
 
 ```bash
 npm run migrate
 ```
 
-6. Запустить бота:
+5. Запустить бота:
 
 ```bash
 npm run dev
@@ -76,31 +65,9 @@ npm run dev
 - `npm run dev` — локальный запуск через `tsx watch`
 - `npm run migrate` — создаёт `SQLite`-схему
 - `npm test` — `Vitest`
-- `npm run eval:llm:base` — ручной платный прогон 3 базовых reply-ответов `LLM`; не для CI
-- `npm run eval:llm:advanced` — ручной платный прогон 3 пограничных reply-ответов `LLM`; не для CI
 - `npm run typecheck` — `TypeScript` без `emit`
 - `npm run build` — сборка в `dist/`
 - `npm start` — запуск собранного `dist/src/index.js`
-
-## Manual LLM Reply Evals
-
-Manual reply evals call the real configured OpenAI-compatible reply model and write local reports into `.eval-runs/`. They are not part of CI and should be run only when intentionally spending provider credits to inspect reply quality.
-
-Run the cheap base pack first:
-
-```bash
-npm run eval:llm:base
-```
-
-If base looks suspicious or you are intentionally spending more credits on boundary cases, run:
-
-```bash
-npm run eval:llm:advanced
-```
-
-Both commands read `.env`, support both `LLM_*` and legacy `QWEN_*` provider variables, load `config/persona.md`, and write Markdown/JSON reports into `.eval-runs/`. Output filenames include `base` or `advanced`. After a run, ask Codex to review the newest `.eval-runs/*-llm-reply-eval.md` report and judge each answer manually against the checklist.
-
-The base paid pack covers real `generateReply` behavior that can expose prompt regressions around omitted bot anchors, loop complaints, and normal short replies. The advanced pack covers pressure to quote omitted text, insult escalation during loop complaints, and slightly longer short-duplicate replies. Deterministic loop guards, cooldown skips, postflight replacement, and Telegram typing are covered by non-network `Vitest` tests instead of paid evals. Summary/memory extraction through SQLite and intervention analysis need separate eval plans so reply style failures do not get mixed with memory-pipeline failures.
 
 ## Local Docker Workflow
 
@@ -173,9 +140,9 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
-- начать с повышенного `INTERJECT_COOLDOWN_MINUTES`, чтобы бот не спамил;
-- держать низкий `INTERJECT_PROBABILITY`, пока не станет понятна динамика;
-- помнить, что `INTERJECT_PROBABILITY` теперь включает только cheap candidate gate: после него бот всё равно запускает structured intervention analysis и может промолчать.
+- проверять сначала только явные `@mention` и reply на сообщения бота;
+- держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть фактический prompt;
+- по логам проверять, почему бот ответил и какой context был передан.
 
 ## What Is Not Automated Yet
 
@@ -189,7 +156,7 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 
 - [`../README.md`](../README.md) — если изменились возможности, запуск, переменные окружения или деплой;
 - [`./architecture.md`](./architecture.md) — если изменились инварианты, компоненты, потоки данных или модель БД;
-- [`./development.md`](./development.md) — если изменились workflow, проверки, CI/CD, деплой, repair steps или maintenance-правила.
+- [`./development.md`](./development.md) — если изменились workflow, проверки, CI/CD, деплой, repair steps или maintenance-правила;
 - [`./backlog/ideas.md`](./backlog/ideas.md) — если идея уже реализована, устарела или стала точнее после работы;
 - [`./todo/`](./todo/) — если рабочая заметка уже реализована, переехала в план или должна быть переформулирована;
 - [`./superpowers/plans/`](./superpowers/plans/) — если план уже реализован и его устойчивые решения нужно перенести в основные документы.
@@ -237,137 +204,9 @@ docker compose --env-file .env -f compose.yml pull bot
 docker compose --env-file .env -f compose.yml up -d bot
 ```
 
-### SQLite Repair After Deploy
+## V0 Notes
 
-Run this only after deploying the code that removes bot self-memory from reply and summary paths. The commands below repair the production database for chat `-1002155313986` and bot `user_id = 7378889635`. They assume the example `DEPLOY_PATH` of `/opt/test-chatbot`; if your server uses a different deploy path, adjust `DB` and `BACKUP`.
-
-1. Backup first:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-BACKUP=/opt/test-chatbot/data/bot-before-bot-self-memory-removal-2026-04-11.sqlite
-sqlite3 "$DB" ".backup '$BACKUP'"
-```
-
-2. Dry-run query before changing anything:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-sqlite3 "$DB" -header -column <<'SQL'
-SELECT COUNT(*) AS active_bot_memory_rows
-FROM participant_memories
-WHERE chat_id = -1002155313986
-  AND user_id = 7378889635
-  AND status = 'active';
-
-SELECT chat_id, user_id, profile_summary_text
-FROM chat_participants
-WHERE chat_id = -1002155313986
-  AND user_id = 7378889635;
-
-SELECT chat_id, summary_text, summary_updated_at
-FROM chats
-WHERE chat_id = -1002155313986;
-SQL
-```
-
-3. Repair transaction:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-sqlite3 "$DB" <<'SQL'
-BEGIN IMMEDIATE;
-
-UPDATE participant_memories
-SET status = 'rejected'
-WHERE chat_id = -1002155313986
-  AND user_id = 7378889635
-  AND status = 'active';
-
-UPDATE chat_participants
-SET profile_summary_text = NULL,
-    profile_updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-WHERE chat_id = -1002155313986
-  AND user_id = 7378889635;
-
-UPDATE chats
-SET summary_text = NULL,
-    summary_updated_at = NULL
-WHERE chat_id = -1002155313986;
-
-COMMIT;
-SQL
-```
-
-4. Verification queries:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-sqlite3 "$DB" -header -column <<'SQL'
-SELECT status, COUNT(*) AS rows
-FROM participant_memories
-WHERE chat_id = -1002155313986
-  AND user_id = 7378889635
-GROUP BY status
-ORDER BY status;
-
-SELECT chat_id, user_id, profile_summary_text
-FROM chat_participants
-WHERE chat_id = -1002155313986
-  AND user_id = 7378889635;
-
-SELECT chat_id, summary_text, summary_updated_at
-FROM chats
-WHERE chat_id = -1002155313986;
-SQL
-```
-
-### SQLite Repair After Reply Loop Guard Deploy
-
-Run this only after deploying the reply loop guard code for the main production chat `-1002155313986`. This clears stale summary text that describes old bot loops without resetting `summary_cursor_message_id`, so the bot does not spend extra LLM tokens re-summarizing the old full chat.
-
-1. Backup first:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-BACKUP=/opt/test-chatbot/data/bot-before-reply-loop-guard-2026-04-13.sqlite
-sqlite3 "$DB" ".backup '$BACKUP'"
-```
-
-2. Clear stale summary text only:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-sqlite3 "$DB" <<'SQL'
-UPDATE chats
-SET summary_text = NULL,
-    summary_updated_at = NULL
-WHERE chat_id = -1002155313986;
-SQL
-```
-
-3. Verify that the cursor stayed in place:
-
-```bash
-DB=/opt/test-chatbot/data/bot.sqlite
-sqlite3 "$DB" -header -column <<'SQL'
-SELECT chat_id, summary_text, summary_updated_at, summary_cursor_message_id
-FROM chats
-WHERE chat_id = -1002155313986;
-SQL
-```
-
-Expected: `summary_text` and `summary_updated_at` are `NULL`, while `summary_cursor_message_id` stays unchanged.
-
-## Memory Model
-
-Память об участниках хранится строго внутри каждого чата.
-
-- `core` — почти неизменные факты;
-- `durable` — долгоживущие, но потенциально изменяемые факты;
-- `volatile` — временные факты с TTL;
-- conflicting `single` memories supersede предыдущие значения;
-- `profile_summary_text` теперь служит кэшем-выжимкой поверх structured memories.
-- у бота нет отдельной long-term chat-local self-memory в MVP; bot-derived long-term memory не должна попадать в reply generation.
-- при наличии `config/personas/<chat_id>.md` этот файл добавляется поверх базовой persona только для соответствующего чата.
-- старые `messages` можно автоматически подчищать через `MESSAGE_RETENTION_DAYS`; удаляются только сообщения, уже покрытые `summary`, а небольшой сырой хвост сохраняется.
+- База v0 хранит только event log и participant presence.
+- Runtime не читает summary/memory/aliases даже если старый production SQLite файл ещё содержит такие таблицы.
+- Новая схема больше не создаёт `participant_memories` и `participant_aliases`.
+- Персонализация чата через `config/personas/<chat_id>.md` отключена; используется только `config/persona.md`.

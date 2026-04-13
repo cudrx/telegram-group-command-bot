@@ -13,22 +13,12 @@ const envSchema = z.object({
     .default("https://api.deepseek.com"),
   LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
-  LLM_SUMMARY_MODEL: z.string().min(1).default("deepseek-chat"),
-  LLM_SUMMARY_JSON_MODE: z
-    .enum(["response_format", "prompt_only"])
-    .default("response_format"),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
   LOG_LLM_TEXT: z.coerce.boolean().default(false),
   SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
   PERSONA_FILE: z.string().min(1).default("config/persona.md"),
-  INTERJECT_PROBABILITY: z.coerce.number().min(0).max(1).default(0.12),
-  INTERJECT_COOLDOWN_MINUTES: z.coerce.number().positive().default(30),
-  CHAT_IDLE_MINUTES: z.coerce.number().positive().default(30),
-  MIN_MESSAGES_FOR_SUMMARY: z.coerce.number().int().positive().default(10),
-  MESSAGE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
-  SUMMARY_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
-  MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(0).default(180),
+  MESSAGE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(8),
   REPLY_TO_BOT_LOOP_COOLDOWN_MS: z.coerce.number().int().min(0).default(15_000),
   REPLY_TO_BOT_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(2500),
   REPLY_RECENT_BOT_MESSAGES_FOR_GUARD: z.coerce.number().int().min(3).max(30).default(8),
@@ -45,20 +35,12 @@ type ParsedEnv = {
   llmBaseUrl: string;
   llmReplyModel: string;
   llmReplyTemperature: number;
-  llmSummaryModel: string;
-  llmSummaryJsonMode: "response_format" | "prompt_only";
   llmTimeoutMs: number;
   llmMaxRetries: number;
   logLlmText: boolean;
   sqlitePath: string;
   personaFile: string;
-  interjectProbability: number;
-  interjectCooldownMinutes: number;
-  chatIdleMinutes: number;
-  minMessagesForSummary: number;
   messageContextLimit: number;
-  summarySweepIntervalMs: number;
-  messageRetentionDays: number;
   replyToBotLoopCooldownMs: number;
   replyToBotMinIntervalMs: number;
   replyRecentBotMessagesForGuard: number;
@@ -78,8 +60,6 @@ export function parseEnv(
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
     rawEnv.LLM_REPLY_TEMPERATURE !== undefined ||
-    rawEnv.LLM_SUMMARY_MODEL !== undefined ||
-    rawEnv.LLM_SUMMARY_JSON_MODE !== undefined ||
     rawEnv.LLM_TIMEOUT_MS !== undefined ||
     rawEnv.LLM_MAX_RETRIES !== undefined;
   const usesLegacyQwenVars =
@@ -87,8 +67,6 @@ export function parseEnv(
     rawEnv.QWEN_BASE_URL !== undefined ||
     rawEnv.QWEN_REPLY_MODEL !== undefined ||
     rawEnv.QWEN_REPLY_TEMPERATURE !== undefined ||
-    rawEnv.QWEN_SUMMARY_MODEL !== undefined ||
-    rawEnv.QWEN_SUMMARY_JSON_MODE !== undefined ||
     rawEnv.QWEN_TIMEOUT_MS !== undefined ||
     rawEnv.QWEN_MAX_RETRIES !== undefined;
 
@@ -104,8 +82,6 @@ export function parseEnv(
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
         LLM_REPLY_TEMPERATURE: rawEnv.LLM_REPLY_TEMPERATURE,
-        LLM_SUMMARY_MODEL: rawEnv.LLM_SUMMARY_MODEL,
-        LLM_SUMMARY_JSON_MODE: rawEnv.LLM_SUMMARY_JSON_MODE,
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
         LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES
       }
@@ -115,9 +91,6 @@ export function parseEnv(
           rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus-character",
         LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? "0.6",
-        LLM_SUMMARY_MODEL: rawEnv.QWEN_SUMMARY_MODEL ?? "qwen3.5-flash",
-        LLM_SUMMARY_JSON_MODE:
-          rawEnv.QWEN_SUMMARY_JSON_MODE ?? "response_format",
         LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
         LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1"
       };
@@ -143,20 +116,12 @@ export function parseEnv(
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
     llmReplyTemperature: parsed.LLM_REPLY_TEMPERATURE,
-    llmSummaryModel: parsed.LLM_SUMMARY_MODEL,
-    llmSummaryJsonMode: parsed.LLM_SUMMARY_JSON_MODE,
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
     logLlmText: parsed.LOG_LLM_TEXT,
     sqlitePath: parsed.SQLITE_PATH,
     personaFile: parsed.PERSONA_FILE,
-    interjectProbability: parsed.INTERJECT_PROBABILITY,
-    interjectCooldownMinutes: parsed.INTERJECT_COOLDOWN_MINUTES,
-    chatIdleMinutes: parsed.CHAT_IDLE_MINUTES,
-    minMessagesForSummary: parsed.MIN_MESSAGES_FOR_SUMMARY,
     messageContextLimit: parsed.MESSAGE_CONTEXT_LIMIT,
-    summarySweepIntervalMs: parsed.SUMMARY_SWEEP_INTERVAL_MS,
-    messageRetentionDays: parsed.MESSAGE_RETENTION_DAYS,
     replyToBotLoopCooldownMs: parsed.REPLY_TO_BOT_LOOP_COOLDOWN_MS,
     replyToBotMinIntervalMs: parsed.REPLY_TO_BOT_MIN_INTERVAL_MS,
     replyRecentBotMessagesForGuard: parsed.REPLY_RECENT_BOT_MESSAGES_FOR_GUARD,

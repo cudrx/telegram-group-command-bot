@@ -12,10 +12,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "eval:llm:base": "tsx scripts/eval/run-llm-reply-base-eval.ts",
-    "eval:llm:advanced": "tsx scripts/eval/run-llm-reply-advanced-eval.ts",
-    "eval:llm:manual": "npm run eval:llm:base"
+    "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

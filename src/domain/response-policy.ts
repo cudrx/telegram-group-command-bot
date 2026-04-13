@@ -1,5 +1,3 @@
-import { shouldInterject } from "./interjection-policy.js";
-
 export type DirectTrigger = "mention" | "reply_to_bot" | "none";
 
 export type DetectDirectTriggerInput = {
@@ -14,18 +12,11 @@ export type DetectDirectTriggerInput = {
 
 export type DecideReplyActionInput = {
   directTrigger: DirectTrigger;
-  allowDirectMessages: boolean;
-  allowInterjections: boolean;
-  interjectProbability: number;
-  randomValue: number;
-  cooldownMs: number;
-  lastBotMessageAt: string | null;
-  now: string;
 };
 
 export type DecideReplyActionResult = {
   shouldReply: boolean;
-  reason: "mention" | "reply_to_bot" | "direct_message" | "interjection" | "ignore";
+  reason: "mention" | "reply_to_bot" | "ignore";
 };
 
 export function detectDirectTrigger(
@@ -56,30 +47,6 @@ export function decideReplyAction(
     return {
       shouldReply: true,
       reason: "reply_to_bot"
-    };
-  }
-
-  if (input.allowDirectMessages) {
-    return {
-      shouldReply: true,
-      reason: "direct_message"
-    };
-  }
-
-  const canInterject =
-    input.allowInterjections &&
-    shouldInterject({
-      probability: input.interjectProbability,
-      randomValue: input.randomValue,
-      cooldownMs: input.cooldownMs,
-      lastBotMessageAt: input.lastBotMessageAt,
-      now: input.now
-    });
-
-  if (canInterject) {
-    return {
-      shouldReply: true,
-      reason: "interjection"
     };
   }
 
