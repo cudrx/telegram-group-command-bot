@@ -23,7 +23,11 @@ Use these locations consistently:
 - [`/docs/development.md`](/home/tom/Documents/Projects/test-chatbot/docs/development.md)
   local development workflow
 - [`/docs/backlog/ideas.md`](/home/tom/Documents/Projects/test-chatbot/docs/backlog/ideas.md)
-  backlog, notes, and rough ideas
+  backlog index and current backlog policy
+- [`/docs/backlog/big-features.md`](/home/tom/Documents/Projects/test-chatbot/docs/backlog/big-features.md)
+  крупные post-v0 подсистемы и замороженный “жирный” функционал
+- [`/docs/backlog/small-fixes.md`](/home/tom/Documents/Projects/test-chatbot/docs/backlog/small-fixes.md)
+  мелкие фиксы, простые фичи и эксплуатационные улучшения
 - [`/docs/todo/`](/home/tom/Documents/Projects/test-chatbot/docs/todo)
   working notes and agreed feature formulations before full design/spec work
 - [`/docs/superpowers/plans/`](/home/tom/Documents/Projects/test-chatbot/docs/superpowers/plans)
