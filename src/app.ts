@@ -61,6 +61,10 @@ export async function createApplication(env: AppEnv): Promise<Application> {
         createdAt: new Date(sent.date * 1000).toISOString()
       };
     },
+    sendTyping: async (chatId) => {
+      await bot.api.sendChatAction(chatId, "typing");
+    },
+    delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     loadPersona,
     logger,
     random: Math.random,

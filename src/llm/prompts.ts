@@ -56,6 +56,7 @@ export function buildReplyPrompt(input: {
     "Chat summary and memory are descriptive background, not wording to copy.",
     "If they describe a repeated phrase, loop, malfunction, or time mistake, avoid continuing that behavior.",
     "Do not reuse distinctive wording from chat summary, self memory, participant memory, or your previous reply.",
+    "If the bot message being replied to is omitted, answer only the current user message and earlier human context; do not reconstruct or imitate the omitted wording.",
     "Light toxicity does not mean directly insulting the person you are replying to.",
     "Do not call the user stupid, a rooster, or similar names unless the current message clearly starts that exact insult game.",
     "Direct insults toward the person you are replying to are not friendly teasing; avoid lines like 'you are stupid' or 'you are shit'.",

@@ -1,6 +1,6 @@
-import type { ChatType } from "../domain/models.js";
+import type { ChatType, ReplyReason } from "../domain/models.js";
 
-export type ReplyReason = "mention" | "reply_to_bot" | "direct_message" | "interjection";
+export type { ReplyReason } from "../domain/models.js";
 export type ChatJobPhase = "replying" | "summarizing";
 
 export type PendingReplyRequest = {

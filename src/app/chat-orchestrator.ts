@@ -26,6 +26,11 @@ import {
   type ReplyReason
 } from "./chat-job-coordinator.js";
 import { buildReplyContext } from "./reply-context-builder.js";
+import {
+  decideReplyPostflightGuard,
+  decideReplyPreflightGuard
+} from "../domain/reply-loop-guard.js";
+import { withTypingIndicator } from "./typing-indicator.js";
 
 export type BotIdentity = {
   userId: number;
@@ -108,6 +113,8 @@ export class ChatOrchestrator {
       env: AppEnv;
       bot: BotIdentity;
       replyDispatcher: ReplyDispatcher;
+      sendTyping: (chatId: number) => Promise<void>;
+      delay: (ms: number) => Promise<void>;
       loadPersona: (filePath: string, chatId?: number) => Promise<string>;
       logger: AppLogger;
       random: () => number;
@@ -307,6 +314,24 @@ export class ChatOrchestrator {
     }
   }
 
+  private async withReplyTyping<T>(
+    chatId: number,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    return withTypingIndicator(
+      {
+        chatId,
+        minTypingMs: this.deps.env.replyMinTypingMs,
+        maxTypingMs: this.deps.env.replyMaxTypingMs,
+        refreshMs: this.deps.env.replyTypingRefreshMs,
+        random: this.deps.random,
+        delay: this.deps.delay,
+        sendTyping: this.deps.sendTyping
+      },
+      operation
+    );
+  }
+
   private async executeReplyGeneration(
     request: PendingReplyRequest,
     logger: AppLogger
@@ -334,10 +359,6 @@ export class ChatOrchestrator {
       return null;
     }
 
-    const persona = await this.deps.loadPersona(
-      this.deps.env.personaFile,
-      request.chatId
-    );
     const replyContext = buildReplyContext({
       db: this.deps.db,
       chatId: request.chatId,
@@ -345,48 +366,131 @@ export class ChatOrchestrator {
       reason: request.reason,
       messageContextLimit: this.deps.env.messageContextLimit
     });
-    const triggerText = replyContext.triggerMessage?.text ?? "";
-    const participantMemoryContext =
-      request.fromUserId === null
-        ? null
-        : this.deps.db.getParticipantMemoryContext(
-            request.chatId,
-            request.fromUserId
-          );
-    const socialIntent = detectSocialIntent(triggerText);
-    const resolution = this.resolveParticipantsForReply(request.chatId, triggerText);
-    const firstAmbiguousParticipant = resolution.ambiguousParticipants[0];
+    const recentMessagesForGuard = this.deps.db.getMessagesBefore(
+      request.chatId,
+      request.triggerMessageId + 1,
+      this.deps.env.replyRecentBotMessagesForGuard
+    );
+    const preflight = decideReplyPreflightGuard({
+      reason: request.reason,
+      replyContext,
+      recentMessages: recentMessagesForGuard,
+      now: request.createdAt,
+      replyToBotLoopCooldownMs: this.deps.env.replyToBotLoopCooldownMs,
+      replyToBotMinIntervalMs: this.deps.env.replyToBotMinIntervalMs,
+      lastBotMessageAt: chatState.lastBotMessageAt,
+      enableReplyToBotCooldown: request.chatType !== "private",
+      loopBreakerText: this.deps.env.replyLoopBreakerText
+    });
 
-    if (socialIntent.isSocialQa && firstAmbiguousParticipant) {
-      return {
-        text: buildClarificationReply(firstAmbiguousParticipant),
-        model: "deterministic-clarification",
+    if (preflight.kind === "skip") {
+      logger.info("reply_preflight_guard_skipped", {
+        reason: preflight.reason,
+        replyReason: request.reason,
+        replyToMessageId: request.triggerMessageId
+      });
+      return null;
+    }
+
+    if (preflight.kind === "deterministic_reply") {
+      logger.info("reply_preflight_guard_deterministic_reply", {
+        reason: preflight.reason,
+        replyReason: request.reason,
+        replyToMessageId: request.triggerMessageId
+      });
+
+      return this.withReplyTyping(request.chatId, async () => ({
+        text: preflight.text,
+        model: preflight.model,
         latencyMs: 0,
         attemptCount: 0,
         promptTokensEstimate: 0
-      };
+      }));
     }
 
-    const socialParticipantContexts = resolution.resolvedParticipants.map((participant) => ({
-      userId: participant.userId,
-      displayName: participant.displayName,
-      participantMemoryContext: this.deps.db.getParticipantMemoryContext(
-        request.chatId,
-        participant.userId
-      )
-    }));
+    return this.withReplyTyping(request.chatId, async () => {
+      const persona = await this.deps.loadPersona(
+        this.deps.env.personaFile,
+        request.chatId
+      );
+      const promptReplyContext = sanitizeReplyContextForPrompt(replyContext, {
+        omitAnchorBotText: preflight.omitAnchorBotTextFromPrompt
+      });
+      const triggerText = replyContext.triggerMessage?.text ?? "";
+      const participantMemoryContext =
+        request.fromUserId === null
+          ? null
+          : this.deps.db.getParticipantMemoryContext(
+              request.chatId,
+              request.fromUserId
+            );
+      const socialIntent = detectSocialIntent(triggerText);
+      const resolution = this.resolveParticipantsForReply(request.chatId, triggerText);
+      const firstAmbiguousParticipant = resolution.ambiguousParticipants[0];
 
-    return this.deps.qwen.generateReply({
-      persona,
-      chatSummary: chatState.summaryText,
-      participantMemoryContext,
-      socialIntent: socialIntent.isSocialQa,
-      socialIntentReason: socialIntent.reason,
-      resolvedParticipants: resolution.resolvedParticipants,
-      socialParticipantContexts,
-      targetDisplayName: request.fromDisplayName,
-      reason: interventionReason ?? request.reason,
-      replyContext
+      if (socialIntent.isSocialQa && firstAmbiguousParticipant) {
+        return {
+          text: buildClarificationReply(firstAmbiguousParticipant),
+          model: "deterministic-clarification",
+          latencyMs: 0,
+          attemptCount: 0,
+          promptTokensEstimate: 0
+        };
+      }
+
+      const socialParticipantContexts = resolution.resolvedParticipants.map((participant) => ({
+        userId: participant.userId,
+        displayName: participant.displayName,
+        participantMemoryContext: this.deps.db.getParticipantMemoryContext(
+          request.chatId,
+          participant.userId
+        )
+      }));
+
+      const generated = await this.deps.qwen.generateReply({
+        persona,
+        chatSummary: chatState.summaryText,
+        participantMemoryContext,
+        socialIntent: socialIntent.isSocialQa,
+        socialIntentReason: socialIntent.reason,
+        resolvedParticipants: resolution.resolvedParticipants,
+        socialParticipantContexts,
+        targetDisplayName: request.fromDisplayName,
+        reason: interventionReason ?? request.reason,
+        replyContext: promptReplyContext
+      });
+      const postflight = decideReplyPostflightGuard({
+        candidateText: generated.text,
+        recentMessages: recentMessagesForGuard,
+        loopBreakerText: this.deps.env.replyLoopBreakerText
+      });
+
+      if (postflight.kind === "skip") {
+        logger.info("reply_postflight_guard_skipped", {
+          reason: postflight.reason,
+          replyReason: request.reason,
+          replyToMessageId: request.triggerMessageId
+        });
+        return null;
+      }
+
+      if (postflight.kind === "replace") {
+        logger.info("reply_postflight_guard_replaced", {
+          reason: postflight.reason,
+          replyReason: request.reason,
+          replyToMessageId: request.triggerMessageId
+        });
+
+        return {
+          text: postflight.text,
+          model: postflight.model,
+          latencyMs: generated.latencyMs,
+          attemptCount: generated.attemptCount,
+          promptTokensEstimate: generated.promptTokensEstimate
+        };
+      }
+
+      return generated;
     });
   }
 
@@ -566,6 +670,23 @@ function buildClarificationReply(input: {
   const options = input.matches.slice(0, 3).map((match) => match.displayName).join(" или ");
 
   return `Ты про ${options}? Уточни, и я нормально раскопаю контекст.`;
+}
+
+function sanitizeReplyContextForPrompt(
+  replyContext: ReplyContext,
+  options: { omitAnchorBotText: boolean }
+): ReplyContext {
+  if (!options.omitAnchorBotText || !replyContext.anchorBotMessage) {
+    return replyContext;
+  }
+
+  return {
+    ...replyContext,
+    anchorBotMessage: {
+      ...replyContext.anchorBotMessage,
+      text: "[previous bot reply omitted because it appears repetitive or unsafe to copy]"
+    }
+  };
 }
 
 function toPendingReplyRequest(

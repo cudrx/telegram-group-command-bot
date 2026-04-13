@@ -28,7 +28,14 @@ const envSchema = z.object({
   MIN_MESSAGES_FOR_SUMMARY: z.coerce.number().int().positive().default(10),
   MESSAGE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
   SUMMARY_SWEEP_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
-  MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(0).default(180)
+  MESSAGE_RETENTION_DAYS: z.coerce.number().int().min(0).default(180),
+  REPLY_TO_BOT_LOOP_COOLDOWN_MS: z.coerce.number().int().min(0).default(15_000),
+  REPLY_TO_BOT_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(2500),
+  REPLY_RECENT_BOT_MESSAGES_FOR_GUARD: z.coerce.number().int().min(3).max(30).default(8),
+  REPLY_LOOP_BREAKER_TEXT: z.string().min(1).default("я зациклился, приторможу"),
+  REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
+  REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
+  REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000)
 });
 
 type ParsedEnv = {
@@ -52,6 +59,13 @@ type ParsedEnv = {
   messageContextLimit: number;
   summarySweepIntervalMs: number;
   messageRetentionDays: number;
+  replyToBotLoopCooldownMs: number;
+  replyToBotMinIntervalMs: number;
+  replyRecentBotMessagesForGuard: number;
+  replyLoopBreakerText: string;
+  replyMinTypingMs: number;
+  replyMaxTypingMs: number;
+  replyTypingRefreshMs: number;
 };
 
 export type AppEnv = ParsedEnv;
@@ -114,6 +128,12 @@ export function parseEnv(
     ...providerEnv
   });
 
+  if (parsed.REPLY_MIN_TYPING_MS > parsed.REPLY_MAX_TYPING_MS) {
+    throw new Error(
+      "REPLY_MIN_TYPING_MS must be less than or equal to REPLY_MAX_TYPING_MS."
+    );
+  }
+
   assertNoPlaceholderSecrets(parsed);
 
   return {
@@ -136,7 +156,14 @@ export function parseEnv(
     minMessagesForSummary: parsed.MIN_MESSAGES_FOR_SUMMARY,
     messageContextLimit: parsed.MESSAGE_CONTEXT_LIMIT,
     summarySweepIntervalMs: parsed.SUMMARY_SWEEP_INTERVAL_MS,
-    messageRetentionDays: parsed.MESSAGE_RETENTION_DAYS
+    messageRetentionDays: parsed.MESSAGE_RETENTION_DAYS,
+    replyToBotLoopCooldownMs: parsed.REPLY_TO_BOT_LOOP_COOLDOWN_MS,
+    replyToBotMinIntervalMs: parsed.REPLY_TO_BOT_MIN_INTERVAL_MS,
+    replyRecentBotMessagesForGuard: parsed.REPLY_RECENT_BOT_MESSAGES_FOR_GUARD,
+    replyLoopBreakerText: parsed.REPLY_LOOP_BREAKER_TEXT,
+    replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
+    replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
+    replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS
   };
 }
 

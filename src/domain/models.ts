@@ -1,5 +1,7 @@
 export type ChatType = "private" | "group" | "supergroup" | "channel" | "unknown";
 
+export type ReplyReason = "mention" | "reply_to_bot" | "direct_message" | "interjection";
+
 export type InterventionGoal =
   | "engage"
   | "deescalate"

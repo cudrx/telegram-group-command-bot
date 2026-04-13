@@ -34,6 +34,10 @@
 - для `reply_to_bot` генерация ответа должна опираться в первую очередь на causal reply context: текущее сообщение, bot-сообщение, на которое отвечают, его parent-сообщение и связанный prior context;
 - плоское окно recent messages не должно подменять causal reply context для `reply_to_bot`, потому что оно теряет причинную связь между репликами;
 - reply prompt context не должен дублировать текущее trigger-сообщение или bot-сообщение, на которое отвечают, внутри фонового transcript; `Current message` и `Message of yours being replied to` являются каноническими местами для этих сообщений, а `Earlier human context` содержит только предыдущий человеческий контекст;
+- reply safety guards запускаются до платного reply LLM-вызова, когда локального контекста достаточно для deterministic detection повторяющейся reply-chain;
+- deterministic loop-breaker replies и skip decisions не должны вызывать LLM;
+- post-LLM duplicate output guard может заменить или пропустить сгенерированный ответ, но не должен делать второй LLM-вызов;
+- Telegram typing indicator и видимая задержка ответа являются app/transport поведением, а не LLM-поведением, и не должны запускать дополнительные model calls;
 - временные phrase-specific bans про конкретные метафоры или шаблоны не являются поддерживаемым архитектурным safeguard; устойчивость должна обеспечиваться структурированным контекстом ответа и тем, что summary/memory подаются как аналитический фон, а не как текст для копирования;
 - если `chatSummary` описывает повтор фразы, зацикливание, malfunction или ошибку времени, reply prompt должен трактовать это как поведение, которого нужно избегать, а не как running joke или стиль для продолжения; distinctive phrases не следует копировать без необходимости;
 - friendly teasing в persona-слое не должно превращаться в прямые оскорбления собеседника; если пользователь жалуется на грубость, повтор или плохую шутку, reply prompt должен просить модель не спорить, не усиливать токсичность и отвечать мягче;
@@ -94,6 +98,8 @@
 - для самостоятельного вмешательства сначала запускает structured intervention analysis и отбрасывает устаревшие решения;
 - собирает контекст;
 - вызывает OpenAI-compatible LLM слой;
+- запускает deterministic reply safety guards до и после reply LLM-вызова;
+- показывает Telegram typing indicator и bounded reply delay для отправляемых ответов;
 - отправляет ответ в Telegram;
 - запускает periodic sweep для idle-summary;
 - не даёт reply и summary LLM jobs для одного чата накладываться друг на друга, сохраняя один pending reply и один pending summary.
@@ -114,10 +120,14 @@
    - при наличии добавляется chat-specific persona override;
    - long-term bot self-memory не подтягивается и не участвует в reply generation;
    - собирается causal reply context; для обычных триггеров он может включать bounded prior human context, но для `reply_to_bot` не должен подменяться плоским recent-window;
+   - preflight reply guard может пропустить зацикленную reply-chain или вернуть deterministic loop-breaker без LLM-вызова;
+   - если bot-сообщение, на которое отвечают, похоже на повторяющийся токсичный anchor, его текст санитизируется перед prompt и не копируется дословно;
    - берётся текущий summary чата;
    - при social-QA резолвятся участники только внутри текущего чата; при неоднозначности бот просит уточнение без LLM-вызова;
    - собирается chat-local memory context по участнику и resolved social context bundle;
    - вызывается LLM слой;
+   - postflight reply guard заменяет или пропускает near-duplicate output без повторного LLM-вызова;
+   - пока ответ готовится, Telegram получает best-effort `typing` action и короткую bounded задержку перед отправкой;
    - ответ отправляется в Telegram и сохраняется в БД.
 
 ### 2. Idle Summary
