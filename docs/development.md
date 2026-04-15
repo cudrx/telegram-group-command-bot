@@ -134,6 +134,18 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 3. `npm test`
 4. `npm run build`
 
+## Degradation Evals
+
+Offline degradation evals are Vitest tests that inspect sanitized context and prompts without calling an LLM:
+
+```bash
+npm test -- tests/reply-degradation-evals.test.ts
+```
+
+Codex may run offline evals while working.
+
+Manual LLM degradation evals are documented in [`docs/superpowers/plans/2026-04-15-manual-llm-degradation-evals.md`](./superpowers/plans/2026-04-15-manual-llm-degradation-evals.md). They call the configured LLM provider and should be run manually by the project owner, not by Codex.
+
 ## Suggested Test Setup
 
 Для нормального локального теста бота:

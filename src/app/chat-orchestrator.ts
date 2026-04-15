@@ -10,6 +10,7 @@ import { decideReplyAction, detectDirectTrigger } from "../domain/response-polic
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
 import { buildReplyContext } from "./reply-context-builder.js";
+import { sanitizeReplyContextForPrompt } from "./reply-context-sanitizer.js";
 import { withTypingIndicator } from "./typing-indicator.js";
 
 export type BotIdentity = {
@@ -248,7 +249,10 @@ export class ChatOrchestrator {
         persona,
         targetDisplayName: request.fromDisplayName,
         reason: request.reason,
-        replyContext: sanitizeReplyContextForPrompt(replyContext, {
+        replyContext: sanitizeReplyContextForPrompt({
+          reason: request.reason,
+          replyContext,
+          recentMessages: recentMessagesForGuard,
           omitAnchorBotText: preflight.omitAnchorBotTextFromPrompt
         })
       });
@@ -304,21 +308,4 @@ export class ChatOrchestrator {
       operation
     );
   }
-}
-
-function sanitizeReplyContextForPrompt(
-  replyContext: ReplyContext,
-  options: { omitAnchorBotText: boolean }
-): ReplyContext {
-  if (!options.omitAnchorBotText || !replyContext.anchorBotMessage) {
-    return replyContext;
-  }
-
-  return {
-    ...replyContext,
-    anchorBotMessage: {
-      ...replyContext.anchorBotMessage,
-      text: "[previous bot reply omitted because it appears repetitive or unsafe to copy]"
-    }
-  };
 }
