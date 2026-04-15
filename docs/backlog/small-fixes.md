@@ -12,7 +12,7 @@
 ## Safety And Red-team
 
 - Добавить проверку jailbreak/prompt-injection сценариев вроде “игнорируй все предыдущие инструкции”.
-- Добавить небольшой набор prompt-regression тестов для v0 prompt без реального LLM-вызова.
+- Расширять offline degradation evals новыми production-сценариями после каждого найденного prompt/context regressions.
 
 ## Operations
 

@@ -118,6 +118,87 @@ describe("ChatOrchestrator", () => {
     );
   });
 
+  test("sanitizes repeated bot anchors before calling the LLM", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 100,
+        text: "Можешь хрюкнуть?",
+        fromDisplayName: "Артур",
+        createdAt: "2026-04-14T12:00:00.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 101,
+      text: "хрю-хрю, дерьмишко на поезде",
+      createdAt: "2026-04-14T12:00:01.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Хрюпа",
+      replyToMessageId: 100
+    });
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 102,
+        text: "еще раз",
+        fromDisplayName: "Артур",
+        replyToUserId: 77,
+        replyToMessageId: 101,
+        createdAt: "2026-04-14T12:00:02.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 103,
+      text: "опять дерьмишко на поезде, хрю-хрю",
+      createdAt: "2026-04-14T12:00:03.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Хрюпа",
+      replyToMessageId: 102
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("приторможу"));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher: vi.fn().mockResolvedValue({
+        messageId: 1009,
+        createdAt: "2026-04-14T12:00:05.000Z"
+      })
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        chatId: 1,
+        messageId: 104,
+        text: "Сука",
+        fromDisplayName: "Артур",
+        replyToUserId: 77,
+        replyToMessageId: 103,
+        createdAt: "2026-04-14T12:00:04.000Z"
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyContext: expect.objectContaining({
+          triggerMessage: expect.objectContaining({ text: "Сука" }),
+          anchorBotMessage: expect.objectContaining({
+            messageId: 103,
+            text: "[previous bot reply omitted because it appears repetitive]"
+          })
+        })
+      })
+    );
+  });
+
   test("skips the llm and sends a deterministic loop breaker for repeated reply chains", async () => {
     const db = new FakeDatabaseClient();
 

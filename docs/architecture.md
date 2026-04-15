@@ -35,6 +35,10 @@
 - для `reply_to_bot` causal context важнее любого recent-window;
 - `Current message` и `Message of yours being replied to` не должны дублироваться в фоновом transcript;
 - prompt не должен содержать chat summary, participant memory, social-QA bundle или self-memory;
+- prompt-facing context may be sanitized, but the raw SQLite event log remains unchanged;
+- production recovery from bot self-degradation must not require deleting old SQLite messages;
+- repeated bot anchors must be omitted before prompt construction rather than relying only on prompt instructions;
+- current user text must never be removed by sanitizer, even when it contains a repeated phrase;
 - persona управляет тоном, а не фактами;
 - deterministic guards запускаются до платного LLM-вызова, когда локального контекста достаточно;
 - post-LLM duplicate guard может заменить или пропустить ответ, но не делает второй LLM-вызов;
@@ -101,7 +105,7 @@
    - подтягивается базовая persona;
    - строится `ReplyContext`;
    - preflight guard может пропустить зацикленную reply-chain или вернуть deterministic loop-breaker без LLM;
-   - опасный повторяющийся bot anchor может быть отредактирован перед prompt;
+   - dangerous repeated bot anchors are sanitized before prompt construction;
    - вызывается один reply LLM;
    - postflight duplicate guard может заменить или пропустить near-duplicate output;
    - Telegram получает best-effort `typing` action и bounded delay;

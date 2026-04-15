@@ -36,3 +36,4 @@ These instructions describe how Codex should work in this repository unless the 
 - If a workflow choice matters, prefer branches over worktrees unless the user explicitly overrides this preference.
 - If workers are used, briefly state what each worker owns.
 - If the intended action, architecture, data repair, or user preference is unclear, ask a clarifying question before proceeding.
+- For bot behavior, prompt, context-building, memory, loop-guard, or reply-policy changes, Codex must not implement silently. First explain the proposed implementation in concrete terms, including affected files, runtime behavior changes, and how the change will be tested. Proceed only after explicit user approval.

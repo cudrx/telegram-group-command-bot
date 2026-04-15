@@ -11,6 +11,7 @@
 - доменная логика ответа только для `mention` и `reply_to_bot`
 - causal reply context для ответов на сообщения бота
 - короткое local-context окно для mention
+- prompt-facing sanitizer, чтобы грязная история бота не требовала чистки `SQLite`
 - deterministic reply loop guards до и после LLM-вызова
 - Telegram typing indicators и короткая bounded задержка ответа
 - prompt hardening для transcript и structured logs
@@ -106,6 +107,7 @@ docker compose logs bot --tail=200 -f
 - `npm run migrate` (только при первичной установке или изменении схемы)
 - `npm run typecheck`
 - `npm test`
+- `npm test -- tests/reply-degradation-evals.test.ts`
 - `npm run build`
 
 ## Структура
