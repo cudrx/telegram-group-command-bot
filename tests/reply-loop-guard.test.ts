@@ -6,7 +6,6 @@ import {
   decideReplyPreflightGuard
 } from "../src/domain/reply-loop-guard.js";
 
-const loopBreakerText = "я зациклился, приторможу";
 const now = "2026-04-13T09:00:10.000Z";
 
 function storedMessage(overrides: Partial<StoredMessage>): StoredMessage {
@@ -57,7 +56,6 @@ function decidePreflight(overrides: {
   replyToBotMinIntervalMs?: number;
   lastBotMessageAt?: string | null;
   enableReplyToBotCooldown?: boolean;
-  loopBreakerText?: string;
 } = {}) {
   return decideReplyPreflightGuard({
     reason: "reply_to_bot",
@@ -68,13 +66,12 @@ function decidePreflight(overrides: {
     replyToBotMinIntervalMs: 2500,
     lastBotMessageAt: null,
     enableReplyToBotCooldown: true,
-    loopBreakerText,
     ...overrides
   });
 }
 
 describe("reply loop guard", () => {
-  test("returns a deterministic loop breaker for repeated reply-to-bot chains", () => {
+  test("allows repeated reply-to-bot chains but omits the repeated anchor from the prompt", () => {
     const context = replyContext();
 
     expect(
@@ -96,16 +93,10 @@ describe("reply loop guard", () => {
           })
         ]
       })
-    ).toEqual({
-      kind: "deterministic_reply",
-      text: loopBreakerText,
-      model: "deterministic-loop-guard",
-      omitAnchorBotTextFromPrompt: true,
-      reason: "repeated_reply_to_bot_chain"
-    });
+    ).toEqual({ kind: "allow", omitAnchorBotTextFromPrompt: true });
   });
 
-  test("skips a repeated reply-to-bot chain after a loop breaker was already sent", () => {
+  test("does not treat old loop breaker text as a reason to skip new repeated chains", () => {
     const context = replyContext();
 
     expect(
@@ -127,14 +118,14 @@ describe("reply loop guard", () => {
           }),
           storedMessage({
             messageId: 20,
-            text: loopBreakerText,
+            text: "я зациклился, приторможу",
             isBot: true,
             userId: null,
             createdAt: "2026-04-13T09:00:06.000Z"
           })
         ]
       })
-    ).toEqual({ kind: "skip", reason: "recent_loop_breaker_already_sent" });
+    ).toEqual({ kind: "allow", omitAnchorBotTextFromPrompt: true });
   });
 
   test("allows a normal one-off reply-to-bot question", () => {
@@ -215,12 +206,12 @@ describe("reply loop guard", () => {
         replyToBotLoopCooldownMs: 1
       })
     ).toMatchObject({
-      kind: "deterministic_reply",
+      kind: "allow",
       omitAnchorBotTextFromPrompt: true
     });
   });
 
-  test("replaces a generated candidate reply that near-duplicates a recent bot reply", () => {
+  test("skips a generated candidate reply that near-duplicates a recent bot reply", () => {
     expect(
       decideReplyPostflightGuard({
         candidateText: "ну ты и говно да а я просто сижу как винтик в дыре",
@@ -231,15 +222,9 @@ describe("reply loop guard", () => {
             isBot: true,
             userId: null
           })
-        ],
-        loopBreakerText
+        ]
       })
-    ).toEqual({
-      kind: "replace",
-      text: loopBreakerText,
-      model: "deterministic-loop-guard",
-      reason: "duplicate_candidate_reply"
-    });
+    ).toEqual({ kind: "skip", reason: "duplicate_candidate_reply" });
   });
 
   test("allows a generated candidate reply that is distinct from recent bot replies", () => {
@@ -253,8 +238,7 @@ describe("reply loop guard", () => {
             isBot: true,
             userId: null
           })
-        ],
-        loopBreakerText
+        ]
       })
     ).toEqual({ kind: "allow" });
   });
@@ -270,8 +254,7 @@ describe("reply loop guard", () => {
             isBot: true,
             userId: null
           })
-        ],
-        loopBreakerText
+        ]
       })
     ).toEqual({ kind: "allow" });
   });

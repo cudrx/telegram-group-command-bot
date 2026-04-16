@@ -20,7 +20,6 @@ describe("parseEnv", () => {
     expect(env.replyToBotLoopCooldownMs).toBe(15_000);
     expect(env.replyToBotMinIntervalMs).toBe(2500);
     expect(env.replyRecentBotMessagesForGuard).toBe(8);
-    expect(env.replyLoopBreakerText).toBe("я зациклился, приторможу");
     expect(env.replyMinTypingMs).toBe(900);
     expect(env.replyMaxTypingMs).toBe(2200);
     expect(env.replyTypingRefreshMs).toBe(4000);

@@ -41,7 +41,8 @@
 - current user text must never be removed by sanitizer, even when it contains a repeated phrase;
 - persona управляет тоном, а не фактами;
 - deterministic guards запускаются до платного LLM-вызова, когда локального контекста достаточно;
-- post-LLM duplicate guard может заменить или пропустить ответ, но не делает второй LLM-вызов;
+- repeated reply chains hide unsafe bot anchor text before prompt construction instead of sending a synthetic loop-breaker reply;
+- post-LLM duplicate guard может пропустить near-duplicate ответ, но не заменяет его синтетической репликой и не делает второй LLM-вызов;
 - Telegram typing indicator является app/transport поведением и не запускает model calls.
 
 ## Component Map
@@ -104,10 +105,10 @@
 6. Если ответ нужен:
    - подтягивается базовая persona;
    - строится `ReplyContext`;
-   - preflight guard может пропустить зацикленную reply-chain или вернуть deterministic loop-breaker без LLM;
+   - preflight guard может пропустить слишком частый reply-to-bot или скрыть повторяющийся bot anchor перед prompt construction;
    - dangerous repeated bot anchors are sanitized before prompt construction;
    - вызывается один reply LLM;
-   - postflight duplicate guard может заменить или пропустить near-duplicate output;
+   - postflight duplicate guard может пропустить near-duplicate output;
    - Telegram получает best-effort `typing` action и bounded delay;
    - ответ отправляется в Telegram и сохраняется в БД.
 
