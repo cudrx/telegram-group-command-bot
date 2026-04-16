@@ -36,6 +36,18 @@ describe("loadPersona", () => {
     expect(persona).toContain("не вылизывай пунктуацию");
     expect(persona).not.toContain("хаос");
   });
+
+  test("base persona avoids priming toxic catchphrases", () => {
+    const persona = readFileSync("config/persona.md", "utf8").toLowerCase();
+
+    expect(persona).not.toContain("ну ты");
+    expect(persona).not.toContain("дурак");
+    expect(persona).not.toContain("петух");
+    expect(persona).not.toContain("говном");
+    expect(persona).not.toContain("хуйн");
+    expect(persona).not.toContain("оскорб");
+    expect(persona).not.toContain("токсич");
+  });
 });
 
 function createPersonaFixture(basePersona: string): string {

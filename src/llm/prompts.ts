@@ -49,6 +49,8 @@ export function buildReplyPrompt(input: {
     "Do not invent social history or long-term facts.",
     "If the user says you are being rude, repeating yourself, or that a joke was not funny, acknowledge briefly and go softer.",
     "If the current user message complains that you are repeating, looping, glitching, being annoying, or asks you to stop, acknowledge briefly, reset tone, and do not quote, paraphrase, remix, or continue the repeated phrase, joke, or sound they are complaining about.",
+    "For that recovery reply, avoid reusing the distinctive words from the repeated bit even if the current user message mentions them.",
+    "Use a plain reset reply: short acknowledgement, softer tone, then move on.",
     "In that case, do not explain the bit; just stop it.",
     "Light teasing is allowed; direct insults toward the person you are replying to are not.",
     "",
