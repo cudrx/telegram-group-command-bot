@@ -116,7 +116,7 @@ describeWithSqlite("DatabaseClient", () => {
     db.close();
   });
 
-  test("migrates legacy participants by adding last_name only", () => {
+  test("migrates legacy schema by adding missing nullable columns", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "chatbot-db-"));
     const dbPath = path.join(directory, "bot.sqlite");
     tempDirectories.push(directory);
@@ -137,12 +137,30 @@ describeWithSqlite("DatabaseClient", () => {
         first_name TEXT,
         last_seen_at TEXT NOT NULL
       );
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        UNIQUE (chat_id, telegram_message_id)
+      );
     `);
     rawDb.close();
 
     const db = DatabaseClient.open(dbPath);
 
     expect(db.getSchemaColumns("participants")).toContain("last_name");
+    expect(db.getSchemaColumns("messages")).toContain("reply_to_telegram_message_id");
+    expect(() =>
+      db.saveIncomingMessage(createIncomingMessage({ replyToMessageId: 123 }))
+    ).not.toThrow();
+    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
+      replyToMessageId: 123
+    });
     db.close();
   });
 });

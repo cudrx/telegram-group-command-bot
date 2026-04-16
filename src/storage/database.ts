@@ -423,6 +423,7 @@ function toStoredMessage(
 
 function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, "participants", "last_name", "TEXT");
+  ensureColumn(db, "messages", "reply_to_telegram_message_id", "INTEGER");
 }
 
 function ensureColumn(
