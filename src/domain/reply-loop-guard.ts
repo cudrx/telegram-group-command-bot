@@ -8,18 +8,10 @@ const MIN_POSTFLIGHT_LOOP_SIGNATURE_WORDS = 5;
 
 export type ReplyPreflightGuardDecision =
   | { kind: "allow"; omitAnchorBotTextFromPrompt: boolean }
-  | {
-      kind: "deterministic_reply";
-      text: string;
-      model: "deterministic-loop-guard";
-      omitAnchorBotTextFromPrompt: boolean;
-      reason: string;
-    }
   | { kind: "skip"; reason: string };
 
 export type ReplyPostflightGuardDecision =
   | { kind: "allow" }
-  | { kind: "replace"; text: string; model: "deterministic-loop-guard"; reason: string }
   | { kind: "skip"; reason: string };
 
 export function decideReplyPreflightGuard(input: {
@@ -31,7 +23,6 @@ export function decideReplyPreflightGuard(input: {
   replyToBotMinIntervalMs: number;
   lastBotMessageAt: string | null;
   enableReplyToBotCooldown: boolean;
-  loopBreakerText: string;
 }): ReplyPreflightGuardDecision {
   if (input.reason !== "reply_to_bot") {
     return { kind: "allow", omitAnchorBotTextFromPrompt: false };
@@ -59,22 +50,9 @@ export function decideReplyPreflightGuard(input: {
   const anchorRepeatsBotText = recentBotMessages
     .filter((message) => message.messageId !== anchor.messageId)
     .some((message) => isNearDuplicateReplyText(message.text, anchor.text));
-  const loopBreakerAlreadySent = recentBotMessages.some((message) =>
-    isNearDuplicateReplyText(message.text, input.loopBreakerText)
-  );
 
   if (hasRepeatedTrigger && anchorRepeatsBotText) {
-    if (loopBreakerAlreadySent) {
-      return { kind: "skip", reason: "recent_loop_breaker_already_sent" };
-    }
-
-    return {
-      kind: "deterministic_reply",
-      text: input.loopBreakerText,
-      model: "deterministic-loop-guard",
-      omitAnchorBotTextFromPrompt: true,
-      reason: "repeated_reply_to_bot_chain"
-    };
+    return { kind: "allow", omitAnchorBotTextFromPrompt: true };
   }
 
   if (
@@ -94,7 +72,6 @@ export function decideReplyPreflightGuard(input: {
 export function decideReplyPostflightGuard(input: {
   candidateText: string;
   recentMessages: StoredMessage[];
-  loopBreakerText: string;
 }): ReplyPostflightGuardDecision {
   if (!hasEnoughWordsForPostflightLoopSignature(input.candidateText)) {
     return { kind: "allow" };
@@ -109,20 +86,7 @@ export function decideReplyPostflightGuard(input: {
     return { kind: "allow" };
   }
 
-  const loopBreakerAlreadySent = recentBotMessages.some((message) =>
-    isNearDuplicateReplyText(message.text, input.loopBreakerText)
-  );
-
-  if (loopBreakerAlreadySent) {
-    return { kind: "skip", reason: "duplicate_candidate_after_loop_breaker" };
-  }
-
-  return {
-    kind: "replace",
-    text: input.loopBreakerText,
-    model: "deterministic-loop-guard",
-    reason: "duplicate_candidate_reply"
-  };
+  return { kind: "skip", reason: "duplicate_candidate_reply" };
 }
 
 function hasEnoughWordsForPostflightLoopSignature(text: string): boolean {

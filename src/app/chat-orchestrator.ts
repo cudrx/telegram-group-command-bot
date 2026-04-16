@@ -214,8 +214,7 @@ export class ChatOrchestrator {
       replyToBotLoopCooldownMs: this.deps.env.replyToBotLoopCooldownMs,
       replyToBotMinIntervalMs: this.deps.env.replyToBotMinIntervalMs,
       lastBotMessageAt: chatState.lastBotMessageAt,
-      enableReplyToBotCooldown: request.chatType !== "private",
-      loopBreakerText: this.deps.env.replyLoopBreakerText
+      enableReplyToBotCooldown: request.chatType !== "private"
     });
 
     if (preflight.kind === "skip") {
@@ -225,22 +224,6 @@ export class ChatOrchestrator {
         replyToMessageId: request.triggerMessageId
       });
       return null;
-    }
-
-    if (preflight.kind === "deterministic_reply") {
-      logger.info("reply_preflight_guard_deterministic_reply", {
-        reason: preflight.reason,
-        replyReason: request.reason,
-        replyToMessageId: request.triggerMessageId
-      });
-
-      return this.withReplyTyping(request.chatId, async () => ({
-        text: preflight.text,
-        model: preflight.model,
-        latencyMs: 0,
-        attemptCount: 0,
-        promptTokensEstimate: 0
-      }));
     }
 
     return this.withReplyTyping(request.chatId, async () => {
@@ -258,8 +241,7 @@ export class ChatOrchestrator {
       });
       const postflight = decideReplyPostflightGuard({
         candidateText: generated.text,
-        recentMessages: recentMessagesForGuard,
-        loopBreakerText: this.deps.env.replyLoopBreakerText
+        recentMessages: recentMessagesForGuard
       });
 
       if (postflight.kind === "skip") {
@@ -269,22 +251,6 @@ export class ChatOrchestrator {
           replyToMessageId: request.triggerMessageId
         });
         return null;
-      }
-
-      if (postflight.kind === "replace") {
-        logger.info("reply_postflight_guard_replaced", {
-          reason: postflight.reason,
-          replyReason: request.reason,
-          replyToMessageId: request.triggerMessageId
-        });
-
-        return {
-          text: postflight.text,
-          model: postflight.model,
-          latencyMs: generated.latencyMs,
-          attemptCount: generated.attemptCount,
-          promptTokensEstimate: generated.promptTokensEstimate
-        };
       }
 
       return generated;

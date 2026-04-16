@@ -217,7 +217,6 @@ function createEnv(): AppEnv {
     replyToBotLoopCooldownMs: 15_000,
     replyToBotMinIntervalMs: 2500,
     replyRecentBotMessagesForGuard: 8,
-    replyLoopBreakerText: "я зациклился, приторможу",
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000

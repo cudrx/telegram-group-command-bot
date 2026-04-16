@@ -199,7 +199,7 @@ describe("ChatOrchestrator", () => {
     );
   });
 
-  test("skips the llm and sends a deterministic loop breaker for repeated reply chains", async () => {
+  test("calls the llm with an omitted repeated anchor for repeated reply chains", async () => {
     const db = new FakeDatabaseClient();
 
     db.saveIncomingMessage(
@@ -244,7 +244,7 @@ describe("ChatOrchestrator", () => {
       replyToMessageId: 102
     });
 
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не должно вызываться"));
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("сейчас нормально отвечу"));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1008,
       createdAt: "2026-04-13T09:00:11.000Z"
@@ -265,11 +265,21 @@ describe("ChatOrchestrator", () => {
       })
     );
 
-    expect(generateReply).not.toHaveBeenCalled();
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyContext: expect.objectContaining({
+          triggerMessage: expect.objectContaining({ text: "Ты анальная пробка?" }),
+          anchorBotMessage: expect.objectContaining({
+            messageId: 103,
+            text: "[previous bot reply omitted because it appears repetitive or unsafe to copy]"
+          })
+        })
+      })
+    );
     expect(replyDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         replyToMessageId: 104,
-        text: "я зациклился, приторможу"
+        text: "сейчас нормально отвечу"
       })
     );
   });
@@ -328,7 +338,6 @@ function createEnv(): AppEnv {
     replyToBotLoopCooldownMs: 15_000,
     replyToBotMinIntervalMs: 0,
     replyRecentBotMessagesForGuard: 8,
-    replyLoopBreakerText: "я зациклился, приторможу",
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000

@@ -22,7 +22,6 @@ const envSchema = z.object({
   REPLY_TO_BOT_LOOP_COOLDOWN_MS: z.coerce.number().int().min(0).default(15_000),
   REPLY_TO_BOT_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(2500),
   REPLY_RECENT_BOT_MESSAGES_FOR_GUARD: z.coerce.number().int().min(3).max(30).default(8),
-  REPLY_LOOP_BREAKER_TEXT: z.string().min(1).default("я зациклился, приторможу"),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000)
@@ -44,7 +43,6 @@ type ParsedEnv = {
   replyToBotLoopCooldownMs: number;
   replyToBotMinIntervalMs: number;
   replyRecentBotMessagesForGuard: number;
-  replyLoopBreakerText: string;
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
@@ -125,7 +123,6 @@ export function parseEnv(
     replyToBotLoopCooldownMs: parsed.REPLY_TO_BOT_LOOP_COOLDOWN_MS,
     replyToBotMinIntervalMs: parsed.REPLY_TO_BOT_MIN_INTERVAL_MS,
     replyRecentBotMessagesForGuard: parsed.REPLY_RECENT_BOT_MESSAGES_FOR_GUARD,
-    replyLoopBreakerText: parsed.REPLY_LOOP_BREAKER_TEXT,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS
