@@ -11,7 +11,7 @@ const createLogger = vi.fn();
 const dbClose = vi.fn();
 const dbOpen = vi.fn();
 const llmConstructor = vi.fn();
-const loadPersona = vi.fn();
+const loadAssistantInstructions = vi.fn();
 const botGetMe = vi.fn();
 const botStart = vi.fn();
 const botStop = vi.fn();
@@ -81,8 +81,8 @@ vi.mock("../src/llm/openai-compatible-llm-client.js", () => ({
   })
 }));
 
-vi.mock("../src/config/persona.js", () => ({
-  loadPersona
+vi.mock("../src/config/assistant-instructions.js", () => ({
+  loadAssistantInstructions
 }));
 
 vi.mock("../src/logging/logger.js", () => ({
@@ -128,7 +128,7 @@ describe("createApplication", () => {
     botGetMe.mockResolvedValue({
       id: 77,
       username: "hrupa_bot",
-      first_name: "Хрюпа"
+      first_name: "Assistant"
     });
   });
 
@@ -212,11 +212,8 @@ function createEnv(): AppEnv {
     llmMaxRetries: 1,
     logLlmText: false,
     sqlitePath: ":memory:",
-    personaFile: "config/persona.md",
+    assistantInstructionsFile: "config/assistant-instructions.md",
     messageContextLimit: 8,
-    replyToBotLoopCooldownMs: 15_000,
-    replyToBotMinIntervalMs: 2500,
-    replyRecentBotMessagesForGuard: 8,
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000

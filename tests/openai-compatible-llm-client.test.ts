@@ -116,6 +116,9 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     expect(requestBody?.model).toBe("reply-model");
     expect(requestBody?.temperature).toBe(0.6);
+    expect((requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content).toContain(
+      "You are a neutral Telegram assistant."
+    );
     expect(JSON.stringify(requestBody)).not.toContain("summary");
     expect(JSON.stringify(requestBody)).not.toContain("intervention");
   });
@@ -152,23 +155,21 @@ function createOpenAiStub(content: string) {
 
 function createReplyInput() {
   return {
-    persona: "Persona",
+    assistantInstructions: "Assistant instructions",
     targetDisplayName: "Tom",
     reason: "mention",
-    replyContext: {
-      triggerMessage: {
-        chatId: 1,
-        messageId: 3,
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
         userId: 42,
         senderDisplayName: "Tom",
         text: "@fun_bot привет",
-        createdAt: "2026-04-03T12:02:00.000Z",
-        isBot: false,
-        replyToMessageId: null
-      },
-      anchorBotMessage: null,
-      anchorParentMessage: null,
-      priorContextMessages: []
-    }
-  };
+          createdAt: "2026-04-03T12:02:00.000Z",
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      }
+    };
 }

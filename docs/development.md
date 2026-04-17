@@ -14,7 +14,7 @@
 - [`docs/architecture.md`](./architecture.md) — устройство проекта
 - [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
-- [`config/persona.md`](../config/persona.md) — базовый образ персонажа
+- [`config/assistant-instructions.md`](../config/assistant-instructions.md) — базовые assistant instructions
 
 ## Environment
 
@@ -42,10 +42,10 @@ cp .env.example .env
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL` и `LLM_REPLY_MODEL`.
 Для отладки LLM-ввода и вывода установите `LOG_LLM_TEXT=true`; для цветных multiline-логов в `docker compose logs` можно добавить `FORCE_COLOR=1`. Если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
-3. Отредактировать базовую persona:
+3. Отредактировать базовые assistant instructions:
 
 ```bash
-$EDITOR config/persona.md
+$EDITOR config/assistant-instructions.md
 ```
 
 4. Подготовить БД:
@@ -53,6 +53,8 @@ $EDITOR config/persona.md
 ```bash
 npm run migrate
 ```
+
+Для этого reset-ветки старую SQLite-базу можно удалить и создать заново: совместимость со старой схемой не требуется, потому что production DB будет очищена и пересоздана после деплоя.
 
 5. Запустить бота:
 
@@ -134,25 +136,13 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 3. `npm test`
 4. `npm run build`
 
-## Degradation Evals
-
-Offline degradation evals are Vitest tests that inspect sanitized context and prompts without calling an LLM:
-
-```bash
-npm test -- tests/reply-degradation-evals.test.ts
-```
-
-Codex may run offline evals while working.
-
-Manual LLM degradation evals are documented in [`docs/superpowers/plans/2026-04-15-manual-llm-degradation-evals.md`](./superpowers/plans/2026-04-15-manual-llm-degradation-evals.md). They call the configured LLM provider and should be run manually by the project owner, not by Codex.
-
 ## Suggested Test Setup
 
 Для нормального локального теста бота:
 
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
-- проверять сначала только явные `@mention` и reply на сообщения бота;
+- проверять сначала только явные `@mention`;
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть фактический prompt;
 - по логам проверять, почему бот ответил и какой context был передан.
 
@@ -218,7 +208,7 @@ docker compose --env-file .env -f compose.yml up -d bot
 
 ## V0 Notes
 
-- База v0 хранит только event log и participant presence.
+- База v0 хранит только event log в `chats` и `messages`.
 - Runtime не читает summary/memory/aliases даже если старый production SQLite файл ещё содержит такие таблицы.
-- Новая схема больше не создаёт `participant_memories` и `participant_aliases`.
-- Персонализация чата через `config/personas/<chat_id>.md` отключена; используется только `config/persona.md`.
+- Новая схема не создаёт `participants` и `chat_participants`.
+- Per-chat overrides are not supported in this reset; only `config/assistant-instructions.md` is used.

@@ -47,11 +47,10 @@ export class OpenAiCompatibleLlmClient {
   }
 
   async generateReply(input: {
-    persona: string;
+    assistantInstructions: string;
     targetDisplayName: string;
     reason: string;
     replyContext: ReplyContext;
-    duplicateReplyRecovery?: boolean;
   }): Promise<LlmReplyResult> {
     const prompt = buildReplyPrompt(input);
     const startedAt = Date.now();
@@ -68,8 +67,7 @@ export class OpenAiCompatibleLlmClient {
         messages: [
           {
             role: "system",
-            content:
-              "Ты Хрюпа в дружеском Telegram-чате. Отвечай как живой участник чата: коротко, по-русски, без ассистентского тона, литературных метафор и объяснения своей роли."
+            content: "You are a neutral Telegram assistant. Respond helpfully and concisely in Russian."
           },
           {
             role: "user",

@@ -1,18 +1,15 @@
-# Character Telegram Bot
+# Telegram Chat Assistant
 
-Минимальное v0-ядро Telegram-бота-персонажа на `Node.js + TypeScript + grammY + SQLite` с OpenAI-compatible LLM слоем.
+Минимальное v0-ядро Telegram chat assistant на `Node.js + TypeScript + grammY + SQLite` с OpenAI-compatible LLM слоем.
 
 ## Что уже есть
 
 - long polling через `grammY`
-- локальная `SQLite`-база для чатов, участников и сообщений
-- event log сообщений с `reply_to`
-- глобальная persona-основа из [`config/persona.md`](./config/persona.md)
-- доменная логика ответа только для `mention` и `reply_to_bot`
-- causal reply context для ответов на сообщения бота
+- локальная `SQLite`-база для чатов и сообщений
+- event log сообщений с sender metadata и `reply_to`
+- нейтральные assistant instructions из [`config/assistant-instructions.md`](./config/assistant-instructions.md)
+- доменная логика ответа только для `mention`
 - короткое local-context окно для mention
-- prompt-facing sanitizer, чтобы грязная история бота не требовала чистки `SQLite`
-- deterministic reply loop guards до и после LLM-вызова, включая один recovery retry для duplicate candidate
 - Telegram typing indicators и короткая bounded задержка ответа
 - prompt hardening для transcript и structured logs
 - один OpenAI-compatible LLM-клиент для генерации реплик
@@ -20,7 +17,7 @@
 - `GitHub Actions` `CI` на `push` и `pull_request`
 - автодеплой Docker image из `GHCR` на VPS после `push` в `main`
 
-В v0 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat persona overrides и фоновых LLM jobs.
+В v0 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
 ## Требования
 
@@ -45,7 +42,7 @@ cp .env.example .env
 
 `.env.example` настроен под OpenAI-compatible провайдера. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL` и `LLM_REPLY_MODEL`.
 
-3. Проверьте или отредактируйте базовую persona в [`config/persona.md`](./config/persona.md).
+3. Проверьте или отредактируйте базовые assistant instructions в [`config/assistant-instructions.md`](./config/assistant-instructions.md).
 
 4. Если это первичная установка или после изменения схемы, подготовьте SQLite-схему.
 
@@ -70,14 +67,11 @@ npm run dev
 - `LLM_MAX_RETRIES`
 - `LOG_LLM_TEXT`
 - `MESSAGE_CONTEXT_LIMIT`
-- `REPLY_TO_BOT_LOOP_COOLDOWN_MS`
-- `REPLY_TO_BOT_MIN_INTERVAL_MS`
-- `REPLY_RECENT_BOT_MESSAGES_FOR_GUARD`
 - `REPLY_MIN_TYPING_MS`
 - `REPLY_MAX_TYPING_MS`
 - `REPLY_TYPING_REFRESH_MS`
 - `SQLITE_PATH`
-- `PERSONA_FILE`
+- `ASSISTANT_INSTRUCTIONS_FILE`
 
 ## Логи
 
@@ -106,13 +100,12 @@ docker compose logs bot --tail=200 -f
 - `npm run migrate` (только при первичной установке или изменении схемы)
 - `npm run typecheck`
 - `npm test`
-- `npm test -- tests/reply-degradation-evals.test.ts`
 - `npm run build`
 
 ## Структура
 
-- `src/domain` — правила ответа и deterministic reply guards
-- `src/storage` — `SQLite`, чаты, участники и сообщения
+- `src/domain` — правила ответа
+- `src/storage` — `SQLite`, чаты и сообщения
 - `src/llm` — prompt helpers и reply generation
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных

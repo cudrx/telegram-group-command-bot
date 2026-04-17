@@ -15,7 +15,7 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     return null;
   }
 
-  const displayName = formatParticipantDisplayName({
+  const displayName = formatSenderDisplayName({
     firstName: message.from?.first_name ?? null,
     lastName: message.from?.last_name ?? null,
     username: message.from?.username ?? null
@@ -45,7 +45,7 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
   };
 }
 
-export function formatParticipantDisplayName(input: {
+export function formatSenderDisplayName(input: {
   firstName: string | null;
   lastName: string | null;
   username: string | null;

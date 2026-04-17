@@ -100,7 +100,7 @@ describeWithSqlite("DatabaseClient", () => {
     });
   });
 
-  test("v0 schema does not create summary, memory, or alias tables", () => {
+  test("v0 schema keeps messages and chats only, with sender metadata on messages", () => {
     const db = createDatabase();
 
     expect(db.getSchemaColumns("chats")).toEqual([
@@ -110,19 +110,75 @@ describeWithSqlite("DatabaseClient", () => {
       "last_message_at",
       "last_bot_message_at"
     ]);
-    expect(db.getSchemaColumns("participant_memories")).toEqual([]);
-    expect(db.getSchemaColumns("participant_aliases")).toEqual([]);
+    expect(db.getSchemaColumns("participants")).toEqual([]);
+    expect(db.getSchemaColumns("chat_participants")).toEqual([]);
+    expect(db.getSchemaColumns("messages")).toEqual([
+      "id",
+      "chat_id",
+      "telegram_message_id",
+      "user_id",
+      "sender_display_name",
+      "text",
+      "created_at",
+      "is_bot",
+      "reply_to_telegram_message_id",
+      "from_user_id",
+      "from_username",
+      "from_first_name",
+      "from_last_name",
+      "from_display_name"
+    ]);
 
     db.close();
   });
 
-  test("migrates legacy schema by adding missing nullable columns", () => {
-    const directory = mkdtempSync(path.join(os.tmpdir(), "chatbot-db-"));
+  test("stores sender metadata directly on message rows", () => {
+    const db = DatabaseClient.open(":memory:");
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        fromUserId: 42,
+        fromUsername: "tom",
+        fromFirstName: "Tom",
+        fromLastName: "Ivanov",
+        fromDisplayName: "Tom Ivanov (@tom)"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 11,
+      text: "бот ответил",
+      createdAt: "2026-04-10T12:00:20.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Fun Bot",
+      replyToMessageId: 10
+    });
+
+    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
+      userId: 42,
+      senderDisplayName: "Tom Ivanov (@tom)",
+      replyToMessageId: null
+    });
+    expect(db.getMessageByTelegramMessageId(1, 11)).toMatchObject({
+      userId: 77,
+      senderDisplayName: "Fun Bot",
+      replyToMessageId: 10
+    });
+
+    db.close();
+  });
+
+  test("adds sender metadata columns when opening a pre-reset database", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "chatbot-legacy-db-"));
     const dbPath = path.join(directory, "bot.sqlite");
     tempDirectories.push(directory);
 
-    const rawDb = new Database(dbPath);
-    rawDb.exec(`
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
       CREATE TABLE chats (
         chat_id INTEGER PRIMARY KEY,
         chat_type TEXT NOT NULL,
@@ -130,13 +186,7 @@ describeWithSqlite("DatabaseClient", () => {
         last_message_at TEXT,
         last_bot_message_at TEXT
       );
-      CREATE TABLE participants (
-        user_id INTEGER PRIMARY KEY,
-        username TEXT,
-        display_name TEXT NOT NULL,
-        first_name TEXT,
-        last_seen_at TEXT NOT NULL
-      );
+
       CREATE TABLE messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         chat_id INTEGER NOT NULL,
@@ -146,21 +196,27 @@ describeWithSqlite("DatabaseClient", () => {
         text TEXT NOT NULL,
         created_at TEXT NOT NULL,
         is_bot INTEGER NOT NULL DEFAULT 0,
+        reply_to_telegram_message_id INTEGER,
         UNIQUE (chat_id, telegram_message_id)
       );
     `);
-    rawDb.close();
+    legacyDb.close();
 
     const db = DatabaseClient.open(dbPath);
 
-    expect(db.getSchemaColumns("participants")).toContain("last_name");
-    expect(db.getSchemaColumns("messages")).toContain("reply_to_telegram_message_id");
-    expect(() =>
-      db.saveIncomingMessage(createIncomingMessage({ replyToMessageId: 123 }))
-    ).not.toThrow();
-    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
-      replyToMessageId: 123
+    expect(db.getSchemaColumns("messages")).toContain("from_display_name");
+    expect(
+      db.saveIncomingMessage(
+        createIncomingMessage({
+          messageId: 20,
+          fromDisplayName: "Legacy Safe"
+        })
+      )
+    ).toBe(true);
+    expect(db.getMessageByTelegramMessageId(1, 20)).toMatchObject({
+      senderDisplayName: "Legacy Safe"
     });
+
     db.close();
   });
 });

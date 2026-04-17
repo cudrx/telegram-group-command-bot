@@ -17,11 +17,11 @@ const envSchema = z.object({
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
   LOG_LLM_TEXT: z.coerce.boolean().default(false),
   SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
-  PERSONA_FILE: z.string().min(1).default("config/persona.md"),
+  ASSISTANT_INSTRUCTIONS_FILE: z
+    .string()
+    .min(1)
+    .default("config/assistant-instructions.md"),
   MESSAGE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(8),
-  REPLY_TO_BOT_LOOP_COOLDOWN_MS: z.coerce.number().int().min(0).default(15_000),
-  REPLY_TO_BOT_MIN_INTERVAL_MS: z.coerce.number().int().min(0).default(2500),
-  REPLY_RECENT_BOT_MESSAGES_FOR_GUARD: z.coerce.number().int().min(3).max(30).default(8),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000)
@@ -38,11 +38,8 @@ type ParsedEnv = {
   llmMaxRetries: number;
   logLlmText: boolean;
   sqlitePath: string;
-  personaFile: string;
+  assistantInstructionsFile: string;
   messageContextLimit: number;
-  replyToBotLoopCooldownMs: number;
-  replyToBotMinIntervalMs: number;
-  replyRecentBotMessagesForGuard: number;
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
@@ -87,7 +84,7 @@ export function parseEnv(
         LLM_API_KEY: rawEnv.QWEN_API_KEY,
         LLM_BASE_URL:
           rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-        LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus-character",
+        LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
         LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? "0.6",
         LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
         LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1"
@@ -118,11 +115,8 @@ export function parseEnv(
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
     logLlmText: parsed.LOG_LLM_TEXT,
     sqlitePath: parsed.SQLITE_PATH,
-    personaFile: parsed.PERSONA_FILE,
+    assistantInstructionsFile: parsed.ASSISTANT_INSTRUCTIONS_FILE,
     messageContextLimit: parsed.MESSAGE_CONTEXT_LIMIT,
-    replyToBotLoopCooldownMs: parsed.REPLY_TO_BOT_LOOP_COOLDOWN_MS,
-    replyToBotMinIntervalMs: parsed.REPLY_TO_BOT_MIN_INTERVAL_MS,
-    replyRecentBotMessagesForGuard: parsed.REPLY_RECENT_BOT_MESSAGES_FOR_GUARD,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS

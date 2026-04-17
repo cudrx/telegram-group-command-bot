@@ -14,24 +14,6 @@ CREATE TABLE IF NOT EXISTS chats (
   last_bot_message_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS participants (
-  user_id INTEGER PRIMARY KEY,
-  username TEXT,
-  display_name TEXT NOT NULL,
-  first_name TEXT,
-  last_name TEXT,
-  last_seen_at TEXT NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS chat_participants (
-  chat_id INTEGER NOT NULL,
-  user_id INTEGER NOT NULL,
-  last_seen_at TEXT NOT NULL,
-  PRIMARY KEY (chat_id, user_id),
-  FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
-  FOREIGN KEY (user_id) REFERENCES participants(user_id) ON DELETE CASCADE
-);
-
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   chat_id INTEGER NOT NULL,
@@ -42,6 +24,11 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TEXT NOT NULL,
   is_bot INTEGER NOT NULL DEFAULT 0,
   reply_to_telegram_message_id INTEGER,
+  from_user_id INTEGER,
+  from_username TEXT,
+  from_first_name TEXT,
+  from_last_name TEXT,
+  from_display_name TEXT,
   FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
   UNIQUE (chat_id, telegram_message_id)
 );
@@ -86,18 +73,6 @@ export class DatabaseClient {
         lastBotMessageAt: null
       });
 
-      if (incoming.fromUserId !== null) {
-        upsertChatParticipant(this.db, {
-          chatId: incoming.chatId,
-          userId: incoming.fromUserId,
-          username: incoming.fromUsername,
-          displayName: incoming.fromDisplayName,
-          firstName: incoming.fromFirstName,
-          lastName: incoming.fromLastName,
-          seenAt: incoming.createdAt
-        });
-      }
-
       const result = this.db
         .prepare(
           `
@@ -109,9 +84,14 @@ export class DatabaseClient {
               text,
               created_at,
               is_bot,
-              reply_to_telegram_message_id
+              reply_to_telegram_message_id,
+              from_user_id,
+              from_username,
+              from_first_name,
+              from_last_name,
+              from_display_name
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
         )
         .run(
@@ -122,7 +102,12 @@ export class DatabaseClient {
           incoming.text,
           incoming.createdAt,
           incoming.isBot ? 1 : 0,
-          incoming.replyToMessageId
+          incoming.replyToMessageId,
+          incoming.fromUserId,
+          incoming.fromUsername,
+          incoming.fromFirstName,
+          incoming.fromLastName,
+          incoming.fromDisplayName
         );
 
       if (result.changes > 0) {
@@ -169,15 +154,6 @@ export class DatabaseClient {
           lastMessageAt: outgoing.createdAt,
           lastBotMessageAt: outgoing.createdAt
         });
-        upsertChatParticipant(this.db, {
-          chatId: outgoing.chatId,
-          userId: outgoing.userId,
-          username: outgoing.username,
-          displayName: outgoing.displayName,
-          firstName: null,
-          lastName: null,
-          seenAt: outgoing.createdAt
-        });
 
         const result = this.db
           .prepare(
@@ -190,9 +166,14 @@ export class DatabaseClient {
                 text,
                 created_at,
                 is_bot,
-                reply_to_telegram_message_id
+                reply_to_telegram_message_id,
+                from_user_id,
+                from_username,
+                from_first_name,
+                from_last_name,
+                from_display_name
               )
-              VALUES (?, ?, ?, ?, ?, ?, 1, ?)
+              VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
             `
           )
           .run(
@@ -202,7 +183,12 @@ export class DatabaseClient {
             outgoing.displayName,
             outgoing.text,
             outgoing.createdAt,
-            outgoing.replyToMessageId ?? null
+            outgoing.replyToMessageId ?? null,
+            outgoing.userId,
+            outgoing.username,
+            null,
+            null,
+            outgoing.displayName
           );
 
         if (result.changes > 0) {
@@ -363,55 +349,6 @@ function upsertChat(
   );
 }
 
-function upsertChatParticipant(
-  db: Database.Database,
-  input: {
-    chatId: number;
-    userId: number;
-    username: string | null;
-    displayName: string;
-    firstName: string | null;
-    lastName: string | null;
-    seenAt: string;
-  }
-): void {
-  db.prepare(
-    `
-      INSERT INTO participants (
-        user_id,
-        username,
-        display_name,
-        first_name,
-        last_name,
-        last_seen_at
-      )
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        username = excluded.username,
-        display_name = excluded.display_name,
-        first_name = excluded.first_name,
-        last_name = excluded.last_name,
-        last_seen_at = excluded.last_seen_at
-    `
-  ).run(
-    input.userId,
-    input.username,
-    input.displayName,
-    input.firstName,
-    input.lastName,
-    input.seenAt
-  );
-
-  db.prepare(
-    `
-      INSERT INTO chat_participants (chat_id, user_id, last_seen_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(chat_id, user_id) DO UPDATE SET
-        last_seen_at = excluded.last_seen_at
-    `
-  ).run(input.chatId, input.userId, input.seenAt);
-}
-
 function toStoredMessage(
   row: Omit<StoredMessage, "isBot"> & { isBot: number }
 ): StoredMessage {
@@ -422,8 +359,11 @@ function toStoredMessage(
 }
 
 function migrateExistingSchema(db: Database.Database): void {
-  ensureColumn(db, "participants", "last_name", "TEXT");
-  ensureColumn(db, "messages", "reply_to_telegram_message_id", "INTEGER");
+  ensureColumn(db, "messages", "from_user_id", "INTEGER");
+  ensureColumn(db, "messages", "from_username", "TEXT");
+  ensureColumn(db, "messages", "from_first_name", "TEXT");
+  ensureColumn(db, "messages", "from_last_name", "TEXT");
+  ensureColumn(db, "messages", "from_display_name", "TEXT");
 }
 
 function ensureColumn(
