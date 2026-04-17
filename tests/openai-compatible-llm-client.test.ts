@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from "vitest";
 import { OpenAiCompatibleLlmClient } from "../src/llm/openai-compatible-llm-client.js";
 
 describe("OpenAiCompatibleLlmClient", () => {
-  test("logs reply prompt and response text when tracing is enabled", async () => {
+  test("logs compact reply trace without raw prompt or response fields", async () => {
     const logger = {
       info: vi.fn(),
       warn: vi.fn(),
@@ -28,16 +28,30 @@ describe("OpenAiCompatibleLlmClient", () => {
       "llm.reply.request",
       expect.objectContaining({
         kind: "reply",
-        prompt: expect.any(String),
-        model: "reply-model"
+        model: "reply-model",
+        promptChars: expect.any(Number),
+        promptTokensEstimate: expect.any(Number)
       })
     );
     expect(logger.info).toHaveBeenCalledWith(
       "llm.reply.response",
       expect.objectContaining({
         kind: "reply",
-        response: "ready",
-        model: "reply-model"
+        model: "reply-model",
+        responseChars: 5,
+        responsePreview: "ready"
+      })
+    );
+    expect(logger.info).not.toHaveBeenCalledWith(
+      "llm.reply.request",
+      expect.objectContaining({
+        prompt: expect.any(String)
+      })
+    );
+    expect(logger.info).not.toHaveBeenCalledWith(
+      "llm.reply.response",
+      expect.objectContaining({
+        response: expect.any(String)
       })
     );
   });

@@ -3,6 +3,27 @@ import { z } from "zod";
 
 loadDotenv();
 
+const stringBooleanSchema = z.preprocess((value) => {
+  if (typeof value !== "string") {
+    return value;
+  }
+
+  switch (value.trim().toLowerCase()) {
+    case "true":
+    case "1":
+    case "yes":
+    case "on":
+      return true;
+    case "false":
+    case "0":
+    case "no":
+    case "off":
+      return false;
+    default:
+      return value;
+  }
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
@@ -15,7 +36,7 @@ const envSchema = z.object({
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
-  LOG_LLM_TEXT: z.coerce.boolean().default(false),
+  LOG_LLM_TEXT: stringBooleanSchema.default(false),
   SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
   ASSISTANT_INSTRUCTIONS_FILE: z
     .string()

@@ -15,6 +15,7 @@ describe("parseEnv", () => {
     expect(env.llmReplyTemperature).toBe(0.6);
     expect(env.llmTimeoutMs).toBe(45_000);
     expect(env.llmMaxRetries).toBe(2);
+    expect(env.logLlmText).toBe(false);
     expect(env.assistantInstructionsFile).toBe("config/assistant-instructions.md");
     expect(env.explainContextLimit).toBe(50);
     expect(env.summarizeContextLimit).toBe(200);
@@ -59,6 +60,22 @@ describe("parseEnv", () => {
     });
 
     expect(env.assistantInstructionsFile).toBe("custom/assistant-instructions.md");
+  });
+
+  test("parses LOG_LLM_TEXT string booleans explicitly", () => {
+    const disabled = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      LOG_LLM_TEXT: "false"
+    });
+    const enabled = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      LOG_LLM_TEXT: "true"
+    });
+
+    expect(disabled.logLlmText).toBe(false);
+    expect(enabled.logLlmText).toBe(true);
   });
 
   test("keeps legacy qwen aliases working as reply provider fallback", () => {

@@ -53,12 +53,14 @@ export class OpenAiCompatibleLlmClient {
     replyContext: ReplyContext;
   }): Promise<LlmReplyResult> {
     const prompt = buildIntentPrompt(input);
+    const promptTokensEstimate = estimateTokens(prompt);
     const startedAt = Date.now();
     this.logLlmText("llm.reply.request", {
       kind: "reply",
       model: this.config.replyModel,
       temperature: this.config.replyTemperature,
-      prompt
+      promptChars: prompt.length,
+      promptTokensEstimate
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
@@ -87,8 +89,9 @@ export class OpenAiCompatibleLlmClient {
       model: this.config.replyModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
-      promptTokensEstimate: estimateTokens(prompt),
-      response: reply
+      promptTokensEstimate,
+      responseChars: reply.length,
+      responsePreview: toSingleLinePreview(reply)
     });
 
     return {
@@ -96,7 +99,7 @@ export class OpenAiCompatibleLlmClient {
       model: this.config.replyModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
-      promptTokensEstimate: estimateTokens(prompt)
+      promptTokensEstimate
     };
   }
 
@@ -129,8 +132,9 @@ export class OpenAiCompatibleLlmClient {
     latencyMs?: number;
     attemptCount?: number;
     promptTokensEstimate?: number;
-    prompt?: string;
-    response?: string;
+    promptChars?: number;
+    responseChars?: number;
+    responsePreview?: string;
   }): void {
     if (!this.options.logLlmText) {
       return;
@@ -142,6 +146,16 @@ export class OpenAiCompatibleLlmClient {
 
 function estimateTokens(prompt: string): number {
   return Math.max(1, Math.ceil(prompt.length / 4));
+}
+
+function toSingleLinePreview(text: string, maxLength = 240): string {
+  const singleLine = text.replace(/\s+/g, " ").trim();
+
+  if (singleLine.length <= maxLength) {
+    return singleLine;
+  }
+
+  return `${singleLine.slice(0, maxLength - 3)}...`;
 }
 
 function isRetriableError(error: unknown): boolean {
