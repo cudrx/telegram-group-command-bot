@@ -205,10 +205,14 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("Do not decide who is right.");
     expect(prompt).toContain("CHAT_CONTEXT_DATA:");
     expect(prompt).toContain("<b>Коротко</b>");
-    expect(prompt).toContain("<b>Итог</b>");
     expect(prompt).toContain("3 to 5 short bullet points using •");
+    expect(prompt).toContain("End the response after the summary bullets.");
+    expect(prompt).toContain("Do not add meta commentary about the summarization task.");
+    expect(prompt).toContain("Do not write phrases like 'Суммаризация завершена' or 'Данных для точного анализа недостаточно'.");
+    expect(prompt).toContain("Do not add a final verdict, winner, or analysis-status line.");
     expect(prompt).toContain("No command arguments are used for this mode.");
     expect(prompt).not.toContain("Summary:");
+    expect(prompt).not.toContain("optional meaningful <b>Итог</b>");
     expect(prompt).not.toContain("ignored text");
   });
 
