@@ -12,4 +12,5 @@ Before implementation:
 - List affected files.
 - Describe runtime behavior changes.
 - Describe how the change will be tested.
+- Describe which eval fixtures or eval expectations will be added, updated, or deliberately left unchanged.
 - Proceed only after explicit user approval.

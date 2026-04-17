@@ -1,6 +1,6 @@
 # Telegram Chat Assistant
 
-Минимальное v0-ядро Telegram chat assistant на `Node.js + TypeScript + grammY + SQLite` с OpenAI-compatible LLM слоем.
+Минимальное v1-ядро Telegram chat assistant на `Node.js + TypeScript + grammY + SQLite` с OpenAI-compatible LLM слоем.
 
 ## Что уже есть
 
@@ -8,8 +8,11 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`config/assistant-instructions.md`](./config/assistant-instructions.md)
-- доменная логика ответа только для `mention`
-- короткое local-context окно для mention
+- командные режимы только для `/explain`, `/summarize` и `/decide`
+- обычный `@mention` и обычный private text не запускают LLM
+- короткий local-context window с отдельными лимитами под каждый intent
+- свои bot messages хранятся для audit/logging, но не попадают в prompt context
+- сообщения других ботов сохраняются и могут быть reply-якорем для `/explain`
 - Telegram typing indicators и короткая bounded задержка ответа
 - prompt hardening для transcript и structured logs
 - один OpenAI-compatible LLM-клиент для генерации реплик
@@ -17,7 +20,13 @@
 - `GitHub Actions` `CI` на `push` и `pull_request`
 - автодеплой Docker image из `GHCR` на VPS после `push` в `main`
 
-В v0 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
+### Команды
+
+- `/explain` - объяснить сообщение, на которое сделан reply; в v1 можно опираться на общие знания модели, но не на live internet.
+- `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
+- `/decide` - оценить текущий спор в чате и сказать, кто ближе, прав, частично прав или что контекста недостаточно; без внешних фактов в v1.
+
+В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
 ## Требования
 
@@ -66,7 +75,9 @@ npm run dev
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
 - `LOG_LLM_TEXT`
-- `MESSAGE_CONTEXT_LIMIT`
+- `EXPLAIN_CONTEXT_LIMIT`
+- `SUMMARIZE_CONTEXT_LIMIT`
+- `DECIDE_CONTEXT_LIMIT`
 - `REPLY_MIN_TYPING_MS`
 - `REPLY_MAX_TYPING_MS`
 - `REPLY_TYPING_REFRESH_MS`
@@ -101,6 +112,7 @@ docker compose logs bot --tail=200 -f
 - `npm run typecheck`
 - `npm test`
 - `npm run build`
+- `npm run eval:intents` - прогон intent-eval fixture набора; результаты пишутся в gitignored `.eval-runs/`
 
 ## Структура
 
@@ -111,6 +123,7 @@ docker compose logs bot --tail=200 -f
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI
 - `docs/backlog/ideas.md` — идеи на следующие версии
+- `docs/backlog/big-features.md` — крупные future-stage подсистемы
 
 ## Docker Deployment
 

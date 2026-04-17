@@ -23,6 +23,12 @@ These rules apply across all tasks unless the user explicitly says otherwise.
 - When the user is ready, they will ask Codex to form commits and write commit messages.
 - When the final changes are ready to push and naturally fit in a single commit, include a ready-to-use commit message in the final response without asking first; the user will decide whether to commit and push from the IDE.
 
+## Tests And Evals
+
+- Keep eval fixtures and eval expectations current with behavior changes, prompt changes, context-building changes, and new assistant modes.
+- Treat eval maintenance like documentation maintenance: when behavior changes, review the relevant evals and update, add, or explicitly note why no eval update is needed.
+- For new intent-based modes, add focused eval coverage alongside the implementation so factual behavior can be tracked over time.
+
 ## Communication
 
 - If a workflow choice matters, prefer branches over worktrees unless the user explicitly overrides this preference.

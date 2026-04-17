@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "migrate": "node --import tsx scripts/migrate.ts",
+    "eval:intents": "tsx scripts/evaluate-intents.ts",
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",

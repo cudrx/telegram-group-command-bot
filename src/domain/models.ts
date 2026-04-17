@@ -1,6 +1,16 @@
 export type ChatType = "private" | "group" | "supergroup" | "channel" | "unknown";
 
-export type ReplyReason = "mention";
+export type AssistantIntent = "explain" | "summarize" | "decide";
+
+export type DirectTrigger =
+  | {
+      kind: "command";
+      intent: AssistantIntent;
+      commandText: string;
+    }
+  | { kind: "none" };
+
+export type ReplyReason = "command";
 
 export type NormalizedMessage = {
   chatId: number;
@@ -33,6 +43,7 @@ export type StoredMessage = {
 
 export type ReplyContext = {
   triggerMessage: StoredMessage | null;
+  replyAnchorMessage: StoredMessage | null;
   priorContextMessages: StoredMessage[];
 };
 

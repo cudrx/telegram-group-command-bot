@@ -94,7 +94,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   bot.on("message:text", async (ctx) => {
     const normalized = normalizeTextMessage(ctx);
 
-    if (!normalized || normalized.isBot) {
+    if (!normalized || normalized.fromUserId === botInfo.id) {
       return;
     }
 

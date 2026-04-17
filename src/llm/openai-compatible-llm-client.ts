@@ -1,8 +1,8 @@
 import OpenAI from "openai";
 
-import type { ReplyContext } from "../domain/models.js";
+import type { AssistantIntent, ReplyContext } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
-import { buildReplyPrompt } from "./prompts.js";
+import { buildIntentPrompt } from "./prompts.js";
 
 export type LlmReplyResult = {
   text: string;
@@ -49,10 +49,10 @@ export class OpenAiCompatibleLlmClient {
   async generateReply(input: {
     assistantInstructions: string;
     targetDisplayName: string;
-    reason: string;
+    intent: AssistantIntent;
     replyContext: ReplyContext;
   }): Promise<LlmReplyResult> {
-    const prompt = buildReplyPrompt(input);
+    const prompt = buildIntentPrompt(input);
     const startedAt = Date.now();
     this.logLlmText("llm.reply.request", {
       kind: "reply",
