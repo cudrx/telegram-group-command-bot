@@ -19,9 +19,9 @@ describe("parseEnv", () => {
     expect(env.logLevel).toBe("info");
     expect(env.logColor).toBe(true);
     expect(env.assistantInstructionsFile).toBe("config/assistant-instructions.md");
-    expect(env.explainContextLimit).toBe(50);
-    expect(env.summarizeContextLimit).toBe(200);
-    expect(env.decideContextLimit).toBe(100);
+    expect(env.explainContextLimit).toBe(16);
+    expect(env.summarizeContextLimit).toBe(128);
+    expect(env.decideContextLimit).toBe(64);
     expect(env.replyMinTypingMs).toBe(900);
     expect(env.replyMaxTypingMs).toBe(2200);
     expect(env.replyTypingRefreshMs).toBe(4000);
@@ -49,9 +49,9 @@ describe("parseEnv", () => {
     });
 
     expect(Object.hasOwn(env, "messageContextLimit")).toBe(false);
-    expect(env.explainContextLimit).toBe(50);
-    expect(env.summarizeContextLimit).toBe(200);
-    expect(env.decideContextLimit).toBe(100);
+    expect(env.explainContextLimit).toBe(16);
+    expect(env.summarizeContextLimit).toBe(128);
+    expect(env.decideContextLimit).toBe(64);
   });
 
   test("reads assistant instructions file from the new env var", () => {

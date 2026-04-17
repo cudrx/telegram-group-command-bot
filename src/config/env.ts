@@ -44,9 +44,9 @@ const envSchema = z.object({
     .string()
     .min(1)
     .default("config/assistant-instructions.md"),
-  EXPLAIN_CONTEXT_LIMIT: z.coerce.number().int().positive().default(50),
-  SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(200),
-  DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(100),
+  EXPLAIN_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
+  SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(128),
+  DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(64),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000)
