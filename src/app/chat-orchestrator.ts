@@ -175,7 +175,7 @@ export class ChatOrchestrator {
         replyToMessageId: request.triggerMessageId
       });
 
-      logger.info("reply_job_completed", {
+      logger.debug("reply_job_completed", {
         intent: request.intent,
         replyToMessageId: request.triggerMessageId,
         llmLatencyMs: result.latencyMs,

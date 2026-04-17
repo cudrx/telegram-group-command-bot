@@ -98,6 +98,42 @@ describe("ChatOrchestrator", () => {
     });
   });
 
+  test("logs completed reply jobs at debug level only", async () => {
+    const db = new FakeDatabaseClient();
+    const logger = createLogger();
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: "2026-04-03T12:00:30.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      logger
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: "/summarize",
+        entities: [{ type: "bot_command", offset: 0, length: 10 }]
+      })
+    );
+
+    expect(logger.info).not.toHaveBeenCalledWith(
+      "reply_job_completed",
+      expect.any(Object)
+    );
+    expect(logger.debug).toHaveBeenCalledWith(
+      "reply_job_completed",
+      expect.objectContaining({
+        intent: "summarize",
+        llmModel: "reply-model"
+      })
+    );
+  });
+
   test("uses replied-to non-self bot message as explain request anchor", async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
@@ -254,6 +290,7 @@ function createOrchestrator(input: {
     text: string;
   }) => Promise<{ messageId: number; createdAt: string }>;
   loadAssistantInstructions?: (filePath: string) => Promise<string>;
+  logger?: AppLogger;
 }): ChatOrchestrator {
   return new ChatOrchestrator({
     db: input.db as never,
@@ -269,7 +306,7 @@ function createOrchestrator(input: {
     delay: vi.fn().mockResolvedValue(undefined),
     loadAssistantInstructions:
       input.loadAssistantInstructions ?? vi.fn().mockResolvedValue("assistant instructions"),
-    logger: createLogger(),
+    logger: input.logger ?? createLogger(),
     random: () => 0,
     now: () => "2026-04-13T09:00:10.000Z"
   });
@@ -334,12 +371,22 @@ function createReplyResult(text: string) {
 }
 
 function createLogger(): AppLogger {
-  return {
+  const logger = {
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-    child: vi.fn((_fields: LogFields) => createLogger())
+    child: vi.fn()
+  };
+
+  logger.child.mockReturnValue(logger);
+
+  return {
+    debug: logger.debug,
+    info: logger.info,
+    warn: logger.warn,
+    error: logger.error,
+    child: logger.child
   };
 }
 
