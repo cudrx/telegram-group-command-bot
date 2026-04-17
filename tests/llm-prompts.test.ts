@@ -136,4 +136,44 @@ describe("buildReplyPrompt", () => {
     expect(prompt).toContain("avoid reusing the distinctive words from the repeated bit");
     expect(prompt).toContain("Use a plain reset reply");
   });
+
+  test("adds duplicate reply recovery instruction only when requested", () => {
+    const input = {
+      persona: "будь живым",
+      targetDisplayName: "Tom",
+      reason: "reply_to_bot",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 1,
+          senderDisplayName: "Tom",
+          text: "ответь нормально",
+          createdAt: "2026-04-03T12:00:00.000Z",
+          isBot: false,
+          replyToMessageId: 2
+        },
+        anchorBotMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 77,
+          senderDisplayName: "Хрюпа",
+          text: "повторенная старая реплика",
+          createdAt: "2026-04-03T11:59:00.000Z",
+          isBot: true,
+          replyToMessageId: 1
+        },
+        anchorParentMessage: null,
+        priorContextMessages: []
+      }
+    };
+
+    expect(buildReplyPrompt(input)).not.toContain("Recovery instruction:");
+    expect(
+      buildReplyPrompt({
+        ...input,
+        duplicateReplyRecovery: true
+      })
+    ).toContain("Your previous draft repeated a recent bot reply and was rejected.");
+  });
 });

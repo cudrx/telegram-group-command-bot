@@ -199,14 +199,14 @@ describe("offline degradation evals", () => {
           messageId: 604,
           userId: 42,
           senderDisplayName: "Артём",
-          text: "ты опять зациклился на анимировать лошадь, остановись",
+          text: "ты опять зациклился на анимировать лошадь сейчас, остановись",
           replyToMessageId: 603
         }),
         anchorBotMessage: message({
           messageId: 603,
           userId: 77,
           senderDisplayName: "Хрюпа",
-          text: "анимировать лошадь, анимировать лошадь",
+          text: "анимировать лошадь сейчас, анимировать лошадь сейчас",
           isBot: true,
           replyToMessageId: 602
         }),
@@ -219,13 +219,17 @@ describe("offline degradation evals", () => {
         priorContextMessages: [message({ messageId: 602, text: "ты завис?" })]
       },
       recentMessages: [
-        message({ messageId: 600, text: "анимировать лошадь", isBot: true }),
-        message({ messageId: 601, text: "опять анимировать лошадь", isBot: true }),
-        message({ messageId: 603, text: "анимировать лошадь, анимировать лошадь", isBot: true })
+        message({ messageId: 600, text: "анимировать лошадь сейчас", isBot: true }),
+        message({ messageId: 601, text: "опять анимировать лошадь сейчас", isBot: true }),
+        message({
+          messageId: 603,
+          text: "анимировать лошадь сейчас, анимировать лошадь сейчас",
+          isBot: true
+        })
       ]
     });
 
-    expect(prompt).toContain("ты опять зациклился на анимировать лошадь, остановись");
+    expect(prompt).toContain("ты опять зациклился на анимировать лошадь сейчас, остановись");
     expect(prompt).toContain("do not quote, paraphrase, remix, or continue");
     expect(prompt).toContain("do not explain the bit; just stop it");
     expect(prompt).toContain("[previous bot reply omitted because it appears repetitive]");

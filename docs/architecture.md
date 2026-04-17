@@ -11,7 +11,7 @@
 - отвечать только на `@mention` и `reply_to_bot`;
 - строить causal reply context для `reply_to_bot`;
 - строить короткий human-only local context для `mention`;
-- генерировать ответ через один `generateReply`;
+- генерировать ответ через `generateReply`, с одним recovery retry только если postflight guard поймал duplicate candidate;
 - сохранять исходящее bot-сообщение;
 - применять deterministic reply loop guards до и после LLM-вызова;
 - показывать Telegram typing indicator во время подготовки ответа.
@@ -42,7 +42,7 @@
 - persona управляет тоном, а не фактами;
 - deterministic guards запускаются до платного LLM-вызова, когда локального контекста достаточно;
 - repeated reply chains hide unsafe bot anchor text before prompt construction instead of sending a synthetic loop-breaker reply;
-- post-LLM duplicate guard может пропустить near-duplicate ответ, но не заменяет его синтетической репликой и не делает второй LLM-вызов;
+- post-LLM duplicate guard может пропустить near-duplicate ответ; при `duplicate_candidate_reply` приложение даёт LLM один recovery retry с анти-дубль инструкцией и повторно проверяет результат тем же guard;
 - Telegram typing indicator является app/transport поведением и не запускает model calls.
 
 ## Component Map
@@ -107,8 +107,9 @@
    - строится `ReplyContext`;
    - preflight guard может пропустить слишком частый reply-to-bot или скрыть повторяющийся bot anchor перед prompt construction;
    - dangerous repeated bot anchors are sanitized before prompt construction;
-   - вызывается один reply LLM;
+   - вызывается reply LLM;
    - postflight duplicate guard может пропустить near-duplicate output;
+   - если причина пропуска `duplicate_candidate_reply`, приложение делает один recovery retry и повторно запускает тот же postflight guard;
    - Telegram получает best-effort `typing` action и bounded delay;
    - ответ отправляется в Telegram и сохраняется в БД.
 

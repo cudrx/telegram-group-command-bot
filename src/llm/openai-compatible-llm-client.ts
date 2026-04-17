@@ -51,6 +51,7 @@ export class OpenAiCompatibleLlmClient {
     targetDisplayName: string;
     reason: string;
     replyContext: ReplyContext;
+    duplicateReplyRecovery?: boolean;
   }): Promise<LlmReplyResult> {
     const prompt = buildReplyPrompt(input);
     const startedAt = Date.now();

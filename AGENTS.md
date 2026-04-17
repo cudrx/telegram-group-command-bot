@@ -21,6 +21,7 @@ These instructions describe how Codex should work in this repository unless the 
 - Do not create commits by default.
 - Wait for the user to explicitly ask for commits.
 - When the user is ready, they will ask Codex to form commits and write commit messages.
+- When the final changes are ready to push and naturally fit in a single commit, include a ready-to-use commit message in the final response without asking first; the user will decide whether to commit and push from the IDE.
 
 ## Documentation
 

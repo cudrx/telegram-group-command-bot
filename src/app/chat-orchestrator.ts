@@ -44,6 +44,7 @@ export type LlmClient = {
     targetDisplayName: string;
     reason: string;
     replyContext: ReplyContext;
+    duplicateReplyRecovery?: boolean;
   }): Promise<LlmReplyResult>;
 };
 
@@ -228,23 +229,52 @@ export class ChatOrchestrator {
 
     return this.withReplyTyping(request.chatId, async () => {
       const persona = await this.deps.loadPersona(this.deps.env.personaFile);
-      const generated = await this.deps.qwen.generateReply({
-        persona,
-        targetDisplayName: request.fromDisplayName,
+      const promptReplyContext = sanitizeReplyContextForPrompt({
         reason: request.reason,
-        replyContext: sanitizeReplyContextForPrompt({
-          reason: request.reason,
-          replyContext,
-          recentMessages: recentMessagesForGuard,
-          omitAnchorBotText: preflight.omitAnchorBotTextFromPrompt
-        })
+        replyContext,
+        recentMessages: recentMessagesForGuard,
+        omitAnchorBotText: preflight.omitAnchorBotTextFromPrompt
       });
+      const generate = (duplicateReplyRecovery: boolean) =>
+        this.deps.qwen.generateReply({
+          persona,
+          targetDisplayName: request.fromDisplayName,
+          reason: request.reason,
+          replyContext: promptReplyContext,
+          ...(duplicateReplyRecovery ? { duplicateReplyRecovery: true } : {})
+        });
+      const generated = await generate(false);
       const postflight = decideReplyPostflightGuard({
         candidateText: generated.text,
         recentMessages: recentMessagesForGuard
       });
 
       if (postflight.kind === "skip") {
+        if (postflight.reason === "duplicate_candidate_reply") {
+          logger.info("reply_postflight_guard_retrying", {
+            reason: postflight.reason,
+            replyReason: request.reason,
+            replyToMessageId: request.triggerMessageId
+          });
+
+          const recovered = await generate(true);
+          const recoveryPostflight = decideReplyPostflightGuard({
+            candidateText: recovered.text,
+            recentMessages: recentMessagesForGuard
+          });
+
+          if (recoveryPostflight.kind === "allow") {
+            return recovered;
+          }
+
+          logger.info("reply_postflight_guard_skipped", {
+            reason: recoveryPostflight.reason,
+            replyReason: request.reason,
+            replyToMessageId: request.triggerMessageId
+          });
+          return null;
+        }
+
         logger.info("reply_postflight_guard_skipped", {
           reason: postflight.reason,
           replyReason: request.reason,

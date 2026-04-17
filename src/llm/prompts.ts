@@ -22,6 +22,7 @@ export function buildReplyPrompt(input: {
   targetDisplayName: string;
   reason: string;
   replyContext: ReplyContext;
+  duplicateReplyRecovery?: boolean;
 }): string {
   return [
     "Global persona:",
@@ -66,8 +67,23 @@ export function buildReplyPrompt(input: {
     "Earlier human context:",
     formatReplyContextMessages(input.replyContext.priorContextMessages),
     "",
+    ...formatDuplicateReplyRecovery(input.duplicateReplyRecovery),
     "Reply in Russian. Avoid mentioning that you are an AI model."
   ].join("\n");
+}
+
+function formatDuplicateReplyRecovery(enabled: boolean | undefined): string[] {
+  if (!enabled) {
+    return [];
+  }
+
+  return [
+    "Recovery instruction:",
+    "Your previous draft repeated a recent bot reply and was rejected.",
+    "Do not quote, paraphrase, remix, or continue that repeated reply.",
+    "Answer the current user message directly with a fresh short reply.",
+    ""
+  ];
 }
 
 function formatSingleMessage(message: PromptMessage | null): string {

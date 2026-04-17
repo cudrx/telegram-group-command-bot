@@ -283,6 +283,123 @@ describe("ChatOrchestrator", () => {
       })
     );
   });
+
+  test("retries once when the first generated reply duplicates recent bot text", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        text: "@fun_bot пользуешься впн?",
+        entities: [{ type: "mention", offset: 0, length: 8 }],
+        createdAt: "2026-04-17T09:09:28.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 11,
+      text: "а ты чё, вдруг решил проверить, кто тут с впн, а кто без?",
+      createdAt: "2026-04-17T09:09:30.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Хрюпа",
+      replyToMessageId: 10
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createReplyResult("а ты чё, вдруг решил проверить, кто тут с впн, а кто без?")
+      )
+      .mockResolvedValueOnce(createReplyResult("ладно, отвечу прямо: нет, сейчас без него"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1009,
+      createdAt: "2026-04-17T09:10:21.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 12,
+        text: "а ты что еврей вопросом на вопрос отвечать?",
+        replyToUserId: 77,
+        replyToMessageId: 11,
+        createdAt: "2026-04-17T09:10:18.000Z"
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledTimes(2);
+    expect(generateReply).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        duplicateReplyRecovery: true
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 12,
+      text: "ладно, отвечу прямо: нет, сейчас без него"
+    });
+  });
+
+  test("skips the reply when duplicate recovery also duplicates recent bot text", async () => {
+    const db = new FakeDatabaseClient();
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        text: "@fun_bot пользуешься впн?",
+        entities: [{ type: "mention", offset: 0, length: 8 }],
+        createdAt: "2026-04-17T09:09:28.000Z"
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: "group",
+      chatTitle: "Friends",
+      messageId: 11,
+      text: "а ты чё, вдруг решил проверить, кто тут с впн, а кто без?",
+      createdAt: "2026-04-17T09:09:30.000Z",
+      userId: 77,
+      username: "fun_bot",
+      displayName: "Хрюпа",
+      replyToMessageId: 10
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValueOnce(
+        createReplyResult("а ты чё, вдруг решил проверить, кто тут с впн, а кто без?")
+      )
+      .mockResolvedValueOnce(
+        createReplyResult("а ты чё, вдруг решил проверить, кто тут с впн, а кто без?")
+      );
+    const replyDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 12,
+        text: "а ты что еврей вопросом на вопрос отвечать?",
+        replyToUserId: 77,
+        replyToMessageId: 11,
+        createdAt: "2026-04-17T09:10:18.000Z"
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledTimes(2);
+    expect(replyDispatcher).not.toHaveBeenCalled();
+  });
 });
 
 function createOrchestrator(input: {
@@ -293,6 +410,7 @@ function createOrchestrator(input: {
       targetDisplayName: string;
       reason: string;
       replyContext: unknown;
+      duplicateReplyRecovery?: boolean;
     }) => Promise<ReturnType<typeof createReplyResult>>;
   };
   replyDispatcher: (input: {

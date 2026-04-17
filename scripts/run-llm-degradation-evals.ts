@@ -2,6 +2,7 @@ import { sanitizeReplyContextForPrompt } from "../src/app/reply-context-sanitize
 import { getEnv } from "../src/config/env.js";
 import { loadPersona } from "../src/config/persona.js";
 import type { ReplyContext, ReplyReason, StoredMessage } from "../src/domain/models.js";
+import { decideReplyPostflightGuard } from "../src/domain/reply-loop-guard.js";
 import { OpenAiCompatibleLlmClient } from "../src/llm/openai-compatible-llm-client.js";
 import { buildReplyPrompt } from "../src/llm/prompts.js";
 
@@ -14,6 +15,9 @@ type EvalCase = {
   forbiddenOutputFragments: string[];
   expectedPromptFragments: string[];
   forbiddenPromptFragments: string[];
+  duplicateCandidateRetry?: {
+    firstCandidateText: string;
+  };
 };
 
 const env = getEnv();
@@ -39,11 +43,13 @@ for (const evalCase of cases) {
     recentMessages: evalCase.recentMessages,
     omitAnchorBotText: false
   });
+  const duplicateReplyRecovery = evalCase.duplicateCandidateRetry !== undefined;
   const prompt = buildReplyPrompt({
     persona,
     targetDisplayName: evalCase.targetDisplayName,
     reason: evalCase.reason,
-    replyContext: sanitizedContext
+    replyContext: sanitizedContext,
+    duplicateReplyRecovery
   });
   const promptFailures = [
     ...missingFragments(prompt, evalCase.expectedPromptFragments),
@@ -56,12 +62,36 @@ for (const evalCase of cases) {
     continue;
   }
 
+  if (evalCase.duplicateCandidateRetry) {
+    const firstCandidateGuard = decideReplyPostflightGuard({
+      candidateText: evalCase.duplicateCandidateRetry.firstCandidateText,
+      recentMessages: evalCase.recentMessages
+    });
+
+    if (
+      firstCandidateGuard.kind !== "skip" ||
+      firstCandidateGuard.reason !== "duplicate_candidate_reply"
+    ) {
+      failures += 1;
+      printFailure(
+        evalCase.name,
+        "guard",
+        [
+          `first candidate should be skipped as duplicate_candidate_reply, got ${formatGuardDecision(firstCandidateGuard)}`
+        ],
+        evalCase.duplicateCandidateRetry.firstCandidateText
+      );
+      continue;
+    }
+  }
+
   try {
     const result = await llm.generateReply({
       persona,
       targetDisplayName: evalCase.targetDisplayName,
       reason: evalCase.reason,
-      replyContext: sanitizedContext
+      replyContext: sanitizedContext,
+      duplicateReplyRecovery
     });
     const outputFailures = presentForbiddenFragments(
       result.text,
@@ -74,8 +104,29 @@ for (const evalCase of cases) {
       continue;
     }
 
+    if (evalCase.duplicateCandidateRetry) {
+      const recoveryGuard = decideReplyPostflightGuard({
+        candidateText: result.text,
+        recentMessages: evalCase.recentMessages
+      });
+
+      if (recoveryGuard.kind === "skip") {
+        failures += 1;
+        printFailure(
+          evalCase.name,
+          "guard",
+          [`recovery candidate failed postflight guard: ${recoveryGuard.reason}`],
+          result.text
+        );
+        continue;
+      }
+    }
+
     console.log(`PASS ${evalCase.name}`);
     console.log(`  response: ${result.text}`);
+    if (evalCase.duplicateCandidateRetry) {
+      console.log("  duplicateRetry: firstCandidate=duplicate_candidate_reply recovery=allow");
+    }
     console.log(`  latencyMs=${result.latencyMs} attempts=${result.attemptCount}\n`);
   } catch (error) {
     failures += 1;
@@ -246,14 +297,14 @@ function buildEvalCases(): EvalCase[] {
           messageId: 604,
           userId: 42,
           senderDisplayName: "Артём",
-          text: "ты опять зациклился на анимировать лошадь, остановись",
+          text: "ты опять зациклился на анимировать лошадь сейчас, остановись",
           replyToMessageId: 603
         }),
         anchorBotMessage: message({
           messageId: 603,
           userId: 77,
           senderDisplayName: "Хрюпа",
-          text: "анимировать лошадь, анимировать лошадь",
+          text: "анимировать лошадь сейчас, анимировать лошадь сейчас",
           isBot: true,
           replyToMessageId: 602
         }),
@@ -266,17 +317,25 @@ function buildEvalCases(): EvalCase[] {
         priorContextMessages: [message({ messageId: 602, text: "ты завис?" })]
       },
       recentMessages: [
-        message({ messageId: 600, text: "анимировать лошадь", isBot: true }),
-        message({ messageId: 601, text: "опять анимировать лошадь", isBot: true }),
-        message({ messageId: 603, text: "анимировать лошадь, анимировать лошадь", isBot: true })
+        message({ messageId: 600, text: "анимировать лошадь сейчас", isBot: true }),
+        message({ messageId: 601, text: "опять анимировать лошадь сейчас", isBot: true }),
+        message({
+          messageId: 603,
+          text: "анимировать лошадь сейчас, анимировать лошадь сейчас",
+          isBot: true
+        })
       ],
       expectedPromptFragments: [
-        "ты опять зациклился на анимировать лошадь, остановись",
+        "ты опять зациклился на анимировать лошадь сейчас, остановись",
         "do not quote, paraphrase, remix, or continue",
-        "[previous bot reply omitted because it appears repetitive]"
+        "[previous bot reply omitted because it appears repetitive]",
+        "Your previous draft repeated a recent bot reply and was rejected."
       ],
       forbiddenPromptFragments: ['actor=bot Хрюпа content="анимировать лошадь'],
-      forbiddenOutputFragments: ["анимировать лошад", "лошад"]
+      forbiddenOutputFragments: ["анимировать лошадь сейчас"],
+      duplicateCandidateRetry: {
+        firstCandidateText: "анимировать лошадь сейчас, анимировать лошадь сейчас"
+      }
     },
     {
       name: "normal_horse_question_not_blocked",
@@ -341,7 +400,20 @@ function normalizeForEval(text: string): string {
     .trim();
 }
 
-function printFailure(name: string, surface: "prompt" | "response", reasons: string[], text: string): void {
+function formatGuardDecision(decision: ReturnType<typeof decideReplyPostflightGuard>): string {
+  if (decision.kind === "allow") {
+    return "allow";
+  }
+
+  return `skip:${decision.reason}`;
+}
+
+function printFailure(
+  name: string,
+  surface: "prompt" | "response" | "guard",
+  reasons: string[],
+  text: string
+): void {
   console.log(`FAIL ${name}`);
   console.log(`  ${surface} failed:`);
 

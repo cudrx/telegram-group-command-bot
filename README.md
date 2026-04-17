@@ -12,7 +12,7 @@
 - causal reply context для ответов на сообщения бота
 - короткое local-context окно для mention
 - prompt-facing sanitizer, чтобы грязная история бота не требовала чистки `SQLite`
-- deterministic reply loop guards до и после LLM-вызова
+- deterministic reply loop guards до и после LLM-вызова, включая один recovery retry для duplicate candidate
 - Telegram typing indicators и короткая bounded задержка ответа
 - prompt hardening для transcript и structured logs
 - один OpenAI-compatible LLM-клиент для генерации реплик
