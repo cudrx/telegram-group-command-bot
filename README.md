@@ -182,4 +182,4 @@ docker compose down
 
 ## Следующие версии
 
-Идеи для развития вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
+Самый актуальный следующий этап: дать `/explain` и `/decide` управляемый выход в интернет и добавить media intake для изображений, voice/audio и Telegram video notes. Детали и порядок работ вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md) и [`docs/superpowers/plans/2026-04-18-internet-and-media-intake.md`](./docs/superpowers/plans/2026-04-18-internet-and-media-intake.md).

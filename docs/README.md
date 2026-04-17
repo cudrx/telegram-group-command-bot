@@ -33,7 +33,7 @@ Use these locations consistently:
 - [`/docs/todo/`](/home/tom/Documents/Projects/test-chatbot/docs/todo)
   working notes and agreed feature formulations before full design/spec work
 - [`/docs/superpowers/plans/`](/home/tom/Documents/Projects/test-chatbot/docs/superpowers/plans)
-  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans
+  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans; current active roadmap includes internet-backed `/explain`/`/decide` and media intake
 
 ## Rules
 

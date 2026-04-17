@@ -14,6 +14,7 @@
 - [`docs/architecture.md`](./architecture.md) — устройство проекта
 - [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
 - [`docs/backlog/big-features.md`](./backlog/big-features.md) — крупные future-stage подсистемы
+- [`docs/backlog/small-fixes.md`](./backlog/small-fixes.md) — небольшие reliability, safety и operations задачи
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
 - [`config/assistant-instructions.md`](../config/assistant-instructions.md) — базовые assistant instructions
 
