@@ -1,4 +1,4 @@
-import type { ReplyContext, StoredMessage } from "../domain/models.js";
+import type { AssistantIntent, ReplyContext, StoredMessage } from "../domain/models.js";
 import type { DatabaseClient } from "../storage/database.js";
 
 type ReplyContextDb = Pick<
@@ -10,7 +10,9 @@ export function buildReplyContext(input: {
   db: ReplyContextDb;
   chatId: number;
   triggerMessageId: number;
-  messageContextLimit: number;
+  contextLimit: number;
+  intent: AssistantIntent;
+  botUserId: number;
 }): ReplyContext {
   const triggerMessage = input.db.getMessageByTelegramMessageId(
     input.chatId,
@@ -23,12 +25,43 @@ export function buildReplyContext(input: {
 
   return {
     triggerMessage,
+    replyAnchorMessage: buildReplyAnchorMessage(input.db, {
+      chatId: input.chatId,
+      triggerMessage,
+      intent: input.intent,
+      botUserId: input.botUserId
+    }),
     priorContextMessages: buildPriorContextMessages(input.db, {
       chatId: input.chatId,
       triggerMessageId: input.triggerMessageId,
-      messageContextLimit: input.messageContextLimit
+      contextLimit: input.contextLimit
     })
   };
+}
+
+function buildReplyAnchorMessage(
+  db: ReplyContextDb,
+  input: {
+    chatId: number;
+    triggerMessage: StoredMessage;
+    intent: AssistantIntent;
+    botUserId: number;
+  }
+): StoredMessage | null {
+  if (input.intent !== "explain" || !input.triggerMessage.replyToMessageId) {
+    return null;
+  }
+
+  const anchor = db.getMessageByTelegramMessageId(
+    input.chatId,
+    input.triggerMessage.replyToMessageId
+  );
+
+  if (!anchor || anchor.userId === input.botUserId) {
+    return null;
+  }
+
+  return anchor;
 }
 
 function buildPriorContextMessages(
@@ -36,16 +69,16 @@ function buildPriorContextMessages(
   input: {
     chatId: number;
     triggerMessageId: number;
-    messageContextLimit: number;
+    contextLimit: number;
   }
 ): StoredMessage[] {
-  const priorContextLimit = Math.max(input.messageContextLimit - 1, 0);
+  const priorContextLimit = Math.max(input.contextLimit - 1, 0);
 
   if (priorContextLimit === 0) {
     return [];
   }
 
-  const lookbackLimit = Math.max(input.messageContextLimit * 4, priorContextLimit);
+  const lookbackLimit = Math.max(input.contextLimit * 4, priorContextLimit);
   const priorMessages = db.getMessagesBefore(input.chatId, input.triggerMessageId, lookbackLimit);
   const humanMessages = priorMessages.filter((message) => !message.isBot);
 
@@ -55,6 +88,7 @@ function buildPriorContextMessages(
 function emptyReplyContext(): ReplyContext {
   return {
     triggerMessage: null,
+    replyAnchorMessage: null,
     priorContextMessages: []
   };
 }

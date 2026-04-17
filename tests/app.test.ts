@@ -189,6 +189,40 @@ describe("createApplication", () => {
     );
   });
 
+  test("forwards text messages from other bots so explain replies can use them as anchors", async () => {
+    const { createApplication } = await import("../src/app.js");
+    await createApplication(createEnv());
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 12,
+        date: 1_744_000_000,
+        text: "кто сильнее лев или тигр?",
+        from: {
+          id: 555,
+          is_bot: true,
+          username: "rofl_bot",
+          first_name: "Rofl Bot"
+        },
+        chat: {
+          id: -1001,
+          type: "supergroup",
+          title: "Test chat"
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: -1001,
+        messageId: 12,
+        text: "кто сильнее лев или тигр?",
+        isBot: true,
+        fromUserId: 555
+      })
+    );
+  });
+
   test("stops bot and closes database without summary timers", async () => {
     const { createApplication } = await import("../src/app.js");
     const app = await createApplication(createEnv());
@@ -213,7 +247,9 @@ function createEnv(): AppEnv {
     logLlmText: false,
     sqlitePath: ":memory:",
     assistantInstructionsFile: "config/assistant-instructions.md",
-    messageContextLimit: 8,
+    explainContextLimit: 50,
+    summarizeContextLimit: 200,
+    decideContextLimit: 100,
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000

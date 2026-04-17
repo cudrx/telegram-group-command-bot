@@ -1,9 +1,12 @@
-export type DirectTrigger = "mention" | "none";
+import type { AssistantIntent, ChatType, DirectTrigger } from "./models.js";
+
+export type { AssistantIntent, DirectTrigger } from "./models.js";
 
 export type DetectDirectTriggerInput = {
   botUserId: number;
   botUsername: string | null;
   message: {
+    chatType?: ChatType;
     text: string;
     entities?: Array<{ type: string; offset: number; length: number }>;
     replyToUserId: number | null;
@@ -16,26 +19,30 @@ export type DecideReplyActionInput = {
 
 export type DecideReplyActionResult = {
   shouldReply: boolean;
-  reason: "mention" | "ignore";
+  reason: "command" | "ignore";
+  intent?: AssistantIntent;
+};
+
+const COMMAND_INTENTS: Record<string, AssistantIntent> = {
+  explain: "explain",
+  summarize: "summarize",
+  decide: "decide"
 };
 
 export function detectDirectTrigger(
   input: DetectDirectTriggerInput
 ): DirectTrigger {
-  if (hasMentionForBot(input)) {
-    return "mention";
-  }
-
-  return "none";
+  return detectCommandTrigger(input) ?? { kind: "none" };
 }
 
 export function decideReplyAction(
   input: DecideReplyActionInput
 ): DecideReplyActionResult {
-  if (input.directTrigger === "mention") {
+  if (input.directTrigger.kind === "command") {
     return {
       shouldReply: true,
-      reason: "mention"
+      reason: "command",
+      intent: input.directTrigger.intent
     };
   }
 
@@ -45,24 +52,70 @@ export function decideReplyAction(
   };
 }
 
-function hasMentionForBot(input: DetectDirectTriggerInput): boolean {
-  if (!input.botUsername) {
-    return false;
+function detectCommandTrigger(input: DetectDirectTriggerInput): DirectTrigger | null {
+  if (!allowsCommands(input.message.chatType)) {
+    return null;
   }
 
-  const expectedMention = `@${input.botUsername}`.toLowerCase();
-
-  return (
-    input.message.entities?.some((entity) => {
-      if (entity.type !== "mention") {
-        return false;
-      }
-
-      const value = input.message.text
-        .slice(entity.offset, entity.offset + entity.length)
-        .toLowerCase();
-
-      return value === expectedMention;
-    }) ?? false
+  const commandEntity = input.message.entities?.find(
+    (entity) => entity.type === "bot_command" && entity.offset === 0
   );
+
+  if (!commandEntity) {
+    return null;
+  }
+
+  const commandText = input.message.text.slice(
+    commandEntity.offset,
+    commandEntity.offset + commandEntity.length
+  );
+  const parsed = parseCommandText(commandText);
+
+  if (!parsed) {
+    return null;
+  }
+
+  if (
+    parsed.botUsername &&
+    (!input.botUsername ||
+      parsed.botUsername.toLowerCase() !== input.botUsername.toLowerCase())
+  ) {
+    return null;
+  }
+
+  const intent = COMMAND_INTENTS[parsed.commandName.toLowerCase()];
+
+  if (!intent) {
+    return null;
+  }
+
+  return {
+    kind: "command",
+    intent,
+    commandText
+  };
+}
+
+function allowsCommands(chatType: ChatType | undefined): boolean {
+  return (
+    chatType === undefined ||
+    chatType === "private" ||
+    chatType === "group" ||
+    chatType === "supergroup"
+  );
+}
+
+function parseCommandText(
+  commandText: string
+): { commandName: string; botUsername: string | null } | null {
+  const match = /^\/([A-Za-z0-9_]+)(?:@([A-Za-z0-9_]+))?$/.exec(commandText);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    commandName: match[1] ?? "",
+    botUsername: match[2] ?? null
+  };
 }

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import type { AppEnv } from "../config/env.js";
-import type { NormalizedMessage, ReplyContext } from "../domain/models.js";
+import type { AssistantIntent, NormalizedMessage, ReplyContext } from "../domain/models.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
@@ -37,7 +37,7 @@ export type LlmClient = {
   generateReply(input: {
     assistantInstructions: string;
     targetDisplayName: string;
-    reason: string;
+    intent: AssistantIntent;
     replyContext: ReplyContext;
   }): Promise<LlmReplyResult>;
 };
@@ -49,8 +49,11 @@ type ReplyRequest = {
   triggerMessageId: number;
   fromDisplayName: string;
   createdAt: string;
-  reason: "mention";
+  intent: AssistantIntent;
 };
+
+const EXPLAIN_USAGE_PLACEHOLDER =
+  "Сделай reply на сообщение с вопросом и отправь /explain.";
 
 export class ChatOrchestrator {
   constructor(
@@ -94,6 +97,7 @@ export class ChatOrchestrator {
       botUserId: this.deps.bot.userId,
       botUsername: this.deps.bot.username,
       message: {
+        chatType: message.chatType,
         text: message.text,
         entities: message.entities,
         replyToUserId: message.replyToUserId
@@ -103,14 +107,15 @@ export class ChatOrchestrator {
 
     logger.info("incoming_message_evaluated", {
       directTrigger,
-      decision: decision.reason
+      decision: decision.reason,
+      intent: decision.intent
     });
 
     if (!decision.shouldReply) {
       return;
     }
 
-    if (decision.reason === "ignore") {
+    if (!decision.intent) {
       return;
     }
 
@@ -121,7 +126,7 @@ export class ChatOrchestrator {
       triggerMessageId: message.messageId,
       fromDisplayName: message.fromDisplayName,
       createdAt: message.createdAt,
-      reason: decision.reason
+      intent: decision.intent
     };
 
     await this.runReplyJob(request, logger);
@@ -130,7 +135,7 @@ export class ChatOrchestrator {
   private async runReplyJob(request: ReplyRequest, logger: AppLogger): Promise<void> {
     try {
       logger.info("reply_job_started", {
-        replyReason: request.reason,
+        intent: request.intent,
         replyToMessageId: request.triggerMessageId
       });
 
@@ -138,7 +143,7 @@ export class ChatOrchestrator {
 
       if (!result) {
         logger.info("reply_job_skipped", {
-          replyReason: request.reason,
+          intent: request.intent,
           replyToMessageId: request.triggerMessageId
         });
         return;
@@ -164,7 +169,7 @@ export class ChatOrchestrator {
       });
 
       logger.info("reply_job_completed", {
-        replyReason: request.reason,
+        intent: request.intent,
         replyToMessageId: request.triggerMessageId,
         llmLatencyMs: result.latencyMs,
         llmAttempts: result.attemptCount,
@@ -173,7 +178,7 @@ export class ChatOrchestrator {
       });
     } catch (error) {
       logger.error("reply_job_failed", {
-        replyReason: request.reason,
+        intent: request.intent,
         ...serializeError(error)
       });
     }
@@ -187,8 +192,14 @@ export class ChatOrchestrator {
       db: this.deps.db,
       chatId: request.chatId,
       triggerMessageId: request.triggerMessageId,
-      messageContextLimit: this.deps.env.messageContextLimit
+      contextLimit: getContextLimitForIntent(this.deps.env, request.intent),
+      intent: request.intent,
+      botUserId: this.deps.bot.userId
     });
+
+    if (request.intent === "explain" && !replyContext.replyAnchorMessage) {
+      return createLocalReplyResult(EXPLAIN_USAGE_PLACEHOLDER);
+    }
 
     return this.withReplyTyping(request.chatId, async () => {
       const assistantInstructions = await this.deps.loadAssistantInstructions(
@@ -198,7 +209,7 @@ export class ChatOrchestrator {
       return this.deps.qwen.generateReply({
         assistantInstructions,
         targetDisplayName: request.fromDisplayName,
-        reason: request.reason,
+        intent: request.intent,
         replyContext
       });
     });
@@ -221,4 +232,25 @@ export class ChatOrchestrator {
       operation
     );
   }
+}
+
+function getContextLimitForIntent(env: AppEnv, intent: AssistantIntent): number {
+  switch (intent) {
+    case "explain":
+      return env.explainContextLimit;
+    case "summarize":
+      return env.summarizeContextLimit;
+    case "decide":
+      return env.decideContextLimit;
+  }
+}
+
+function createLocalReplyResult(text: string): LlmReplyResult {
+  return {
+    text,
+    model: "local",
+    latencyMs: 0,
+    attemptCount: 0,
+    promptTokensEstimate: 0
+  };
 }

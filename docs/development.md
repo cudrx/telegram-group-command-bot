@@ -13,6 +13,7 @@
 - [`docs/README.md`](./README.md) — каноническая структура Markdown-документов
 - [`docs/architecture.md`](./architecture.md) — устройство проекта
 - [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
+- [`docs/backlog/big-features.md`](./backlog/big-features.md) — крупные future-stage подсистемы
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
 - [`config/assistant-instructions.md`](../config/assistant-instructions.md) — базовые assistant instructions
 
@@ -69,6 +70,7 @@ npm run dev
 - `npm test` — `Vitest`
 - `npm run typecheck` — `TypeScript` без `emit`
 - `npm run build` — сборка в `dist/`
+- `npm run eval:intents` — прогоняет intent fixtures и пишет отчёты в gitignored `.eval-runs/`
 - `npm start` — запуск собранного `dist/src/index.js`
 
 ## Local Docker Workflow
@@ -142,15 +144,17 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
-- проверять сначала только явные `@mention`;
+- проверять сначала только явные `/explain`, `/summarize` и `/decide`; для `/explain` использовать reply на сообщение с вопросом;
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть фактический prompt;
-- по логам проверять, почему бот ответил и какой context был передан.
+- по логам проверять, почему бот ответил и какой context был передан;
+- после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
 
 ## What Is Not Automated Yet
 
 - миграции с версиями;
 - интеграционные тесты с реальным Telegram API;
 - smoke-тесты с реальным LLM-провайдером.
+- автопроверка gitignored `.eval-runs/` как артефактов остаётся ручной.
 
 ## Documentation Maintenance
 
@@ -206,9 +210,9 @@ docker compose --env-file .env -f compose.yml pull bot
 docker compose --env-file .env -f compose.yml up -d bot
 ```
 
-## V0 Notes
+## V1 Notes
 
-- База v0 хранит только event log в `chats` и `messages`.
+- База v1 хранит только event log в `chats` и `messages`.
 - Runtime не читает summary/memory/aliases даже если старый production SQLite файл ещё содержит такие таблицы.
 - Новая схема не создаёт `participants` и `chat_participants`.
 - Per-chat overrides are not supported in this reset; only `config/assistant-instructions.md` is used.

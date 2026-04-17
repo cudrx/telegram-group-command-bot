@@ -1,20 +1,20 @@
 # Product Backlog Index
 
-Сначала стабилизируем v0:
+V1 уже включает explicit command-only task modes:
 
-- бот отвечает только на `@mention`;
-- контекст маленький и объяснимый;
-- summary, memory, aliases, social-QA и interjections не участвуют в runtime;
-- новые “умные” слои возвращаются только по одному после проверки в проде.
+- `/explain` для объяснения replied-to сообщения;
+- `/summarize` для кратких сводок по recent human chat messages;
+- `/decide` для оценки текущего спора в visible recent chat context.
 
-Следующие осмысленные расширения вне v0:
+Следующие осмысленные расширения вне v1:
 
-- assistant intents вроде `explain`, `summarize`, `decide` и `find`;
-- judge intents для разбора споров и вынесения структурированного решения;
-- objective event memory как опора для будущего dispute tracking;
+- live internet lookup inside `/explain` для задач, где модели уже недостаточно общих знаний;
+- optional deep-search workflow как отдельная медленная research-надстройка поверх `/explain`, не как новый v1 command;
+- dispute persistence и objective event memory для будущего structured dispute tracking;
+- reply-dialogues и media-aware analysis, если потребуется разбирать не только текст;
 - любой будущий memory-layer должен хранить только наблюдаемые факты и события, без free-form personality profiling.
 
 Backlog разделён по размеру:
 
-- [`big-features.md`](./big-features.md) — крупные подсистемы и “жирный” функционал, который мы вырезали из v0.
+- [`big-features.md`](./big-features.md) — крупные подсистемы и “жирный” функционал, который мы вырезали из раннего ядра.
 - [`small-fixes.md`](./small-fixes.md) — мелкие фиксы, простые фичи и эксплуатационные улучшения.

@@ -16,10 +16,39 @@ describe("parseEnv", () => {
     expect(env.llmTimeoutMs).toBe(45_000);
     expect(env.llmMaxRetries).toBe(2);
     expect(env.assistantInstructionsFile).toBe("config/assistant-instructions.md");
-    expect(env.messageContextLimit).toBe(8);
+    expect(env.explainContextLimit).toBe(50);
+    expect(env.summarizeContextLimit).toBe(200);
+    expect(env.decideContextLimit).toBe(100);
     expect(env.replyMinTypingMs).toBe(900);
     expect(env.replyMaxTypingMs).toBe(2200);
     expect(env.replyTypingRefreshMs).toBe(4000);
+  });
+
+  test("reads per-intent context limit overrides", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      EXPLAIN_CONTEXT_LIMIT: "12",
+      SUMMARIZE_CONTEXT_LIMIT: "34",
+      DECIDE_CONTEXT_LIMIT: "56"
+    });
+
+    expect(env.explainContextLimit).toBe(12);
+    expect(env.summarizeContextLimit).toBe(34);
+    expect(env.decideContextLimit).toBe(56);
+  });
+
+  test("ignores legacy MESSAGE_CONTEXT_LIMIT", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      MESSAGE_CONTEXT_LIMIT: "999"
+    });
+
+    expect(Object.hasOwn(env, "messageContextLimit")).toBe(false);
+    expect(env.explainContextLimit).toBe(50);
+    expect(env.summarizeContextLimit).toBe(200);
+    expect(env.decideContextLimit).toBe(100);
   });
 
   test("reads assistant instructions file from the new env var", () => {

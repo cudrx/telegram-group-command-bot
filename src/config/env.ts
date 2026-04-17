@@ -21,7 +21,9 @@ const envSchema = z.object({
     .string()
     .min(1)
     .default("config/assistant-instructions.md"),
-  MESSAGE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(8),
+  EXPLAIN_CONTEXT_LIMIT: z.coerce.number().int().positive().default(50),
+  SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(200),
+  DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(100),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000)
@@ -39,7 +41,9 @@ type ParsedEnv = {
   logLlmText: boolean;
   sqlitePath: string;
   assistantInstructionsFile: string;
-  messageContextLimit: number;
+  explainContextLimit: number;
+  summarizeContextLimit: number;
+  decideContextLimit: number;
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
@@ -116,7 +120,9 @@ export function parseEnv(
     logLlmText: parsed.LOG_LLM_TEXT,
     sqlitePath: parsed.SQLITE_PATH,
     assistantInstructionsFile: parsed.ASSISTANT_INSTRUCTIONS_FILE,
-    messageContextLimit: parsed.MESSAGE_CONTEXT_LIMIT,
+    explainContextLimit: parsed.EXPLAIN_CONTEXT_LIMIT,
+    summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
+    decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS

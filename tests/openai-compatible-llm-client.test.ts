@@ -119,6 +119,8 @@ describe("OpenAiCompatibleLlmClient", () => {
     expect((requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content).toContain(
       "You are a neutral Telegram assistant."
     );
+    expect(JSON.stringify(requestBody)).toContain("The selected task mode is: decide");
+    expect(JSON.stringify(requestBody)).not.toContain("usually 1-2 short lines");
     expect(JSON.stringify(requestBody)).not.toContain("summary");
     expect(JSON.stringify(requestBody)).not.toContain("intervention");
   });
@@ -157,19 +159,20 @@ function createReplyInput() {
   return {
     assistantInstructions: "Assistant instructions",
     targetDisplayName: "Tom",
-    reason: "mention",
-      replyContext: {
-        triggerMessage: {
-          chatId: 1,
-          messageId: 3,
+    intent: "decide" as const,
+    replyContext: {
+      triggerMessage: {
+        chatId: 1,
+        messageId: 3,
         userId: 42,
         senderDisplayName: "Tom",
-        text: "@fun_bot привет",
-          createdAt: "2026-04-03T12:02:00.000Z",
-          isBot: false,
-          replyToMessageId: null
-        },
-        priorContextMessages: []
-      }
-    };
+        text: "/decide кто прав",
+        createdAt: "2026-04-03T12:02:00.000Z",
+        isBot: false,
+        replyToMessageId: null
+      },
+      replyAnchorMessage: null,
+      priorContextMessages: []
+    }
+  };
 }

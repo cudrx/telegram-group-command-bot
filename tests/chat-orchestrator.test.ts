@@ -22,7 +22,28 @@ describe("ChatOrchestrator", () => {
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
-  test("replies to mentions with assistant instructions and recent chat context only", async () => {
+  test("ignores ordinary mentions and does not call the LLM", async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не надо"));
+    const replyDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: "@fun_bot кто прав?",
+        entities: [{ type: "mention", offset: 0, length: 8 }]
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+  });
+
+  test("replies to command modes with assistant instructions and recent chat context", async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
@@ -48,8 +69,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "@fun_bot ответь",
-        entities: [{ type: "mention", offset: 0, length: 8 }]
+        text: "/decide",
+        entities: [{ type: "bot_command", offset: 0, length: 7 }]
       })
     );
 
@@ -57,9 +78,10 @@ describe("ChatOrchestrator", () => {
     expect(generateReply).toHaveBeenCalledWith({
       assistantInstructions: "assistant instructions",
       targetDisplayName: "Tom",
-      reason: "mention",
+      intent: "decide",
       replyContext: expect.objectContaining({
         triggerMessage: expect.objectContaining({ messageId: 2 }),
+        replyAnchorMessage: null,
         priorContextMessages: [expect.objectContaining({ messageId: 1 })]
       })
     });
@@ -76,6 +98,89 @@ describe("ChatOrchestrator", () => {
     });
   });
 
+  test("uses replied-to non-self bot message as explain request anchor", async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        fromUserId: 555,
+        fromDisplayName: "Rofl Bot",
+        isBot: true,
+        text: "кто сильнее лев или тигр?",
+        createdAt: "2026-04-03T12:00:00.000Z"
+      })
+    );
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("тигр вероятнее"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: "2026-04-03T12:00:30.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: "/explain",
+        entities: [{ type: "bot_command", offset: 0, length: 8 }],
+        replyToMessageId: 1,
+        replyToUserId: 555
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: "explain",
+        replyContext: expect.objectContaining({
+          triggerMessage: expect.objectContaining({ messageId: 2 }),
+          replyAnchorMessage: expect.objectContaining({
+            messageId: 1,
+            isBot: true,
+            text: "кто сильнее лев или тигр?"
+          })
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: "тигр вероятнее"
+    });
+  });
+
+  test("returns local explain placeholder when no usable reply anchor exists", async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не надо"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: "2026-04-03T12:00:30.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: "/explain кто сильнее лев или тигр",
+        entities: [{ type: "bot_command", offset: 0, length: 8 }]
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: "Сделай reply на сообщение с вопросом и отправь /explain."
+    });
+  });
+
 });
 
 function createOrchestrator(input: {
@@ -84,7 +189,7 @@ function createOrchestrator(input: {
     generateReply: (input: {
       assistantInstructions: string;
       targetDisplayName: string;
-      reason: string;
+      intent: "explain" | "summarize" | "decide";
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createReplyResult>>;
   };
@@ -128,7 +233,9 @@ function createEnv(): AppEnv {
     logLlmText: false,
     sqlitePath: ":memory:",
     assistantInstructionsFile: "config/assistant-instructions.md",
-    messageContextLimit: 8,
+    explainContextLimit: 50,
+    summarizeContextLimit: 200,
+    decideContextLimit: 100,
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000
