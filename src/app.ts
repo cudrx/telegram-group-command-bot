@@ -18,6 +18,9 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   const logger = createLogger({
     service: "telegram-assistant-bot",
     nodeEnv: env.nodeEnv
+  }, {
+    level: env.logLevel,
+    color: env.logColor
   });
   const qwen = new OpenAiCompatibleLlmClient({
     apiKey: env.llmApiKey,
@@ -71,7 +74,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   bot.use(async (ctx, next) => {
     const message = ctx.update.message;
 
-    logger.info("telegram_update_received", {
+    logger.debug("telegram_update_received", {
       updateId: ctx.update.update_id,
       updateKinds: Object.keys(ctx.update).filter((key) => key !== "update_id"),
       hasMessageText: Boolean(message?.text),
@@ -98,7 +101,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       return;
     }
 
-    logger.info("incoming_message_received", {
+    logger.debug("incoming_message_received", {
       chatId: normalized.chatId,
       messageId: normalized.messageId,
       chatType: normalized.chatType,

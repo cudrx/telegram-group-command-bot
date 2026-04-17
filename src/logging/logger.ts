@@ -1,14 +1,23 @@
 export type LogFields = Record<string, unknown>;
+export type LogLevel = "debug" | "info" | "warn" | "error";
+export type LoggerOptions = {
+  level?: LogLevel;
+  color?: boolean;
+};
 
 export type AppLogger = {
   child(bindings: LogFields): AppLogger;
+  debug(event: string, payload?: LogFields): void;
   info(event: string, payload?: LogFields): void;
   warn(event: string, payload?: LogFields): void;
   error(event: string, payload?: LogFields): void;
 };
 
-export function createLogger(bindings: LogFields = {}): AppLogger {
-  return createStructuredLogger(bindings);
+export function createLogger(
+  bindings: LogFields = {},
+  options: LoggerOptions = {}
+): AppLogger {
+  return createStructuredLogger(bindings, options);
 }
 
 export function logInfo(
@@ -58,40 +67,60 @@ export function serializeError(error: unknown): LogFields {
   };
 }
 
-function createStructuredLogger(bindings: LogFields): AppLogger {
+function createStructuredLogger(
+  bindings: LogFields,
+  options: LoggerOptions
+): AppLogger {
   return {
     child(childBindings) {
-      return createStructuredLogger({
-        ...bindings,
-        ...childBindings
-      });
+      return createStructuredLogger(
+        {
+          ...bindings,
+          ...childBindings
+        },
+        options
+      );
+    },
+
+    debug(event, payload = {}) {
+      writeLog("debug", event, bindings, payload, options);
     },
 
     info(event, payload = {}) {
-      writeLog("info", event, bindings, payload);
+      writeLog("info", event, bindings, payload, options);
     },
 
     warn(event, payload = {}) {
-      writeLog("warn", event, bindings, payload);
+      writeLog("warn", event, bindings, payload, options);
     },
 
     error(event, payload = {}) {
-      writeLog("error", event, bindings, payload);
+      writeLog("error", event, bindings, payload, options);
     }
   };
 }
 
 function writeLog(
-  level: "info" | "warn" | "error",
+  level: LogLevel,
   event: string,
   bindings: LogFields,
-  payload: LogFields
+  payload: LogFields,
+  options: LoggerOptions
 ): void {
-  const line = formatPrettyLog(level, event, {
-    timestamp: new Date().toISOString(),
-    ...bindings,
-    ...payload
-  });
+  if (!shouldWriteLog(level, options.level ?? "info")) {
+    return;
+  }
+
+  const line = formatPrettyLog(
+    level,
+    event,
+    {
+      timestamp: new Date().toISOString(),
+      ...bindings,
+      ...payload
+    },
+    options
+  );
 
   if (level === "error") {
     console.error(line);
@@ -107,11 +136,12 @@ function writeLog(
 }
 
 function formatPrettyLog(
-  level: "info" | "warn" | "error",
+  level: LogLevel,
   event: string,
-  fields: LogFields
+  fields: LogFields,
+  options: LoggerOptions
 ): string {
-  const useColor = shouldColorizeLogs();
+  const useColor = shouldColorizeLogs(options.color);
   const entries = Object.entries(fields);
   const timestamp = typeof fields.timestamp === "string"
     ? fields.timestamp
@@ -207,7 +237,7 @@ function formatLogField(key: string, value: unknown, useColor: boolean): string[
 
 function formatLogHeader(
   timestamp: string,
-  level: "info" | "warn" | "error",
+  level: LogLevel,
   event: string,
   useColor: boolean
 ): string {
@@ -217,9 +247,13 @@ function formatLogHeader(
   return `[${timestamp}] ${renderedLevel} ${renderedEvent}`;
 }
 
-function shouldColorizeLogs(): boolean {
+function shouldColorizeLogs(forceColor: boolean | undefined): boolean {
   if (process.env.NO_COLOR !== undefined) {
     return false;
+  }
+
+  if (forceColor !== undefined) {
+    return forceColor;
   }
 
   if (process.env.FORCE_COLOR !== undefined && process.env.FORCE_COLOR !== "0") {
@@ -231,7 +265,7 @@ function shouldColorizeLogs(): boolean {
 
 function colorize(
   value: string,
-  kind: "info" | "warn" | "error" | "label" | "event",
+  kind: LogLevel | "label" | "event",
   enabled: boolean
 ): string {
   if (!enabled) {
@@ -244,9 +278,11 @@ function colorize(
 }
 
 function getAnsiColor(
-  kind: "info" | "warn" | "error" | "label" | "event"
+  kind: LogLevel | "label" | "event"
 ): string {
   switch (kind) {
+    case "debug":
+      return "90";
     case "info":
       return "36";
     case "warn":
@@ -257,6 +293,23 @@ function getAnsiColor(
       return "90";
     case "event":
       return "2";
+  }
+}
+
+function shouldWriteLog(level: LogLevel, minimumLevel: LogLevel): boolean {
+  return getLogLevelPriority(level) >= getLogLevelPriority(minimumLevel);
+}
+
+function getLogLevelPriority(level: LogLevel): number {
+  switch (level) {
+    case "debug":
+      return 10;
+    case "info":
+      return 20;
+    case "warn":
+      return 30;
+    case "error":
+      return 40;
   }
 }
 

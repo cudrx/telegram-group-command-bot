@@ -28,6 +28,7 @@ export type NormalizedMessage = {
   entities: Array<{ type: string; offset: number; length: number }>;
   replyToUserId: number | null;
   replyToMessageId: number | null;
+  replyToMessageSnapshot: StoredMessage | null;
 };
 
 export type StoredMessage = {

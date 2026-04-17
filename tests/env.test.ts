@@ -16,6 +16,8 @@ describe("parseEnv", () => {
     expect(env.llmTimeoutMs).toBe(45_000);
     expect(env.llmMaxRetries).toBe(2);
     expect(env.logLlmText).toBe(false);
+    expect(env.logLevel).toBe("info");
+    expect(env.logColor).toBe(true);
     expect(env.assistantInstructionsFile).toBe("config/assistant-instructions.md");
     expect(env.explainContextLimit).toBe(50);
     expect(env.summarizeContextLimit).toBe(200);
@@ -76,6 +78,18 @@ describe("parseEnv", () => {
 
     expect(disabled.logLlmText).toBe(false);
     expect(enabled.logLlmText).toBe(true);
+  });
+
+  test("reads log level and color settings", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      LOG_LEVEL: "debug",
+      LOG_COLOR: "false"
+    });
+
+    expect(env.logLevel).toBe("debug");
+    expect(env.logColor).toBe(false);
   });
 
   test("keeps legacy qwen aliases working as reply provider fallback", () => {

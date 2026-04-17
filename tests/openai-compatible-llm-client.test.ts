@@ -5,6 +5,7 @@ import { OpenAiCompatibleLlmClient } from "../src/llm/openai-compatible-llm-clie
 describe("OpenAiCompatibleLlmClient", () => {
   test("logs compact reply trace without raw prompt or response fields", async () => {
     const logger = {
+      debug: vi.fn(),
       info: vi.fn(),
       warn: vi.fn(),
       error: vi.fn(),

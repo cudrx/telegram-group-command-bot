@@ -75,6 +75,8 @@ npm run dev
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
 - `LOG_LLM_TEXT`
+- `LOG_LEVEL`
+- `LOG_COLOR`
 - `EXPLAIN_CONTEXT_LIMIT`
 - `SUMMARIZE_CONTEXT_LIMIT`
 - `DECIDE_CONTEXT_LIMIT`
@@ -88,8 +90,10 @@ npm run dev
 
 По умолчанию бот пишет компактные multiline-логи для чтения глазами в `docker compose logs`.
 Если нужно диагностировать обращения к LLM, явно включите `LOG_LLM_TEXT=true`: появятся события `llm.reply.request/response` с моделью, температурой, оценкой токенов, размерами текста и коротким однострочным preview ответа. Значение `LOG_LLM_TEXT=false` оставляет trace выключенным. Полный prompt и полный response в логи не пишутся.
+`LOG_LEVEL=info` оставляет старт, предупреждения, ошибки и компактное завершение команд. Для подробных входящих update/decision/reply lifecycle включите `LOG_LEVEL=debug`.
+`LOG_COLOR=true` добавляет ANSI-цвета в консольные логи; `NO_COLOR=1` отключает цвета принудительно.
 
-Цвет можно принудительно включить через `FORCE_COLOR=1`; отключить через стандартный `NO_COLOR=1`.
+Цвет также можно принудительно включить через стандартный `FORCE_COLOR=1`.
 
 Смотреть логи локального контейнера:
 

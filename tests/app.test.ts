@@ -6,6 +6,7 @@ const handleIncomingMessage = vi.fn();
 const loggerInfo = vi.fn();
 const loggerWarn = vi.fn();
 const loggerError = vi.fn();
+const loggerDebug = vi.fn();
 const loggerChild = vi.fn();
 const createLogger = vi.fn();
 const dbClose = vi.fn();
@@ -111,12 +112,14 @@ describe("createApplication", () => {
     botState.middleware = undefined;
 
     loggerChild.mockReturnValue({
+      debug: loggerDebug,
       info: loggerInfo,
       warn: loggerWarn,
       error: loggerError,
       child: loggerChild
     });
     createLogger.mockReturnValue({
+      debug: loggerDebug,
       info: loggerInfo,
       warn: loggerWarn,
       error: loggerError,
@@ -223,6 +226,60 @@ describe("createApplication", () => {
     );
   });
 
+  test("forwards replied-to text snapshots for explain fallback anchors", async () => {
+    const { createApplication } = await import("../src/app.js");
+    await createApplication(createEnv());
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 13,
+        date: 1_744_000_030,
+        text: "/explain",
+        entities: [{ type: "bot_command", offset: 0, length: 8 }],
+        from: {
+          id: 123,
+          is_bot: false,
+          username: "artyom",
+          first_name: "Artyom"
+        },
+        chat: {
+          id: -1001,
+          type: "supergroup",
+          title: "Test chat"
+        },
+        reply_to_message: {
+          message_id: 12,
+          date: 1_744_000_000,
+          text: "кто сильнее лев или тигр?",
+          from: {
+            id: 555,
+            is_bot: true,
+            username: "rofl_bot",
+            first_name: "Rofl Bot"
+          },
+          chat: {
+            id: -1001,
+            type: "supergroup",
+            title: "Test chat"
+          }
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: 13,
+        replyToMessageId: 12,
+        replyToMessageSnapshot: expect.objectContaining({
+          messageId: 12,
+          userId: 555,
+          isBot: true,
+          text: "кто сильнее лев или тигр?"
+        })
+      })
+    );
+  });
+
   test("stops bot and closes database without summary timers", async () => {
     const { createApplication } = await import("../src/app.js");
     const app = await createApplication(createEnv());
@@ -245,6 +302,8 @@ function createEnv(): AppEnv {
     llmTimeoutMs: 20_000,
     llmMaxRetries: 1,
     logLlmText: false,
+    logLevel: "info",
+    logColor: true,
     sqlitePath: ":memory:",
     assistantInstructionsFile: "config/assistant-instructions.md",
     explainContextLimit: 50,

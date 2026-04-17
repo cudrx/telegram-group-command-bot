@@ -41,7 +41,39 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
       length: entity.length
     })),
     replyToUserId: message.reply_to_message?.from?.id ?? null,
-    replyToMessageId: message.reply_to_message?.message_id ?? null
+    replyToMessageId: message.reply_to_message?.message_id ?? null,
+    replyToMessageSnapshot: normalizeReplyToMessageSnapshot(message)
+  };
+}
+
+function normalizeReplyToMessageSnapshot(
+  message: NonNullable<Context["message"]>
+): NormalizedMessage["replyToMessageSnapshot"] {
+  const reply = message.reply_to_message;
+
+  if (!reply || !("text" in reply) || typeof reply.text !== "string") {
+    return null;
+  }
+
+  const text = reply.text.trim();
+
+  if (text.length === 0) {
+    return null;
+  }
+
+  return {
+    chatId: message.chat.id,
+    messageId: reply.message_id,
+    userId: reply.from?.id ?? null,
+    senderDisplayName: formatSenderDisplayName({
+      firstName: reply.from?.first_name ?? null,
+      lastName: reply.from?.last_name ?? null,
+      username: reply.from?.username ?? null
+    }),
+    text,
+    createdAt: new Date(reply.date * 1000).toISOString(),
+    isBot: reply.from?.is_bot ?? false,
+    replyToMessageId: null
   };
 }
 

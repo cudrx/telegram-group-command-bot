@@ -37,6 +37,8 @@ const envSchema = z.object({
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
   LOG_LLM_TEXT: stringBooleanSchema.default(false),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_COLOR: stringBooleanSchema.default(true),
   SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
   ASSISTANT_INSTRUCTIONS_FILE: z
     .string()
@@ -60,6 +62,8 @@ type ParsedEnv = {
   llmTimeoutMs: number;
   llmMaxRetries: number;
   logLlmText: boolean;
+  logLevel: "debug" | "info" | "warn" | "error";
+  logColor: boolean;
   sqlitePath: string;
   assistantInstructionsFile: string;
   explainContextLimit: number;
@@ -139,6 +143,8 @@ export function parseEnv(
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
     logLlmText: parsed.LOG_LLM_TEXT,
+    logLevel: parsed.LOG_LEVEL,
+    logColor: parsed.LOG_COLOR,
     sqlitePath: parsed.SQLITE_PATH,
     assistantInstructionsFile: parsed.ASSISTANT_INSTRUCTIONS_FILE,
     explainContextLimit: parsed.EXPLAIN_CONTEXT_LIMIT,

@@ -152,6 +152,61 @@ describe("ChatOrchestrator", () => {
     });
   });
 
+  test("uses Telegram reply snapshot as explain anchor when the replied-to bot message is not stored", async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult("это ответ другого бота"));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: "2026-04-03T12:00:30.000Z"
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      {
+        ...createIncomingMessage({
+          messageId: 2,
+          text: "/explain",
+          entities: [{ type: "bot_command", offset: 0, length: 8 }],
+          replyToMessageId: 1,
+          replyToUserId: 555
+        }),
+        replyToMessageSnapshot: {
+          chatId: 1,
+          messageId: 1,
+          userId: 555,
+          senderDisplayName: "Rofl Bot (@rofl_bot)",
+          text: "кто сильнее лев или тигр?",
+          createdAt: "2026-04-03T12:00:00.000Z",
+          isBot: true,
+          replyToMessageId: null
+        }
+      } as NormalizedMessage
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: "explain",
+        replyContext: expect.objectContaining({
+          replyAnchorMessage: expect.objectContaining({
+            messageId: 1,
+            userId: 555,
+            isBot: true,
+            text: "кто сильнее лев или тигр?"
+          })
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: "это ответ другого бота"
+    });
+  });
+
   test("returns local explain placeholder when no usable reply anchor exists", async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi.fn().mockResolvedValue(createReplyResult("не надо"));
@@ -231,6 +286,8 @@ function createEnv(): AppEnv {
     llmTimeoutMs: 20_000,
     llmMaxRetries: 1,
     logLlmText: false,
+    logLevel: "info",
+    logColor: true,
     sqlitePath: ":memory:",
     assistantInstructionsFile: "config/assistant-instructions.md",
     explainContextLimit: 50,
@@ -261,6 +318,7 @@ function createIncomingMessage(
     entities: [],
     replyToUserId: null,
     replyToMessageId: null,
+    replyToMessageSnapshot: null,
     ...overrides
   };
 }
@@ -277,6 +335,7 @@ function createReplyResult(text: string) {
 
 function createLogger(): AppLogger {
   return {
+    debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),

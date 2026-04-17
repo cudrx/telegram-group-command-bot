@@ -249,6 +249,7 @@ function createIncomingMessage(
     entities: [],
     replyToUserId: null,
     replyToMessageId: null,
+    replyToMessageSnapshot: null,
     ...overrides
   };
 }

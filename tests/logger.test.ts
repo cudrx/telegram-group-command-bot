@@ -78,6 +78,40 @@ describe("logger", () => {
     expect(plainOutput).toContain("INFO llm.reply.response");
   });
 
+  test("suppresses debug logs at info level", () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const logger = createLogger({}, { level: "info" });
+
+    logger.debug("telegram_update_received", {
+      messageId: 42
+    });
+    logger.info("bot_initialized", {
+      botUsername: "hrupa_bot"
+    });
+
+    expect(infoSpy).toHaveBeenCalledTimes(1);
+    expect(infoSpy.mock.calls[0]?.[0]).toContain("INFO bot_initialized");
+  });
+
+  test("can color logs without a TTY when enabled", () => {
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+    const originalNoColor = process.env.NO_COLOR;
+
+    try {
+      delete process.env.NO_COLOR;
+
+      createLogger({}, { color: true }).info("bot_initialized");
+    } finally {
+      if (originalNoColor === undefined) {
+        delete process.env.NO_COLOR;
+      } else {
+        process.env.NO_COLOR = originalNoColor;
+      }
+    }
+
+    expect(infoSpy.mock.calls[0]?.[0]).toContain("\u001b[");
+  });
+
   test("extracts optional status and code from error objects", () => {
     const error = new Error("provider failed") as Error & {
       code?: string;

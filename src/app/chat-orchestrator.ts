@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import type { AppEnv } from "../config/env.js";
-import type { AssistantIntent, NormalizedMessage, ReplyContext } from "../domain/models.js";
+import type {
+  AssistantIntent,
+  NormalizedMessage,
+  ReplyContext,
+  StoredMessage
+} from "../domain/models.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
@@ -50,6 +55,7 @@ type ReplyRequest = {
   fromDisplayName: string;
   createdAt: string;
   intent: AssistantIntent;
+  replyToMessageSnapshot: StoredMessage | null;
 };
 
 const EXPLAIN_USAGE_PLACEHOLDER =
@@ -82,7 +88,7 @@ export class ChatOrchestrator {
     const stored = this.deps.db.saveIncomingMessage(message);
 
     if (!stored) {
-      logger.info("incoming_message_ignored_duplicate");
+      logger.debug("incoming_message_ignored_duplicate");
       return;
     }
 
@@ -105,7 +111,7 @@ export class ChatOrchestrator {
     });
     const decision = decideReplyAction({ directTrigger });
 
-    logger.info("incoming_message_evaluated", {
+    logger.debug("incoming_message_evaluated", {
       directTrigger,
       decision: decision.reason,
       intent: decision.intent
@@ -126,7 +132,8 @@ export class ChatOrchestrator {
       triggerMessageId: message.messageId,
       fromDisplayName: message.fromDisplayName,
       createdAt: message.createdAt,
-      intent: decision.intent
+      intent: decision.intent,
+      replyToMessageSnapshot: message.replyToMessageSnapshot
     };
 
     await this.runReplyJob(request, logger);
@@ -134,7 +141,7 @@ export class ChatOrchestrator {
 
   private async runReplyJob(request: ReplyRequest, logger: AppLogger): Promise<void> {
     try {
-      logger.info("reply_job_started", {
+      logger.debug("reply_job_started", {
         intent: request.intent,
         replyToMessageId: request.triggerMessageId
       });
@@ -142,7 +149,7 @@ export class ChatOrchestrator {
       const result = await this.executeReplyGeneration(request, logger);
 
       if (!result) {
-        logger.info("reply_job_skipped", {
+        logger.debug("reply_job_skipped", {
           intent: request.intent,
           replyToMessageId: request.triggerMessageId
         });
@@ -188,16 +195,28 @@ export class ChatOrchestrator {
     request: ReplyRequest,
     logger: AppLogger
   ): Promise<LlmReplyResult | null> {
-    const replyContext = buildReplyContext({
-      db: this.deps.db,
-      chatId: request.chatId,
-      triggerMessageId: request.triggerMessageId,
-      contextLimit: getContextLimitForIntent(this.deps.env, request.intent),
-      intent: request.intent,
-      botUserId: this.deps.bot.userId
-    });
+    const replyContext = withExplainReplySnapshotFallback(
+      buildReplyContext({
+        db: this.deps.db,
+        chatId: request.chatId,
+        triggerMessageId: request.triggerMessageId,
+        contextLimit: getContextLimitForIntent(this.deps.env, request.intent),
+        intent: request.intent,
+        botUserId: this.deps.bot.userId
+      }),
+      {
+        intent: request.intent,
+        botUserId: this.deps.bot.userId,
+        replyToMessageSnapshot: request.replyToMessageSnapshot
+      }
+    );
 
     if (request.intent === "explain" && !replyContext.replyAnchorMessage) {
+      logger.warn("explain_anchor_missing", {
+        replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
+        replyToUserId: request.replyToMessageSnapshot?.userId ?? null
+      });
+
       return createLocalReplyResult(EXPLAIN_USAGE_PLACEHOLDER);
     }
 
@@ -232,6 +251,29 @@ export class ChatOrchestrator {
       operation
     );
   }
+}
+
+function withExplainReplySnapshotFallback(
+  context: ReplyContext,
+  input: {
+    intent: AssistantIntent;
+    botUserId: number;
+    replyToMessageSnapshot: StoredMessage | null;
+  }
+): ReplyContext {
+  if (
+    input.intent !== "explain" ||
+    context.replyAnchorMessage ||
+    !input.replyToMessageSnapshot ||
+    input.replyToMessageSnapshot.userId === input.botUserId
+  ) {
+    return context;
+  }
+
+  return {
+    ...context,
+    replyAnchorMessage: input.replyToMessageSnapshot
+  };
 }
 
 function getContextLimitForIntent(env: AppEnv, intent: AssistantIntent): number {

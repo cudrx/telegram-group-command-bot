@@ -41,7 +41,7 @@ cp .env.example .env
 ```
 
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL` и `LLM_REPLY_MODEL`.
-Для отладки LLM-ввода и вывода установите `LOG_LLM_TEXT=true`; для цветных multiline-логов в `docker compose logs` можно добавить `FORCE_COLOR=1`. Если цвет мешает парсингу, используйте `NO_COLOR=1`.
+Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
 3. Отредактировать базовые assistant instructions:
 
@@ -107,7 +107,8 @@ docker compose logs bot --tail=100 -f
 
 ```dotenv
 LOG_LLM_TEXT=true
-FORCE_COLOR=1
+LOG_LEVEL=debug
+LOG_COLOR=true
 ```
 
 Затем перезапустите контейнер и смотрите логи:
