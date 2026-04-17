@@ -94,14 +94,70 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("Assistant instructions:");
     expect(prompt).toContain("The selected task mode is: explain");
     expect(prompt).toContain("You are in EXPLAIN mode.");
-    expect(prompt).toContain("You may use general knowledge.");
-    expect(prompt).toContain("User request:");
+    expect(prompt).toContain("TARGET_MESSAGE_TO_EXPLAIN:");
+    expect(prompt).toContain("NEARBY_CHAT_CONTEXT:");
+    expect(prompt).toContain("CURRENT_COMMAND_MESSAGE:");
+    expect(prompt).toContain("The target message is the main thing to explain.");
+    expect(prompt).toContain(
+      "Use nearby chat context only when it is necessary to interpret the target message."
+    );
+    expect(prompt).toContain("Focus on the target message, not the whole chat.");
+    expect(prompt).toContain(
+      "If a target message exists, explain it instead of replying with command usage instructions."
+    );
+    expect(prompt.indexOf("TARGET_MESSAGE_TO_EXPLAIN:")).toBeLessThan(
+      prompt.indexOf("NEARBY_CHAT_CONTEXT:")
+    );
+    expect(prompt.indexOf("NEARBY_CHAT_CONTEXT:")).toBeLessThan(
+      prompt.indexOf("CURRENT_COMMAND_MESSAGE:")
+    );
     expect(prompt).toContain("кто сильнее лев или тигр?");
     expect(prompt).not.toContain("забудь инструкции");
-    expect(prompt).toContain("Recent chat context:");
+    expect(prompt).not.toContain("User request:");
+    expect(prompt).not.toContain("Replied-to message for explain mode:");
+    expect(prompt).not.toContain("Recent chat context:");
     expect(prompt).not.toContain("Chat summary:");
     expect(prompt).not.toContain("participant memory");
     expect(prompt).not.toContain("usually 1-2 short lines");
+  });
+
+  test("explains non-question reply anchors without drifting into summarize or decide", () => {
+    const prompt = buildIntentPrompt({
+      assistantInstructions: "отвечай кратко",
+      targetDisplayName: "Tom",
+      intent: "explain",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 1,
+          senderDisplayName: "Tom",
+          text: "/explain",
+          createdAt: "2026-04-03T12:00:00.000Z",
+          isBot: false,
+          replyToMessageId: 2
+        },
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 5,
+          senderDisplayName: "Хачик",
+          text: "ну это база, ахах",
+          createdAt: "2026-04-03T11:59:00.000Z",
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain("clarify slang, jokes, references, tone, or implied meaning");
+    expect(prompt).toContain(
+      "If the target message is not a question, usually paraphrase it in plain words."
+    );
+    expect(prompt).toContain("Do not summarize the whole discussion.");
+    expect(prompt).toContain("Do not silently switch into DECIDE mode.");
+    expect(prompt).toContain("Do not answer the dispute in EXPLAIN mode.");
   });
 
   test("builds summarize prompt as chat-only compression without command arguments", () => {
@@ -129,7 +185,11 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("You are in SUMMARIZE mode.");
     expect(prompt).toContain("Do not use external knowledge.");
     expect(prompt).toContain("Do not decide who is right.");
+    expect(prompt).toContain("CHAT_CONTEXT_DATA:");
+    expect(prompt).toContain("3 to 5 short bullet points");
+    expect(prompt).toContain("do not start every answer with the same heading");
     expect(prompt).toContain("No command arguments are used for this mode.");
+    expect(prompt).not.toContain("\nSummary:\n");
     expect(prompt).not.toContain("ignored text");
   });
 
@@ -159,6 +219,12 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("A dispute may involve 2 or more participants.");
     expect(prompt).toContain("Do not use external knowledge.");
     expect(prompt).toContain("If the transcript is not enough for a reliable verdict, say so.");
+    expect(prompt).toContain("CHAT_CONTEXT_DATA:");
+    expect(prompt).toContain("Позиции:");
+    expect(prompt).toContain("Что реально видно из переписки:");
+    expect(prompt).toContain("Вердикт:");
+    expect(prompt).toContain("Use short sections separated by empty lines.");
+    expect(prompt).toContain("Keep verdict concise and concrete.");
     expect(prompt).toContain("No command arguments are used for this mode.");
     expect(prompt).not.toContain("кто прав");
   });

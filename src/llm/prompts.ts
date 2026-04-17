@@ -23,10 +23,31 @@ export function buildIntentPrompt(input: {
   intent: AssistantIntent;
   replyContext: ReplyContext;
 }): string {
-  const userRequest = formatUserRequest(
-    input.intent,
-    input.replyContext.replyAnchorMessage
-  );
+  const dataSections =
+    input.intent === "explain"
+      ? [
+          "TARGET_MESSAGE_TO_EXPLAIN:",
+          formatSingleMessage(input.replyContext.replyAnchorMessage),
+          "",
+          "NEARBY_CHAT_CONTEXT:",
+          formatReplyContextMessages(input.replyContext.priorContextMessages),
+          "",
+          "CURRENT_COMMAND_MESSAGE:",
+          formatCommandMessage(input.replyContext.triggerMessage),
+          "",
+          "COMMAND_ARGUMENT_POLICY:",
+          "If the command message has extra text after /explain, ignore it. Explain TARGET_MESSAGE_TO_EXPLAIN."
+        ]
+      : [
+          "CURRENT_COMMAND_MESSAGE:",
+          formatCommandMessage(input.replyContext.triggerMessage),
+          "",
+          "COMMAND_ARGUMENT_POLICY:",
+          "No command arguments are used for this mode.",
+          "",
+          "CHAT_CONTEXT_DATA:",
+          formatReplyContextMessages(input.replyContext.priorContextMessages)
+        ];
 
   return [
     "You are a Telegram chat assistant.",
@@ -50,26 +71,20 @@ export function buildIntentPrompt(input: {
     "- Do not insult anyone.",
     "- Answer in Russian.",
     "- Use a compact chat-friendly format, but not a one-line throwaway answer when analysis is needed.",
+    "- Use short visual paragraphs.",
+    "- Separate sections with an empty line.",
+    "- Prefer 2-4 bullets instead of one dense paragraph when listing points.",
+    "- Avoid walls of text.",
+    "- Do not start every answer with the same heading.",
+    "- Make the response look good in Telegram plain text or Telegram HTML formatting.",
     "",
     `Current command message author: ${sanitizePromptText(input.targetDisplayName)}`,
     `The selected task mode is: ${input.intent}`,
     "",
-    "User request:",
-    userRequest,
-    "",
     "Task-specific instructions:",
     getIntentPrompt(input.intent),
     "",
-    "Current command message:",
-    formatCommandMessage(input.replyContext.triggerMessage),
-    "",
-    "Replied-to message for explain mode:",
-    input.intent === "explain"
-      ? formatSingleMessage(input.replyContext.replyAnchorMessage)
-      : "No explain reply anchor.",
-    "",
-    "Recent chat context:",
-    formatReplyContextMessages(input.replyContext.priorContextMessages)
+    ...dataSections
   ].join("\n");
 }
 
@@ -84,47 +99,45 @@ function getIntentPrompt(intent: AssistantIntent): string {
   }
 }
 
-function formatUserRequest(
-  intent: AssistantIntent,
-  replyAnchorMessage: PromptMessage | null
-): string {
-  if (intent === "explain") {
-    return replyAnchorMessage
-      ? sanitizePromptText(replyAnchorMessage.text)
-      : "No explain reply anchor available.";
-  }
-
-  return "No command arguments are used for this mode.";
-}
-
 const EXPLAIN_PROMPT = [
   "You are in EXPLAIN mode.",
   "",
-  "Your task is to answer the user's question from the replied-to message.",
+  "Main task: explain the target message first.",
+  "The target message is primary.",
+  "The target message is the main thing to explain.",
+  "Nearby chat context is secondary and should only be used if it helps interpret the target message.",
+  "Use nearby chat context only when it is necessary to interpret the target message.",
+  "Do not analyze the whole chat unless the selected mode explicitly requires that.",
   "",
   "You may:",
-  "- explain concepts",
-  "- compare options",
-  "- answer factual questions from general knowledge",
-  "- give practical advice",
+  "- explain what the target message means",
+  "- answer a factual question if the target message is a real question",
+  "- clarify slang, jokes, references, tone, or implied meaning",
+  "- compare options if the target message explicitly asks for a comparison",
   "",
   "Rules:",
-  "- You may use general knowledge.",
-  "- Do not hallucinate unknown facts.",
-  "- If unsure, say so.",
-  "- Do not rely only on chat context if the question is external.",
-  "- Do not silently switch into DECIDE mode for chat disputes.",
-  "- If the user asks who is right in the current chat, briefly say that /decide is the intended command for judging a dispute.",
-  "- Keep the answer structured and clear.",
+  "- Focus on the target message, not the whole chat.",
+  "- Do not summarize the whole discussion.",
+  "- Do not silently switch into DECIDE mode.",
+  "- If the target message is vague, explain the most likely meaning and say that it is the likely reading, not a certainty.",
+  "- If the target message is not a question, usually paraphrase it in plain words.",
+  "- If facts are uncertain, do not present guesses as facts.",
+  "- If the target message asks who is right, who wins, or asks you to judge a chat dispute: Do not answer the dispute in EXPLAIN mode.",
+  "- For dispute-judging targets, briefly say that /decide is the intended command and stop there.",
+  "- If a target message exists, explain it instead of replying with command usage instructions.",
+  "- Keep the answer short, natural, and readable.",
   "",
-  "Response style:",
-  "- short explanation",
-  "- if comparison, list the key differences",
-  "- if advice, give 2-3 clear options",
+  "Preferred response style:",
+  "- first line: short direct explanation",
+  "- optional short section with 1-3 bullets if useful",
+  "- no meta commentary like 'this message is addressed to me'",
+  "- no generic instruction-only replies unless absolutely necessary",
   "",
   "Avoid:",
-  "- unnecessary long text",
-  "- vague answers"
+  "- analyzing the whole chat",
+  "- overconfident guesses",
+  "- robotic helpdesk phrasing",
+  "- unnecessary long text"
 ].join("\n");
 
 const SUMMARIZE_PROMPT = [
@@ -145,15 +158,13 @@ const SUMMARIZE_PROMPT = [
   "- Do not use external knowledge.",
   "- Do not use internet lookup.",
   "- Avoid quoting users unless necessary.",
-  "- Keep it compact.",
+  "- Keep it compact and readable.",
   "",
   "Preferred response shape:",
-  "Summary:",
-  "- point 1",
-  "- point 2",
-  "- point 3",
-  "- optional point 4",
-  "- optional final point about the outcome"
+  "- 3 to 5 short bullet points",
+  "- include the outcome only if there really is one",
+  "- do not start every answer with the same heading",
+  "- use short visual paragraphs, not dense blocks"
 ].join("\n");
 
 const DECIDE_PROMPT = [
@@ -182,6 +193,10 @@ const DECIDE_PROMPT = [
   "- Separate \"stronger argument\" from \"louder behavior\".",
   "- If the topic is subjective, say that an objective verdict is limited.",
   "- If the dispute is semantic or classification-based, it is acceptable to conclude that different descriptions can both be reasonable.",
+  "- Use short sections separated by empty lines.",
+  "- Prefer short bullets over dense prose.",
+  "- Keep verdict concise and concrete.",
+  "- Do not repeat the same point in multiple sections.",
   "",
   "Preferred response shape:",
   "",

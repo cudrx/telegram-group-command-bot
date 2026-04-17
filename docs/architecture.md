@@ -106,14 +106,15 @@
 - Текст после `/explain` игнорируется.
 - Reply anchor может быть human message или сообщением другого бота, но не сообщением этого бота.
 - В v1 можно использовать общие знания модели, но не live internet.
-- Recent human context опционален и ограничивается `EXPLAIN_CONTEXT_LIMIT=50`.
+- Recent human context опционален и ограничивается `EXPLAIN_CONTEXT_LIMIT=16`.
+- Prompt assembly for `/explain` renders the reply anchor as `TARGET_MESSAGE_TO_EXPLAIN` and the surrounding recent chat as `NEARBY_CHAT_CONTEXT`.
 - Prior messages from this bot в context не попадают.
 
 ### `summarize`
 
 - Команда суммирует только recent human messages.
 - Никаких внешних фактов, оценок, морализаторства или интернета.
-- Context limit: `SUMMARIZE_CONTEXT_LIMIT=200`.
+- Context limit: `SUMMARIZE_CONTEXT_LIMIT=128`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
 
 ### `decide`
@@ -121,7 +122,7 @@
 - Команда оценивает текущий спор в visible recent chat context.
 - В v1 нельзя опираться на внешние факты.
 - Нужно явно говорить, когда победителя нет, критериев нет или контекста недостаточно.
-- Context limit: `DECIDE_CONTEXT_LIMIT=100`.
+- Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
 
 Assistant instructions загружаются отдельно и не смешиваются с per-chat context.
