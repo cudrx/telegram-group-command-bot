@@ -1,6 +1,6 @@
 export type ChatType = "private" | "group" | "supergroup" | "channel" | "unknown";
 
-export type ReplyReason = "mention" | "reply_to_bot";
+export type ReplyReason = "mention";
 
 export type NormalizedMessage = {
   chatId: number;
@@ -33,8 +33,6 @@ export type StoredMessage = {
 
 export type ReplyContext = {
   triggerMessage: StoredMessage | null;
-  anchorBotMessage: StoredMessage | null;
-  anchorParentMessage: StoredMessage | null;
   priorContextMessages: StoredMessage[];
 };
 

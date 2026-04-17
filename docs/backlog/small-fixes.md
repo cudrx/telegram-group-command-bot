@@ -4,7 +4,7 @@
 
 ## v0 Reliability
 
-- Добавить одну строку runtime-лога вида `trigger=reply_to_bot cause_message_id=... context_messages=[...] memory_used=false summary_used=false`.
+- Добавить одну строку runtime-лога вида `trigger=mention cause_message_id=... context_messages=[...] memory_used=false summary_used=false`.
 - Добавить явное grounding текущего времени в reply prompt: хранить/настраивать chat-local timezone и передавать модели локальное текущее время.
 - Проверить, нужен ли minimal pending queue для нескольких одновременных explicit triggers.
 - Сделать более аккуратный graceful shutdown.
@@ -12,7 +12,7 @@
 ## Safety And Red-team
 
 - Добавить проверку jailbreak/prompt-injection сценариев вроде “игнорируй все предыдущие инструкции”.
-- Расширять offline degradation evals новыми production-сценариями после каждого найденного prompt/context regressions.
+- Добавить компактный mention-only prompt regression pack для production-сценариев после стабилизации v0.
 
 ## Operations
 

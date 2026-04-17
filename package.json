@@ -12,10 +12,7 @@
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "eval": "npm run eval:offline",
-    "eval:offline": "vitest run tests/reply-degradation-evals.test.ts",
-    "eval:llm": "tsx scripts/run-llm-degradation-evals.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

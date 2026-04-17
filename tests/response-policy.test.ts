@@ -17,7 +17,7 @@ describe("detectDirectTrigger", () => {
     expect(trigger).toBe("mention");
   });
 
-  test("returns reply_to_bot when message is a reply to bot", () => {
+  test("returns none when message is a reply to bot without mention", () => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
       botUsername: "fun_bot",
@@ -28,7 +28,7 @@ describe("detectDirectTrigger", () => {
       }
     });
 
-    expect(trigger).toBe("reply_to_bot");
+    expect(trigger).toBe("none");
   });
 
   test("returns none for ordinary messages", () => {
@@ -58,7 +58,7 @@ describe("decideReplyAction", () => {
     });
   });
 
-  test("ignores ordinary private direct messages without mention or reply", () => {
+  test("ignores messages without a mention trigger", () => {
     const decision = decideReplyAction({
       directTrigger: "none"
     });
@@ -66,28 +66,6 @@ describe("decideReplyAction", () => {
     expect(decision).toEqual({
       shouldReply: false,
       reason: "ignore"
-    });
-  });
-
-  test("ignores ordinary group messages instead of interjecting", () => {
-    const decision = decideReplyAction({
-      directTrigger: "none"
-    });
-
-    expect(decision).toEqual({
-      shouldReply: false,
-      reason: "ignore"
-    });
-  });
-
-  test("always replies to replies to the bot", () => {
-    const decision = decideReplyAction({
-      directTrigger: "reply_to_bot"
-    });
-
-    expect(decision).toEqual({
-      shouldReply: true,
-      reason: "reply_to_bot"
     });
   });
 });

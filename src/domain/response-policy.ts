@@ -1,4 +1,4 @@
-export type DirectTrigger = "mention" | "reply_to_bot" | "none";
+export type DirectTrigger = "mention" | "none";
 
 export type DetectDirectTriggerInput = {
   botUserId: number;
@@ -16,7 +16,7 @@ export type DecideReplyActionInput = {
 
 export type DecideReplyActionResult = {
   shouldReply: boolean;
-  reason: "mention" | "reply_to_bot" | "ignore";
+  reason: "mention" | "ignore";
 };
 
 export function detectDirectTrigger(
@@ -24,10 +24,6 @@ export function detectDirectTrigger(
 ): DirectTrigger {
   if (hasMentionForBot(input)) {
     return "mention";
-  }
-
-  if (input.message.replyToUserId === input.botUserId) {
-    return "reply_to_bot";
   }
 
   return "none";
@@ -40,13 +36,6 @@ export function decideReplyAction(
     return {
       shouldReply: true,
       reason: "mention"
-    };
-  }
-
-  if (input.directTrigger === "reply_to_bot") {
-    return {
-      shouldReply: true,
-      reason: "reply_to_bot"
     };
   }
 

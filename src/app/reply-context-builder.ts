@@ -10,7 +10,6 @@ export function buildReplyContext(input: {
   db: ReplyContextDb;
   chatId: number;
   triggerMessageId: number;
-  reason: "mention" | "reply_to_bot";
   messageContextLimit: number;
 }): ReplyContext {
   const triggerMessage = input.db.getMessageByTelegramMessageId(
@@ -22,73 +21,40 @@ export function buildReplyContext(input: {
     return emptyReplyContext();
   }
 
-  const anchorBotMessage =
-    input.reason === "reply_to_bot" && triggerMessage.replyToMessageId !== null
-      ? input.db.getMessageByTelegramMessageId(input.chatId, triggerMessage.replyToMessageId)
-      : null;
-  const anchorParentMessage =
-    anchorBotMessage !== null && anchorBotMessage.replyToMessageId !== null
-      ? input.db.getMessageByTelegramMessageId(input.chatId, anchorBotMessage.replyToMessageId)
-      : null;
-  const priorContextMessages = buildPriorContextMessages(input.db, {
-    reason: input.reason,
-    chatId: input.chatId,
-    triggerMessage,
-    anchorBotMessage,
-    anchorParentMessage,
-    triggerMessageId: input.triggerMessageId,
-    messageContextLimit: input.messageContextLimit
-  });
-
   return {
     triggerMessage,
-    anchorBotMessage,
-    anchorParentMessage,
-    priorContextMessages
+    priorContextMessages: buildPriorContextMessages(input.db, {
+      chatId: input.chatId,
+      triggerMessageId: input.triggerMessageId,
+      messageContextLimit: input.messageContextLimit
+    })
   };
 }
 
 function buildPriorContextMessages(
   db: ReplyContextDb,
   input: {
-    reason: "mention" | "reply_to_bot";
     chatId: number;
-    triggerMessage: StoredMessage;
-    anchorBotMessage: StoredMessage | null;
-    anchorParentMessage: StoredMessage | null;
     triggerMessageId: number;
     messageContextLimit: number;
   }
 ): StoredMessage[] {
-  const lookbackLimit = Math.max(input.messageContextLimit - 1, 0);
-  const priorMessages = db.getMessagesBefore(
-    input.chatId,
-    input.triggerMessageId,
-    lookbackLimit
-  );
+  const priorContextLimit = Math.max(input.messageContextLimit - 1, 0);
 
-  if (input.reason === "reply_to_bot" && input.anchorBotMessage) {
-    const lowerBound =
-      input.anchorParentMessage?.messageId ?? input.anchorBotMessage.messageId;
-    const localPriorContext = priorMessages.filter(
-      (message) =>
-        message.messageId >= lowerBound &&
-        message.messageId !== input.anchorBotMessage?.messageId &&
-        message.messageId !== input.triggerMessage.messageId &&
-        !message.isBot
-    );
-
-    return compactTranscript(localPriorContext);
+  if (priorContextLimit === 0) {
+    return [];
   }
 
-  return compactTranscript(priorMessages.filter((message) => !message.isBot));
+  const lookbackLimit = Math.max(input.messageContextLimit * 4, priorContextLimit);
+  const priorMessages = db.getMessagesBefore(input.chatId, input.triggerMessageId, lookbackLimit);
+  const humanMessages = priorMessages.filter((message) => !message.isBot);
+
+  return compactTranscript(humanMessages.slice(-priorContextLimit));
 }
 
 function emptyReplyContext(): ReplyContext {
   return {
     triggerMessage: null,
-    anchorBotMessage: null,
-    anchorParentMessage: null,
     priorContextMessages: []
   };
 }

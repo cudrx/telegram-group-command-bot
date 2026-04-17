@@ -2,15 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import type { AppEnv } from "../config/env.js";
 import type { NormalizedMessage, ReplyContext } from "../domain/models.js";
-import {
-  decideReplyPostflightGuard,
-  decideReplyPreflightGuard
-} from "../domain/reply-loop-guard.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
 import { buildReplyContext } from "./reply-context-builder.js";
-import { sanitizeReplyContextForPrompt } from "./reply-context-sanitizer.js";
 import { withTypingIndicator } from "./typing-indicator.js";
 
 export type BotIdentity = {
@@ -40,11 +35,10 @@ export type ReplyDispatcher = (input: {
 
 export type LlmClient = {
   generateReply(input: {
-    persona: string;
+    assistantInstructions: string;
     targetDisplayName: string;
     reason: string;
     replyContext: ReplyContext;
-    duplicateReplyRecovery?: boolean;
   }): Promise<LlmReplyResult>;
 };
 
@@ -55,7 +49,7 @@ type ReplyRequest = {
   triggerMessageId: number;
   fromDisplayName: string;
   createdAt: string;
-  reason: "mention" | "reply_to_bot";
+  reason: "mention";
 };
 
 export class ChatOrchestrator {
@@ -68,7 +62,7 @@ export class ChatOrchestrator {
       replyDispatcher: ReplyDispatcher;
       sendTyping: (chatId: number) => Promise<void>;
       delay: (ms: number) => Promise<void>;
-      loadPersona: (filePath: string) => Promise<string>;
+      loadAssistantInstructions: (filePath: string) => Promise<string>;
       logger: AppLogger;
       now: () => string;
       random: () => number;
@@ -189,101 +183,24 @@ export class ChatOrchestrator {
     request: ReplyRequest,
     logger: AppLogger
   ): Promise<LlmReplyResult | null> {
-    const chatState = this.deps.db.getChatState(request.chatId);
-
-    if (!chatState) {
-      throw new Error(`Chat state is missing for reply in chat ${request.chatId}`);
-    }
-
     const replyContext = buildReplyContext({
       db: this.deps.db,
       chatId: request.chatId,
       triggerMessageId: request.triggerMessageId,
-      reason: request.reason,
       messageContextLimit: this.deps.env.messageContextLimit
     });
-    const recentMessagesForGuard = this.deps.db.getMessagesBefore(
-      request.chatId,
-      request.triggerMessageId + 1,
-      this.deps.env.replyRecentBotMessagesForGuard
-    );
-    const preflight = decideReplyPreflightGuard({
-      reason: request.reason,
-      replyContext,
-      recentMessages: recentMessagesForGuard,
-      now: request.createdAt,
-      replyToBotLoopCooldownMs: this.deps.env.replyToBotLoopCooldownMs,
-      replyToBotMinIntervalMs: this.deps.env.replyToBotMinIntervalMs,
-      lastBotMessageAt: chatState.lastBotMessageAt,
-      enableReplyToBotCooldown: request.chatType !== "private"
-    });
-
-    if (preflight.kind === "skip") {
-      logger.info("reply_preflight_guard_skipped", {
-        reason: preflight.reason,
-        replyReason: request.reason,
-        replyToMessageId: request.triggerMessageId
-      });
-      return null;
-    }
 
     return this.withReplyTyping(request.chatId, async () => {
-      const persona = await this.deps.loadPersona(this.deps.env.personaFile);
-      const promptReplyContext = sanitizeReplyContextForPrompt({
+      const assistantInstructions = await this.deps.loadAssistantInstructions(
+        this.deps.env.assistantInstructionsFile
+      );
+
+      return this.deps.qwen.generateReply({
+        assistantInstructions,
+        targetDisplayName: request.fromDisplayName,
         reason: request.reason,
-        replyContext,
-        recentMessages: recentMessagesForGuard,
-        omitAnchorBotText: preflight.omitAnchorBotTextFromPrompt
+        replyContext
       });
-      const generate = (duplicateReplyRecovery: boolean) =>
-        this.deps.qwen.generateReply({
-          persona,
-          targetDisplayName: request.fromDisplayName,
-          reason: request.reason,
-          replyContext: promptReplyContext,
-          ...(duplicateReplyRecovery ? { duplicateReplyRecovery: true } : {})
-        });
-      const generated = await generate(false);
-      const postflight = decideReplyPostflightGuard({
-        candidateText: generated.text,
-        recentMessages: recentMessagesForGuard
-      });
-
-      if (postflight.kind === "skip") {
-        if (postflight.reason === "duplicate_candidate_reply") {
-          logger.info("reply_postflight_guard_retrying", {
-            reason: postflight.reason,
-            replyReason: request.reason,
-            replyToMessageId: request.triggerMessageId
-          });
-
-          const recovered = await generate(true);
-          const recoveryPostflight = decideReplyPostflightGuard({
-            candidateText: recovered.text,
-            recentMessages: recentMessagesForGuard
-          });
-
-          if (recoveryPostflight.kind === "allow") {
-            return recovered;
-          }
-
-          logger.info("reply_postflight_guard_skipped", {
-            reason: recoveryPostflight.reason,
-            replyReason: request.reason,
-            replyToMessageId: request.triggerMessageId
-          });
-          return null;
-        }
-
-        logger.info("reply_postflight_guard_skipped", {
-          reason: postflight.reason,
-          replyReason: request.reason,
-          replyToMessageId: request.triggerMessageId
-        });
-        return null;
-      }
-
-      return generated;
     });
   }
 

@@ -15,14 +15,21 @@ describe("parseEnv", () => {
     expect(env.llmReplyTemperature).toBe(0.6);
     expect(env.llmTimeoutMs).toBe(45_000);
     expect(env.llmMaxRetries).toBe(2);
-    expect(env.personaFile).toBe("config/persona.md");
+    expect(env.assistantInstructionsFile).toBe("config/assistant-instructions.md");
     expect(env.messageContextLimit).toBe(8);
-    expect(env.replyToBotLoopCooldownMs).toBe(15_000);
-    expect(env.replyToBotMinIntervalMs).toBe(2500);
-    expect(env.replyRecentBotMessagesForGuard).toBe(8);
     expect(env.replyMinTypingMs).toBe(900);
     expect(env.replyMaxTypingMs).toBe(2200);
     expect(env.replyTypingRefreshMs).toBe(4000);
+  });
+
+  test("reads assistant instructions file from the new env var", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      ASSISTANT_INSTRUCTIONS_FILE: "custom/assistant-instructions.md"
+    });
+
+    expect(env.assistantInstructionsFile).toBe("custom/assistant-instructions.md");
   });
 
   test("keeps legacy qwen aliases working as reply provider fallback", () => {
@@ -41,6 +48,15 @@ describe("parseEnv", () => {
     expect(env.llmReplyModel).toBe("legacy-reply");
     expect(env.llmTimeoutMs).toBe(30_000);
     expect(env.llmMaxRetries).toBe(3);
+  });
+
+  test("uses a neutral legacy qwen reply model fallback", () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      QWEN_API_KEY: "legacy-qwen-key"
+    });
+
+    expect(env.llmReplyModel).toBe("qwen-plus");
   });
 
   test("rejects mixed LLM and QWEN provider namespaces", () => {

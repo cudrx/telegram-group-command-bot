@@ -1,7 +1,7 @@
 import { Bot } from "grammy";
 
 import type { AppEnv } from "./config/env.js";
-import { loadPersona } from "./config/persona.js";
+import { loadAssistantInstructions } from "./config/assistant-instructions.js";
 import { createLogger, serializeError } from "./logging/logger.js";
 import { OpenAiCompatibleLlmClient } from "./llm/openai-compatible-llm-client.js";
 import { DatabaseClient } from "./storage/database.js";
@@ -16,7 +16,7 @@ export type Application = {
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
   const logger = createLogger({
-    service: "telegram-character-bot",
+    service: "telegram-assistant-bot",
     nodeEnv: env.nodeEnv
   });
   const qwen = new OpenAiCompatibleLlmClient({
@@ -63,7 +63,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       await bot.api.sendChatAction(chatId, "typing");
     },
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    loadPersona,
+    loadAssistantInstructions,
     logger,
     random: Math.random,
     now: () => new Date().toISOString()
@@ -103,8 +103,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       messageId: normalized.messageId,
       chatType: normalized.chatType,
       fromUserId: normalized.fromUserId,
-      hasMention: normalized.entities.some((entity) => entity.type === "mention"),
-      isReplyToBot: normalized.replyToUserId === botInfo.id
+      hasMention: normalized.entities.some((entity) => entity.type === "mention")
     });
 
     await orchestrator.handleIncomingMessage(normalized);

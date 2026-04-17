@@ -16,8 +16,8 @@ Use these locations consistently:
   project overview and quick start
 - [`/AGENTS.md`](/home/tom/Documents/Projects/test-chatbot/AGENTS.md)
   repository-wide agent workflow rules
-- [`/config/persona.md`](/home/tom/Documents/Projects/test-chatbot/config/persona.md)
-  base bot persona
+- [`/config/assistant-instructions.md`](/home/tom/Documents/Projects/test-chatbot/config/assistant-instructions.md)
+  base assistant instructions
 - [`/docs/architecture.md`](/home/tom/Documents/Projects/test-chatbot/docs/architecture.md)
   architecture and system invariants
 - [`/docs/development.md`](/home/tom/Documents/Projects/test-chatbot/docs/development.md)

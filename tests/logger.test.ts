@@ -10,7 +10,7 @@ describe("logger", () => {
   test("prints multi-line readable error logs", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const logger = createLogger({
-      service: "telegram-character-bot",
+      service: "telegram-assistant-bot",
       nodeEnv: "development"
     });
 
