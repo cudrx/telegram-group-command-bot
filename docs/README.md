@@ -15,7 +15,9 @@ Use these locations consistently:
 - [`/README.md`](/home/tom/Documents/Projects/test-chatbot/README.md)
   project overview and quick start
 - [`/AGENTS.md`](/home/tom/Documents/Projects/test-chatbot/AGENTS.md)
-  repository-wide agent workflow rules
+  repository-wide agent instruction entrypoint and short global contract
+- [`/agent/`](/home/tom/Documents/Projects/test-chatbot/agent)
+  modular agent instructions: task routing, global development rules, module instructions, playbooks, and registry
 - [`/config/assistant-instructions.md`](/home/tom/Documents/Projects/test-chatbot/config/assistant-instructions.md)
   base assistant instructions
 - [`/docs/architecture.md`](/home/tom/Documents/Projects/test-chatbot/docs/architecture.md)

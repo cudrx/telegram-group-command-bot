@@ -1,40 +1,20 @@
-# Agent Workflow Preferences
+# Agent Instructions
 
-These instructions describe how Codex should work in this repository unless the user says otherwise.
+This file is the entrypoint for repository-specific agent behavior. It should stay short and point to the modular instruction files under `agent/`.
 
-## Branching
+Start here:
 
-- Work with regular git branches.
-- For large implementation, debugging, or review tasks, prefer creating a new regular git branch before editing.
-- Do not create git worktrees by default.
-- Use the current workspace unless the user explicitly asks for a separate worktree.
+- `agent/00-start-here.md` - global contract and getting started flow
+- `agent/01-task-router.md` - how to route small, large, debugging, review, documentation, and bot-behavior tasks
+- `agent/03-dev-rules.md` - global development rules for branches, commits, docs, and communication
+- `agent/99-registry.md` - index of module instructions and task playbooks
 
-## Delegation
+Core contract:
 
-- For non-trivial implementation, debugging, or review tasks, Codex should create worker subagents.
-- Prefer splitting independent subtasks across workers instead of doing all exploration and implementation sequentially in one agent.
-- Keep worker scopes disjoint to avoid merge conflicts.
-- If the task is small or tightly coupled, Codex may keep the work local.
-
-## Commits
-
-- Do not create commits by default.
-- Wait for the user to explicitly ask for commits.
-- When the user is ready, they will ask Codex to form commits and write commit messages.
-- When the final changes are ready to push and naturally fit in a single commit, include a ready-to-use commit message in the final response without asking first; the user will decide whether to commit and push from the IDE.
-
-## Documentation
-
-- All planning documents, design docs, implementation plans, and task briefs must live in `docs/superpowers/plans/`.
-- Do not create alternative planning directories such as `docs/superpowers/specs/`.
-- Keep `docs/superpowers/plans/` to at most 5 plan files by removing the oldest implemented plans once their durable decisions are reflected in the main docs.
-- Before adding a new Markdown document, follow the repository documentation structure described in `docs/README.md`.
-- After implementing a plan, always review `README.md`, `docs/architecture.md`, and `docs/development.md`; update them when behavior, architecture, workflow, deployment, data repair, or documentation policy changed.
-- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/todo/`, and `docs/superpowers/plans/`; remove or update stale backlog ideas, todo notes, and implemented plan details once their durable decisions are reflected in the main docs.
-
-## Communication
-
-- If a workflow choice matters, prefer branches over worktrees unless the user explicitly overrides this preference.
-- If workers are used, briefly state what each worker owns.
-- If the intended action, architecture, data repair, or user preference is unclear, ask a clarifying question before proceeding.
-- For bot behavior, prompt, context-building, memory, loop-guard, or reply-policy changes, Codex must not implement silently. First explain the proposed implementation in concrete terms, including affected files, runtime behavior changes, and how the change will be tested. Proceed only after explicit user approval.
+- Follow these repository instructions unless the user explicitly overrides them.
+- Prefer the current workspace and regular git branches; do not create worktrees unless the user asks.
+- Do not create commits unless the user explicitly asks.
+- Keep planning documents in `docs/superpowers/plans/`.
+- Do not silently change bot behavior, prompts, context-building, memory, loop guards, or reply policy; explain the proposed change and wait for explicit user approval first.
+- If the user says something that looks like a repository rule, or explicitly asks to add a rule, clarify parameters when needed and add it to the appropriate instruction file.
+- Keep the user oriented: explain non-obvious project behavior and implementation choices at a developer level, using pseudocode when helpful, and ask before deciding ambiguous architecture, behavior, or corner-case trade-offs.
