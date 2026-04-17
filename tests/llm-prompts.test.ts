@@ -97,6 +97,23 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("TARGET_MESSAGE_TO_EXPLAIN:");
     expect(prompt).toContain("NEARBY_CHAT_CONTEXT:");
     expect(prompt).toContain("CURRENT_COMMAND_MESSAGE:");
+    expect(prompt).toContain("Use Telegram HTML-compatible structure.");
+    expect(prompt).toContain(
+      "Use only this formatting subset: <b>, <i>, <code>, bullet points with •, and empty lines between sections."
+    );
+    expect(prompt).toContain("Use <b> for section headers.");
+    expect(prompt).toContain("Use <i> only for rare subtle emphasis.");
+    expect(prompt).toContain("Use <code> only for short inline technical terms or commands.");
+    expect(prompt).toContain("Do not wrap every word in formatting.");
+    expect(prompt).toContain("Do not overuse formatting.");
+    expect(prompt).toContain("Do not create too many sections.");
+    expect(prompt).toContain("Do not exceed about 5 bullets in one section.");
+    expect(prompt).toContain("Prefer simplicity over decoration.");
+    expect(prompt).toContain("Do not use <a> links unless truly necessary.");
+    expect(prompt).toContain("Do not use large code blocks.");
+    expect(prompt).toContain("Do not use emojis as structural elements.");
+    expect(prompt).toContain("<b>Смысл</b>");
+    expect(prompt).toContain("<b>По сути</b>");
     expect(prompt).toContain("The target message is the main thing to explain.");
     expect(prompt).toContain(
       "Use nearby chat context only when it is necessary to interpret the target message."
@@ -121,7 +138,7 @@ describe("buildIntentPrompt", () => {
     expect(prompt).not.toContain("usually 1-2 short lines");
   });
 
-  test("explains non-question reply anchors without drifting into summarize or decide", () => {
+  test("explains reply anchors without redirecting to another command", () => {
     const prompt = buildIntentPrompt({
       assistantInstructions: "отвечай кратко",
       targetDisplayName: "Tom",
@@ -156,8 +173,9 @@ describe("buildIntentPrompt", () => {
       "If the target message is not a question, usually paraphrase it in plain words."
     );
     expect(prompt).toContain("Do not summarize the whole discussion.");
-    expect(prompt).toContain("Do not silently switch into DECIDE mode.");
-    expect(prompt).toContain("Do not answer the dispute in EXPLAIN mode.");
+    expect(prompt).not.toContain("Do not silently switch into DECIDE mode.");
+    expect(prompt).not.toContain("Do not answer the dispute in EXPLAIN mode.");
+    expect(prompt).not.toContain("/decide is the intended command");
   });
 
   test("builds summarize prompt as chat-only compression without command arguments", () => {
@@ -186,10 +204,11 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("Do not use external knowledge.");
     expect(prompt).toContain("Do not decide who is right.");
     expect(prompt).toContain("CHAT_CONTEXT_DATA:");
-    expect(prompt).toContain("3 to 5 short bullet points");
-    expect(prompt).toContain("do not start every answer with the same heading");
+    expect(prompt).toContain("<b>Коротко</b>");
+    expect(prompt).toContain("<b>Итог</b>");
+    expect(prompt).toContain("3 to 5 short bullet points using •");
     expect(prompt).toContain("No command arguments are used for this mode.");
-    expect(prompt).not.toContain("\nSummary:\n");
+    expect(prompt).not.toContain("Summary:");
     expect(prompt).not.toContain("ignored text");
   });
 
@@ -220,12 +239,21 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("Do not use external knowledge.");
     expect(prompt).toContain("If the transcript is not enough for a reliable verdict, say so.");
     expect(prompt).toContain("CHAT_CONTEXT_DATA:");
-    expect(prompt).toContain("Позиции:");
-    expect(prompt).toContain("Что реально видно из переписки:");
-    expect(prompt).toContain("Вердикт:");
-    expect(prompt).toContain("Use short sections separated by empty lines.");
+    expect(prompt).toContain("Required response shape:");
+    expect(prompt).toContain("<b>Позиции</b>");
+    expect(prompt).toContain("<b>Что видно</b>");
+    expect(prompt).toContain("<b>Вердикт</b>");
+    expect(prompt.indexOf("<b>Позиции</b>")).toBeLessThan(prompt.indexOf("<b>Что видно</b>"));
+    expect(prompt.indexOf("<b>Что видно</b>")).toBeLessThan(prompt.indexOf("<b>Вердикт</b>"));
+    expect(prompt).toContain("<short decision, 1-2 lines maximum>");
+    expect(prompt).toContain("Do not add extra sections or final lines.");
+    expect(prompt).toContain("Always use these 3 sections.");
+    expect(prompt).toContain("Keep each section short.");
+    expect(prompt).toContain("Keep the verdict to 1-2 lines maximum.");
+    expect(prompt).toContain("• <b><participant or side>:</b> <their core claim>");
     expect(prompt).toContain("Keep verdict concise and concrete.");
     expect(prompt).toContain("No command arguments are used for this mode.");
+    expect(prompt).not.toContain("Optional final line:");
     expect(prompt).not.toContain("кто прав");
   });
 });

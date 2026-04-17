@@ -280,6 +280,43 @@ describe("createApplication", () => {
     );
   });
 
+  test("sends bot replies with Telegram HTML parse mode", async () => {
+    const { createApplication } = await import("../src/app.js");
+    await createApplication(createEnv());
+
+    botSendMessage.mockResolvedValue({
+      message_id: 44,
+      date: 1_744_000_000
+    });
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          replyDispatcher?: (input: {
+            chatId: number;
+            replyToMessageId: number;
+            text: string;
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    const sent = await orchestratorDeps?.replyDispatcher?.({
+      chatId: -1001,
+      replyToMessageId: 11,
+      text: "<b>Коротко</b>"
+    });
+
+    expect(botSendMessage).toHaveBeenCalledWith(-1001, "<b>Коротко</b>", {
+      parse_mode: "HTML",
+      reply_parameters: {
+        message_id: 11
+      }
+    });
+    expect(sent).toEqual({
+      messageId: 44,
+      createdAt: "2025-04-07T04:26:40.000Z"
+    });
+  });
+
   test("stops bot and closes database without summary timers", async () => {
     const { createApplication } = await import("../src/app.js");
     const app = await createApplication(createEnv());

@@ -37,4 +37,15 @@ describe("intent eval fixtures", () => {
       expect(fixture.rubric.mustNotIncludeAny.length).toBeGreaterThan(0);
     }
   });
+
+  test("explain fixtures do not require redirecting to another command", () => {
+    const explainFixtures = intentEvalFixtures.filter((fixture) => fixture.intent === "explain");
+
+    for (const fixture of explainFixtures) {
+      const includeTerms = fixture.rubric.mustIncludeAny.flat();
+
+      expect(includeTerms).not.toContain("/decide");
+      expect(includeTerms).not.toContain("decide");
+    }
+  });
 });

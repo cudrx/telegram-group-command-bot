@@ -14,6 +14,7 @@
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
 - сообщения других ботов сохраняются и могут быть reply-якорем для `/explain`
 - Telegram typing indicators и короткая bounded задержка ответа
+- Telegram HTML formatting для структурированных ответов с safe allowlist постобработкой
 - prompt hardening для transcript и structured logs
 - один OpenAI-compatible LLM-клиент для генерации реплик
 - `Vitest`-тесты, `TypeScript` typecheck и сборка
@@ -123,6 +124,7 @@ docker compose logs bot --tail=200 -f
 - `src/domain` — правила ответа
 - `src/storage` — `SQLite`, чаты и сообщения
 - `src/llm` — prompt helpers и reply generation
+- `src/app/telegram-html.ts` — Telegram-safe HTML formatting для исходящих ответов
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI

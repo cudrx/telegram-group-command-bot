@@ -52,6 +52,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     },
     replyDispatcher: async ({ chatId, replyToMessageId, text }) => {
       const sent = await bot.api.sendMessage(chatId, text, {
+        parse_mode: "HTML",
         reply_parameters: {
           message_id: replyToMessageId
         }

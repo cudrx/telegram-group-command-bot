@@ -11,6 +11,7 @@ import { decideReplyAction, detectDirectTrigger } from "../domain/response-polic
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
 import { buildReplyContext } from "./reply-context-builder.js";
+import { formatTelegramHtmlReply } from "./telegram-html.js";
 import { withTypingIndicator } from "./typing-indicator.js";
 
 export type BotIdentity = {
@@ -156,10 +157,12 @@ export class ChatOrchestrator {
         return;
       }
 
+      const replyText = formatTelegramHtmlReply(result.text);
+
       const sent = await this.deps.replyDispatcher({
         chatId: request.chatId,
         replyToMessageId: request.triggerMessageId,
-        text: result.text
+        text: replyText
       });
 
       this.deps.db.saveBotMessage({
@@ -167,7 +170,7 @@ export class ChatOrchestrator {
         chatType: request.chatType,
         chatTitle: request.chatTitle,
         messageId: sent.messageId,
-        text: result.text,
+        text: replyText,
         createdAt: sent.createdAt,
         userId: this.deps.bot.userId,
         username: this.deps.bot.username,

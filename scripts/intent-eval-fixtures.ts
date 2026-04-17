@@ -31,7 +31,7 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["крупн", "масс", "размер"],
         ["один на один", "схватк", "скорее", "одиночн", "дуэл", "большинств", "чаще"]
       ],
-      mustNotIncludeAny: [["по переписке видно"], ["Позиции:"], ["Кратко:"]]
+      mustNotIncludeAny: [["по переписке видно"], ["Позиции:", "<b>Позиции</b>"], ["Кратко:"]]
     }
   }),
   createFixture({
@@ -50,7 +50,11 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["музык"],
         ["хочет", "ищет", "цель", "критер", "приоритет"]
       ],
-      mustNotIncludeAny: [["Позиции:"], ["Вердикт:"], ["не вижу вопроса"]]
+      mustNotIncludeAny: [
+        ["Позиции:", "<b>Позиции</b>"],
+        ["Вердикт:", "<b>Вердикт</b>"],
+        ["не вижу вопроса"]
+      ]
     }
   }),
   createFixture({
@@ -71,7 +75,12 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["имеет в виду", "проще говоря", "то есть", "означает", "намека"],
         ["очевид", "банальн", "типичн", "ожидаем", "нрав", "зашёл", "понрав"]
       ],
-      mustNotIncludeAny: [["Позиции:"], ["Вердикт:"], ["не вижу вопроса"], ["Summary:"]]
+      mustNotIncludeAny: [
+        ["Позиции:", "<b>Позиции</b>"],
+        ["Вердикт:", "<b>Вердикт</b>"],
+        ["не вижу вопроса"],
+        ["Summary:"]
+      ]
     }
   }),
   createFixture({
@@ -157,12 +166,12 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     ],
     triggerText: "/decide",
     rubric: {
-      mustIncludeAny: [["субъектив", "вкус"], ["критери", "разные"], ["объективн"]],
+      mustIncludeAny: [["субъектив", "вкус"], ["критери", "разные"], ["объективн", "однозначн", "нет однозначного факта"]],
       mustNotIncludeAny: [["Миша победил", "Оля победила"], ["официально лучше"]]
     }
   }),
   createFixture({
-    id: "explain-misused-for-current-dispute",
+    id: "explain-dispute-question-anchor",
     intent: "explain",
     targetDisplayName: "Игорь",
     rows: [
@@ -172,8 +181,12 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     triggerText: "/explain",
     replyAnchorText: "кто прав в споре выше?",
     rubric: {
-      mustIncludeAny: [["/decide", "decide"], ["суд", "спор", "кто прав"]],
-      mustNotIncludeAny: [["Позиции:"], ["Вердикт:"], ["Игорь прав", "Макс прав"]]
+      mustIncludeAny: [["суд", "оцен", "разбор", "просит"], ["спор", "кто прав"]],
+      mustNotIncludeAny: [
+        ["Позиции:", "<b>Позиции</b>"],
+        ["Вердикт:", "<b>Вердикт</b>"],
+        ["Игорь прав", "Макс прав"]
+      ]
     }
   })
 ];

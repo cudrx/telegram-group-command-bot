@@ -81,8 +81,9 @@
 - собирает context;
 - вызывает OpenAI-compatible reply LLM;
 - показывает Telegram typing indicator;
-- отправляет ответ в Telegram;
-- сохраняет исходящее bot-сообщение.
+- форматирует исходящий ответ в Telegram-safe HTML;
+- отправляет ответ в Telegram с `parse_mode=HTML`;
+- сохраняет исходящее bot-сообщение в том же отформатированном виде.
 
 ## Main Flow
 
@@ -96,7 +97,8 @@
    - строится `ReplyContext` с recent human messages only;
    - вызывается reply LLM;
    - Telegram получает best-effort `typing` action и bounded delay;
-   - ответ отправляется в Telegram и сохраняется в БД.
+   - ответ нормализуется в Telegram-safe HTML;
+   - ответ отправляется в Telegram с `parse_mode=HTML` и сохраняется в БД.
 
 ## Context Contract
 
