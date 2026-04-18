@@ -8,6 +8,7 @@ import type {
   StoredMessage
 } from "../domain/models.js";
 import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
+import type { LookupContext, LookupDecision, LookupProvider } from "../lookup/types.js";
 import { serializeError, type AppLogger } from "../logging/logger.js";
 import { DatabaseClient } from "../storage/database.js";
 import { buildReplyContext } from "./reply-context-builder.js";
@@ -33,6 +34,15 @@ export type LlmReplyResult = {
   promptTokensEstimate: number;
 };
 
+export type LookupPlanResult = {
+  status: "ok" | "failed";
+  decision: LookupDecision;
+  model: string;
+  latencyMs: number;
+  attemptCount: number;
+  promptTokensEstimate: number;
+};
+
 export type ReplyDispatcher = (input: {
   chatId: number;
   replyToMessageId: number;
@@ -45,7 +55,12 @@ export type LlmClient = {
     targetDisplayName: string;
     intent: AssistantIntent;
     replyContext: ReplyContext;
+    lookupContext?: LookupContext | null;
   }): Promise<LlmReplyResult>;
+  planLookup(input: {
+    intent: Exclude<AssistantIntent, "summarize">;
+    replyContext: ReplyContext;
+  }): Promise<LookupPlanResult>;
 };
 
 type ReplyRequest = {
@@ -68,6 +83,7 @@ export class ChatOrchestrator {
       db: DatabaseClient;
       qwen: LlmClient;
       env: AppEnv;
+      lookupProvider: LookupProvider | null;
       bot: BotIdentity;
       replyDispatcher: ReplyDispatcher;
       sendTyping: (chatId: number) => Promise<void>;
@@ -227,14 +243,127 @@ export class ChatOrchestrator {
       const assistantInstructions = await this.deps.loadAssistantInstructions(
         this.deps.env.assistantInstructionsFile
       );
+      const lookupContext = await this.buildLookupContext({
+        intent: request.intent,
+        replyContext,
+        logger
+      });
 
       return this.deps.qwen.generateReply({
         assistantInstructions,
         targetDisplayName: request.fromDisplayName,
         intent: request.intent,
-        replyContext
+        replyContext,
+        lookupContext
       });
     });
+  }
+
+  private async buildLookupContext(input: {
+    intent: AssistantIntent;
+    replyContext: ReplyContext;
+    logger: AppLogger;
+  }): Promise<LookupContext | null> {
+    if (input.intent === "summarize") {
+      return null;
+    }
+
+    if (!this.deps.env.lookupEnabled || !this.deps.lookupProvider) {
+      return null;
+    }
+
+    let plan: LookupPlanResult;
+
+    try {
+      plan = await this.deps.qwen.planLookup({
+        intent: input.intent,
+        replyContext: input.replyContext
+      });
+    } catch (error) {
+      input.logger.warn("lookup_planner_failed", {
+        intent: input.intent,
+        ...serializeError(error)
+      });
+
+      return createLookupContext({
+        status: "failed",
+        intent: input.intent,
+        decision: createFailedLookupDecision("Lookup planner failed."),
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+    }
+
+    const decision = plan.decision;
+
+    if (plan.status === "failed") {
+      return createLookupContext({
+        status: "failed",
+        intent: input.intent,
+        decision,
+        errorMessage: decision.reason
+      });
+    }
+
+    input.logger.debug("lookup_planner_completed", {
+      intent: input.intent,
+      shouldLookup: decision.shouldLookup,
+      purpose: decision.purpose,
+      confidence: decision.confidence,
+      queryCount: decision.queries.length,
+      plannerModel: plan.model,
+      plannerLatencyMs: plan.latencyMs
+    });
+
+    if (!decision.shouldLookup) {
+      return createLookupContext({
+        status: "skipped",
+        intent: input.intent,
+        decision
+      });
+    }
+
+    const query = decision.queries[0] ?? null;
+
+    if (!query) {
+      return createLookupContext({
+        status: "skipped",
+        intent: input.intent,
+        decision
+      });
+    }
+
+    try {
+      const result = await this.deps.lookupProvider.search({
+        query,
+        maxResults: this.deps.env.lookupMaxResults,
+        timeoutMs: this.deps.env.lookupTimeoutMs
+      });
+
+      return createLookupContext({
+        status: result.sources.length > 0 ? "used" : "weak",
+        provider: result.provider,
+        intent: input.intent,
+        decision,
+        query: result.query,
+        sources: result.sources,
+        responseTimeMs: result.responseTimeMs,
+        usageCredits: result.usageCredits
+      });
+    } catch (error) {
+      input.logger.warn("lookup_provider_failed", {
+        intent: input.intent,
+        query,
+        ...serializeError(error)
+      });
+
+      return createLookupContext({
+        status: isTimeoutError(error) ? "timed_out" : "failed",
+        intent: input.intent,
+        decision,
+        query,
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+    }
   }
 
   private async withReplyTyping<T>(
@@ -298,4 +427,45 @@ function createLocalReplyResult(text: string): LlmReplyResult {
     attemptCount: 0,
     promptTokensEstimate: 0
   };
+}
+
+function createLookupContext(input: {
+  status: LookupContext["status"];
+  provider?: LookupContext["provider"];
+  intent: Exclude<AssistantIntent, "summarize">;
+  decision: LookupDecision;
+  query?: string | null;
+  sources?: LookupContext["sources"];
+  responseTimeMs?: number | null;
+  usageCredits?: number | null;
+  errorMessage?: string | null;
+}): LookupContext {
+  return {
+    status: input.status,
+    provider: input.provider ?? null,
+    intent: input.intent,
+    decision: input.decision,
+    query: input.query ?? null,
+    sources: input.sources ?? [],
+    responseTimeMs: input.responseTimeMs ?? null,
+    usageCredits: input.usageCredits ?? null,
+    errorMessage: input.errorMessage ?? null
+  };
+}
+
+function createFailedLookupDecision(reason: string): LookupDecision {
+  return {
+    shouldLookup: false,
+    purpose: "none",
+    reason,
+    queries: [],
+    confidence: "low"
+  };
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    (error.name === "AbortError" || error.name === "TimeoutError")
+  );
 }

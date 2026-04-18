@@ -151,6 +151,34 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - по логам проверять, почему бот ответил и какой context был передан;
 - после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
 
+### Lookup Smoke Tests
+
+Before enabling lookup in production:
+
+1. Verify Tavily key:
+
+```bash
+set -a
+source .env
+set +a
+curl -sS --fail-with-body https://api.tavily.com/search \
+  -H "Authorization: Bearer $TAVILY_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"Дора Мэйби Бэйби певицы кто такие","search_depth":"basic","max_results":3,"include_answer":false,"include_raw_content":false,"include_usage":true}'
+```
+
+2. Verify planner model with thinking disabled:
+
+```bash
+set -a
+source .env
+set +a
+curl -sS --fail-with-body "$LLM_BASE_URL/chat/completions" \
+  -H "Authorization: Bearer $LLM_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"qwen3.6-flash","messages":[{"role":"user","content":"Return only JSON: {\"ok\":true}"}],"temperature":0,"max_tokens":20,"enable_thinking":false}'
+```
+
 ## What Is Not Automated Yet
 
 - миграции с версиями;

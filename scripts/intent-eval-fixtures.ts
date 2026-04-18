@@ -6,6 +6,11 @@ export type IntentEvalFixture = {
   targetDisplayName: string;
   assistantInstructions: string;
   replyContext: ReplyContext;
+  lookupExpectation?: {
+    shouldLookup: boolean;
+    purpose: "none" | "entity_grounding" | "fact_check" | "freshness" | "link_extraction";
+    includeTerms: string[];
+  };
   rubric: {
     mustIncludeAny: string[][];
     mustNotIncludeAny: string[][];
@@ -171,6 +176,36 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
+    id: "decide-dora-maybe-baby-entity-grounding",
+    intent: "decide",
+    targetDisplayName: "Артём",
+    rows: [
+      ["2026-04-17T20:10:00.000Z", "Артём", "кто лучше дора или мейби бэйби?"],
+      ["2026-04-17T20:11:00.000Z", "Артур", "Дерьмишко или говнишко?"],
+      ["2026-04-17T20:11:30.000Z", "Артур", "Мне концерт доры понравился больше!"],
+      ["2026-04-17T20:12:00.000Z", "Артём", "я думаю что дерьмишко, потому что говнишко это как-то токсично"]
+    ],
+    triggerText: "/decide",
+    lookupExpectation: {
+      shouldLookup: true,
+      purpose: "entity_grounding",
+      includeTerms: ["Дора", "Мэйби Бэйби", "исполнитель"]
+    },
+    rubric: {
+      mustIncludeAny: [
+        ["Дора"],
+        ["Мэйби", "Maybe Baby"],
+        ["субъектив", "вкус"],
+        ["концерт", "концертный"]
+      ],
+      mustNotIncludeAny: [
+        ["песни, а не соперники"],
+        ["Дора — это песня"],
+        ["Maybe Baby — это песня"]
+      ]
+    }
+  }),
+  createFixture({
     id: "explain-dispute-question-anchor",
     intent: "explain",
     targetDisplayName: "Игорь",
@@ -199,6 +234,7 @@ function createFixture(input: {
   triggerText: string;
   replyAnchorText?: string;
   replyAnchorIsBot?: boolean;
+  lookupExpectation?: IntentEvalFixture["lookupExpectation"];
   rubric: IntentEvalFixture["rubric"];
 }): IntentEvalFixture {
   const priorContextMessages = input.rows.map<StoredMessage>(([createdAt, senderDisplayName, text], index) => ({
@@ -213,7 +249,7 @@ function createFixture(input: {
   }));
   const anchorMessageId = 10_000;
 
-  return {
+  const fixture: IntentEvalFixture = {
     id: input.id,
     intent: input.intent,
     targetDisplayName: input.targetDisplayName,
@@ -246,4 +282,10 @@ function createFixture(input: {
     },
     rubric: input.rubric
   };
+
+  if (input.lookupExpectation) {
+    fixture.lookupExpectation = input.lookupExpectation;
+  }
+
+  return fixture;
 }

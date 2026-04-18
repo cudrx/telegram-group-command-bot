@@ -22,6 +22,7 @@ const botUse = vi.fn();
 const botSendMessage = vi.fn();
 const botSendChatAction = vi.fn();
 const chatOrchestratorConstructor = vi.fn();
+const tavilyConstructor = vi.fn();
 
 const botState: {
   middleware: ((ctx: { update: Record<string, unknown> }, next: () => Promise<void>) => Promise<void>) | undefined;
@@ -103,6 +104,13 @@ vi.mock("../src/app/chat-orchestrator.js", () => ({
   })
 }));
 
+vi.mock("../src/lookup/tavily-lookup-provider.js", () => ({
+  TavilyLookupProvider: vi.fn().mockImplementation((...args: unknown[]) => {
+    tavilyConstructor(...args);
+    return { search: vi.fn() };
+  })
+}));
+
 describe("createApplication", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -144,6 +152,8 @@ describe("createApplication", () => {
       baseUrl: "https://example.com",
       replyModel: "reply-model",
       replyTemperature: 0.6,
+      plannerModel: "planner-model",
+      lookupMaxQueries: 1,
       timeoutMs: 20_000,
       maxRetries: 1
     }, undefined, expect.any(Object));
@@ -326,9 +336,41 @@ describe("createApplication", () => {
     expect(botStop).toHaveBeenCalled();
     expect(dbClose).toHaveBeenCalled();
   });
+
+  test("wires planner model and Tavily lookup provider when enabled", async () => {
+    const { createApplication } = await import("../src/app.js");
+    await createApplication(createEnv({
+      llmPlannerModel: "planner-model",
+      lookupEnabled: true,
+      lookupProvider: "tavily",
+      tavilyApiKey: "tvly-key",
+      lookupTimeoutMs: 7000,
+      lookupMaxQueries: 1,
+      lookupMaxResults: 3
+    }));
+
+    expect(llmConstructor).toHaveBeenCalledWith({
+      apiKey: "llm-key",
+      baseUrl: "https://example.com",
+      replyModel: "reply-model",
+      replyTemperature: 0.6,
+      plannerModel: "planner-model",
+      lookupMaxQueries: 1,
+      timeoutMs: 20_000,
+      maxRetries: 1
+    }, undefined, expect.any(Object));
+    expect(tavilyConstructor).toHaveBeenCalledWith({ apiKey: "tvly-key" });
+    expect(chatOrchestratorConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookupProvider: expect.objectContaining({
+          search: expect.any(Function)
+        })
+      })
+    );
+  });
 });
 
-function createEnv(): AppEnv {
+function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
   return {
     nodeEnv: "test",
     telegramBotToken: "telegram-token",
@@ -348,6 +390,14 @@ function createEnv(): AppEnv {
     decideContextLimit: 100,
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
-    replyTypingRefreshMs: 4000
+    replyTypingRefreshMs: 4000,
+    llmPlannerModel: "planner-model",
+    lookupEnabled: false,
+    lookupProvider: "tavily",
+    tavilyApiKey: null,
+    lookupTimeoutMs: 7000,
+    lookupMaxQueries: 1,
+    lookupMaxResults: 3,
+    ...overrides
   };
 }

@@ -23,9 +23,9 @@
 
 ### Команды
 
-- `/explain` - объяснить сообщение, на которое сделан reply; бот считает replied-to message основным и использует nearby context только для интерпретации, без live internet.
+- `/explain` - объяснить сообщение, на которое сделан reply; бот считает replied-to message основным, использует nearby context только для интерпретации, и при включенном lookup может автоматически заземлять внешние сущности/факты через Tavily.
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
-- `/decide` - оценить текущий спор в чате и сказать, кто ближе, прав, частично прав или что контекста недостаточно; без внешних фактов в v1.
+- `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -72,9 +72,16 @@ npm run dev
 - `LLM_API_KEY`
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
+- `LLM_PLANNER_MODEL`
 - `LLM_REPLY_TEMPERATURE`
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
+- `LOOKUP_ENABLED`
+- `LOOKUP_PROVIDER`
+- `TAVILY_API_KEY`
+- `LOOKUP_TIMEOUT_MS`
+- `LOOKUP_MAX_QUERIES`
+- `LOOKUP_MAX_RESULTS`
 - `LOG_LLM_TEXT`
 - `LOG_LEVEL`
 - `LOG_COLOR`
@@ -182,4 +189,4 @@ docker compose down
 
 ## Следующие версии
 
-Самый актуальный следующий этап: дать `/explain` и `/decide` управляемый выход в интернет и добавить media intake для изображений, voice/audio и Telegram video notes. Детали и порядок работ вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md) и [`docs/superpowers/plans/2026-04-18-internet-and-media-intake.md`](./docs/superpowers/plans/2026-04-18-internet-and-media-intake.md).
+Lookup-backed `/explain` и `/decide` уже подведены к current contract через planner/lookup scaffolding; следующий крупный этап после стабилизации этого пути — media intake для изображений, voice/audio и Telegram video notes. Детали и порядок работ вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md) и [`docs/superpowers/plans/2026-04-18-internet-and-media-intake.md`](./docs/superpowers/plans/2026-04-18-internet-and-media-intake.md).

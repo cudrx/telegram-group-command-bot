@@ -2,10 +2,21 @@ import OpenAI from "openai";
 
 import type { AssistantIntent, ReplyContext } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
+import type { LookupDecision } from "../lookup/types.js";
+import { buildLookupPlannerPrompt, parseLookupDecisionResult } from "./lookup-planner.js";
 import { buildIntentPrompt } from "./prompts.js";
 
 export type LlmReplyResult = {
   text: string;
+  model: string;
+  latencyMs: number;
+  attemptCount: number;
+  promptTokensEstimate: number;
+};
+
+export type LookupPlanResult = {
+  status: "ok" | "failed";
+  decision: LookupDecision;
   model: string;
   latencyMs: number;
   attemptCount: number;
@@ -24,6 +35,8 @@ export class OpenAiCompatibleLlmClient {
       baseUrl: string;
       replyModel: string;
       replyTemperature: number;
+      plannerModel?: string;
+      lookupMaxQueries?: number;
       timeoutMs: number;
       maxRetries: number;
     },
@@ -44,6 +57,97 @@ export class OpenAiCompatibleLlmClient {
     this.createCompletion = this.client.chat.completions.create.bind(
       this.client.chat.completions
     );
+  }
+
+  async planLookup(input: {
+    intent: Exclude<AssistantIntent, "summarize">;
+    replyContext: ReplyContext;
+  }): Promise<LookupPlanResult> {
+    const prompt = buildLookupPlannerPrompt(input);
+    const promptTokensEstimate = estimateTokens(prompt);
+    const startedAt = Date.now();
+    const plannerModel = this.config.plannerModel ?? this.config.replyModel;
+    const lookupMaxQueries = this.config.lookupMaxQueries ?? 1;
+
+    this.logLlmText("llm.lookup_planner.request", {
+      kind: "lookup_planner",
+      model: plannerModel,
+      temperature: 0,
+      promptChars: prompt.length,
+      promptTokensEstimate
+    });
+
+    const completion = await this.withRetry(() =>
+      this.createCompletion({
+        model: plannerModel,
+        temperature: 0,
+        max_tokens: 500,
+        enable_thinking: false,
+        messages: [
+          {
+            role: "system",
+            content:
+              "You plan web lookup for a Telegram assistant. Return only valid JSON."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      } as never)
+    );
+
+    const raw = completion.value.choices[0]?.message.content?.trim() ?? "";
+
+    if (!raw) {
+      const decision: LookupDecision = {
+        shouldLookup: false,
+        purpose: "none",
+        reason: "Lookup planner returned empty content.",
+        queries: [],
+        confidence: "low"
+      };
+
+      this.logLlmText("llm.lookup_planner.response", {
+        kind: "lookup_planner",
+        model: plannerModel,
+        latencyMs: Date.now() - startedAt,
+        attemptCount: completion.attemptCount,
+        promptTokensEstimate,
+        responseChars: 0,
+        responsePreview: ""
+      });
+
+      return {
+        status: "failed",
+        decision,
+        model: plannerModel,
+        latencyMs: Date.now() - startedAt,
+        attemptCount: completion.attemptCount,
+        promptTokensEstimate
+      };
+    }
+
+    const parsedDecision = parseLookupDecisionResult(raw, lookupMaxQueries);
+
+    this.logLlmText("llm.lookup_planner.response", {
+      kind: "lookup_planner",
+      model: plannerModel,
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate,
+      responseChars: raw.length,
+      responsePreview: toSingleLinePreview(raw)
+    });
+
+    return {
+      status: parsedDecision.status,
+      decision: parsedDecision.decision,
+      model: plannerModel,
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate
+    };
   }
 
   async generateReply(input: {
@@ -126,7 +230,7 @@ export class OpenAiCompatibleLlmClient {
   }
 
   private logLlmText(event: string, payload: {
-    kind: "reply";
+    kind: "reply" | "lookup_planner";
     model: string;
     temperature?: number;
     latencyMs?: number;
