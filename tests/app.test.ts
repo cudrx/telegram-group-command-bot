@@ -292,6 +292,108 @@ describe("createApplication", () => {
     );
   });
 
+  test("forwards media captions as message text", async () => {
+    const { createApplication } = await import("../src/app.js");
+    await createApplication(createEnv());
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 14,
+        date: 1_744_000_040,
+        video: {
+          file_id: "video-file",
+          file_unique_id: "video-unique",
+          duration: 14,
+          width: 720,
+          height: 1280
+        },
+        caption: "POV: Трамп объявляет, что он открыл пролив.",
+        caption_entities: [{ type: "bold", offset: 0, length: 3 }],
+        from: {
+          id: 123,
+          is_bot: false,
+          username: "artyom",
+          first_name: "Artyom"
+        },
+        chat: {
+          id: -1001,
+          type: "supergroup",
+          title: "Test chat"
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: -1001,
+        messageId: 14,
+        text: "POV: Трамп объявляет, что он открыл пролив.",
+        entities: [{ type: "bold", offset: 0, length: 3 }]
+      })
+    );
+  });
+
+  test("forwards replied-to media captions for explain fallback anchors", async () => {
+    const { createApplication } = await import("../src/app.js");
+    await createApplication(createEnv());
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 15,
+        date: 1_744_000_050,
+        text: "/explain",
+        entities: [{ type: "bot_command", offset: 0, length: 8 }],
+        from: {
+          id: 123,
+          is_bot: false,
+          username: "artyom",
+          first_name: "Artyom"
+        },
+        chat: {
+          id: -1001,
+          type: "supergroup",
+          title: "Test chat"
+        },
+        reply_to_message: {
+          message_id: 14,
+          date: 1_744_000_040,
+          video: {
+            file_id: "video-file",
+            file_unique_id: "video-unique",
+            duration: 14,
+            width: 720,
+            height: 1280
+          },
+          caption: "POV: Трамп объявляет, что он открыл пролив.",
+          from: {
+            id: 124,
+            is_bot: false,
+            username: "artur",
+            first_name: "Artur"
+          },
+          chat: {
+            id: -1001,
+            type: "supergroup",
+            title: "Test chat"
+          }
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: 15,
+        replyToMessageId: 14,
+        replyToMessageSnapshot: expect.objectContaining({
+          messageId: 14,
+          userId: 124,
+          isBot: false,
+          text: "POV: Трамп объявляет, что он открыл пролив."
+        })
+      })
+    );
+  });
+
   test("sends bot replies with Telegram HTML parse mode", async () => {
     const { createApplication } = await import("../src/app.js");
     await createApplication(createEnv());

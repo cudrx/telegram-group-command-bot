@@ -89,6 +89,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       updateId: ctx.update.update_id,
       updateKinds: Object.keys(ctx.update).filter((key) => key !== "update_id"),
       hasMessageText: Boolean(message?.text),
+      hasMessageCaption: Boolean(message?.caption),
       chatId: message?.chat?.id,
       chatType: message?.chat?.type,
       messageId: message?.message_id,
@@ -105,7 +106,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     });
   });
 
-  bot.on("message:text", async (ctx) => {
+  bot.on("message", async (ctx) => {
     const normalized = normalizeTextMessage(ctx);
 
     if (!normalized || normalized.fromUserId === botInfo.id) {

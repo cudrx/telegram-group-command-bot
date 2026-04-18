@@ -2,16 +2,23 @@ import type { Context } from "grammy";
 
 import type { ChatType, NormalizedMessage } from "../../domain/models.js";
 
+type TelegramTextPayloadMessage = {
+  text?: unknown;
+  caption?: unknown;
+  entities?: Array<{ type: string; offset: number; length: number }>;
+  caption_entities?: Array<{ type: string; offset: number; length: number }>;
+};
+
 export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
   const message = ctx.message;
 
-  if (!message || !("text" in message) || typeof message.text !== "string") {
+  if (!message) {
     return null;
   }
 
-  const text = message.text.trim();
+  const textPayload = normalizeMessageTextPayload(message);
 
-  if (text.length === 0) {
+  if (!textPayload) {
     return null;
   }
 
@@ -27,7 +34,7 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     chatType: normalizeChatType(message.chat.type),
     chatTitle,
     messageId: message.message_id,
-    text,
+    text: textPayload.text,
     createdAt: new Date(message.date * 1000).toISOString(),
     fromUserId: message.from?.id ?? null,
     fromUsername: message.from?.username ?? null,
@@ -35,7 +42,7 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     fromLastName: message.from?.last_name ?? null,
     fromDisplayName: displayName,
     isBot: message.from?.is_bot ?? false,
-    entities: (message.entities ?? []).map((entity) => ({
+    entities: textPayload.entities.map((entity) => ({
       type: entity.type,
       offset: entity.offset,
       length: entity.length
@@ -51,13 +58,13 @@ function normalizeReplyToMessageSnapshot(
 ): NormalizedMessage["replyToMessageSnapshot"] {
   const reply = message.reply_to_message;
 
-  if (!reply || !("text" in reply) || typeof reply.text !== "string") {
+  if (!reply) {
     return null;
   }
 
-  const text = reply.text.trim();
+  const textPayload = normalizeMessageTextPayload(reply);
 
-  if (text.length === 0) {
+  if (!textPayload) {
     return null;
   }
 
@@ -70,10 +77,57 @@ function normalizeReplyToMessageSnapshot(
       lastName: reply.from?.last_name ?? null,
       username: reply.from?.username ?? null
     }),
-    text,
+    text: textPayload.text,
     createdAt: new Date(reply.date * 1000).toISOString(),
     isBot: reply.from?.is_bot ?? false,
     replyToMessageId: null
+  };
+}
+
+function normalizeMessageTextPayload(
+  message: TelegramTextPayloadMessage
+): {
+  text: string;
+  entities: Array<{ type: string; offset: number; length: number }>;
+} | null {
+  if ("text" in message && typeof message.text === "string") {
+    const text = message.text.trim();
+
+    if (text.length === 0) {
+      return null;
+    }
+
+    return {
+      text,
+      entities: (message.entities ?? []).map(normalizeEntity)
+    };
+  }
+
+  if ("caption" in message && typeof message.caption === "string") {
+    const text = message.caption.trim();
+
+    if (text.length === 0) {
+      return null;
+    }
+
+    return {
+      text,
+      entities: (message.caption_entities ?? []).map(normalizeEntity)
+    };
+  }
+
+  return null;
+}
+
+function normalizeEntity(entity: { type: string; offset: number; length: number }): {
+  type: string;
+  offset: number;
+  length: number;
+} {
+  return {
+    type: entity.type,
+    offset: entity.offset,
+    length: entity.length
   };
 }
 
