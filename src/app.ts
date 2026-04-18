@@ -4,6 +4,7 @@ import type { AppEnv } from "./config/env.js";
 import { loadAssistantInstructions } from "./config/assistant-instructions.js";
 import { createLogger, serializeError } from "./logging/logger.js";
 import { OpenAiCompatibleLlmClient } from "./llm/openai-compatible-llm-client.js";
+import { TavilyLookupProvider } from "./lookup/tavily-lookup-provider.js";
 import { DatabaseClient } from "./storage/database.js";
 import { normalizeTextMessage } from "./transport/telegram/normalize-message.js";
 import { ChatOrchestrator } from "./app/chat-orchestrator.js";
@@ -27,6 +28,8 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     baseUrl: env.llmBaseUrl,
     replyModel: env.llmReplyModel,
     replyTemperature: env.llmReplyTemperature,
+    plannerModel: env.llmPlannerModel,
+    lookupMaxQueries: env.lookupMaxQueries,
     timeoutMs: env.llmTimeoutMs,
     maxRetries: env.llmMaxRetries
   }, undefined, {
@@ -35,6 +38,10 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     }),
     logLlmText: env.logLlmText
   });
+  const lookupProvider =
+    env.lookupEnabled && env.lookupProvider === "tavily" && env.tavilyApiKey
+      ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
+      : null;
   const bot = new Bot(env.telegramBotToken);
   const botInfo = await bot.api.getMe();
   logger.info("bot_initialized", {
@@ -45,6 +52,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     db,
     qwen,
     env,
+    lookupProvider,
     bot: {
       userId: botInfo.id,
       username: botInfo.username ?? null,

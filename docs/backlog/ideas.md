@@ -2,11 +2,9 @@
 
 ## Current Priority
 
-Ближайшая актуальная работа после текущего explicit-command ядра:
+Lookup-backed `/explain` and `/decide` are now underway through the current planner/lookup contract work; media intake remains the next future stage:
 
-1. Internet-backed `/explain` for factual questions, links, named entities, current events and cases where general model knowledge is not enough.
-2. Internet-backed factual support for `/decide`, only when the dispute depends on checkable external facts; subjective/value disputes stay chat-only.
-3. Media intake: recognize images, transcribe audio/voice messages, and transcribe Telegram video notes ("кружочки") so `/explain` and later `/decide` can reason over their contents.
+1. Media intake: recognize images, transcribe audio/voice messages, and transcribe Telegram video notes ("кружочки") so `/explain` and later `/decide` can reason over their contents.
 
 Эти фичи должны расширять существующие команды, а не возвращать autonomous replies, social memory or a fourth generic search command.
 
@@ -18,8 +16,7 @@ V1 уже включает explicit command-only task modes:
 
 Следующие осмысленные расширения вне v1:
 
-- live internet lookup inside `/explain` для задач, где модели уже недостаточно общих знаний;
-- fact lookup inside `/decide`, только для проверяемых внешних утверждений, когда чатовый контекст сам по себе недостаточен;
+- lookup-backed `/explain` уже covered by the current plan scaffolding; next focus remains media intake;
 - media intake для картинок, аудио, voice messages и video notes, сначала как распознанный текст/описание для explicit commands;
 - optional deep-search workflow как отдельная медленная research-надстройка поверх `/explain`, не как новый v1 command;
 - dispute persistence и objective event memory для будущего structured dispute tracking;

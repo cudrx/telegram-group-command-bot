@@ -38,6 +38,15 @@ describe("intent eval fixtures", () => {
     }
   });
 
+  test("lookup fixtures cover entity grounding expectations", () => {
+    const lookupFixtures = intentEvalFixtures.filter((fixture) => fixture.lookupExpectation);
+
+    expect(lookupFixtures.length).toBeGreaterThanOrEqual(1);
+    expect(
+      lookupFixtures.some((fixture) => fixture.lookupExpectation?.purpose === "entity_grounding")
+    ).toBe(true);
+  });
+
   test("explain fixtures do not require redirecting to another command", () => {
     const explainFixtures = intentEvalFixtures.filter((fixture) => fixture.intent === "explain");
 

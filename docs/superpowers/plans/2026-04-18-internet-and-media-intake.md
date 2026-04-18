@@ -1,6 +1,6 @@
 # Internet And Media Intake
 
-**Status:** planning note; not implemented yet.
+**Status:** planner/lookup subset for Tavily-backed internet lookup is implemented by this plan; media intake remains future work.
 
 **Goal:** Make the next product increment explicit: `/explain` and factual `/decide` should gain controlled internet lookup, and explicit commands should be able to use recognized images plus transcribed audio, voice messages and Telegram video notes.
 

@@ -6,8 +6,7 @@
 
 Current priority:
 
-- internet-backed lookup for `/explain`, когда общих знаний модели уже недостаточно;
-- internet-backed factual support for `/decide`, только когда спор зависит от проверяемых внешних фактов;
+- planner-backed internet lookup for `/explain` and factual `/decide` is in progress through the current Tavily contract work;
 - shared source/evidence envelope for fetched pages, snippets, timestamps and provider metadata, so prompt input stays auditable.
 
 Later:

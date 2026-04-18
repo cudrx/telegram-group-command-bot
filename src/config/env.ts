@@ -33,6 +33,7 @@ const envSchema = z.object({
     .url("LLM_BASE_URL must be a valid URL")
     .default("https://api.deepseek.com"),
   LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
+  LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
@@ -49,7 +50,13 @@ const envSchema = z.object({
   DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(64),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
-  REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000)
+  REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000),
+  LOOKUP_ENABLED: stringBooleanSchema.default(false),
+  LOOKUP_PROVIDER: z.enum(["tavily"]).default("tavily"),
+  TAVILY_API_KEY: z.string().min(1).optional(),
+  LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(7000),
+  LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
+  LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3)
 });
 
 type ParsedEnv = {
@@ -58,6 +65,7 @@ type ParsedEnv = {
   llmApiKey: string;
   llmBaseUrl: string;
   llmReplyModel: string;
+  llmPlannerModel: string;
   llmReplyTemperature: number;
   llmTimeoutMs: number;
   llmMaxRetries: number;
@@ -72,6 +80,12 @@ type ParsedEnv = {
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
+  lookupEnabled: boolean;
+  lookupProvider: "tavily";
+  tavilyApiKey: string | null;
+  lookupTimeoutMs: number;
+  lookupMaxQueries: number;
+  lookupMaxResults: number;
 };
 
 export type AppEnv = ParsedEnv;
@@ -83,6 +97,7 @@ export function parseEnv(
     rawEnv.LLM_API_KEY !== undefined ||
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
+    rawEnv.LLM_PLANNER_MODEL !== undefined ||
     rawEnv.LLM_REPLY_TEMPERATURE !== undefined ||
     rawEnv.LLM_TIMEOUT_MS !== undefined ||
     rawEnv.LLM_MAX_RETRIES !== undefined;
@@ -105,18 +120,32 @@ export function parseEnv(
         LLM_API_KEY: rawEnv.LLM_API_KEY,
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
+        LLM_PLANNER_MODEL: rawEnv.LLM_PLANNER_MODEL,
         LLM_REPLY_TEMPERATURE: rawEnv.LLM_REPLY_TEMPERATURE,
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
-        LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES
+        LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES,
+        LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
+        LOOKUP_PROVIDER: rawEnv.LOOKUP_PROVIDER,
+        TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
+        LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
+        LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,
+        LOOKUP_MAX_RESULTS: rawEnv.LOOKUP_MAX_RESULTS
       }
     : {
         LLM_API_KEY: rawEnv.QWEN_API_KEY,
         LLM_BASE_URL:
           rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
+        LLM_PLANNER_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
         LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? "0.6",
         LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
-        LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1"
+        LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1",
+        LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
+        LOOKUP_PROVIDER: rawEnv.LOOKUP_PROVIDER,
+        TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
+        LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
+        LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,
+        LOOKUP_MAX_RESULTS: rawEnv.LOOKUP_MAX_RESULTS
       };
 
   const parsed = envSchema.parse({
@@ -131,6 +160,18 @@ export function parseEnv(
     );
   }
 
+  if (parsed.LOOKUP_ENABLED && parsed.LOOKUP_PROVIDER === "tavily" && !parsed.TAVILY_API_KEY) {
+    throw new Error(
+      "TAVILY_API_KEY is required when LOOKUP_ENABLED=true and LOOKUP_PROVIDER=tavily."
+    );
+  }
+
+  if (parsed.LOOKUP_ENABLED && parsed.TAVILY_API_KEY && looksLikePlaceholder(parsed.TAVILY_API_KEY)) {
+    throw new Error(
+      "TAVILY_API_KEY contains a placeholder value. Replace it with a real Tavily API key before enabling lookup."
+    );
+  }
+
   assertNoPlaceholderSecrets(parsed);
 
   return {
@@ -139,6 +180,7 @@ export function parseEnv(
     llmApiKey: parsed.LLM_API_KEY,
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
+    llmPlannerModel: parsed.LLM_PLANNER_MODEL ?? parsed.LLM_REPLY_MODEL,
     llmReplyTemperature: parsed.LLM_REPLY_TEMPERATURE,
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
@@ -152,7 +194,13 @@ export function parseEnv(
     decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
-    replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS
+    replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS,
+    lookupEnabled: parsed.LOOKUP_ENABLED,
+    lookupProvider: parsed.LOOKUP_PROVIDER,
+    tavilyApiKey: parsed.TAVILY_API_KEY ?? null,
+    lookupTimeoutMs: parsed.LOOKUP_TIMEOUT_MS,
+    lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
+    lookupMaxResults: parsed.LOOKUP_MAX_RESULTS
   };
 }
 
