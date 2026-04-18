@@ -46,6 +46,49 @@ jobs:
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/test-chatbot" >> "$GITHUB_OUTPUT"
 
+      - name: Generate deploy metadata
+        run: |
+          mkdir -p deploy/generated
+          BEFORE="${{ github.event.before }}"
+          SHA="${{ github.sha }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="$SHA^..$SHA"
+          else
+            RANGE="$BEFORE..$SHA"
+          fi
+          RANGE="$RANGE" node --input-type=module <<'NODE'
+          import { execFileSync } from "node:child_process";
+          import { writeFileSync } from "node:fs";
+
+          const sha = process.env.GITHUB_SHA;
+          const range = process.env.RANGE;
+
+          if (!sha || !range) {
+            throw new Error("GITHUB_SHA and RANGE are required to generate deploy metadata.");
+          }
+
+          const output = execFileSync("git", ["log", "--format=%s", range], {
+            encoding: "utf8"
+          });
+          const commits = output
+            .split("\n")
+            .map((line) => line.trim())
+            .filter(Boolean);
+          const metadata = {
+            sha,
+            shortSha: sha.slice(0, 7),
+            branch: process.env.GITHUB_REF_NAME ?? "main",
+            builtAt: new Date().toISOString(),
+            commits
+          };
+
+          writeFileSync(
+            "deploy/generated/deploy-metadata.json",
+            `${JSON.stringify(metadata, null, 2)}\n`,
+            "utf8"
+          );
+          NODE
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -75,11 +118,14 @@ jobs:
       - name: Upload deploy assets
         run: |
           ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
-            "mkdir -p '${{ secrets.DEPLOY_PATH }}'"
+            "mkdir -p '${{ secrets.DEPLOY_PATH }}/data'"
           scp -P "${{ secrets.DEPLOY_PORT }}" \
             deploy/compose.yml \
             deploy/remote-deploy.sh \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/"
+          scp -P "${{ secrets.DEPLOY_PORT }}" \
+            deploy/generated/deploy-metadata.json \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/data/deploy-metadata.json"
 
       - name: Deploy to server
         run: |

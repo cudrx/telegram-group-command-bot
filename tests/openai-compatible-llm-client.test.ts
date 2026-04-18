@@ -256,6 +256,57 @@ describe("OpenAiCompatibleLlmClient", () => {
     ]);
   });
 
+  test("formats deploy updates with the fast reply model", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    const client = new OpenAiCompatibleLlmClient(
+      {
+        ...createClientConfig(),
+        fastReplyModel: "fast-reply-model"
+      },
+      {
+        chat: {
+          completions: {
+            create: async (input: Record<string, unknown>) => {
+              requestBody = input;
+
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: "<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео."
+                    }
+                  }
+                ]
+              };
+            }
+          }
+        }
+      } as never
+    );
+
+    await expect(
+      client.formatDeployUpdate({
+        shortSha: "9c59b85",
+        commits: ["fix: handle telegram media captions"]
+      })
+    ).resolves.toMatchObject({
+      text: "<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.",
+      model: "fast-reply-model"
+    });
+
+    expect(requestBody).toEqual(
+      expect.objectContaining({
+        model: "fast-reply-model",
+        temperature: 0.4,
+        max_tokens: 500,
+        enable_thinking: false
+      })
+    );
+    expect(
+      (requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[1]?.content
+    ).toContain("fix: handle telegram media captions");
+  });
+
   test("includes lookup context in the final reply prompt", async () => {
     let requestBody: Record<string, unknown> | undefined;
     const client = new OpenAiCompatibleLlmClient(

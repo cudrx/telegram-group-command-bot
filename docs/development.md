@@ -214,6 +214,7 @@ Workflow деплоя лежит в [`../.github/workflows/deploy.yml`](../.gith
 - `DEPLOY_SSH_KEY` — приватный ключ, который GitHub Actions использует для входа на сервер
 - `SERVER_GHCR_USERNAME` — GitHub username, у которого есть `read:packages`
 - `SERVER_GHCR_TOKEN` — PAT с правом `read:packages` для `docker login ghcr.io` на VPS
+- `DEPLOY_NOTIFY_CHAT_ID` — Telegram chat id для deploy update announcements, сейчас `-1002155313986`
 
 ### One-Time VPS Bootstrap
 
@@ -228,9 +229,18 @@ cp deploy/.env.server.example /opt/test-chatbot/.env
 GHCR_IMAGE=ghcr.io/<github-owner>/test-chatbot
 IMAGE_TAG=latest
 SQLITE_PATH=/app/data/bot.sqlite
+DEPLOY_NOTIFY_CHAT_ID=-1002155313986
 ```
 
 Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
+
+### Deploy Update Announcements
+
+Workflow деплоя записывает release metadata в `${DEPLOY_PATH}/data/deploy-metadata.json` перед рестартом бота. Внутри контейнера этот файл доступен как `/app/data/deploy-metadata.json`.
+
+На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite. Если sha ещё не объявлялся, бот просит `LLM_FAST_REPLY_MODEL` сформатировать короткое русское Telegram HTML-оповещение и отправляет его в `DEPLOY_NOTIFY_CHAT_ID`.
+
+Sha сохраняется только после успешной отправки сообщения в Telegram. Ошибки чтения metadata, LLM или Telegram отправки логируются и не блокируют старт бота.
 
 ### Rollback
 

@@ -172,6 +172,67 @@ describeWithSqlite("DatabaseClient", () => {
     db.close();
   });
 
+  test("stores app state key values", () => {
+    const db = DatabaseClient.open(":memory:");
+
+    expect(db.getAppState("last_announced_deploy_sha")).toBe(null);
+
+    db.setAppState(
+      "last_announced_deploy_sha",
+      "abc123",
+      "2026-04-19T10:00:00.000Z"
+    );
+
+    expect(db.getAppState("last_announced_deploy_sha")).toBe("abc123");
+
+    db.setAppState(
+      "last_announced_deploy_sha",
+      "def456",
+      "2026-04-19T10:05:00.000Z"
+    );
+
+    expect(db.getAppState("last_announced_deploy_sha")).toBe("def456");
+
+    db.close();
+  });
+
+  test("adds app_state table when opening an existing database", () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), "chatbot-app-state-db-"));
+    const dbPath = path.join(directory, "bot.sqlite");
+    tempDirectories.push(directory);
+
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY,
+        chat_type TEXT NOT NULL,
+        title TEXT,
+        last_message_at TEXT,
+        last_bot_message_at TEXT
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        reply_to_telegram_message_id INTEGER,
+        UNIQUE (chat_id, telegram_message_id)
+      );
+    `);
+    legacyDb.close();
+
+    const db = DatabaseClient.open(dbPath);
+
+    expect(db.getSchemaColumns("app_state")).toEqual(["key", "value", "updated_at"]);
+
+    db.close();
+  });
+
   test("adds sender metadata columns when opening a pre-reset database", () => {
     const directory = mkdtempSync(path.join(os.tmpdir(), "chatbot-legacy-db-"));
     const dbPath = path.join(directory, "bot.sqlite");

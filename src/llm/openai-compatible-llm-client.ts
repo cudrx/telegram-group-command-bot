@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import type { AssistantIntent, ReplyContext } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
 import type { LookupContext, LookupDecision } from "../lookup/types.js";
+import { buildDeployUpdatePrompt } from "./deploy-update-prompt.js";
 import { getIntentOutputShapeViolations } from "./intent-output-shape.js";
 import { buildLookupPlannerPrompt, parseLookupDecisionResult } from "./lookup-planner.js";
 import { buildIntentPrompt } from "./prompts.js";
@@ -215,6 +216,66 @@ export class OpenAiCompatibleLlmClient {
     };
   }
 
+  async formatDeployUpdate(input: {
+    shortSha: string;
+    commits: string[];
+  }): Promise<LlmReplyResult> {
+    const prompt = buildDeployUpdatePrompt(input);
+    const promptTokensEstimate = estimateTokens(prompt);
+    const startedAt = Date.now();
+    const model = this.config.fastReplyModel ?? this.config.replyModel;
+
+    this.logLlmText("llm.deploy_update.request", {
+      kind: "deploy_update",
+      model,
+      temperature: 0.4,
+      promptChars: prompt.length,
+      promptTokensEstimate
+    });
+
+    const completion = await this.withRetry(() =>
+      this.createCompletion({
+        model,
+        temperature: 0.4,
+        max_tokens: 500,
+        enable_thinking: false,
+        messages: [
+          {
+            role: "system",
+            content: "You format concise Telegram release updates in Russian."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ]
+      } as never)
+    );
+    const reply = completion.value.choices[0]?.message.content?.trim();
+
+    if (!reply) {
+      throw new Error("Deploy update model returned empty content");
+    }
+
+    this.logLlmText("llm.deploy_update.response", {
+      kind: "deploy_update",
+      model,
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate,
+      responseChars: reply.length,
+      responsePreview: toSingleLinePreview(reply)
+    });
+
+    return {
+      text: reply,
+      model,
+      latencyMs: Date.now() - startedAt,
+      attemptCount: completion.attemptCount,
+      promptTokensEstimate
+    };
+  }
+
   private getReplyModel(intent: AssistantIntent): string {
     if (intent === "summarize" || intent === "explain") {
       return this.config.fastReplyModel ?? this.config.replyModel;
@@ -246,7 +307,7 @@ export class OpenAiCompatibleLlmClient {
   }
 
   private logLlmText(event: string, payload: {
-    kind: "reply" | "lookup_planner";
+    kind: "reply" | "lookup_planner" | "deploy_update";
     model: string;
     temperature?: number;
     latencyMs?: number;

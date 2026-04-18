@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { parseEnv } from "../src/config/env.js";
+import { parseEnv as parseRawEnv } from "../src/config/env.js";
+
+function parseEnv(rawEnv: Record<string, string | undefined>) {
+  return parseRawEnv({
+    DEPLOY_NOTIFY_CHAT_ID: "-1002155313986",
+    ...rawEnv
+  });
+}
 
 describe("parseEnv", () => {
   test("applies v0 reply-only defaults for generic LLM settings", () => {
@@ -107,6 +114,25 @@ describe("parseEnv", () => {
     expect(env.lookupTimeoutMs).toBe(5000);
     expect(env.lookupMaxQueries).toBe(2);
     expect(env.lookupMaxResults).toBe(4);
+  });
+
+  test("parses deploy notification chat id", () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: "telegram-token",
+      LLM_API_KEY: "llm-key",
+      DEPLOY_NOTIFY_CHAT_ID: "-1002155313986"
+    });
+
+    expect(env.deployNotifyChatId).toBe(-1002155313986);
+  });
+
+  test("requires deploy notification chat id", () => {
+    expect(() =>
+      parseRawEnv({
+        TELEGRAM_BOT_TOKEN: "telegram-token",
+        LLM_API_KEY: "llm-key"
+      })
+    ).toThrow(/DEPLOY_NOTIFY_CHAT_ID/);
   });
 
   test("requires tavily api key when lookup is enabled", () => {

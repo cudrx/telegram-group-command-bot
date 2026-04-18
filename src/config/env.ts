@@ -58,7 +58,8 @@ const envSchema = z.object({
   TAVILY_API_KEY: z.string().min(1).optional(),
   LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(7000),
   LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
-  LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3)
+  LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3),
+  DEPLOY_NOTIFY_CHAT_ID: z.coerce.number().int()
 });
 
 type ParsedEnv = {
@@ -90,6 +91,7 @@ type ParsedEnv = {
   lookupTimeoutMs: number;
   lookupMaxQueries: number;
   lookupMaxResults: number;
+  deployNotifyChatId: number;
 };
 
 export type AppEnv = ParsedEnv;
@@ -212,7 +214,8 @@ export function parseEnv(
     tavilyApiKey: parsed.TAVILY_API_KEY ?? null,
     lookupTimeoutMs: parsed.LOOKUP_TIMEOUT_MS,
     lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
-    lookupMaxResults: parsed.LOOKUP_MAX_RESULTS
+    lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
+    deployNotifyChatId: parsed.DEPLOY_NOTIFY_CHAT_ID
   };
 }
 

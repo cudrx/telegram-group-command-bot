@@ -33,6 +33,12 @@ CREATE TABLE IF NOT EXISTS messages (
   UNIQUE (chat_id, telegram_message_id)
 );
 
+CREATE TABLE IF NOT EXISTS app_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at
   ON messages(chat_id, created_at);
 `;
@@ -305,6 +311,28 @@ export class DatabaseClient {
       | undefined;
 
     return row ? toStoredMessage(row) : null;
+  }
+
+  getAppState(key: string): string | null {
+    const row = this.db
+      .prepare(`SELECT value FROM app_state WHERE key = ?`)
+      .get(key) as { value: string } | undefined;
+
+    return row?.value ?? null;
+  }
+
+  setAppState(key: string, value: string, updatedAt: string): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO app_state (key, value, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(key) DO UPDATE SET
+            value = excluded.value,
+            updated_at = excluded.updated_at
+        `
+      )
+      .run(key, value, updatedAt);
   }
 
   getSchemaColumns(tableName: string): string[] {

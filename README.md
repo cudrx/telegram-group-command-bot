@@ -20,6 +20,7 @@
 - `Vitest`-тесты, `TypeScript` typecheck и сборка
 - `GitHub Actions` `CI` на `push` и `pull_request`
 - автодеплой Docker image из `GHCR` на VPS после `push` в `main`
+- Telegram-оповещение об успешном продакшн-деплое с LLM-сжатым списком пользовательских изменений
 
 ### Команды
 
@@ -93,6 +94,7 @@ npm run dev
 - `REPLY_MIN_TYPING_MS`
 - `REPLY_MAX_TYPING_MS`
 - `REPLY_TYPING_REFRESH_MS`
+- `DEPLOY_NOTIFY_CHAT_ID`
 - `SQLITE_PATH`
 - `ASSISTANT_INSTRUCTIONS_FILE`
 
@@ -147,10 +149,12 @@ docker compose logs bot --tail=200 -f
 Продакшн-деплой использует готовый Docker image из `GHCR`, а не собирает приложение на сервере.
 
 - GitHub Actions после `push` в `main` прогоняет `typecheck`, `test` и `build`
-- затем публикует image в `ghcr.io`
+- затем генерирует deploy metadata со списком вошедших commit messages и публикует image в `ghcr.io`
 - после этого workflow по `SSH` обновляет deploy-артефакты на VPS и делает `docker compose pull && docker compose up -d`
 
 `SQLite` не хранится внутри контейнера. Файл базы лежит на VPS в bind mount-папке `./data`, которая на сервере должна находиться рядом с `compose.yml`, например в `/opt/test-chatbot/data/bot.sqlite`.
+
+Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_FAST_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `DEPLOY_NOTIFY_CHAT_ID`, и только после успешной отправки сохраняет sha.
 
 ## Local Docker Check
 

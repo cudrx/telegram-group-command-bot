@@ -8,6 +8,7 @@ import { TavilyLookupProvider } from "./lookup/tavily-lookup-provider.js";
 import { DatabaseClient } from "./storage/database.js";
 import { normalizeTextMessage } from "./transport/telegram/normalize-message.js";
 import { ChatOrchestrator } from "./app/chat-orchestrator.js";
+import { maybeAnnounceDeployUpdate } from "./app/deploy-announcer.js";
 
 export type Application = {
   start(): Promise<void>;
@@ -126,6 +127,19 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
   return {
     async start() {
+      await maybeAnnounceDeployUpdate({
+        deployNotifyChatId: env.deployNotifyChatId,
+        db,
+        llm: qwen,
+        sendMessage: async ({ chatId, text }) => {
+          await bot.api.sendMessage(chatId, text, {
+            parse_mode: "HTML"
+          });
+        },
+        logger,
+        now: () => new Date().toISOString()
+      });
+
       logger.info("bot_polling_started", {
         allowedUpdates: ["message"]
       });

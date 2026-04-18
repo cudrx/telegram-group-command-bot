@@ -722,6 +722,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupTimeoutMs: 7000,
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
+    deployNotifyChatId: -1002155313986,
     ...overrides
   };
 }

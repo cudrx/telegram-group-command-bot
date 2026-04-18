@@ -23,6 +23,7 @@ const botSendMessage = vi.fn();
 const botSendChatAction = vi.fn();
 const chatOrchestratorConstructor = vi.fn();
 const tavilyConstructor = vi.fn();
+const maybeAnnounceDeployUpdate = vi.fn();
 
 const botState: {
   middleware: ((ctx: { update: Record<string, unknown> }, next: () => Promise<void>) => Promise<void>) | undefined;
@@ -104,6 +105,10 @@ vi.mock("../src/app/chat-orchestrator.js", () => ({
   })
 }));
 
+vi.mock("../src/app/deploy-announcer.js", () => ({
+  maybeAnnounceDeployUpdate
+}));
+
 vi.mock("../src/lookup/tavily-lookup-provider.js", () => ({
   TavilyLookupProvider: vi.fn().mockImplementation((...args: unknown[]) => {
     tavilyConstructor(...args);
@@ -141,6 +146,7 @@ describe("createApplication", () => {
       username: "hrupa_bot",
       first_name: "Assistant"
     });
+    maybeAnnounceDeployUpdate.mockResolvedValue(undefined);
   });
 
   test("wires v0 reply-only dependencies and forwards text messages", async () => {
@@ -431,6 +437,27 @@ describe("createApplication", () => {
     });
   });
 
+  test("announces deploy updates before polling starts", async () => {
+    const { createApplication } = await import("../src/app.js");
+    const app = await createApplication(createEnv());
+
+    await app.start();
+
+    expect(maybeAnnounceDeployUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        deployNotifyChatId: -1002155313986,
+        db: expect.any(Object),
+        llm: expect.any(Object),
+        sendMessage: expect.any(Function),
+        logger: expect.any(Object),
+        now: expect.any(Function)
+      })
+    );
+    expect(botStart).toHaveBeenCalledWith({
+      allowed_updates: ["message"]
+    });
+  });
+
   test("stops bot and closes database without summary timers", async () => {
     const { createApplication } = await import("../src/app.js");
     const app = await createApplication(createEnv());
@@ -506,6 +533,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupTimeoutMs: 7000,
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
+    deployNotifyChatId: -1002155313986,
     ...overrides
   };
 }
