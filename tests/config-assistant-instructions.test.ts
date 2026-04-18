@@ -35,6 +35,8 @@ describe("loadAssistantInstructions", () => {
     expect(instructions).toContain("ассистент");
     expect(instructions).toContain("без выдумок");
     expect(instructions).toContain("не придумывай роль или характер");
+    expect(instructions).toContain("приоритетнее общих правил");
+    expect(instructions).toContain("не переключайся в режим справки");
   });
 });
 

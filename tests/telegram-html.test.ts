@@ -27,6 +27,32 @@ describe("formatTelegramHtmlReply", () => {
     expect(formatted).toBe("Коротко:\n\n• первый пункт\n• второй пункт\n• третий пункт\n\nконец");
   });
 
+  test("normalizes common model markdown for summarize replies", () => {
+    const formatted = formatTelegramHtmlReply(
+      [
+        "Summary:",
+        "- Участники тестируют команды (`/summarize`, `/explain`).",
+        "- **Краткий ориентир:** бот проверяют на спорных репликах.",
+        "- Итог: чат работает как полигон для отладки."
+      ].join("\n"),
+      { intent: "summarize" }
+    );
+
+    expect(formatted).toBe(
+      [
+        "• Участники тестируют команды (<code>/summarize</code>, <code>/explain</code>).",
+        "• <b>Краткий ориентир:</b> бот проверяют на спорных репликах.",
+        "<b>Итог</b> — чат работает как полигон для отладки."
+      ].join("\n")
+    );
+  });
+
+  test("escapes html-like text inside markdown code spans", () => {
+    const formatted = formatTelegramHtmlReply("`<b>не тег</b>`");
+
+    expect(formatted).toBe("<code>&lt;b&gt;не тег&lt;/b&gt;</code>");
+  });
+
   test("normalizes allowed tag attributes and repairs unclosed tags", () => {
     const formatted = formatTelegramHtmlReply(
       '<b class="title">Смысл\n\n<i data-x="1">важно'

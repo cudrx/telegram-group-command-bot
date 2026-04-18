@@ -33,8 +33,10 @@ const envSchema = z.object({
     .url("LLM_BASE_URL must be a valid URL")
     .default("https://api.deepseek.com"),
   LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
+  LLM_FAST_REPLY_MODEL: z.string().min(1).optional(),
   LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
+  LLM_REPLY_ENABLE_THINKING: stringBooleanSchema.default(false),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
   LOG_LLM_TEXT: stringBooleanSchema.default(false),
@@ -65,8 +67,10 @@ type ParsedEnv = {
   llmApiKey: string;
   llmBaseUrl: string;
   llmReplyModel: string;
+  llmFastReplyModel: string;
   llmPlannerModel: string;
   llmReplyTemperature: number;
+  llmReplyEnableThinking: boolean;
   llmTimeoutMs: number;
   llmMaxRetries: number;
   logLlmText: boolean;
@@ -97,8 +101,10 @@ export function parseEnv(
     rawEnv.LLM_API_KEY !== undefined ||
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
+    rawEnv.LLM_FAST_REPLY_MODEL !== undefined ||
     rawEnv.LLM_PLANNER_MODEL !== undefined ||
     rawEnv.LLM_REPLY_TEMPERATURE !== undefined ||
+    rawEnv.LLM_REPLY_ENABLE_THINKING !== undefined ||
     rawEnv.LLM_TIMEOUT_MS !== undefined ||
     rawEnv.LLM_MAX_RETRIES !== undefined;
   const usesLegacyQwenVars =
@@ -120,8 +126,10 @@ export function parseEnv(
         LLM_API_KEY: rawEnv.LLM_API_KEY,
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
+        LLM_FAST_REPLY_MODEL: rawEnv.LLM_FAST_REPLY_MODEL,
         LLM_PLANNER_MODEL: rawEnv.LLM_PLANNER_MODEL,
         LLM_REPLY_TEMPERATURE: rawEnv.LLM_REPLY_TEMPERATURE,
+        LLM_REPLY_ENABLE_THINKING: rawEnv.LLM_REPLY_ENABLE_THINKING,
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
         LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES,
         LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
@@ -136,8 +144,10 @@ export function parseEnv(
         LLM_BASE_URL:
           rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
         LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
+        LLM_FAST_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
         LLM_PLANNER_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
         LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? "0.6",
+        LLM_REPLY_ENABLE_THINKING: "false",
         LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
         LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1",
         LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
@@ -180,8 +190,10 @@ export function parseEnv(
     llmApiKey: parsed.LLM_API_KEY,
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
+    llmFastReplyModel: parsed.LLM_FAST_REPLY_MODEL ?? parsed.LLM_REPLY_MODEL,
     llmPlannerModel: parsed.LLM_PLANNER_MODEL ?? parsed.LLM_REPLY_MODEL,
     llmReplyTemperature: parsed.LLM_REPLY_TEMPERATURE,
+    llmReplyEnableThinking: parsed.LLM_REPLY_ENABLE_THINKING,
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
     logLlmText: parsed.LOG_LLM_TEXT,

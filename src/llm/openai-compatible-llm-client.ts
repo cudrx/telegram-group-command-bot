@@ -2,7 +2,7 @@ import OpenAI from "openai";
 
 import type { AssistantIntent, ReplyContext } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
-import type { LookupDecision } from "../lookup/types.js";
+import type { LookupContext, LookupDecision } from "../lookup/types.js";
 import { buildLookupPlannerPrompt, parseLookupDecisionResult } from "./lookup-planner.js";
 import { buildIntentPrompt } from "./prompts.js";
 
@@ -34,7 +34,9 @@ export class OpenAiCompatibleLlmClient {
       apiKey: string;
       baseUrl: string;
       replyModel: string;
+      fastReplyModel?: string;
       replyTemperature: number;
+      replyEnableThinking?: boolean;
       plannerModel?: string;
       lookupMaxQueries?: number;
       timeoutMs: number;
@@ -155,21 +157,24 @@ export class OpenAiCompatibleLlmClient {
     targetDisplayName: string;
     intent: AssistantIntent;
     replyContext: ReplyContext;
+    lookupContext?: LookupContext | null;
   }): Promise<LlmReplyResult> {
     const prompt = buildIntentPrompt(input);
     const promptTokensEstimate = estimateTokens(prompt);
     const startedAt = Date.now();
+    const replyModel = this.getReplyModel(input.intent);
     this.logLlmText("llm.reply.request", {
       kind: "reply",
-      model: this.config.replyModel,
+      model: replyModel,
       temperature: this.config.replyTemperature,
       promptChars: prompt.length,
       promptTokensEstimate
     });
     const completion = await this.withRetry(() =>
       this.createCompletion({
-        model: this.config.replyModel,
+        model: replyModel,
         temperature: this.config.replyTemperature,
+        enable_thinking: this.config.replyEnableThinking ?? false,
         messages: [
           {
             role: "system",
@@ -180,7 +185,7 @@ export class OpenAiCompatibleLlmClient {
             content: prompt
           }
         ]
-      })
+      } as never)
     );
     const reply = completion.value.choices[0]?.message.content?.trim();
 
@@ -188,9 +193,11 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Reply model returned empty content");
     }
 
+    this.warnOnReplyFormatGuardrailViolation(reply, replyModel);
+
     this.logLlmText("llm.reply.response", {
       kind: "reply",
-      model: this.config.replyModel,
+      model: replyModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
       promptTokensEstimate,
@@ -200,11 +207,19 @@ export class OpenAiCompatibleLlmClient {
 
     return {
       text: reply,
-      model: this.config.replyModel,
+      model: replyModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
       promptTokensEstimate
     };
+  }
+
+  private getReplyModel(intent: AssistantIntent): string {
+    if (intent === "summarize" || intent === "explain") {
+      return this.config.fastReplyModel ?? this.config.replyModel;
+    }
+
+    return this.config.replyModel;
   }
 
   private async withRetry<T>(operation: () => Promise<T>): Promise<{
@@ -245,6 +260,22 @@ export class OpenAiCompatibleLlmClient {
     }
 
     this.options.logger?.info(event, payload);
+  }
+
+  private warnOnReplyFormatGuardrailViolation(reply: string, model: string): void {
+    const hasEnglishSummaryHeading = /(^|\n)\s*summary\s*:/i.test(reply);
+    const hasMarkdownBold = reply.includes("**");
+
+    if (!hasEnglishSummaryHeading && !hasMarkdownBold) {
+      return;
+    }
+
+    this.options.logger?.warn("llm.reply_format_guardrail_warning", {
+      kind: "reply",
+      model,
+      hasEnglishSummaryHeading,
+      hasMarkdownBold
+    });
   }
 }
 

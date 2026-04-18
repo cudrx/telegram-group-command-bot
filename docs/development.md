@@ -41,7 +41,7 @@ npm install
 cp .env.example .env
 ```
 
-Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL` и `LLM_REPLY_MODEL`.
+Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и, если нужен отдельный дешёвый путь для `/summarize` и `/explain`, `LLM_FAST_REPLY_MODEL`.
 Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
 3. Отредактировать базовые assistant instructions:
@@ -71,7 +71,9 @@ npm run dev
 - `npm test` — `Vitest`
 - `npm run typecheck` — `TypeScript` без `emit`
 - `npm run build` — сборка в `dist/`
-- `npm run eval:intents` — прогоняет intent fixtures и пишет отчёты в gitignored `.eval-runs/`
+- `npm run eval:intents` — прогоняет все intent fixtures и пишет отчёты в gitignored `.eval-runs/`
+- `npm run eval:intents -- --id=decide-laptop-value-dispute` — прогоняет один fixture
+- `npm run eval:intents -- --intent=summarize` — прогоняет fixtures одного intent
 - `npm start` — запуск собранного `dist/src/index.js`
 
 ## Local Docker Workflow

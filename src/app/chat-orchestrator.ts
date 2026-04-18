@@ -173,7 +173,9 @@ export class ChatOrchestrator {
         return;
       }
 
-      const replyText = formatTelegramHtmlReply(result.text);
+      const replyText = formatTelegramHtmlReply(result.text, {
+        intent: request.intent
+      });
 
       const sent = await this.deps.replyDispatcher({
         chatId: request.chatId,

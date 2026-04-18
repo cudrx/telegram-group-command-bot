@@ -72,6 +72,8 @@ describe("parseEnv", () => {
     });
 
     expect(env.llmPlannerModel).toBe("reply-model");
+    expect(env.llmFastReplyModel).toBe("reply-model");
+    expect(env.llmReplyEnableThinking).toBe(false);
     expect(env.lookupEnabled).toBe(false);
     expect(env.lookupProvider).toBe("tavily");
     expect(env.tavilyApiKey).toBe(null);
@@ -85,7 +87,9 @@ describe("parseEnv", () => {
       TELEGRAM_BOT_TOKEN: "telegram-token",
       LLM_API_KEY: "llm-key",
       LLM_REPLY_MODEL: "reply-model",
+      LLM_FAST_REPLY_MODEL: "fast-reply-model",
       LLM_PLANNER_MODEL: "planner-model",
+      LLM_REPLY_ENABLE_THINKING: "true",
       LOOKUP_ENABLED: "true",
       LOOKUP_PROVIDER: "tavily",
       TAVILY_API_KEY: "tvly-key",
@@ -95,6 +99,8 @@ describe("parseEnv", () => {
     });
 
     expect(env.llmPlannerModel).toBe("planner-model");
+    expect(env.llmFastReplyModel).toBe("fast-reply-model");
+    expect(env.llmReplyEnableThinking).toBe(true);
     expect(env.lookupEnabled).toBe(true);
     expect(env.lookupProvider).toBe("tavily");
     expect(env.tavilyApiKey).toBe("tvly-key");
@@ -168,6 +174,8 @@ describe("parseEnv", () => {
     expect(env.llmApiKey).toBe("legacy-qwen-key");
     expect(env.llmBaseUrl).toBe("https://legacy.example.com/v1");
     expect(env.llmReplyModel).toBe("legacy-reply");
+    expect(env.llmFastReplyModel).toBe("legacy-reply");
+    expect(env.llmReplyEnableThinking).toBe(false);
     expect(env.llmTimeoutMs).toBe(30_000);
     expect(env.llmMaxRetries).toBe(3);
   });

@@ -50,7 +50,7 @@ npm install
 cp .env.example .env
 ```
 
-`.env.example` настроен под OpenAI-compatible провайдера. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL` и `LLM_REPLY_MODEL`.
+`.env.example` настроен под OpenAI-compatible провайдера. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и, если нужен отдельный дешёвый путь для `/summarize` и `/explain`, `LLM_FAST_REPLY_MODEL`.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`config/assistant-instructions.md`](./config/assistant-instructions.md).
 
@@ -72,8 +72,10 @@ npm run dev
 - `LLM_API_KEY`
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
+- `LLM_FAST_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
 - `LLM_REPLY_TEMPERATURE`
+- `LLM_REPLY_ENABLE_THINKING`
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
 - `LOOKUP_ENABLED`
@@ -124,7 +126,9 @@ docker compose logs bot --tail=200 -f
 - `npm run typecheck`
 - `npm test`
 - `npm run build`
-- `npm run eval:intents` - прогон intent-eval fixture набора; результаты пишутся в gitignored `.eval-runs/`
+- `npm run eval:intents` - прогон всего intent-eval fixture набора; результаты пишутся в gitignored `.eval-runs/`
+- `npm run eval:intents -- --id=decide-laptop-value-dispute` - прогон одного fixture
+- `npm run eval:intents -- --intent=summarize` - прогон всех fixtures одного intent
 
 ## Структура
 

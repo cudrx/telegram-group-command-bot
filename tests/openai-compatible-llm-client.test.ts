@@ -57,6 +57,38 @@ describe("OpenAiCompatibleLlmClient", () => {
     );
   });
 
+  test("warns when reply output violates formatting guardrails", async () => {
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn()
+    };
+
+    logger.child.mockReturnValue(logger);
+
+    const client = new OpenAiCompatibleLlmClient(
+      createClientConfig(),
+      createOpenAiStub("Summary:\n**Коротко**"),
+      {
+        logger
+      }
+    );
+
+    await client.generateReply(createReplyInput());
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "llm.reply_format_guardrail_warning",
+      {
+        kind: "reply",
+        model: "reply-model",
+        hasEnglishSummaryHeading: true,
+        hasMarkdownBold: true
+      }
+    );
+  });
+
   test("retries retryable completion errors once", async () => {
     let calls = 0;
     const client = new OpenAiCompatibleLlmClient(
@@ -131,6 +163,7 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     expect(requestBody?.model).toBe("reply-model");
     expect(requestBody?.temperature).toBe(0.6);
+    expect(requestBody?.enable_thinking).toBe(false);
     expect((requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content).toContain(
       "You are a neutral Telegram assistant."
     );
@@ -138,6 +171,151 @@ describe("OpenAiCompatibleLlmClient", () => {
     expect(JSON.stringify(requestBody)).not.toContain("usually 1-2 short lines");
     expect(JSON.stringify(requestBody)).not.toContain("summary");
     expect(JSON.stringify(requestBody)).not.toContain("intervention");
+  });
+
+  test("routes summarize and explain replies to the fast model", async () => {
+    const requestBodies: Record<string, unknown>[] = [];
+    const client = new OpenAiCompatibleLlmClient(
+      {
+        ...createClientConfig(),
+        fastReplyModel: "fast-reply-model"
+      },
+      {
+        chat: {
+          completions: {
+            create: async (input: Record<string, unknown>) => {
+              requestBodies.push(input);
+
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: "ready"
+                    }
+                  }
+                ]
+              };
+            }
+          }
+        }
+      } as never
+    );
+
+    await client.generateReply(createReplyInput("summarize"));
+    await client.generateReply(createReplyInput("explain"));
+    await client.generateReply(createReplyInput("decide"));
+
+    expect(requestBodies.map((body) => body.model)).toEqual([
+      "fast-reply-model",
+      "fast-reply-model",
+      "reply-model"
+    ]);
+  });
+
+  test("includes lookup context in the final reply prompt", async () => {
+    let requestBody: Record<string, unknown> | undefined;
+    const client = new OpenAiCompatibleLlmClient(
+      createClientConfig(),
+      {
+        chat: {
+          completions: {
+            create: async (input: Record<string, unknown>) => {
+              requestBody = input;
+
+              return {
+                choices: [
+                  {
+                    message: {
+                      content: "ready"
+                    }
+                  }
+                ]
+              };
+            }
+          }
+        }
+      } as never
+    );
+
+    type ReplyInput = Parameters<OpenAiCompatibleLlmClient["generateReply"]>[0];
+    const hasLookupContext: "lookupContext" extends keyof ReplyInput ? true : false = true;
+    void hasLookupContext;
+
+    const replyInput = {
+      assistantInstructions: "Assistant instructions",
+      targetDisplayName: "Tom",
+      intent: "decide",
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 42,
+          senderDisplayName: "Tom",
+          text: "/decide кто прав",
+          createdAt: "2026-04-03T12:02:00.000Z",
+          isBot: false,
+          replyToMessageId: null
+        },
+        replyAnchorMessage: null,
+        priorContextMessages: []
+      },
+      lookupContext: {
+        status: "used",
+        provider: "tavily",
+        intent: "decide",
+        decision: {
+          shouldLookup: true,
+          purpose: "entity_grounding",
+          reason: "Need grounding.",
+          queries: ["Дора Мэйби Бэйби певицы кто такие"],
+          confidence: "high"
+        },
+        query: "Дора Мэйби Бэйби певицы кто такие",
+        sources: [
+          {
+            title: "Дора (певица)",
+            url: "https://example.com/dora",
+            content: "Дора - российская певица.",
+            score: 0.91
+          }
+        ],
+        responseTimeMs: 123,
+        usageCredits: 1,
+        errorMessage: null
+      }
+    } as ReplyInput & {
+      lookupContext: {
+        status: "used";
+        provider: "tavily";
+        intent: "decide";
+        decision: {
+          shouldLookup: boolean;
+          purpose: string;
+          reason: string;
+          queries: string[];
+          confidence: "high";
+        };
+        query: string;
+        sources: Array<{
+          title: string;
+          url: string;
+          content: string;
+          score: number;
+        }>;
+        responseTimeMs: number;
+        usageCredits: number;
+        errorMessage: null;
+      };
+    };
+
+    await client.generateReply(replyInput);
+
+    const prompt = (requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[1]?.content ?? "";
+
+    expect(prompt).toContain("EXTERNAL_LOOKUP_CONTEXT:");
+    expect(prompt).toContain("purpose=entity_grounding");
+    expect(prompt).toContain('title="Дора (певица)"');
+    expect(prompt).toContain('url="https://example.com/dora"');
   });
 
   test("plans lookup with planner model, JSON settings, and thinking disabled", async () => {
@@ -260,7 +438,9 @@ function createClientConfig() {
     apiKey: "key",
     baseUrl: "https://example.com",
     replyModel: "reply-model",
+    fastReplyModel: "reply-model",
     replyTemperature: 0.6,
+    replyEnableThinking: false,
     plannerModel: "planner-model",
     lookupMaxQueries: 1,
     timeoutMs: 20_000,
@@ -286,11 +466,11 @@ function createOpenAiStub(content: string) {
   } as never;
 }
 
-function createReplyInput() {
+function createReplyInput(intent: "explain" | "summarize" | "decide" = "decide") {
   return {
     assistantInstructions: "Assistant instructions",
     targetDisplayName: "Tom",
-    intent: "decide" as const,
+    intent,
     replyContext: {
       triggerMessage: {
         chatId: 1,

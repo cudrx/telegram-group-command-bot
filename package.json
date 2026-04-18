@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "migrate": "node --import tsx scripts/migrate.ts",
-    "eval:intents": "tsx scripts/evaluate-intents.ts",
+    "eval:intents": "npm run build && node dist/scripts/evaluate-intents.js",
+    "eval:intents:one": "npm run build && node dist/scripts/evaluate-intents.js",
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit",
