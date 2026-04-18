@@ -11,7 +11,10 @@ import { intentEvalFixtures, type IntentEvalFixture } from "./intent-eval-fixtur
 
 export type RubricResult = {
   include: Array<{ group: string[]; passed: boolean }>;
+  includeAll: Array<{ term: string; passed: boolean }>;
+  matchRegex: Array<{ pattern: string; passed: boolean }>;
   exclude: Array<{ group: string[]; passed: boolean }>;
+  notMatchRegex: Array<{ pattern: string; passed: boolean }>;
 };
 
 export type EvalResult = {
@@ -30,7 +33,10 @@ export function evaluateRubric(
   response: string,
   rubric: {
     mustIncludeAny: string[][];
+    mustIncludeAll?: string[];
+    mustMatchRegex?: string[];
     mustNotIncludeAny: string[][];
+    mustNotMatchRegex?: string[];
   }
 ): RubricResult {
   const normalized = response.toLowerCase();
@@ -40,9 +46,21 @@ export function evaluateRubric(
       group,
       passed: group.some((term) => normalized.includes(term.toLowerCase()))
     })),
+    includeAll: (rubric.mustIncludeAll ?? []).map((term) => ({
+      term,
+      passed: normalized.includes(term.toLowerCase())
+    })),
+    matchRegex: (rubric.mustMatchRegex ?? []).map((pattern) => ({
+      pattern,
+      passed: new RegExp(pattern, "iu").test(response)
+    })),
     exclude: rubric.mustNotIncludeAny.map((group) => ({
       group,
       passed: group.every((term) => !normalized.includes(term.toLowerCase()))
+    })),
+    notMatchRegex: (rubric.mustNotMatchRegex ?? []).map((pattern) => ({
+      pattern,
+      passed: !new RegExp(pattern, "iu").test(response)
     }))
   };
 }
@@ -50,7 +68,10 @@ export function evaluateRubric(
 export function hasRubricFailures(rubric: RubricResult): boolean {
   return (
     rubric.include.some((check) => !check.passed) ||
-    rubric.exclude.some((check) => !check.passed)
+    rubric.includeAll.some((check) => !check.passed) ||
+    rubric.matchRegex.some((check) => !check.passed) ||
+    rubric.exclude.some((check) => !check.passed) ||
+    rubric.notMatchRegex.some((check) => !check.passed)
   );
 }
 
@@ -230,8 +251,20 @@ function printResult(result: EvalResult): void {
     console.log(`${check.passed ? "PASS" : "FAIL"} include any: ${check.group.join(" | ")}`);
   }
 
+  for (const check of result.rubric.includeAll) {
+    console.log(`${check.passed ? "PASS" : "FAIL"} include all: ${check.term}`);
+  }
+
+  for (const check of result.rubric.matchRegex) {
+    console.log(`${check.passed ? "PASS" : "FAIL"} match regex: ${check.pattern}`);
+  }
+
   for (const check of result.rubric.exclude) {
     console.log(`${check.passed ? "PASS" : "FAIL"} exclude all: ${check.group.join(" | ")}`);
+  }
+
+  for (const check of result.rubric.notMatchRegex) {
+    console.log(`${check.passed ? "PASS" : "FAIL"} not match regex: ${check.pattern}`);
   }
 }
 
@@ -251,8 +284,17 @@ function formatMarkdown(results: EvalResult[]): string {
       ...result.rubric.include.map(
         (check) => `- ${check.passed ? "PASS" : "FAIL"} include any: ${check.group.join(" | ")}`
       ),
+      ...result.rubric.includeAll.map(
+        (check) => `- ${check.passed ? "PASS" : "FAIL"} include all: ${check.term}`
+      ),
+      ...result.rubric.matchRegex.map(
+        (check) => `- ${check.passed ? "PASS" : "FAIL"} match regex: ${check.pattern}`
+      ),
       ...result.rubric.exclude.map(
         (check) => `- ${check.passed ? "PASS" : "FAIL"} exclude all: ${check.group.join(" | ")}`
+      ),
+      ...result.rubric.notMatchRegex.map(
+        (check) => `- ${check.passed ? "PASS" : "FAIL"} not match regex: ${check.pattern}`
       ),
       ""
     ])

@@ -1,4 +1,16 @@
+import { readFileSync } from "node:fs";
+
 import type { AssistantIntent, ReplyContext, StoredMessage } from "../src/domain/models.js";
+
+const DEFAULT_ASSISTANT_INSTRUCTIONS = readFileSync("config/assistant-instructions.md", "utf8").trim();
+
+export type IntentEvalRubric = {
+  mustIncludeAny: string[][];
+  mustIncludeAll?: string[];
+  mustMatchRegex?: string[];
+  mustNotIncludeAny: string[][];
+  mustNotMatchRegex?: string[];
+};
 
 export type IntentEvalFixture = {
   id: string;
@@ -11,46 +23,35 @@ export type IntentEvalFixture = {
     purpose: "none" | "entity_grounding" | "fact_check" | "freshness" | "link_extraction";
     includeTerms: string[];
   };
-  rubric: {
-    mustIncludeAny: string[][];
-    mustNotIncludeAny: string[][];
-  };
+  rubric: IntentEvalRubric;
 };
 
 export const intentEvalFixtures: IntentEvalFixture[] = [
   createFixture({
-    id: "explain-reply-anchor-lion-vs-tiger",
+    id: "explain-casual-slang",
     intent: "explain",
     targetDisplayName: "Ваня",
     rows: [
-      ["2026-03-05T15:09:00.000Z", "Ваня", "у нас тут внезапно спор про животных"],
-      ["2026-03-05T15:10:00.000Z", "Рофл Бот", "кто сильнее лев или тигр"]
+      ["2026-04-03T11:58:00.000Z", "Катя", "ты реально этот трек на репите слушаешь?"],
+      ["2026-04-03T11:59:00.000Z", "Олег", "да, ну это база, ахах"],
+      ["2026-04-03T12:00:00.000Z", "Катя", "поняла, значит совсем зашел"]
     ],
     triggerText: "/explain",
-    replyAnchorText: "кто сильнее лев или тигр",
-    replyAnchorIsBot: true,
+    replyAnchorText: "да, ну это база, ахах",
     rubric: {
       mustIncludeAny: [
-        ["тигр"],
-        ["лев", "льв"],
-        ["крупн", "масс", "размер"],
-        [
-          "один на один",
-          "схватк",
-          "скорее",
-          "одиночн",
-          "дуэл",
-          "большинств",
-          "чаще",
-          "противостояни",
-          "столкновен"
-        ]
+        ["баз"],
+        ["означает", "означа", "имеет в виду", "то есть", "проще говоря"],
+        ["нрав", "зашёл", "понрав", "зацепил", "качествен", "повтор", "не надоедает"]
       ],
-      mustNotIncludeAny: [["по переписке видно"], ["Позиции:", "<b>Позиции</b>"], ["Кратко:"]]
+      mustIncludeAll: ["<b>Смысл</b>", "<b>По сути</b>", "<b>Вывод</b>"],
+      mustMatchRegex: ["^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>"],
+      mustNotIncludeAny: [["Позиции:", "<b>Позиции</b>"], ["Вердикт:", "<b>Вердикт</b>"], ["не вижу вопроса"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
-    id: "explain-reply-anchor-headphones",
+    id: "explain-practical-request",
     intent: "explain",
     targetDisplayName: "Ваня",
     rows: [
@@ -65,55 +66,38 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["музык"],
         ["хочет", "ищет", "цель", "критер", "приоритет"]
       ],
-      mustNotIncludeAny: [
-        ["Позиции:", "<b>Позиции</b>"],
-        ["Вердикт:", "<b>Вердикт</b>"],
-        ["не вижу вопроса"]
-      ]
+      mustIncludeAll: ["<b>Смысл</b>", "<b>По сути</b>", "<b>Вывод</b>"],
+      mustMatchRegex: ["^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>"],
+      mustNotIncludeAny: [["Позиции:", "<b>Позиции</b>"], ["Вердикт:", "<b>Вердикт</b>"], ["не вижу вопроса"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
-    id: "explain-non-question-slang-anchor",
+    id: "explain-uncertain-sensitive-topic",
     intent: "explain",
-    targetDisplayName: "Ваня",
-    rows: [
-      ["2026-04-03T11:58:00.000Z", "Катя", "ты реально этот трек на репите слушаешь?"],
-      ["2026-04-03T11:59:00.000Z", "Олег", "да, ну это база, ахах"],
-      ["2026-04-03T12:00:00.000Z", "Катя", "поняла, значит совсем зашел"]
-    ],
+    targetDisplayName: "Артём",
+    rows: [["2026-04-18T15:44:00.000Z", "Артём", "чо когда сво закончится?"]],
     triggerText: "/explain",
-    replyAnchorText: "да, ну это база, ахах",
+    replyAnchorText: "чо когда сво закончится?",
     rubric: {
       mustIncludeAny: [
-        ["баз"],
-        ["вероятн", "скорее всего", "по сути", "в контексте"],
-        ["имеет в виду", "проще говоря", "то есть", "означает", "означа", "намека"],
-        [
-          "очевид",
-          "банальн",
-          "типичн",
-          "ожидаем",
-          "нрав",
-          "зашёл",
-          "понрав",
-          "зацепил",
-          "не надоедает",
-          "качествен",
-          "достой",
-          "постоянн",
-          "повтор"
-        ]
+        ["сво", "войн", "конфликт"],
+        ["нет точной", "неизвест", "нельзя", "не существует", "нет даты"],
+        ["завис", "фронт", "переговор", "услов", "полит"]
       ],
+      mustIncludeAll: ["<b>Смысл</b>", "<b>По сути</b>", "<b>Вывод</b>"],
+      mustMatchRegex: ["^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>"],
       mustNotIncludeAny: [
-        ["Позиции:", "<b>Позиции</b>"],
-        ["Вердикт:", "<b>Вердикт</b>"],
-        ["не вижу вопроса"],
-        ["Summary:"]
-      ]
+        ["уточни направление"],
+        ["если нужно разобрать"],
+        ["военный, политический или экономический"],
+        ["не вижу вопроса"]
+      ],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
-    id: "summarize-dota-scheduling",
+    id: "summarize-basic-scheduling",
     intent: "summarize",
     targetDisplayName: "Артём",
     rows: [
@@ -131,14 +115,44 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["сегодня"],
         ["после 10", "после десяти", "после 22", "22:00", "после 22:00"],
         ["поздн", "неудоб"],
-        ["завтра"],
-        ["\n\n<b>Итог</b>"]
+        ["завтра"]
       ],
-      mustNotIncludeAny: [["прав"], ["лучше"], ["потому что они спорят"], ["Summary:"], ["**"], ["Итог:"]]
+      mustIncludeAll: ["<b>Коротко</b>", "<b>Итог</b>"],
+      mustMatchRegex: ["^<b>Коротко</b>", "\\n\\n<b>Итог</b>\\s+—"],
+      mustNotIncludeAny: [["прав"], ["лучше"], ["потому что они спорят"], ["Итог:"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
-    id: "decide-laptop-value-dispute",
+    id: "summarize-messy-group-chat",
+    intent: "summarize",
+    targetDisplayName: "Артём",
+    rows: [
+      ["2026-04-18T13:00:00.000Z", "Артём", "/explain@hrupa_bot"],
+      ["2026-04-18T13:00:20.000Z", "Пруфик", "Однозначного ответа нет: Дора — певица, Мэйби Бэйби — стример и контент-мейкер."],
+      ["2026-04-18T13:01:00.000Z", "Хачик", "Олег не пошёл на концерт и билет Егору отдал"],
+      ["2026-04-18T13:01:30.000Z", "Олег", "не гони, я был, там ещё Артур с нами должен был быть"],
+      ["2026-04-18T13:02:00.000Z", "Артур", "я как раз не был, меня не приплетайте"],
+      ["2026-04-18T13:03:00.000Z", "Света", "я в москву приехала"],
+      ["2026-04-18T13:03:20.000Z", "Артём", "/summarize@hrupa_bot"],
+      ["2026-04-18T13:04:00.000Z", "Дима", "бот опять формат сломал, summary написал"]
+    ],
+    triggerText: "/summarize",
+    rubric: {
+      mustIncludeAny: [
+        ["бот", "команд", "промпт", "формат"],
+        ["концерт", "билет"],
+        ["дора", "мэйби", "maybe"],
+        ["свет", "москв"]
+      ],
+      mustIncludeAll: ["<b>Коротко</b>", "<b>Итог</b>"],
+      mustMatchRegex: ["^<b>Коротко</b>", "\\n\\n<b>Итог</b>\\s+—"],
+      mustNotIncludeAny: [["Итог:"], ["Summary:"]],
+      mustNotMatchRegex: ["\\*\\*[^*]+\\*\\*"]
+    }
+  }),
+  createFixture({
+    id: "decide-factual-dispute",
     intent: "decide",
     targetDisplayName: "Игорь",
     rows: [
@@ -149,9 +163,7 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
       ["2026-03-07T12:03:00.000Z", "Макс", "там норм железо за цену"],
       ["2026-03-07T12:03:30.000Z", "Игорь", "но сборка говно и греется"],
       ["2026-03-07T12:04:00.000Z", "Лена", "ну это же игровой ноут, они все греются"],
-      ["2026-03-07T12:05:00.000Z", "Макс", "да, вопрос в том что ты от него ждешь"],
-      ["2026-03-07T12:06:00.000Z", "Игорь", "за эти деньги можно лучше взять"],
-      ["2026-03-07T12:07:00.000Z", "Лена", "смотря где и что"]
+      ["2026-03-07T12:05:00.000Z", "Макс", "да, вопрос в том что ты от него ждешь"]
     ],
     triggerText: "/decide",
     rubric: {
@@ -164,7 +176,10 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["желез", "цен"],
         ["недостаточно", "зависит", "частично", "невозмож", "ожидан", "критер", "разные", "сбалансирован"]
       ],
-      mustNotIncludeAny: [["Игорь победил", "Макс победил"], ["по обзорам", "по данным", "официально"]]
+      mustIncludeAll: ["<b>Позиции</b>", "<b>Что видно</b>", "<b>Вердикт</b>"],
+      mustMatchRegex: ["^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>"],
+      mustNotIncludeAny: [["Игорь победил", "Макс победил"], ["по обзорам", "по данным", "официально"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
@@ -179,22 +194,12 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     triggerText: "/decide",
     rubric: {
       mustIncludeAny: [
-        [
-          "нет спора",
-          "не видно спора",
-          "недостаточно данных",
-          "нет оснований",
-          "никаких конфликт",
-          "отсутствует спор",
-          "спор отсутствует",
-          "диспут отсутствует",
-          "отсутствует конфликт",
-          "не содержит признаков спора",
-          "без конфликта",
-          "отсутствуют противореч"
-        ]
+        ["нет спора", "не видно спора", "отсутствует спор", "спор отсутствует", "без конфликта", "отсутствуют противореч"]
       ],
-      mustNotIncludeAny: [["победил"], ["прав Саша", "Саша права"]]
+      mustIncludeAll: ["<b>Позиции</b>", "<b>Что видно</b>", "<b>Вердикт</b>"],
+      mustMatchRegex: ["^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>"],
+      mustNotIncludeAny: [["победил"], ["прав Саша", "Саша права"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
@@ -209,12 +214,19 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     ],
     triggerText: "/decide",
     rubric: {
-      mustIncludeAny: [["субъектив", "вкус"], ["критери", "разные"], ["объективн", "однозначн", "нет однозначного факта"]],
-      mustNotIncludeAny: [["Миша победил", "Оля победила"], ["официально лучше"]]
+      mustIncludeAny: [
+        ["субъектив", "вкус"],
+        ["критери", "разные"],
+        ["объективн", "однозначн", "нет однозначного факта"]
+      ],
+      mustIncludeAll: ["<b>Позиции</b>", "<b>Что видно</b>", "<b>Вердикт</b>"],
+      mustMatchRegex: ["^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>"],
+      mustNotIncludeAny: [["Миша победил", "Оля победила"], ["официально лучше"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   }),
   createFixture({
-    id: "decide-dora-maybe-baby-entity-grounding",
+    id: "decide-entity-grounding-dispute",
     intent: "decide",
     targetDisplayName: "Артём",
     rows: [
@@ -236,33 +248,10 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ["субъектив", "вкус"],
         ["концерт", "концертный", "выступлен"]
       ],
-      mustNotIncludeAny: [
-        ["песни, а не соперники"],
-        ["Дора — это песня"],
-        ["Maybe Baby — это песня"]
-      ]
-    }
-  }),
-  createFixture({
-    id: "explain-dispute-question-anchor",
-    intent: "explain",
-    targetDisplayName: "Игорь",
-    rows: [
-      ["2026-03-07T12:00:00.000Z", "Игорь", "этот ноут говно, вообще не стоит своих денег"],
-      ["2026-03-07T12:01:00.000Z", "Макс", "да норм он, за свои деньги топ"]
-      ],
-      triggerText: "/explain",
-      replyAnchorText: "кто прав в споре выше?",
-      rubric: {
-      mustIncludeAny: [
-        ["суд", "оцен", "разбор", "просит"],
-        ["спор", "кто прав", "обмен мнениями", "чья точка зрения", "дискусси", "чья оценка"]
-      ],
-      mustNotIncludeAny: [
-        ["Позиции:", "<b>Позиции</b>"],
-        ["Вердикт:", "<b>Вердикт</b>"],
-        ["Игорь прав", "Макс прав"]
-      ]
+      mustIncludeAll: ["<b>Позиции</b>", "<b>Что видно</b>", "<b>Вердикт</b>"],
+      mustMatchRegex: ["^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>"],
+      mustNotIncludeAny: [["песни, а не соперники"], ["Дора — это песня"], ["Maybe Baby — это песня"]],
+      mustNotMatchRegex: ["(^|\\n)\\s*Summary\\s*:", "\\*\\*[^*]+\\*\\*"]
     }
   })
 ];
@@ -275,6 +264,7 @@ function createFixture(input: {
   triggerText: string;
   replyAnchorText?: string;
   replyAnchorIsBot?: boolean;
+  assistantInstructions?: string;
   lookupExpectation?: IntentEvalFixture["lookupExpectation"];
   rubric: IntentEvalFixture["rubric"];
 }): IntentEvalFixture {
@@ -294,7 +284,7 @@ function createFixture(input: {
     id: input.id,
     intent: input.intent,
     targetDisplayName: input.targetDisplayName,
-    assistantInstructions: "Отвечай по-русски, кратко и без выдумывания фактов.",
+    assistantInstructions: input.assistantInstructions ?? DEFAULT_ASSISTANT_INSTRUCTIONS,
     replyContext: {
       triggerMessage: {
         chatId: 1,

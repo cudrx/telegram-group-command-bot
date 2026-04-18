@@ -80,12 +80,50 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     expect(logger.warn).toHaveBeenCalledWith(
       "llm.reply_format_guardrail_warning",
-      {
+      expect.objectContaining({
         kind: "reply",
         model: "reply-model",
+        intent: "decide",
         hasEnglishSummaryHeading: true,
-        hasMarkdownBold: true
+        hasMarkdownBold: true,
+        violations: expect.arrayContaining([
+          "english_summary_heading",
+          "markdown_bold",
+          "missing_decide_shape"
+        ])
+      })
+    );
+  });
+
+  test("warns when explain reply lacks required HTML sections", async () => {
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn()
+    };
+
+    logger.child.mockReturnValue(logger);
+
+    const client = new OpenAiCompatibleLlmClient(
+      createClientConfig(),
+      createOpenAiStub("Точной даты нет, уточни направление."),
+      {
+        logger
       }
+    );
+
+    await client.generateReply(createReplyInput("explain"));
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      "llm.reply_format_guardrail_warning",
+      expect.objectContaining({
+        kind: "reply",
+        model: "reply-model",
+        intent: "explain",
+        violations: expect.arrayContaining(["missing_explain_shape"])
+      })
     );
   });
 
@@ -164,9 +202,15 @@ describe("OpenAiCompatibleLlmClient", () => {
     expect(requestBody?.model).toBe("reply-model");
     expect(requestBody?.temperature).toBe(0.6);
     expect(requestBody?.enable_thinking).toBe(false);
-    expect((requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[0]?.content).toContain(
+    const messages = requestBody?.messages as Array<{ role: string; content: string }> | undefined;
+
+    expect(messages?.map((message) => message.role)).toEqual(["system", "user"]);
+    expect(messages?.[0]?.content).toContain(
       "You are a neutral Telegram assistant."
     );
+    expect(messages?.[1]?.content).toContain("Assistant instructions:");
+    expect(messages?.[1]?.content).toContain("Assistant instructions");
+    expect(messages?.[1]?.content).toContain("Task-specific instructions:");
     expect(JSON.stringify(requestBody)).toContain("The selected task mode is: decide");
     expect(JSON.stringify(requestBody)).not.toContain("usually 1-2 short lines");
     expect(JSON.stringify(requestBody)).not.toContain("summary");

@@ -37,6 +37,8 @@ describe("loadAssistantInstructions", () => {
     expect(instructions).toContain("не придумывай роль или характер");
     expect(instructions).toContain("приоритетнее общих правил");
     expect(instructions).toContain("не переключайся в режим справки");
+    expect(instructions).toContain("если активная команда уже задаёт формат и задачу");
+    expect(instructions).not.toContain("если данных не хватает, лучше уточни");
   });
 });
 

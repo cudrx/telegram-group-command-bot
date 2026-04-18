@@ -12,18 +12,24 @@ describe("evaluate-intents helpers", () => {
   test("treats summarize regressions as rubric failures", () => {
     const rubric = {
       mustIncludeAny: [["дот"]],
-      mustNotIncludeAny: [["Summary:"], ["**"], ["Итог:"]]
+      mustIncludeAll: ["<b>Коротко</b>", "<b>Итог</b>"],
+      mustMatchRegex: ["\\n\\n<b>Итог</b>\\s+—"],
+      mustNotIncludeAny: [["Summary:"], ["Итог:"]],
+      mustNotMatchRegex: ["\\*\\*[^*]+\\*\\*"]
     };
 
     const result = evaluateRubric("Summary:\n**Коротко**\nИтог: всё", rubric);
 
     expect(result.exclude.every((check) => check.passed)).toBe(false);
+    expect(result.includeAll.every((check) => check.passed)).toBe(false);
+    expect(result.matchRegex.every((check) => check.passed)).toBe(false);
+    expect(result.notMatchRegex.every((check) => check.passed)).toBe(false);
     expect(hasRubricFailures(result)).toBe(true);
   });
 
   test("adds fixture lookup context for lookup-backed eval cases", () => {
     const fixture = intentEvalFixtures.find(
-      (candidate) => candidate.id === "decide-dora-maybe-baby-entity-grounding"
+      (candidate) => candidate.id === "decide-entity-grounding-dispute"
     );
 
     expect(fixture).toBeDefined();
@@ -50,16 +56,16 @@ describe("evaluate-intents helpers", () => {
   test("filters eval fixtures by id and intent", () => {
     expect(
       filterFixtures(intentEvalFixtures, {
-        ids: new Set(["decide-laptop-value-dispute"]),
+        ids: new Set(["decide-factual-dispute"]),
         intents: new Set()
       }).map((fixture) => fixture.id)
-    ).toEqual(["decide-laptop-value-dispute"]);
+    ).toEqual(["decide-factual-dispute"]);
 
     expect(
       filterFixtures(intentEvalFixtures, {
         ids: new Set(),
         intents: new Set(["summarize"])
       }).map((fixture) => fixture.intent)
-    ).toEqual(["summarize"]);
+    ).toEqual(["summarize", "summarize"]);
   });
 });

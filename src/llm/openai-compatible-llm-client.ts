@@ -3,6 +3,7 @@ import OpenAI from "openai";
 import type { AssistantIntent, ReplyContext } from "../domain/models.js";
 import type { AppLogger } from "../logging/logger.js";
 import type { LookupContext, LookupDecision } from "../lookup/types.js";
+import { getIntentOutputShapeViolations } from "./intent-output-shape.js";
 import { buildLookupPlannerPrompt, parseLookupDecisionResult } from "./lookup-planner.js";
 import { buildIntentPrompt } from "./prompts.js";
 
@@ -193,7 +194,7 @@ export class OpenAiCompatibleLlmClient {
       throw new Error("Reply model returned empty content");
     }
 
-    this.warnOnReplyFormatGuardrailViolation(reply, replyModel);
+    this.warnOnReplyFormatGuardrailViolation(input.intent, reply, replyModel);
 
     this.logLlmText("llm.reply.response", {
       kind: "reply",
@@ -262,19 +263,26 @@ export class OpenAiCompatibleLlmClient {
     this.options.logger?.info(event, payload);
   }
 
-  private warnOnReplyFormatGuardrailViolation(reply: string, model: string): void {
-    const hasEnglishSummaryHeading = /(^|\n)\s*summary\s*:/i.test(reply);
-    const hasMarkdownBold = reply.includes("**");
+  private warnOnReplyFormatGuardrailViolation(
+    intent: AssistantIntent,
+    reply: string,
+    model: string
+  ): void {
+    const violations = getIntentOutputShapeViolations(intent, reply);
+    const hasEnglishSummaryHeading = violations.includes("english_summary_heading");
+    const hasMarkdownBold = violations.includes("markdown_bold");
 
-    if (!hasEnglishSummaryHeading && !hasMarkdownBold) {
+    if (violations.length === 0) {
       return;
     }
 
     this.options.logger?.warn("llm.reply_format_guardrail_warning", {
       kind: "reply",
       model,
+      intent,
       hasEnglishSummaryHeading,
-      hasMarkdownBold
+      hasMarkdownBold,
+      violations
     });
   }
 }

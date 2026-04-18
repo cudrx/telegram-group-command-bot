@@ -132,6 +132,7 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("Do not use emojis as structural elements.");
     expect(prompt).toContain("<b>Смысл</b>");
     expect(prompt).toContain("<b>По сути</b>");
+    expect(prompt).toContain("<b>Вывод</b>");
     expect(prompt).toContain("The target message is the main thing to explain.");
     expect(prompt).toContain(
       "Use nearby chat context only when it is necessary to interpret the target message."
@@ -145,6 +146,11 @@ describe("buildIntentPrompt", () => {
     );
     expect(prompt).toContain("Do not say that there is no question.");
     expect(prompt).toContain("Do not offer generic help categories or menus.");
+    expect(prompt).toContain("Do not end with generic prompts like 'уточни направление' or lists of possible follow-up categories.");
+    expect(prompt).toContain("Do not switch into support/helpdesk mode.");
+    expect(prompt).toContain("Match the register of the target message without becoming rude or incoherent.");
+    expect(prompt).toContain("Prefer simple direct wording over official-sounding abstractions.");
+    expect(prompt).toContain("Avoid overly formal phrases like 'комплекс переменных' or 'носит оценочный характер' unless the topic truly demands that tone.");
     expect(prompt.indexOf("TARGET_MESSAGE_TO_EXPLAIN:")).toBeLessThan(
       prompt.indexOf("NEARBY_CHAT_CONTEXT:")
     );
@@ -198,6 +204,15 @@ describe("buildIntentPrompt", () => {
     expect(prompt).toContain("Prefer direct interpretation over clarification.");
     expect(prompt).toContain("Only ask for clarification if the target message is truly unintelligible.");
     expect(prompt).toContain("Do not summarize the whole discussion.");
+    expect(prompt).toContain("Required response shape:");
+    expect(prompt).toContain("First block exactly: <b>Смысл</b>");
+    expect(prompt).toContain("Second block exactly: <b>По сути</b>");
+    expect(prompt).toContain("Final block exactly: <b>Вывод</b>");
+    expect(prompt).toContain("Do not answer as a single plain paragraph when structured formatting is possible.");
+    expect(prompt).toContain("No text before <b>Смысл</b>.");
+    expect(prompt).toContain("No text after the final <b>Вывод</b> block.");
+    expect(prompt).not.toContain("Preferred response style:");
+    expect(prompt).not.toContain("optional second section: <b>По сути</b>");
     expect(prompt).not.toContain("Do not silently switch into DECIDE mode.");
     expect(prompt).not.toContain("Do not answer the dispute in EXPLAIN mode.");
     expect(prompt).not.toContain("/decide is the intended command");
