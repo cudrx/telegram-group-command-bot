@@ -1,6 +1,7 @@
 # Documentation Instructions
 
-Use this file for documentation structure and planning-document rules.
+Use this file for documentation structure, planning-document rules, and
+documentation hygiene. It is the source of truth for doc maintenance policy.
 
 ## Planning Documents
 
@@ -17,6 +18,14 @@ Use this file for documentation structure and planning-document rules.
 ## After Implementing A Plan
 
 - Always review `README.md`, `docs/architecture.md`, and `docs/development.md`.
-- Update those files when behavior, architecture, workflow, deployment, data repair, or documentation policy changed.
-- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/backlog/small-fixes.md`, and `docs/superpowers/plans/`.
-- Remove or update stale backlog ideas, small-fix notes, and implemented plan details once their durable decisions are reflected in the main docs.
+- Update those files when behavior, architecture, workflow, deployment, data
+  repair, or documentation policy changed.
+
+## Large Task Hygiene
+
+For large implementation, debugging, or review tasks:
+
+- Review `docs/backlog/ideas.md`, `docs/backlog/small-fixes.md`, and
+  `docs/superpowers/plans/`.
+- Remove or update stale backlog ideas, small-fix notes, and implemented plan
+  details once their durable decisions are reflected in the main docs.

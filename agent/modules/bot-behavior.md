@@ -1,6 +1,7 @@
 # Bot Behavior Instructions
 
-Use this file for changes that affect how the assistant or bot behaves.
+Use this file for changes that affect how the assistant or bot behaves. This is
+the source of truth for the bot-behavior approval gate.
 
 ## Approval Gate
 

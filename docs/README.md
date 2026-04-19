@@ -17,7 +17,7 @@ Use these locations consistently:
 - [`/AGENTS.md`](/home/tom/Documents/Projects/test-chatbot/AGENTS.md)
   repository-wide agent instruction entrypoint and short global contract
 - [`/agent/`](/home/tom/Documents/Projects/test-chatbot/agent)
-  modular agent instructions: task routing, global development rules, module instructions, playbooks, and registry
+  modular agent instructions: task routing, global development rules, module instructions, and playbooks
 - [`/llm/assistant/base.md`](/home/tom/Documents/Projects/test-chatbot/llm/assistant/base.md)
   base assistant instructions
 - [`/llm/`](/home/tom/Documents/Projects/test-chatbot/llm)
@@ -40,7 +40,5 @@ Use these locations consistently:
 - Do not create `docs/superpowers/specs/`.
 - Do not scatter planning Markdown across ad hoc directories.
 - Keep no more than 5 files in `docs/superpowers/plans/`; remove the oldest implemented plans when adding new ones.
-- After implementing a plan, review `README.md`, `docs/architecture.md`, and `docs/development.md`, then update them if the implemented behavior changed the project.
-- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/backlog/small-fixes.md`, and `docs/superpowers/plans/`; remove or update stale backlog ideas, small-fix notes, and implemented plan details once durable decisions are reflected in the main docs.
 - If a new `.md` file does not clearly fit an existing bucket, update this file first and then add the document.
 - Prefer extending an existing document over creating a near-duplicate one.
