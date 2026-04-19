@@ -47,6 +47,34 @@ describe("formatTelegramHtmlReply", () => {
     );
   });
 
+  test("separates explain section headings from following text", () => {
+    const formatted = formatTelegramHtmlReply(
+      [
+        "<b>Смысл</b>",
+        "Коротко.",
+        "",
+        "<b>По сути</b>",
+        "• пункт",
+        "",
+        "<b>Вывод</b>Бот выдал странный ответ."
+      ].join("\n"),
+      { intent: "explain" }
+    );
+
+    expect(formatted).toBe(
+      [
+        "<b>Смысл</b>",
+        "Коротко.",
+        "",
+        "<b>По сути</b>",
+        "• пункт",
+        "",
+        "<b>Вывод</b>",
+        "Бот выдал странный ответ."
+      ].join("\n")
+    );
+  });
+
   test("escapes html-like text inside markdown code spans", () => {
     const formatted = formatTelegramHtmlReply("`<b>не тег</b>`");
 

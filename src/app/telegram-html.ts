@@ -45,7 +45,13 @@ function normalizeLine(
     return normalizeMarkdownLine(summarizeLine);
   }
 
-  return normalizeMarkdownLine(bulletLine);
+  const markdownLine = normalizeMarkdownLine(bulletLine);
+
+  if (options.intent === "explain") {
+    return normalizeExplainLine(markdownLine);
+  }
+
+  return markdownLine;
 }
 
 function normalizeBulletLine(line: string): string {
@@ -66,6 +72,10 @@ function normalizeSummarizeLine(line: string): string | null {
   }
 
   return line;
+}
+
+function normalizeExplainLine(line: string): string {
+  return line.replace(/(<b>(?:Смысл|По сути|Вывод)<\/b>)(?=\S)/gu, "$1\n");
 }
 
 function normalizeMarkdownLine(line: string): string {
