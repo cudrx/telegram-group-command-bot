@@ -18,8 +18,10 @@ Use these locations consistently:
   repository-wide agent instruction entrypoint and short global contract
 - [`/agent/`](/home/tom/Documents/Projects/test-chatbot/agent)
   modular agent instructions: task routing, global development rules, module instructions, playbooks, and registry
-- [`/config/assistant-instructions.md`](/home/tom/Documents/Projects/test-chatbot/config/assistant-instructions.md)
+- [`/llm/assistant/base.md`](/home/tom/Documents/Projects/test-chatbot/llm/assistant/base.md)
   base assistant instructions
+- [`/llm/`](/home/tom/Documents/Projects/test-chatbot/llm)
+  static LLM prompt text grouped by usage purpose
 - [`/docs/architecture.md`](/home/tom/Documents/Projects/test-chatbot/docs/architecture.md)
   architecture and system invariants
 - [`/docs/development.md`](/home/tom/Documents/Projects/test-chatbot/docs/development.md)

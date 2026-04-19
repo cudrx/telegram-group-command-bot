@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -32,6 +34,12 @@ const replyContext = {
 };
 
 describe('buildLookupPlannerPrompt', () => {
+  test('keeps static lookup planner prompt text in llm markdown files', () => {
+    expect(readFileSync('llm/planner/lookup.md', 'utf8')).toContain(
+      'You are a Telegram lookup planner.'
+    );
+  });
+
   test('biases decide planning toward entity grounding when references may be misunderstood', () => {
     const prompt = buildLookupPlannerPrompt({
       intent: 'decide',

@@ -1,6 +1,14 @@
+import { readFileSync } from 'node:fs';
+
 import { expect, test } from 'vitest';
 
 import { buildDeployUpdatePrompt } from '../src/llm/deploy-update-prompt.js';
+
+test('keeps static deploy update prompt text in llm markdown files', () => {
+  expect(readFileSync('llm/deploy/update-announcement.md', 'utf8')).toContain(
+    'You are formatting a short Telegram update message about a new bot release.'
+  );
+});
 
 test('builds a Russian Telegram update formatting prompt', () => {
   const prompt = buildDeployUpdatePrompt({

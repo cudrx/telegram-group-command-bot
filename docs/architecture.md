@@ -81,7 +81,8 @@
 
 Изолирует работу с OpenAI-compatible LLM слоем:
 
-- сбор reply prompt;
+- загрузка статических prompt-файлов из `llm/`;
+- сбор reply prompt и безопасная вставка runtime context;
 - генерация ответа assistant-core;
 - форматирование deploy update announcements через fast reply model;
 - timeout/retry и логирование LLM input/output при `LOG_LLM_TEXT=true`.
@@ -159,7 +160,9 @@
 - Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
 
-Assistant instructions загружаются отдельно и не смешиваются с per-chat context.
+Static prompt text lives under `llm/`; TypeScript code in `src/llm/` keeps ownership of prompt assembly, sanitization, transcript labels, lookup source formatting, and runtime data insertion.
+
+Assistant instructions загружаются отдельно из `llm/assistant/base.md` и не смешиваются с per-chat context.
 
 ## Database Model
 

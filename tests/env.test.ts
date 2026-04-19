@@ -25,9 +25,7 @@ describe('parseEnv', () => {
     expect(env.logLlmText).toBe(false);
     expect(env.logLevel).toBe('info');
     expect(env.logColor).toBe(true);
-    expect(env.assistantInstructionsFile).toBe(
-      'config/assistant-instructions.md'
-    );
+    expect(env.assistantInstructionsFile).toBe('llm/assistant/base.md');
     expect(env.explainContextLimit).toBe(16);
     expect(env.summarizeContextLimit).toBe(128);
     expect(env.decideContextLimit).toBe(64);

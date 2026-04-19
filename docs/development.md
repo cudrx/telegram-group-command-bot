@@ -16,7 +16,8 @@
 - [`docs/backlog/big-features.md`](./backlog/big-features.md) — крупные future-stage подсистемы
 - [`docs/backlog/small-fixes.md`](./backlog/small-fixes.md) — небольшие reliability, safety и operations задачи
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
-- [`config/assistant-instructions.md`](../config/assistant-instructions.md) — базовые assistant instructions
+- [`llm/assistant/base.md`](../llm/assistant/base.md) — базовые assistant instructions
+- [`llm/`](../llm/) — статические prompt-файлы; `src/llm/` оставляет за собой безопасную сборку prompt context и LLM-вызовы
 
 ## Environment
 
@@ -47,7 +48,7 @@ cp .env.example .env
 3. Отредактировать базовые assistant instructions:
 
 ```bash
-$EDITOR config/assistant-instructions.md
+$EDITOR llm/assistant/base.md
 ```
 
 4. Подготовить БД:
@@ -78,7 +79,7 @@ npm run dev
 
 ## Local Docker Workflow
 
-Для локального smoke-check контейнера используется корневой [`../compose.yml`](../compose.yml). Он запускает `node:20-bookworm-slim` и использует локальные `dist/`, `node_modules/`, `config/` и `.env` через bind mounts.
+Для локального smoke-check контейнера используется корневой [`../compose.yml`](../compose.yml). Он запускает `node:20-bookworm-slim` и использует локальные `dist/`, `node_modules/`, `llm/` и `.env` через bind mounts.
 
 1. Подготовить `.env`:
 
@@ -257,4 +258,4 @@ docker compose --env-file .env -f compose.yml up -d bot
 - База v1 хранит только event log в `chats` и `messages`.
 - Runtime не читает summary/memory/aliases даже если старый production SQLite файл ещё содержит такие таблицы.
 - Новая схема не создаёт `participants` и `chat_participants`.
-- Per-chat overrides are not supported in this reset; only `config/assistant-instructions.md` is used.
+- Per-chat overrides are not supported in this reset; only `llm/assistant/base.md` is used.

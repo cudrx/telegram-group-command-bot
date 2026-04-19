@@ -7,7 +7,7 @@ import type {
 } from '../src/domain/models.js';
 
 const DEFAULT_ASSISTANT_INSTRUCTIONS = readFileSync(
-  'config/assistant-instructions.md',
+  'llm/assistant/base.md',
   'utf8'
 ).trim();
 

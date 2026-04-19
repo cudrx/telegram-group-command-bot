@@ -34,10 +34,7 @@ describe('loadAssistantInstructions', () => {
   });
 
   test('assistant instructions stay neutral', () => {
-    const instructions = readFileSync(
-      'config/assistant-instructions.md',
-      'utf8'
-    );
+    const instructions = readFileSync('llm/assistant/base.md', 'utf8');
 
     expect(instructions).toContain('ассистент');
     expect(instructions).toContain('без выдумок');

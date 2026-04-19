@@ -154,7 +154,7 @@ describe('intent eval fixtures', () => {
 
   test('fixtures use production assistant instructions by default', () => {
     const productionInstructions = readFileSync(
-      'config/assistant-instructions.md',
+      'llm/assistant/base.md',
       'utf8'
     ).trim();
 

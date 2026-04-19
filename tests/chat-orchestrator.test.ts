@@ -88,7 +88,7 @@ describe('ChatOrchestrator', () => {
     );
 
     expect(loadAssistantInstructions).toHaveBeenCalledWith(
-      'config/assistant-instructions.md'
+      'llm/assistant/base.md'
     );
     expect(generateReply).toHaveBeenCalledWith({
       assistantInstructions: 'assistant instructions',
@@ -748,7 +748,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath: ':memory:',
-    assistantInstructionsFile: 'config/assistant-instructions.md',
+    assistantInstructionsFile: 'llm/assistant/base.md',
     explainContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,

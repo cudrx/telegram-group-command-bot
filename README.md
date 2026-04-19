@@ -7,7 +7,7 @@
 - long polling через `grammY`
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
-- нейтральные assistant instructions из [`config/assistant-instructions.md`](./config/assistant-instructions.md)
+- нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
 - командные режимы только для `/explain`, `/summarize` и `/decide`
 - обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
@@ -53,7 +53,7 @@ cp .env.example .env
 
 `.env.example` настроен под OpenAI-compatible провайдера. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и, если нужен отдельный дешёвый путь для `/summarize` и `/explain`, `LLM_FAST_REPLY_MODEL`.
 
-3. Проверьте или отредактируйте базовые assistant instructions в [`config/assistant-instructions.md`](./config/assistant-instructions.md).
+3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
 4. Если это первичная установка или после изменения схемы, подготовьте SQLite-схему.
 
@@ -136,7 +136,8 @@ docker compose logs bot --tail=200 -f
 
 - `src/domain` — правила ответа
 - `src/storage` — `SQLite`, чаты и сообщения
-- `src/llm` — prompt helpers и reply generation
+- `llm` — статические prompt-файлы для assistant, reply modes, planner и deploy announcements
+- `src/llm` — сборка prompt context, LLM-клиент и reply generation
 - `src/app/telegram-html.ts` — Telegram-safe HTML formatting для исходящих ответов
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
