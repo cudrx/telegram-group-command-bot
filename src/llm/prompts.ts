@@ -4,13 +4,7 @@ import type {
   StoredMessage
 } from '../domain/models.js';
 import type { LookupContext, LookupSource } from '../lookup/types.js';
-import { loadPromptFile } from './prompt-files.js';
-
-const GLOBAL_RULES_PROMPT = loadPromptFile('llm/reply/global.md');
-const EXPLAIN_PROMPT = loadPromptFile('llm/reply/explain.md');
-const SUMMARIZE_PROMPT = loadPromptFile('llm/reply/summarize.md');
-const DECIDE_PROMPT = loadPromptFile('llm/reply/decide.md');
-const LOOKUP_CONTEXT_PROMPT = loadPromptFile('llm/reply/lookup-context.md');
+import { loadPrompt } from './prompt-files.js';
 
 export type PromptMessage = Pick<
   StoredMessage,
@@ -85,7 +79,7 @@ export function buildIntentPrompt(input: {
     input.assistantInstructions,
     '',
     'Global rules:',
-    GLOBAL_RULES_PROMPT,
+    loadPrompt('global'),
     '',
     `Current command message author: ${sanitizePromptText(input.targetDisplayName)}`,
     `The selected task mode is: ${input.intent}`,
@@ -101,11 +95,11 @@ export function buildIntentPrompt(input: {
 function getIntentPrompt(intent: AssistantIntent): string {
   switch (intent) {
     case 'explain':
-      return EXPLAIN_PROMPT;
+      return loadPrompt('explain');
     case 'summarize':
-      return SUMMARIZE_PROMPT;
+      return loadPrompt('summarize');
     case 'decide':
-      return DECIDE_PROMPT;
+      return loadPrompt('decide');
   }
 }
 
@@ -141,7 +135,7 @@ function formatReplyContextMessages(messages: PromptMessage[]): string {
 
 function formatLookupContext(context: LookupContext): string {
   return [
-    LOOKUP_CONTEXT_PROMPT,
+    loadPrompt('lookupContext'),
     `status=${sanitizePromptText(context.status)}`,
     `provider=${context.provider ? sanitizePromptText(context.provider) : 'null'}`,
     `purpose=${sanitizePromptText(context.decision.purpose)}`,

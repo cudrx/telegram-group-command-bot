@@ -17,7 +17,7 @@
 - [`docs/backlog/small-fixes.md`](./backlog/small-fixes.md) — небольшие reliability, safety и operations задачи
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
 - [`llm/assistant/base.md`](../llm/assistant/base.md) — базовые assistant instructions
-- [`llm/`](../llm/) — статические prompt-файлы; `src/llm/` оставляет за собой безопасную сборку prompt context и LLM-вызовы
+- [`llm/`](../llm/) — статические prompt-файлы; `src/llm/prompt-files.ts` хранит registry путей, а `src/llm/` оставляет за собой безопасную сборку prompt context и LLM-вызовы
 
 ## Environment
 

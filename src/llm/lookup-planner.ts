@@ -4,10 +4,8 @@ import type {
   LookupDecision,
   LookupPurpose
 } from '../lookup/types.js';
-import { loadPromptFile } from './prompt-files.js';
+import { loadPrompt } from './prompt-files.js';
 import { formatConversationForLlm } from './prompts.js';
-
-const LOOKUP_PLANNER_PROMPT = loadPromptFile('llm/planner/lookup.md');
 
 export function buildLookupPlannerPrompt(input: {
   intent: Exclude<AssistantIntent, 'summarize'>;
@@ -27,7 +25,7 @@ export function buildLookupPlannerPrompt(input: {
         ];
 
   return [
-    LOOKUP_PLANNER_PROMPT,
+    loadPrompt('lookup'),
     '',
     `Current command intent: ${input.intent}`,
     '',

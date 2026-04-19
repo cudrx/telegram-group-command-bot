@@ -1,12 +1,12 @@
 # LLM Prompt Files Implementation Plan
 
-**Status:** Implemented. Keep this plan only as recent implementation context; durable behavior is reflected in README, architecture, development docs, prompt tests, env tests, and deployment files.
+**Status:** Implemented. Keep this plan only as recent implementation context; durable behavior is reflected in README, architecture, development docs, prompt loader tests, env tests, and deployment files.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Move static LLM prompt text into a root `llm/` directory so prompts are easy to inspect, tweak, and share from one place.
 
-**Architecture:** Keep TypeScript responsible for safe prompt assembly, mode selection, transcript formatting, lookup source formatting, and sanitization. Store stable human-written prompt text in markdown files under `llm/`; load those files synchronously at runtime from the project working directory. Do not add hot reload, build-time generation, or semantic prompt changes.
+**Architecture:** Keep TypeScript responsible for safe prompt assembly, mode selection, transcript formatting, lookup source formatting, and sanitization. Store stable human-written prompt text in markdown files under `llm/`; read those files synchronously when prompt builders run. Do not add build-time generation or semantic prompt changes.
 
 **Tech Stack:** Node.js, TypeScript ESM, Vitest, Markdown prompt assets, existing Docker/compose deployment.
 
@@ -23,7 +23,7 @@
 - Create: `llm/reply/lookup-context.md`
 - Create: `llm/planner/lookup.md`
 - Create: `llm/deploy/update-announcement.md`
-- Modify: `tests/config-assistant-instructions.test.ts`
+- Modify: `tests/prompt-files.test.ts`
 - Modify: `tests/env.test.ts`
 - Modify: `tests/llm-prompts.test.ts`
 - Modify: `tests/lookup-planner.test.ts`
@@ -31,14 +31,14 @@
 
 - [x] **Step 1: Write failing tests**
 
-Add assertions that the production assistant instructions are read from `llm/assistant/base.md`, env defaults point to that path, and assembled prompts contain text that is sourced from each markdown asset.
+Add assertions that the production assistant instructions are read from `llm/assistant/base.md`, prompt file paths come from one registry, and assembled prompts contain text that is sourced from each markdown asset.
 
 - [x] **Step 2: Run focused tests to verify failure**
 
 Run:
 
 ```bash
-npm test -- tests/config-assistant-instructions.test.ts tests/env.test.ts tests/llm-prompts.test.ts tests/lookup-planner.test.ts tests/deploy-update-prompt.test.ts
+npm test -- tests/prompt-files.test.ts tests/env.test.ts tests/llm-prompts.test.ts tests/lookup-planner.test.ts tests/deploy-update-prompt.test.ts
 ```
 
 Expected: FAIL because `llm/` prompt files and loader behavior do not exist yet.
@@ -65,7 +65,7 @@ Add small local file-loading helpers where needed. Keep existing public prompt b
 Run:
 
 ```bash
-npm test -- tests/config-assistant-instructions.test.ts tests/env.test.ts tests/llm-prompts.test.ts tests/lookup-planner.test.ts tests/deploy-update-prompt.test.ts
+npm test -- tests/prompt-files.test.ts tests/env.test.ts tests/llm-prompts.test.ts tests/lookup-planner.test.ts tests/deploy-update-prompt.test.ts
 ```
 
 Expected: PASS.

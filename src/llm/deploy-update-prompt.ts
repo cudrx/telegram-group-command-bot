@@ -1,15 +1,11 @@
-import { loadPromptFile } from './prompt-files.js';
-
-const DEPLOY_UPDATE_PROMPT = loadPromptFile(
-  'llm/deploy/update-announcement.md'
-);
+import { loadPrompt } from './prompt-files.js';
 
 export function buildDeployUpdatePrompt(input: {
   shortSha: string;
   commits: string[];
 }): string {
   return [
-    DEPLOY_UPDATE_PROMPT,
+    loadPrompt('updateAnnouncement'),
     '',
     'Input data:',
     '',

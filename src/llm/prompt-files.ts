@@ -1,10 +1,42 @@
 import { readFileSync } from 'node:fs';
 
-export function loadPromptFile(filePath: string): string {
-  const prompt = readFileSync(filePath, 'utf8').trim();
+export const PROMPT_FILE_PATHS = {
+  base: 'llm/assistant/base.md',
+  global: 'llm/reply/global.md',
+  explain: 'llm/reply/explain.md',
+  summarize: 'llm/reply/summarize.md',
+  decide: 'llm/reply/decide.md',
+  lookup: 'llm/planner/lookup.md',
+  lookupContext: 'llm/reply/lookup-context.md',
+  updateAnnouncement: 'llm/deploy/update-announcement.md'
+} as const;
+
+export type PromptName = keyof typeof PROMPT_FILE_PATHS;
+
+export function loadPrompt(promptName: PromptName): string {
+  return loadPromptFile(PROMPT_FILE_PATHS[promptName], promptName);
+}
+
+export function loadPromptFile(
+  filePath: string,
+  promptName = filePath
+): string {
+  let prompt: string;
+
+  try {
+    prompt = readFileSync(filePath, 'utf8').trim();
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      throw new Error(
+        `Required prompt file is missing: ${promptName} (${filePath})`
+      );
+    }
+
+    throw error;
+  }
 
   if (prompt.length === 0) {
-    throw new Error(`Prompt file is empty: ${filePath}`);
+    throw new Error(`Prompt file is empty: ${promptName} (${filePath})`);
   }
 
   return prompt;
