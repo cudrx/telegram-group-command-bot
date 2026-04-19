@@ -12,7 +12,6 @@ const createLogger = vi.fn();
 const dbClose = vi.fn();
 const dbOpen = vi.fn();
 const llmConstructor = vi.fn();
-const loadAssistantInstructions = vi.fn();
 const botGetMe = vi.fn();
 const botStart = vi.fn();
 const botStop = vi.fn();
@@ -92,10 +91,6 @@ vi.mock('../src/llm/openai-compatible-llm-client.js', () => ({
       llmConstructor(...args);
       return {};
     })
-}));
-
-vi.mock('../src/config/assistant-instructions.js', () => ({
-  loadAssistantInstructions
 }));
 
 vi.mock('../src/logging/logger.js', () => ({
@@ -539,7 +534,6 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath: ':memory:',
-    assistantInstructionsFile: 'llm/assistant/base.md',
     explainContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,

@@ -15,6 +15,7 @@ import type {
   LlmReplyResult,
   LookupPlanResult
 } from '../llm/openai-compatible-llm-client.js';
+import { loadPrompt } from '../llm/prompt-files.js';
 import { type AppLogger, serializeError } from '../logging/logger.js';
 import type {
   LookupContext,
@@ -82,7 +83,6 @@ export class ChatOrchestrator {
       replyDispatcher: ReplyDispatcher;
       sendTyping: (chatId: number) => Promise<void>;
       delay: (ms: number) => Promise<void>;
-      loadAssistantInstructions: (filePath: string) => Promise<string>;
       logger: AppLogger;
       now: () => string;
       random: () => number;
@@ -239,9 +239,7 @@ export class ChatOrchestrator {
     }
 
     return this.withReplyTyping(request.chatId, async () => {
-      const assistantInstructions = await this.deps.loadAssistantInstructions(
-        this.deps.env.assistantInstructionsFile
-      );
+      const assistantInstructions = loadPrompt('base');
       const lookupContext = await this.buildLookupContext({
         intent: request.intent,
         replyContext,

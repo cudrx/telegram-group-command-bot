@@ -1,7 +1,6 @@
 import { Bot } from 'grammy';
 import { ChatOrchestrator } from './app/chat-orchestrator.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
-import { loadAssistantInstructions } from './config/assistant-instructions.js';
 import type { AppEnv } from './config/env.js';
 import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-llm-client.js';
 import { createLogger, serializeError } from './logging/logger.js';
@@ -84,7 +83,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       await bot.api.sendChatAction(chatId, 'typing');
     },
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    loadAssistantInstructions,
     logger,
     random: Math.random,
     now: () => new Date().toISOString()

@@ -7,6 +7,7 @@ import type {
   NormalizedMessage,
   StoredMessage
 } from '../src/domain/models.js';
+import { loadPrompt } from '../src/llm/prompt-files.js';
 import type { AppLogger } from '../src/logging/logger.js';
 import type { LookupProvider } from '../src/lookup/types.js';
 
@@ -69,14 +70,10 @@ describe('ChatOrchestrator', () => {
       messageId: 1001,
       createdAt: '2026-04-03T12:00:30.000Z'
     });
-    const loadAssistantInstructions = vi
-      .fn()
-      .mockResolvedValue('assistant instructions');
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
-      replyDispatcher,
-      loadAssistantInstructions
+      replyDispatcher
     });
 
     await orchestrator.handleIncomingMessage(
@@ -87,11 +84,8 @@ describe('ChatOrchestrator', () => {
       })
     );
 
-    expect(loadAssistantInstructions).toHaveBeenCalledWith(
-      'llm/assistant/base.md'
-    );
     expect(generateReply).toHaveBeenCalledWith({
-      assistantInstructions: 'assistant instructions',
+      assistantInstructions: loadPrompt('base'),
       targetDisplayName: 'Tom',
       intent: 'decide',
       lookupContext: null,
@@ -694,7 +688,6 @@ function createOrchestrator(input: {
   }) => Promise<{ messageId: number; createdAt: string }>;
   lookupProvider?: LookupProvider | null;
   env?: Partial<AppEnv>;
-  loadAssistantInstructions?: (filePath: string) => Promise<string>;
   logger?: AppLogger;
 }): ChatOrchestrator {
   return new ChatOrchestrator({
@@ -723,9 +716,6 @@ function createOrchestrator(input: {
     replyDispatcher: input.replyDispatcher,
     sendTyping: vi.fn().mockResolvedValue(undefined),
     delay: vi.fn().mockResolvedValue(undefined),
-    loadAssistantInstructions:
-      input.loadAssistantInstructions ??
-      vi.fn().mockResolvedValue('assistant instructions'),
     logger: input.logger ?? createLogger(),
     random: () => 0,
     now: () => '2026-04-13T09:00:10.000Z'
@@ -748,7 +738,6 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath: ':memory:',
-    assistantInstructionsFile: 'llm/assistant/base.md',
     explainContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,

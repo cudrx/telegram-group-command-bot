@@ -25,7 +25,7 @@ describe('parseEnv', () => {
     expect(env.logLlmText).toBe(false);
     expect(env.logLevel).toBe('info');
     expect(env.logColor).toBe(true);
-    expect(env.assistantInstructionsFile).toBe('llm/assistant/base.md');
+    expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
     expect(env.explainContextLimit).toBe(16);
     expect(env.summarizeContextLimit).toBe(128);
     expect(env.decideContextLimit).toBe(64);
@@ -61,16 +61,14 @@ describe('parseEnv', () => {
     expect(env.decideContextLimit).toBe(64);
   });
 
-  test('reads assistant instructions file from the new env var', () => {
+  test('ignores retired assistant instructions file env var', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       ASSISTANT_INSTRUCTIONS_FILE: 'custom/assistant-instructions.md'
     });
 
-    expect(env.assistantInstructionsFile).toBe(
-      'custom/assistant-instructions.md'
-    );
+    expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
   });
 
   test('defaults planner model to reply model and keeps lookup disabled', () => {
