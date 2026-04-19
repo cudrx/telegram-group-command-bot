@@ -14,6 +14,9 @@
     "eval:intents:one": "npm run build && node dist/scripts/evaluate-intents.js",
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
+    "format": "biome format --write .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
@@ -25,6 +28,7 @@
     "zod": "^3.25.6"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.12",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.3",
     "tsx": "^4.19.3",
