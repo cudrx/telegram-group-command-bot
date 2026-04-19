@@ -12,20 +12,18 @@ export type DeployMetadata = {
 };
 
 export function createDeployMetadata(input: {
+  deployedSha?: string | null;
   beforeSha: string | null;
   sha: string;
   branch: string;
   now: () => string;
   gitLog: (range: string) => string;
 }): DeployMetadata {
-  const range = createCommitRange(input.beforeSha, input.sha);
-  let output: string;
-
-  try {
-    output = input.gitLog(range);
-  } catch {
-    output = input.gitLog(createCurrentCommitRange(input.sha));
-  }
+  const output = readGitLog(input.gitLog, [
+    ...createDeployedCommitRanges(input.deployedSha, input.sha),
+    ...createBeforeCommitRanges(input.beforeSha, input.sha),
+    createCurrentCommitRange(input.sha)
+  ]);
 
   return {
     sha: input.sha,
@@ -44,11 +42,46 @@ export function writeDeployMetadata(
   writeFileSync(outputPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
 }
 
-function createCommitRange(beforeSha: string | null, sha: string): string {
-  if (!beforeSha || isZeroSha(beforeSha)) {
-    return createCurrentCommitRange(sha);
+function readGitLog(
+  gitLog: (range: string) => string,
+  ranges: string[]
+): string {
+  let lastError: unknown;
+
+  for (const range of dedupe(ranges)) {
+    try {
+      return gitLog(range);
+    } catch (error) {
+      lastError = error;
+    }
   }
 
+  throw lastError;
+}
+
+function createDeployedCommitRanges(
+  deployedSha: string | null | undefined,
+  sha: string
+): string[] {
+  if (!deployedSha || isZeroSha(deployedSha)) {
+    return [];
+  }
+
+  return [createCommitRange(deployedSha, sha)];
+}
+
+function createBeforeCommitRanges(
+  beforeSha: string | null,
+  sha: string
+): string[] {
+  if (!beforeSha || isZeroSha(beforeSha)) {
+    return [];
+  }
+
+  return [createCommitRange(beforeSha, sha)];
+}
+
+function createCommitRange(beforeSha: string, sha: string): string {
   return `${beforeSha}..${sha}`;
 }
 
@@ -67,6 +100,10 @@ function isZeroSha(value: string): boolean {
   return /^0+$/.test(value);
 }
 
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
 function gitLog(range: string): string {
   return execFileSync('git', ['log', '--format=%s', range], {
     encoding: 'utf8'
@@ -81,6 +118,7 @@ function runFromCli(): void {
   }
 
   const metadata = createDeployMetadata({
+    deployedSha: process.env.DEPLOY_METADATA_DEPLOYED_SHA ?? null,
     beforeSha: process.env.DEPLOY_METADATA_BEFORE_SHA ?? null,
     sha,
     branch:

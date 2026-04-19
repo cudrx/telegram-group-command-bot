@@ -43,6 +43,38 @@ describe('generate deploy metadata', () => {
     });
   });
 
+  test('prefers the currently deployed sha over the push commit range', () => {
+    const gitLog = vi
+      .fn()
+      .mockReturnValue(
+        [
+          'refactor: delete completed plans',
+          'refactor: simplify Codex instruction routing',
+          'refactor: tighten standalone prompt wording',
+          'fix: captions'
+        ].join('\n')
+      );
+
+    const metadata = createDeployMetadata({
+      deployedSha: 'deployed-sha',
+      beforeSha: 'push-before-sha',
+      sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
+      branch: 'main',
+      now: () => '2026-04-19T10:00:00.000Z',
+      gitLog
+    });
+
+    expect(gitLog).toHaveBeenCalledWith(
+      'deployed-sha..f3f896a0c03d0c109db633a6182e798e8ca0b96f'
+    );
+    expect(metadata.commits).toEqual([
+      'refactor: delete completed plans',
+      'refactor: simplify Codex instruction routing',
+      'refactor: tighten standalone prompt wording',
+      'fix: captions'
+    ]);
+  });
+
   test('uses the current commit when before sha is all zeroes', () => {
     const gitLog = vi.fn().mockReturnValue('feat: first deploy\n');
 

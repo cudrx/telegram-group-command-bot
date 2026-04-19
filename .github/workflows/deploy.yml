@@ -51,9 +51,37 @@ jobs:
         id: image
         run: echo "name=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/test-chatbot" >> "$GITHUB_OUTPUT"
 
+      - name: Load SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Trust deploy host
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Read deployed metadata
+        id: deployed
+        run: |
+          mkdir -p deploy/generated
+
+          if ssh -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "test -f '${{ secrets.DEPLOY_PATH }}/data/deploy-metadata.json'"; then
+            scp -P "${{ secrets.DEPLOY_PORT }}" \
+              "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${{ secrets.DEPLOY_PATH }}/data/deploy-metadata.json" \
+              deploy/generated/deployed-metadata.json
+
+            sha="$(node -e "const fs = require('node:fs'); try { const metadata = JSON.parse(fs.readFileSync('deploy/generated/deployed-metadata.json', 'utf8')); if (typeof metadata.sha === 'string' && metadata.sha !== 'unknown') process.stdout.write(metadata.sha); } catch {}")"
+            echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          else
+            echo "sha=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate deploy metadata
         run: npm run deploy:metadata
         env:
+          DEPLOY_METADATA_DEPLOYED_SHA: ${{ steps.deployed.outputs.sha }}
           DEPLOY_METADATA_BEFORE_SHA: ${{ github.event.before }}
           DEPLOY_METADATA_SHA: ${{ github.sha }}
           DEPLOY_METADATA_BRANCH: ${{ github.ref_name }}
@@ -74,16 +102,6 @@ jobs:
           tags: |
             ${{ steps.image.outputs.name }}:latest
             ${{ steps.image.outputs.name }}:${{ github.sha }}
-
-      - name: Load SSH key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Trust deploy host
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -p "${{ secrets.DEPLOY_PORT }}" "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload deploy assets
         run: |
