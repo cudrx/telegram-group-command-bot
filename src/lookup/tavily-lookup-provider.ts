@@ -3,7 +3,7 @@ import type {
   LookupProviderSearchInput,
   LookupProviderSearchResult,
   LookupSource
-} from "./types.js";
+} from './types.js';
 
 type TavilySearchResponse = {
   results?: unknown;
@@ -16,16 +16,18 @@ type TavilySearchResponse = {
 export class TavilyLookupProvider implements LookupProvider {
   constructor(private readonly config: { apiKey: string }) {}
 
-  async search(input: LookupProviderSearchInput): Promise<LookupProviderSearchResult> {
-    const response = await fetch("https://api.tavily.com/search", {
-      method: "POST",
+  async search(
+    input: LookupProviderSearchInput
+  ): Promise<LookupProviderSearchResult> {
+    const response = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
       headers: {
         Authorization: `Bearer ${this.config.apiKey}`,
-        "content-type": "application/json"
+        'content-type': 'application/json'
       },
       body: JSON.stringify({
         query: input.query,
-        search_depth: "basic",
+        search_depth: 'basic',
         max_results: input.maxResults,
         include_answer: false,
         include_raw_content: false,
@@ -36,15 +38,18 @@ export class TavilyLookupProvider implements LookupProvider {
 
     if (!response.ok) {
       const errorBody = (await response.text()).trim();
-      const errorMessage = errorBody.length > 0 ? errorBody : response.statusText;
+      const errorMessage =
+        errorBody.length > 0 ? errorBody : response.statusText;
 
-      throw new Error(`Tavily lookup failed with status ${response.status}: ${errorMessage}`);
+      throw new Error(
+        `Tavily lookup failed with status ${response.status}: ${errorMessage}`
+      );
     }
 
     const payload = (await response.json()) as TavilySearchResponse;
 
     return {
-      provider: "tavily",
+      provider: 'tavily',
       query: input.query,
       sources: normalizeResults(payload.results),
       responseTimeMs: toMilliseconds(payload.response_time),
@@ -62,7 +67,7 @@ function normalizeResults(value: unknown): LookupSource[] {
 }
 
 function normalizeResultRow(row: unknown): LookupSource[] {
-  if (!row || typeof row !== "object") {
+  if (!row || typeof row !== 'object') {
     return [];
   }
 
@@ -87,11 +92,11 @@ function normalizeResultRow(row: unknown): LookupSource[] {
 }
 
 function isNonEmptyString(value: unknown): value is string {
-  return typeof value === "string" && value.trim().length > 0;
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function toNullableNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
 function toMilliseconds(value: unknown): number | null {

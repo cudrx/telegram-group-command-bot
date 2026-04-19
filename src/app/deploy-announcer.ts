@@ -1,12 +1,12 @@
-import type { LlmReplyResult } from "../llm/openai-compatible-llm-client.js";
-import { serializeError, type AppLogger } from "../logging/logger.js";
+import type { LlmReplyResult } from '../llm/openai-compatible-llm-client.js';
+import { type AppLogger, serializeError } from '../logging/logger.js';
 import {
-  loadDeployMetadata as defaultLoadDeployMetadata,
-  type DeployMetadataLoadResult
-} from "./deploy-metadata.js";
-import { formatTelegramHtmlReply } from "./telegram-html.js";
+  type DeployMetadataLoadResult,
+  loadDeployMetadata as defaultLoadDeployMetadata
+} from './deploy-metadata.js';
+import { formatTelegramHtmlReply } from './telegram-html.js';
 
-const LAST_ANNOUNCED_DEPLOY_SHA_KEY = "last_announced_deploy_sha";
+const LAST_ANNOUNCED_DEPLOY_SHA_KEY = 'last_announced_deploy_sha';
 
 export async function maybeAnnounceDeployUpdate(input: {
   deployNotifyChatId: number;
@@ -27,8 +27,8 @@ export async function maybeAnnounceDeployUpdate(input: {
 }): Promise<void> {
   const loaded = (input.loadDeployMetadata ?? defaultLoadDeployMetadata)();
 
-  if (loaded.status === "skipped") {
-    input.logger.info("deploy_announcement_skipped", {
+  if (loaded.status === 'skipped') {
+    input.logger.info('deploy_announcement_skipped', {
       reason: loaded.reason
     });
     return;
@@ -37,7 +37,7 @@ export async function maybeAnnounceDeployUpdate(input: {
   const lastAnnouncedSha = input.db.getAppState(LAST_ANNOUNCED_DEPLOY_SHA_KEY);
 
   if (lastAnnouncedSha === loaded.metadata.sha) {
-    input.logger.debug("deploy_announcement_skipped_duplicate", {
+    input.logger.debug('deploy_announcement_skipped_duplicate', {
       sha: loaded.metadata.sha
     });
     return;
@@ -59,7 +59,7 @@ export async function maybeAnnounceDeployUpdate(input: {
       loaded.metadata.sha,
       input.now()
     );
-    input.logger.info("deploy_announcement_sent", {
+    input.logger.info('deploy_announcement_sent', {
       sha: loaded.metadata.sha,
       commitCount: loaded.metadata.commits.length,
       llmModel: result.model,
@@ -67,7 +67,7 @@ export async function maybeAnnounceDeployUpdate(input: {
       llmAttempts: result.attemptCount
     });
   } catch (error) {
-    input.logger.warn("deploy_announcement_failed", {
+    input.logger.warn('deploy_announcement_failed', {
       sha: loaded.metadata.sha,
       ...serializeError(error)
     });

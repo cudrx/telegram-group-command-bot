@@ -1,12 +1,15 @@
-import OpenAI from "openai";
+import OpenAI from 'openai';
 
-import type { AssistantIntent, ReplyContext } from "../domain/models.js";
-import type { AppLogger } from "../logging/logger.js";
-import type { LookupContext, LookupDecision } from "../lookup/types.js";
-import { buildDeployUpdatePrompt } from "./deploy-update-prompt.js";
-import { getIntentOutputShapeViolations } from "./intent-output-shape.js";
-import { buildLookupPlannerPrompt, parseLookupDecisionResult } from "./lookup-planner.js";
-import { buildIntentPrompt } from "./prompts.js";
+import type { AssistantIntent, ReplyContext } from '../domain/models.js';
+import type { AppLogger } from '../logging/logger.js';
+import type { LookupContext, LookupDecision } from '../lookup/types.js';
+import { buildDeployUpdatePrompt } from './deploy-update-prompt.js';
+import { getIntentOutputShapeViolations } from './intent-output-shape.js';
+import {
+  buildLookupPlannerPrompt,
+  parseLookupDecisionResult
+} from './lookup-planner.js';
+import { buildIntentPrompt } from './prompts.js';
 
 export type LlmReplyResult = {
   text: string;
@@ -17,7 +20,7 @@ export type LlmReplyResult = {
 };
 
 export type LookupPlanResult = {
-  status: "ok" | "failed";
+  status: 'ok' | 'failed';
   decision: LookupDecision;
   model: string;
   latencyMs: number;
@@ -25,7 +28,7 @@ export type LookupPlanResult = {
   promptTokensEstimate: number;
 };
 
-type ChatCompletionsCreate = OpenAI["chat"]["completions"]["create"];
+type ChatCompletionsCreate = OpenAI['chat']['completions']['create'];
 
 export class OpenAiCompatibleLlmClient {
   private readonly client: OpenAI;
@@ -64,7 +67,7 @@ export class OpenAiCompatibleLlmClient {
   }
 
   async planLookup(input: {
-    intent: Exclude<AssistantIntent, "summarize">;
+    intent: Exclude<AssistantIntent, 'summarize'>;
     replyContext: ReplyContext;
   }): Promise<LookupPlanResult> {
     const prompt = buildLookupPlannerPrompt(input);
@@ -73,8 +76,8 @@ export class OpenAiCompatibleLlmClient {
     const plannerModel = this.config.plannerModel ?? this.config.replyModel;
     const lookupMaxQueries = this.config.lookupMaxQueries ?? 1;
 
-    this.logLlmText("llm.lookup_planner.request", {
-      kind: "lookup_planner",
+    this.logLlmText('llm.lookup_planner.request', {
+      kind: 'lookup_planner',
       model: plannerModel,
       temperature: 0,
       promptChars: prompt.length,
@@ -89,41 +92,41 @@ export class OpenAiCompatibleLlmClient {
         enable_thinking: false,
         messages: [
           {
-            role: "system",
+            role: 'system',
             content:
-              "You plan web lookup for a Telegram assistant. Return only valid JSON."
+              'You plan web lookup for a Telegram assistant. Return only valid JSON.'
           },
           {
-            role: "user",
+            role: 'user',
             content: prompt
           }
         ]
       } as never)
     );
 
-    const raw = completion.value.choices[0]?.message.content?.trim() ?? "";
+    const raw = completion.value.choices[0]?.message.content?.trim() ?? '';
 
     if (!raw) {
       const decision: LookupDecision = {
         shouldLookup: false,
-        purpose: "none",
-        reason: "Lookup planner returned empty content.",
+        purpose: 'none',
+        reason: 'Lookup planner returned empty content.',
         queries: [],
-        confidence: "low"
+        confidence: 'low'
       };
 
-      this.logLlmText("llm.lookup_planner.response", {
-        kind: "lookup_planner",
+      this.logLlmText('llm.lookup_planner.response', {
+        kind: 'lookup_planner',
         model: plannerModel,
         latencyMs: Date.now() - startedAt,
         attemptCount: completion.attemptCount,
         promptTokensEstimate,
         responseChars: 0,
-        responsePreview: ""
+        responsePreview: ''
       });
 
       return {
-        status: "failed",
+        status: 'failed',
         decision,
         model: plannerModel,
         latencyMs: Date.now() - startedAt,
@@ -134,8 +137,8 @@ export class OpenAiCompatibleLlmClient {
 
     const parsedDecision = parseLookupDecisionResult(raw, lookupMaxQueries);
 
-    this.logLlmText("llm.lookup_planner.response", {
-      kind: "lookup_planner",
+    this.logLlmText('llm.lookup_planner.response', {
+      kind: 'lookup_planner',
       model: plannerModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
@@ -165,8 +168,8 @@ export class OpenAiCompatibleLlmClient {
     const promptTokensEstimate = estimateTokens(prompt);
     const startedAt = Date.now();
     const replyModel = this.getReplyModel(input.intent);
-    this.logLlmText("llm.reply.request", {
-      kind: "reply",
+    this.logLlmText('llm.reply.request', {
+      kind: 'reply',
       model: replyModel,
       temperature: this.config.replyTemperature,
       promptChars: prompt.length,
@@ -179,11 +182,12 @@ export class OpenAiCompatibleLlmClient {
         enable_thinking: this.config.replyEnableThinking ?? false,
         messages: [
           {
-            role: "system",
-            content: "You are a neutral Telegram assistant. Respond helpfully and concisely in Russian."
+            role: 'system',
+            content:
+              'You are a neutral Telegram assistant. Respond helpfully and concisely in Russian.'
           },
           {
-            role: "user",
+            role: 'user',
             content: prompt
           }
         ]
@@ -192,13 +196,13 @@ export class OpenAiCompatibleLlmClient {
     const reply = completion.value.choices[0]?.message.content?.trim();
 
     if (!reply) {
-      throw new Error("Reply model returned empty content");
+      throw new Error('Reply model returned empty content');
     }
 
     this.warnOnReplyFormatGuardrailViolation(input.intent, reply, replyModel);
 
-    this.logLlmText("llm.reply.response", {
-      kind: "reply",
+    this.logLlmText('llm.reply.response', {
+      kind: 'reply',
       model: replyModel,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
@@ -225,8 +229,8 @@ export class OpenAiCompatibleLlmClient {
     const startedAt = Date.now();
     const model = this.config.fastReplyModel ?? this.config.replyModel;
 
-    this.logLlmText("llm.deploy_update.request", {
-      kind: "deploy_update",
+    this.logLlmText('llm.deploy_update.request', {
+      kind: 'deploy_update',
       model,
       temperature: 0.4,
       promptChars: prompt.length,
@@ -241,11 +245,11 @@ export class OpenAiCompatibleLlmClient {
         enable_thinking: false,
         messages: [
           {
-            role: "system",
-            content: "You format concise Telegram release updates in Russian."
+            role: 'system',
+            content: 'You format concise Telegram release updates in Russian.'
           },
           {
-            role: "user",
+            role: 'user',
             content: prompt
           }
         ]
@@ -254,11 +258,11 @@ export class OpenAiCompatibleLlmClient {
     const reply = completion.value.choices[0]?.message.content?.trim();
 
     if (!reply) {
-      throw new Error("Deploy update model returned empty content");
+      throw new Error('Deploy update model returned empty content');
     }
 
-    this.logLlmText("llm.deploy_update.response", {
-      kind: "deploy_update",
+    this.logLlmText('llm.deploy_update.response', {
+      kind: 'deploy_update',
       model,
       latencyMs: Date.now() - startedAt,
       attemptCount: completion.attemptCount,
@@ -277,7 +281,7 @@ export class OpenAiCompatibleLlmClient {
   }
 
   private getReplyModel(intent: AssistantIntent): string {
-    if (intent === "summarize" || intent === "explain") {
+    if (intent === 'summarize' || intent === 'explain') {
       return this.config.fastReplyModel ?? this.config.replyModel;
     }
 
@@ -306,17 +310,20 @@ export class OpenAiCompatibleLlmClient {
     }
   }
 
-  private logLlmText(event: string, payload: {
-    kind: "reply" | "lookup_planner" | "deploy_update";
-    model: string;
-    temperature?: number;
-    latencyMs?: number;
-    attemptCount?: number;
-    promptTokensEstimate?: number;
-    promptChars?: number;
-    responseChars?: number;
-    responsePreview?: string;
-  }): void {
+  private logLlmText(
+    event: string,
+    payload: {
+      kind: 'reply' | 'lookup_planner' | 'deploy_update';
+      model: string;
+      temperature?: number;
+      latencyMs?: number;
+      attemptCount?: number;
+      promptTokensEstimate?: number;
+      promptChars?: number;
+      responseChars?: number;
+      responsePreview?: string;
+    }
+  ): void {
     if (!this.options.logLlmText) {
       return;
     }
@@ -330,15 +337,17 @@ export class OpenAiCompatibleLlmClient {
     model: string
   ): void {
     const violations = getIntentOutputShapeViolations(intent, reply);
-    const hasEnglishSummaryHeading = violations.includes("english_summary_heading");
-    const hasMarkdownBold = violations.includes("markdown_bold");
+    const hasEnglishSummaryHeading = violations.includes(
+      'english_summary_heading'
+    );
+    const hasMarkdownBold = violations.includes('markdown_bold');
 
     if (violations.length === 0) {
       return;
     }
 
-    this.options.logger?.warn("llm.reply_format_guardrail_warning", {
-      kind: "reply",
+    this.options.logger?.warn('llm.reply_format_guardrail_warning', {
+      kind: 'reply',
       model,
       intent,
       hasEnglishSummaryHeading,
@@ -353,7 +362,7 @@ function estimateTokens(prompt: string): number {
 }
 
 function toSingleLinePreview(text: string, maxLength = 240): string {
-  const singleLine = text.replace(/\s+/g, " ").trim();
+  const singleLine = text.replace(/\s+/g, ' ').trim();
 
   if (singleLine.length <= maxLength) {
     return singleLine;
@@ -363,7 +372,7 @@ function toSingleLinePreview(text: string, maxLength = 240): string {
 }
 
 function isRetriableError(error: unknown): boolean {
-  if (!error || typeof error !== "object") {
+  if (!error || typeof error !== 'object') {
     return false;
   }
 
@@ -372,23 +381,24 @@ function isRetriableError(error: unknown): boolean {
     code?: unknown;
     name?: unknown;
   };
-  const status = typeof maybeError.status === "number" ? maybeError.status : null;
-  const code = typeof maybeError.code === "string" ? maybeError.code : null;
-  const name = typeof maybeError.name === "string" ? maybeError.name : null;
+  const status =
+    typeof maybeError.status === 'number' ? maybeError.status : null;
+  const code = typeof maybeError.code === 'string' ? maybeError.code : null;
+  const name = typeof maybeError.name === 'string' ? maybeError.name : null;
 
   if (status !== null && status >= 500) {
     return true;
   }
 
-  if (name === "APIConnectionError" || name === "APIConnectionTimeoutError") {
+  if (name === 'APIConnectionError' || name === 'APIConnectionTimeoutError') {
     return true;
   }
 
   return (
-    code === "ECONNRESET" ||
-    code === "ECONNREFUSED" ||
-    code === "ETIMEDOUT" ||
-    code === "UND_ERR_CONNECT_TIMEOUT"
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ETIMEDOUT' ||
+    code === 'UND_ERR_CONNECT_TIMEOUT'
   );
 }
 
@@ -399,14 +409,15 @@ function enrichProviderError(
     baseUrl: string;
   }
 ): unknown {
-  if (!error || typeof error !== "object") {
+  if (!error || typeof error !== 'object') {
     return error;
   }
 
   const maybeError = error as Error & { status?: unknown };
   const status =
-    typeof maybeError.status === "number" ? maybeError.status : undefined;
-  const message = typeof maybeError.message === "string" ? maybeError.message : "";
+    typeof maybeError.status === 'number' ? maybeError.status : undefined;
+  const message =
+    typeof maybeError.message === 'string' ? maybeError.message : '';
 
   if (status !== 400) {
     return error;
@@ -416,13 +427,13 @@ function enrichProviderError(
 
   if (isGeminiBaseUrl(config.baseUrl)) {
     hints.push(
-      "Gemini OpenAI-compatible endpoint detected. Verify LLM_BASE_URL points to https://generativelanguage.googleapis.com/v1beta/openai/ and that LLM_API_KEY is a real Gemini API key, not a placeholder."
+      'Gemini OpenAI-compatible endpoint detected. Verify LLM_BASE_URL points to https://generativelanguage.googleapis.com/v1beta/openai/ and that LLM_API_KEY is a real Gemini API key, not a placeholder.'
     );
   }
 
   if (looksLikePlaceholderApiKey(config.apiKey)) {
     hints.push(
-      "LLM_API_KEY still looks like a placeholder value and should be replaced before runtime."
+      'LLM_API_KEY still looks like a placeholder value and should be replaced before runtime.'
     );
   }
 
@@ -430,7 +441,7 @@ function enrichProviderError(
     return error;
   }
 
-  const enriched = new Error(`${message} ${hints.join(" ")}`.trim(), {
+  const enriched = new Error(`${message} ${hints.join(' ')}`.trim(), {
     cause: error
   });
 
@@ -442,11 +453,11 @@ function enrichProviderError(
 }
 
 function isGeminiBaseUrl(baseUrl: string): boolean {
-  return baseUrl.includes("generativelanguage.googleapis.com");
+  return baseUrl.includes('generativelanguage.googleapis.com');
 }
 
 function looksLikePlaceholderApiKey(value: string): boolean {
   const normalized = value.trim().toLowerCase();
 
-  return normalized.startsWith("your-") || normalized.includes("placeholder");
+  return normalized.startsWith('your-') || normalized.includes('placeholder');
 }

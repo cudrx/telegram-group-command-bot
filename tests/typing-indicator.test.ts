@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { withTypingIndicator } from "../src/app/typing-indicator.js";
+import { withTypingIndicator } from '../src/app/typing-indicator.js';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -14,7 +14,7 @@ function createDeferred<T>() {
   return { promise, resolve, reject };
 }
 
-describe("withTypingIndicator", () => {
+describe('withTypingIndicator', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(0);
@@ -24,9 +24,9 @@ describe("withTypingIndicator", () => {
     vi.useRealTimers();
   });
 
-  test("calls sendTyping immediately and returns the operation result", async () => {
+  test('calls sendTyping immediately and returns the operation result', async () => {
     const sendTyping = vi.fn().mockResolvedValue(undefined);
-    const operation = vi.fn().mockResolvedValue("reply");
+    const operation = vi.fn().mockResolvedValue('reply');
 
     const resultPromise = withTypingIndicator(
       {
@@ -44,11 +44,11 @@ describe("withTypingIndicator", () => {
     expect(sendTyping).toHaveBeenCalledTimes(1);
     expect(sendTyping).toHaveBeenCalledWith(42);
 
-    await expect(resultPromise).resolves.toBe("reply");
+    await expect(resultPromise).resolves.toBe('reply');
     expect(operation).toHaveBeenCalledTimes(1);
   });
 
-  test("refreshes typing while the operation remains pending", async () => {
+  test('refreshes typing while the operation remains pending', async () => {
     const sendTyping = vi.fn().mockResolvedValue(undefined);
     const deferred = createDeferred<string>();
 
@@ -76,11 +76,11 @@ describe("withTypingIndicator", () => {
     await vi.advanceTimersByTimeAsync(4000);
     expect(sendTyping).toHaveBeenCalledTimes(3);
 
-    deferred.resolve("done");
-    await expect(resultPromise).resolves.toBe("done");
+    deferred.resolve('done');
+    await expect(resultPromise).resolves.toBe('done');
   });
 
-  test("waits only for the remaining visible typing duration", async () => {
+  test('waits only for the remaining visible typing duration', async () => {
     const sendTyping = vi.fn().mockResolvedValue(undefined);
     const deferred = createDeferred<string>();
     let settled = false;
@@ -103,16 +103,16 @@ describe("withTypingIndicator", () => {
     });
 
     await vi.advanceTimersByTimeAsync(500);
-    deferred.resolve("visible");
+    deferred.resolve('visible');
 
     await vi.advanceTimersByTimeAsync(999);
     expect(settled).toBe(false);
 
     await vi.advanceTimersByTimeAsync(1);
-    await expect(resultPromise).resolves.toBe("visible");
+    await expect(resultPromise).resolves.toBe('visible');
   });
 
-  test("stops refreshing once the operation resolves even while waiting to stay visible", async () => {
+  test('stops refreshing once the operation resolves even while waiting to stay visible', async () => {
     const sendTyping = vi.fn().mockResolvedValue(undefined);
     const deferred = createDeferred<string>();
 
@@ -130,19 +130,19 @@ describe("withTypingIndicator", () => {
     );
 
     await vi.advanceTimersByTimeAsync(200);
-    deferred.resolve("done");
+    deferred.resolve('done');
 
     await vi.advanceTimersByTimeAsync(799);
     expect(sendTyping).toHaveBeenCalledTimes(1);
 
     await vi.advanceTimersByTimeAsync(1);
-    await expect(resultPromise).resolves.toBe("done");
+    await expect(resultPromise).resolves.toBe('done');
   });
 
-  test("clears the interval and rethrows operation errors", async () => {
+  test('clears the interval and rethrows operation errors', async () => {
     const sendTyping = vi.fn().mockResolvedValue(undefined);
     const deferred = createDeferred<never>();
-    const error = new Error("boom");
+    const error = new Error('boom');
 
     const resultPromise = withTypingIndicator(
       {

@@ -1,39 +1,39 @@
 export function normalizeReplyText(text: string): string {
   return text
     .toLowerCase()
-    .replaceAll("ё", "е")
-    .replace(/[^\p{L}\p{N}\s]+/gu, " ")
-    .replace(/\s+/g, " ")
+    .replaceAll('ё', 'е')
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 const MIN_SHORT_ANCHOR_LENGTH = 3;
 const MAX_SHORT_ANCHOR_WORDS = 3;
 const SHORT_ANCHOR_STOP_WORDS = new Set([
-  "а",
-  "в",
-  "и",
-  "к",
-  "на",
-  "не",
-  "но",
-  "ну",
-  "о",
-  "он",
-  "с",
-  "так",
-  "там",
-  "то",
-  "ты",
-  "у",
-  "уже",
-  "что",
-  "это",
-  "я"
+  'а',
+  'в',
+  'и',
+  'к',
+  'на',
+  'не',
+  'но',
+  'ну',
+  'о',
+  'он',
+  'с',
+  'так',
+  'там',
+  'то',
+  'ты',
+  'у',
+  'уже',
+  'что',
+  'это',
+  'я'
 ]);
 
 export function extractShortReplyAnchors(text: string): string[] {
-  const words = normalizeReplyText(text).split(" ").filter(Boolean);
+  const words = normalizeReplyText(text).split(' ').filter(Boolean);
   const anchors = new Set<string>();
 
   for (let start = 0; start < words.length; start += 1) {
@@ -44,7 +44,7 @@ export function extractShortReplyAnchors(text: string): string[] {
         continue;
       }
 
-      const phrase = phraseWords.join(" ");
+      const phrase = phraseWords.join(' ');
 
       if (isUsefulShortAnchor(phrase, phraseWords)) {
         anchors.add(phrase);
@@ -60,7 +60,9 @@ export function hasRepeatedShortReplyAnchor(input: {
   recentTexts: string[];
   minOccurrences: number;
 }): boolean {
-  const candidateAnchors = new Set(extractShortReplyAnchors(input.candidateText));
+  const candidateAnchors = new Set(
+    extractShortReplyAnchors(input.candidateText)
+  );
 
   if (candidateAnchors.size === 0) {
     return false;
@@ -78,7 +80,9 @@ export function hasRepeatedShortReplyAnchor(input: {
     }
   }
 
-  return Array.from(counts.values()).some((count) => count >= input.minOccurrences);
+  return Array.from(counts.values()).some(
+    (count) => count >= input.minOccurrences
+  );
 }
 
 export function isNearDuplicateReplyText(left: string, right: string): boolean {
@@ -93,16 +97,21 @@ export function isNearDuplicateReplyText(left: string, right: string): boolean {
     return true;
   }
 
-  const leftWords = new Set(normalizedLeft.split(" "));
-  const rightWords = new Set(normalizedRight.split(" "));
-  const intersectionSize = Array.from(leftWords).filter((word) => rightWords.has(word)).length;
+  const leftWords = new Set(normalizedLeft.split(' '));
+  const rightWords = new Set(normalizedRight.split(' '));
+  const intersectionSize = Array.from(leftWords).filter((word) =>
+    rightWords.has(word)
+  ).length;
   const unionSize = new Set([...leftWords, ...rightWords]).size;
 
   if (unionSize === 0) {
     return false;
   }
 
-  return intersectionSize / unionSize >= 0.86 && Math.min(leftWords.size, rightWords.size) >= 5;
+  return (
+    intersectionSize / unionSize >= 0.86 &&
+    Math.min(leftWords.size, rightWords.size) >= 5
+  );
 }
 
 function isUsefulShortAnchor(phrase: string, words: string[]): boolean {

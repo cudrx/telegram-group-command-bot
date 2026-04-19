@@ -1,7 +1,7 @@
-import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export type DeployMetadata = {
   sha: string;
@@ -41,7 +41,7 @@ export function writeDeployMetadata(
   metadata: DeployMetadata
 ): void {
   mkdirSync(path.dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, `${JSON.stringify(metadata, null, 2)}\n`, "utf8");
+  writeFileSync(outputPath, `${JSON.stringify(metadata, null, 2)}\n`, 'utf8');
 }
 
 function createCommitRange(beforeSha: string | null, sha: string): string {
@@ -58,7 +58,7 @@ function createCurrentCommitRange(sha: string): string {
 
 function parseCommitSubjects(output: string): string[] {
   return output
-    .split("\n")
+    .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
 }
@@ -68,8 +68,8 @@ function isZeroSha(value: string): boolean {
 }
 
 function gitLog(range: string): string {
-  return execFileSync("git", ["log", "--format=%s", range], {
-    encoding: "utf8"
+  return execFileSync('git', ['log', '--format=%s', range], {
+    encoding: 'utf8'
   });
 }
 
@@ -77,18 +77,22 @@ function runFromCli(): void {
   const sha = process.env.DEPLOY_METADATA_SHA ?? process.env.GITHUB_SHA;
 
   if (!sha) {
-    throw new Error("DEPLOY_METADATA_SHA or GITHUB_SHA is required.");
+    throw new Error('DEPLOY_METADATA_SHA or GITHUB_SHA is required.');
   }
 
   const metadata = createDeployMetadata({
     beforeSha: process.env.DEPLOY_METADATA_BEFORE_SHA ?? null,
     sha,
-    branch: process.env.DEPLOY_METADATA_BRANCH ?? process.env.GITHUB_REF_NAME ?? "main",
+    branch:
+      process.env.DEPLOY_METADATA_BRANCH ??
+      process.env.GITHUB_REF_NAME ??
+      'main',
     now: () => new Date().toISOString(),
     gitLog
   });
   const outputPath =
-    process.env.DEPLOY_METADATA_OUTPUT ?? "deploy/generated/deploy-metadata.json";
+    process.env.DEPLOY_METADATA_OUTPUT ??
+    'deploy/generated/deploy-metadata.json';
 
   writeDeployMetadata(outputPath, metadata);
 }

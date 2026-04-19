@@ -1,9 +1,13 @@
-import { mkdirSync } from "node:fs";
-import path from "node:path";
+import { mkdirSync } from 'node:fs';
+import path from 'node:path';
 
-import Database from "better-sqlite3";
+import Database from 'better-sqlite3';
 
-import type { ChatState, NormalizedMessage, StoredMessage } from "../domain/models.js";
+import type {
+  ChatState,
+  NormalizedMessage,
+  StoredMessage
+} from '../domain/models.js';
 
 const schema = `
 CREATE TABLE IF NOT EXISTS chats (
@@ -49,7 +53,7 @@ export class DatabaseClient {
   static open(filename: string): DatabaseClient {
     const directory = path.dirname(filename);
 
-    if (directory !== ".") {
+    if (directory !== '.') {
       mkdirSync(directory, { recursive: true });
     }
 
@@ -61,8 +65,8 @@ export class DatabaseClient {
       throw normalizeDatabaseOpenError(error, filename);
     }
 
-    db.pragma("journal_mode = WAL");
-    db.pragma("foreign_keys = ON");
+    db.pragma('journal_mode = WAL');
+    db.pragma('foreign_keys = ON');
     db.exec(schema);
     migrateExistingSchema(db);
 
@@ -234,7 +238,7 @@ export class DatabaseClient {
   }
 
   getRecentMessages(chatId: number, limit: number): StoredMessage[] {
-    type StoredMessageRow = Omit<StoredMessage, "isBot"> & { isBot: number };
+    type StoredMessageRow = Omit<StoredMessage, 'isBot'> & { isBot: number };
 
     const rows = this.db
       .prepare(
@@ -264,7 +268,7 @@ export class DatabaseClient {
     beforeMessageId: number,
     limit: number
   ): StoredMessage[] {
-    type StoredMessageRow = Omit<StoredMessage, "isBot"> & { isBot: number };
+    type StoredMessageRow = Omit<StoredMessage, 'isBot'> & { isBot: number };
 
     const rows = this.db
       .prepare(
@@ -289,7 +293,10 @@ export class DatabaseClient {
     return rows.reverse().map(toStoredMessage);
   }
 
-  getMessageByTelegramMessageId(chatId: number, messageId: number): StoredMessage | null {
+  getMessageByTelegramMessageId(
+    chatId: number,
+    messageId: number
+  ): StoredMessage | null {
     const row = this.db
       .prepare(
         `
@@ -307,7 +314,7 @@ export class DatabaseClient {
         `
       )
       .get(chatId, messageId) as
-      | (Omit<StoredMessage, "isBot"> & { isBot: number })
+      | (Omit<StoredMessage, 'isBot'> & { isBot: number })
       | undefined;
 
     return row ? toStoredMessage(row) : null;
@@ -337,9 +344,9 @@ export class DatabaseClient {
 
   getSchemaColumns(tableName: string): string[] {
     return (
-      this.db
-        .prepare(`PRAGMA table_info(${tableName})`)
-        .all() as Array<{ name: string }>
+      this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
+        name: string;
+      }>
     ).map((column) => column.name);
   }
 
@@ -378,7 +385,7 @@ function upsertChat(
 }
 
 function toStoredMessage(
-  row: Omit<StoredMessage, "isBot"> & { isBot: number }
+  row: Omit<StoredMessage, 'isBot'> & { isBot: number }
 ): StoredMessage {
   return {
     ...row,
@@ -387,11 +394,11 @@ function toStoredMessage(
 }
 
 function migrateExistingSchema(db: Database.Database): void {
-  ensureColumn(db, "messages", "from_user_id", "INTEGER");
-  ensureColumn(db, "messages", "from_username", "TEXT");
-  ensureColumn(db, "messages", "from_first_name", "TEXT");
-  ensureColumn(db, "messages", "from_last_name", "TEXT");
-  ensureColumn(db, "messages", "from_display_name", "TEXT");
+  ensureColumn(db, 'messages', 'from_user_id', 'INTEGER');
+  ensureColumn(db, 'messages', 'from_username', 'TEXT');
+  ensureColumn(db, 'messages', 'from_first_name', 'TEXT');
+  ensureColumn(db, 'messages', 'from_last_name', 'TEXT');
+  ensureColumn(db, 'messages', 'from_display_name', 'TEXT');
 }
 
 function ensureColumn(
@@ -401,20 +408,24 @@ function ensureColumn(
   definition: string
 ): void {
   const columns = (
-    db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{ name: string }>
+    db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
+      name: string;
+    }>
   ).map((column) => column.name);
 
   if (!columns.includes(columnName)) {
-    db.prepare(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`).run();
+    db.prepare(
+      `ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`
+    ).run();
   }
 }
 
 function normalizeDatabaseOpenError(error: unknown, filename: string): Error {
   if (
-    typeof error === "object" &&
+    typeof error === 'object' &&
     error !== null &&
-    "code" in error &&
-    error.code === "SQLITE_CANTOPEN"
+    'code' in error &&
+    error.code === 'SQLITE_CANTOPEN'
   ) {
     return new Error(`Could not open SQLite database at ${filename}`);
   }

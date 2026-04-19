@@ -1,10 +1,10 @@
-const ALLOWED_TAGS = new Set(["b", "i", "code"]);
+const ALLOWED_TAGS = new Set(['b', 'i', 'code']);
 const TAG_PATTERN = /<\/?[a-zA-Z][^>]*>/g;
-const MARKDOWN_AMP = "\uE000AMP\uE000";
-const MARKDOWN_LT = "\uE000LT\uE000";
-const MARKDOWN_GT = "\uE000GT\uE000";
+const MARKDOWN_AMP = '\uE000AMP\uE000';
+const MARKDOWN_LT = '\uE000LT\uE000';
+const MARKDOWN_GT = '\uE000GT\uE000';
 
-type TelegramReplyIntent = "explain" | "summarize" | "decide";
+type TelegramReplyIntent = 'explain' | 'summarize' | 'decide';
 
 export function formatTelegramHtmlReply(
   text: string,
@@ -20,13 +20,16 @@ function normalizeReplyText(
   options: { intent?: TelegramReplyIntent }
 ): string {
   const normalizedLines = text
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .split('\n')
     .map((line) => normalizeLine(line.trimEnd(), options))
     .filter((line) => line !== null);
 
-  return normalizedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return normalizedLines
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function normalizeLine(
@@ -35,7 +38,7 @@ function normalizeLine(
 ): string | null {
   const bulletLine = normalizeBulletLine(line);
 
-  if (options.intent === "summarize") {
+  if (options.intent === 'summarize') {
     const summarizeLine = normalizeSummarizeLine(bulletLine);
 
     if (summarizeLine === null) {
@@ -47,7 +50,7 @@ function normalizeLine(
 
   const markdownLine = normalizeMarkdownLine(bulletLine);
 
-  if (options.intent === "explain") {
+  if (options.intent === 'explain') {
     return normalizeExplainLine(markdownLine);
   }
 
@@ -55,9 +58,7 @@ function normalizeLine(
 }
 
 function normalizeBulletLine(line: string): string {
-  return line
-    .replace(/^\s*[-*]\s+/, "• ")
-    .replace(/^\s*•\s+/, "• ");
+  return line.replace(/^\s*[-*]\s+/, '• ').replace(/^\s*•\s+/, '• ');
 }
 
 function normalizeSummarizeLine(line: string): string | null {
@@ -75,7 +76,7 @@ function normalizeSummarizeLine(line: string): string | null {
 }
 
 function normalizeExplainLine(line: string): string {
-  return line.replace(/(<b>(?:Смысл|По сути|Вывод)<\/b>)(?=\S)/gu, "$1\n");
+  return line.replace(/(<b>(?:Смысл|По сути|Вывод)<\/b>)(?=\S)/gu, '$1\n');
 }
 
 function normalizeMarkdownLine(line: string): string {
@@ -90,7 +91,7 @@ function normalizeMarkdownLine(line: string): string {
 
 function lowercaseFirstLetter(text: string): string {
   return text.replace(/^(\p{L})/u, (_match, first: string) =>
-    first.toLocaleLowerCase("ru-RU")
+    first.toLocaleLowerCase('ru-RU')
   );
 }
 
@@ -103,9 +104,9 @@ function escapeMarkdownTagContent(text: string): string {
 
 function restoreMarkdownEscapes(text: string): string {
   return text
-    .replaceAll(MARKDOWN_AMP, "&amp;")
-    .replaceAll(MARKDOWN_LT, "&lt;")
-    .replaceAll(MARKDOWN_GT, "&gt;");
+    .replaceAll(MARKDOWN_AMP, '&amp;')
+    .replaceAll(MARKDOWN_LT, '&lt;')
+    .replaceAll(MARKDOWN_GT, '&gt;');
 }
 
 function sanitizeTelegramHtml(text: string): string {
@@ -113,7 +114,11 @@ function sanitizeTelegramHtml(text: string): string {
   const openTags: string[] = [];
   let cursor = 0;
 
-  for (let match = TAG_PATTERN.exec(text); match !== null; match = TAG_PATTERN.exec(text)) {
+  for (
+    let match = TAG_PATTERN.exec(text);
+    match !== null;
+    match = TAG_PATTERN.exec(text)
+  ) {
     const tagToken = match[0];
     const tagStart = match.index ?? 0;
 
@@ -128,10 +133,14 @@ function sanitizeTelegramHtml(text: string): string {
     output.push(`</${openTags.pop()}>`);
   }
 
-  return output.join("");
+  return output.join('');
 }
 
-function appendSafeTag(tagToken: string, output: string[], openTags: string[]): void {
+function appendSafeTag(
+  tagToken: string,
+  output: string[],
+  openTags: string[]
+): void {
   const closingMatch = /^<\s*\/\s*([a-zA-Z]+)\s*>$/.exec(tagToken);
 
   if (closingMatch) {
@@ -186,7 +195,7 @@ function closeTag(tagName: string, output: string[], openTags: string[]): void {
 
 function escapeHtml(text: string): string {
   return text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }

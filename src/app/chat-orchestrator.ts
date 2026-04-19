@@ -1,19 +1,30 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID } from 'node:crypto';
 
-import type { AppEnv } from "../config/env.js";
+import type { AppEnv } from '../config/env.js';
 import type {
   AssistantIntent,
   NormalizedMessage,
   ReplyContext,
   StoredMessage
-} from "../domain/models.js";
-import { decideReplyAction, detectDirectTrigger } from "../domain/response-policy.js";
-import type { LookupContext, LookupDecision, LookupProvider } from "../lookup/types.js";
-import { serializeError, type AppLogger } from "../logging/logger.js";
-import { DatabaseClient } from "../storage/database.js";
-import { buildReplyContext } from "./reply-context-builder.js";
-import { formatTelegramHtmlReply } from "./telegram-html.js";
-import { withTypingIndicator } from "./typing-indicator.js";
+} from '../domain/models.js';
+import {
+  decideReplyAction,
+  detectDirectTrigger
+} from '../domain/response-policy.js';
+import type {
+  LlmReplyResult,
+  LookupPlanResult
+} from '../llm/openai-compatible-llm-client.js';
+import { type AppLogger, serializeError } from '../logging/logger.js';
+import type {
+  LookupContext,
+  LookupDecision,
+  LookupProvider
+} from '../lookup/types.js';
+import type { DatabaseClient } from '../storage/database.js';
+import { buildReplyContext } from './reply-context-builder.js';
+import { formatTelegramHtmlReply } from './telegram-html.js';
+import { withTypingIndicator } from './typing-indicator.js';
 
 export type BotIdentity = {
   userId: number;
@@ -24,23 +35,6 @@ export type BotIdentity = {
 export type SentBotMessage = {
   messageId: number;
   createdAt: string;
-};
-
-export type LlmReplyResult = {
-  text: string;
-  model: string;
-  latencyMs: number;
-  attemptCount: number;
-  promptTokensEstimate: number;
-};
-
-export type LookupPlanResult = {
-  status: "ok" | "failed";
-  decision: LookupDecision;
-  model: string;
-  latencyMs: number;
-  attemptCount: number;
-  promptTokensEstimate: number;
 };
 
 export type ReplyDispatcher = (input: {
@@ -58,7 +52,7 @@ export type LlmClient = {
     lookupContext?: LookupContext | null;
   }): Promise<LlmReplyResult>;
   planLookup(input: {
-    intent: Exclude<AssistantIntent, "summarize">;
+    intent: Exclude<AssistantIntent, 'summarize'>;
     replyContext: ReplyContext;
   }): Promise<LookupPlanResult>;
 };
@@ -75,7 +69,7 @@ type ReplyRequest = {
 };
 
 const EXPLAIN_USAGE_PLACEHOLDER =
-  "Сделай reply на сообщение с вопросом и отправь /explain.";
+  'Сделай reply на сообщение с вопросом и отправь /explain.';
 
 export class ChatOrchestrator {
   constructor(
@@ -105,14 +99,14 @@ export class ChatOrchestrator {
     const stored = this.deps.db.saveIncomingMessage(message);
 
     if (!stored) {
-      logger.debug("incoming_message_ignored_duplicate");
+      logger.debug('incoming_message_ignored_duplicate');
       return;
     }
 
     const chatState = this.deps.db.getChatState(message.chatId);
 
     if (!chatState) {
-      logger.warn("chat_state_missing_after_save");
+      logger.warn('chat_state_missing_after_save');
       return;
     }
 
@@ -128,7 +122,7 @@ export class ChatOrchestrator {
     });
     const decision = decideReplyAction({ directTrigger });
 
-    logger.debug("incoming_message_evaluated", {
+    logger.debug('incoming_message_evaluated', {
       directTrigger,
       decision: decision.reason,
       intent: decision.intent
@@ -156,9 +150,12 @@ export class ChatOrchestrator {
     await this.runReplyJob(request, logger);
   }
 
-  private async runReplyJob(request: ReplyRequest, logger: AppLogger): Promise<void> {
+  private async runReplyJob(
+    request: ReplyRequest,
+    logger: AppLogger
+  ): Promise<void> {
     try {
-      logger.debug("reply_job_started", {
+      logger.debug('reply_job_started', {
         intent: request.intent,
         replyToMessageId: request.triggerMessageId
       });
@@ -166,7 +163,7 @@ export class ChatOrchestrator {
       const result = await this.executeReplyGeneration(request, logger);
 
       if (!result) {
-        logger.debug("reply_job_skipped", {
+        logger.debug('reply_job_skipped', {
           intent: request.intent,
           replyToMessageId: request.triggerMessageId
         });
@@ -196,7 +193,7 @@ export class ChatOrchestrator {
         replyToMessageId: request.triggerMessageId
       });
 
-      logger.debug("reply_job_completed", {
+      logger.debug('reply_job_completed', {
         intent: request.intent,
         replyToMessageId: request.triggerMessageId,
         llmLatencyMs: result.latencyMs,
@@ -205,7 +202,7 @@ export class ChatOrchestrator {
         promptTokensEstimate: result.promptTokensEstimate
       });
     } catch (error) {
-      logger.error("reply_job_failed", {
+      logger.error('reply_job_failed', {
         intent: request.intent,
         ...serializeError(error)
       });
@@ -232,8 +229,8 @@ export class ChatOrchestrator {
       }
     );
 
-    if (request.intent === "explain" && !replyContext.replyAnchorMessage) {
-      logger.warn("explain_anchor_missing", {
+    if (request.intent === 'explain' && !replyContext.replyAnchorMessage) {
+      logger.warn('explain_anchor_missing', {
         replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
         replyToUserId: request.replyToMessageSnapshot?.userId ?? null
       });
@@ -266,7 +263,7 @@ export class ChatOrchestrator {
     replyContext: ReplyContext;
     logger: AppLogger;
   }): Promise<LookupContext | null> {
-    if (input.intent === "summarize") {
+    if (input.intent === 'summarize') {
       return null;
     }
 
@@ -282,31 +279,31 @@ export class ChatOrchestrator {
         replyContext: input.replyContext
       });
     } catch (error) {
-      input.logger.warn("lookup_planner_failed", {
+      input.logger.warn('lookup_planner_failed', {
         intent: input.intent,
         ...serializeError(error)
       });
 
       return createLookupContext({
-        status: "failed",
+        status: 'failed',
         intent: input.intent,
-        decision: createFailedLookupDecision("Lookup planner failed."),
+        decision: createFailedLookupDecision('Lookup planner failed.'),
         errorMessage: error instanceof Error ? error.message : String(error)
       });
     }
 
     const decision = plan.decision;
 
-    if (plan.status === "failed") {
+    if (plan.status === 'failed') {
       return createLookupContext({
-        status: "failed",
+        status: 'failed',
         intent: input.intent,
         decision,
         errorMessage: decision.reason
       });
     }
 
-    input.logger.debug("lookup_planner_completed", {
+    input.logger.debug('lookup_planner_completed', {
       intent: input.intent,
       shouldLookup: decision.shouldLookup,
       purpose: decision.purpose,
@@ -318,7 +315,7 @@ export class ChatOrchestrator {
 
     if (!decision.shouldLookup) {
       return createLookupContext({
-        status: "skipped",
+        status: 'skipped',
         intent: input.intent,
         decision
       });
@@ -328,7 +325,7 @@ export class ChatOrchestrator {
 
     if (!query) {
       return createLookupContext({
-        status: "skipped",
+        status: 'skipped',
         intent: input.intent,
         decision
       });
@@ -342,7 +339,7 @@ export class ChatOrchestrator {
       });
 
       return createLookupContext({
-        status: result.sources.length > 0 ? "used" : "weak",
+        status: result.sources.length > 0 ? 'used' : 'weak',
         provider: result.provider,
         intent: input.intent,
         decision,
@@ -352,14 +349,14 @@ export class ChatOrchestrator {
         usageCredits: result.usageCredits
       });
     } catch (error) {
-      input.logger.warn("lookup_provider_failed", {
+      input.logger.warn('lookup_provider_failed', {
         intent: input.intent,
         query,
         ...serializeError(error)
       });
 
       return createLookupContext({
-        status: isTimeoutError(error) ? "timed_out" : "failed",
+        status: isTimeoutError(error) ? 'timed_out' : 'failed',
         intent: input.intent,
         decision,
         query,
@@ -396,7 +393,7 @@ function withExplainReplySnapshotFallback(
   }
 ): ReplyContext {
   if (
-    input.intent !== "explain" ||
+    input.intent !== 'explain' ||
     context.replyAnchorMessage ||
     !input.replyToMessageSnapshot ||
     input.replyToMessageSnapshot.userId === input.botUserId
@@ -410,13 +407,16 @@ function withExplainReplySnapshotFallback(
   };
 }
 
-function getContextLimitForIntent(env: AppEnv, intent: AssistantIntent): number {
+function getContextLimitForIntent(
+  env: AppEnv,
+  intent: AssistantIntent
+): number {
   switch (intent) {
-    case "explain":
+    case 'explain':
       return env.explainContextLimit;
-    case "summarize":
+    case 'summarize':
       return env.summarizeContextLimit;
-    case "decide":
+    case 'decide':
       return env.decideContextLimit;
   }
 }
@@ -424,7 +424,7 @@ function getContextLimitForIntent(env: AppEnv, intent: AssistantIntent): number 
 function createLocalReplyResult(text: string): LlmReplyResult {
   return {
     text,
-    model: "local",
+    model: 'local',
     latencyMs: 0,
     attemptCount: 0,
     promptTokensEstimate: 0
@@ -432,12 +432,12 @@ function createLocalReplyResult(text: string): LlmReplyResult {
 }
 
 function createLookupContext(input: {
-  status: LookupContext["status"];
-  provider?: LookupContext["provider"];
-  intent: Exclude<AssistantIntent, "summarize">;
+  status: LookupContext['status'];
+  provider?: LookupContext['provider'];
+  intent: Exclude<AssistantIntent, 'summarize'>;
   decision: LookupDecision;
   query?: string | null;
-  sources?: LookupContext["sources"];
+  sources?: LookupContext['sources'];
   responseTimeMs?: number | null;
   usageCredits?: number | null;
   errorMessage?: string | null;
@@ -458,16 +458,16 @@ function createLookupContext(input: {
 function createFailedLookupDecision(reason: string): LookupDecision {
   return {
     shouldLookup: false,
-    purpose: "none",
+    purpose: 'none',
     reason,
     queries: [],
-    confidence: "low"
+    confidence: 'low'
   };
 }
 
 function isTimeoutError(error: unknown): boolean {
   return (
     error instanceof Error &&
-    (error.name === "AbortError" || error.name === "TimeoutError")
+    (error.name === 'AbortError' || error.name === 'TimeoutError')
   );
 }

@@ -1,6 +1,6 @@
-import type { Context } from "grammy";
+import type { Context } from 'grammy';
 
-import type { ChatType, NormalizedMessage } from "../../domain/models.js";
+import type { ChatType, NormalizedMessage } from '../../domain/models.js';
 
 type TelegramTextPayloadMessage = {
   text?: unknown;
@@ -27,7 +27,8 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     lastName: message.from?.last_name ?? null,
     username: message.from?.username ?? null
   });
-  const chatTitle = "title" in message.chat ? message.chat.title ?? null : null;
+  const chatTitle =
+    'title' in message.chat ? (message.chat.title ?? null) : null;
 
   return {
     chatId: message.chat.id,
@@ -54,8 +55,8 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
 }
 
 function normalizeReplyToMessageSnapshot(
-  message: NonNullable<Context["message"]>
-): NormalizedMessage["replyToMessageSnapshot"] {
+  message: NonNullable<Context['message']>
+): NormalizedMessage['replyToMessageSnapshot'] {
   const reply = message.reply_to_message;
 
   if (!reply) {
@@ -84,13 +85,11 @@ function normalizeReplyToMessageSnapshot(
   };
 }
 
-function normalizeMessageTextPayload(
-  message: TelegramTextPayloadMessage
-): {
+function normalizeMessageTextPayload(message: TelegramTextPayloadMessage): {
   text: string;
   entities: Array<{ type: string; offset: number; length: number }>;
 } | null {
-  if ("text" in message && typeof message.text === "string") {
+  if ('text' in message && typeof message.text === 'string') {
     const text = message.text.trim();
 
     if (text.length === 0) {
@@ -103,7 +102,7 @@ function normalizeMessageTextPayload(
     };
   }
 
-  if ("caption" in message && typeof message.caption === "string") {
+  if ('caption' in message && typeof message.caption === 'string') {
     const text = message.caption.trim();
 
     if (text.length === 0) {
@@ -119,7 +118,11 @@ function normalizeMessageTextPayload(
   return null;
 }
 
-function normalizeEntity(entity: { type: string; offset: number; length: number }): {
+function normalizeEntity(entity: {
+  type: string;
+  offset: number;
+  length: number;
+}): {
   type: string;
   offset: number;
   length: number;
@@ -136,7 +139,10 @@ export function formatSenderDisplayName(input: {
   lastName: string | null;
   username: string | null;
 }): string {
-  const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ").trim();
+  const fullName = [input.firstName, input.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
 
   if (fullName.length > 0 && input.username) {
     return `${fullName} (@${input.username})`;
@@ -154,17 +160,17 @@ export function formatSenderDisplayName(input: {
     return `@${input.username}`;
   }
 
-  return "Unknown";
+  return 'Unknown';
 }
 
 function normalizeChatType(type: string): ChatType {
   switch (type) {
-    case "private":
-    case "group":
-    case "supergroup":
-    case "channel":
+    case 'private':
+    case 'group':
+    case 'supergroup':
+    case 'channel':
       return type;
     default:
-      return "unknown";
+      return 'unknown';
   }
 }

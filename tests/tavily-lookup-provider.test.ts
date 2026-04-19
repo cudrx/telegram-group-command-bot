@@ -1,12 +1,12 @@
-import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { TavilyLookupProvider } from "../src/lookup/tavily-lookup-provider.js";
+import { TavilyLookupProvider } from '../src/lookup/tavily-lookup-provider.js';
 
-describe("TavilyLookupProvider", () => {
+describe('TavilyLookupProvider', () => {
   const originalFetch = globalThis.fetch;
 
   beforeEach(() => {
-    vi.stubGlobal("fetch", vi.fn());
+    vi.stubGlobal('fetch', vi.fn());
   });
 
   afterEach(() => {
@@ -14,16 +14,16 @@ describe("TavilyLookupProvider", () => {
     globalThis.fetch = originalFetch;
   });
 
-  test("calls tavily search with expected request and normalizes results", async () => {
+  test('calls tavily search with expected request and normalizes results', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
           results: [
             {
-              title: "OpenAI",
-              url: "https://openai.com",
-              content: "AI company",
+              title: 'OpenAI',
+              url: 'https://openai.com',
+              content: 'AI company',
               score: 0.91
             }
           ],
@@ -35,31 +35,31 @@ describe("TavilyLookupProvider", () => {
         {
           status: 200,
           headers: {
-            "content-type": "application/json"
+            'content-type': 'application/json'
           }
         }
       )
     );
 
-    const provider = new TavilyLookupProvider({ apiKey: "tvly-key" });
+    const provider = new TavilyLookupProvider({ apiKey: 'tvly-key' });
     const result = await provider.search({
-      query: "openai",
+      query: 'openai',
       maxResults: 3,
       timeoutMs: 5000
     });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.tavily.com/search",
+      'https://api.tavily.com/search',
       expect.objectContaining({
-        method: "POST",
+        method: 'POST',
         headers: expect.objectContaining({
-          Authorization: "Bearer tvly-key",
-          "content-type": "application/json"
+          Authorization: 'Bearer tvly-key',
+          'content-type': 'application/json'
         }),
         body: JSON.stringify({
-          query: "openai",
-          search_depth: "basic",
+          query: 'openai',
+          search_depth: 'basic',
           max_results: 3,
           include_answer: false,
           include_raw_content: false,
@@ -69,13 +69,13 @@ describe("TavilyLookupProvider", () => {
       })
     );
     expect(result).toEqual({
-      provider: "tavily",
-      query: "openai",
+      provider: 'tavily',
+      query: 'openai',
       sources: [
         {
-          title: "OpenAI",
-          url: "https://openai.com",
-          content: "AI company",
+          title: 'OpenAI',
+          url: 'https://openai.com',
+          content: 'AI company',
           score: 0.91
         }
       ],
@@ -84,74 +84,74 @@ describe("TavilyLookupProvider", () => {
     });
   });
 
-  test("throws on non-2xx responses", async () => {
+  test('throws on non-2xx responses', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock.mockResolvedValue(
-      new Response("bad key", {
+      new Response('bad key', {
         status: 401,
-        statusText: "Unauthorized"
+        statusText: 'Unauthorized'
       })
     );
 
-    const provider = new TavilyLookupProvider({ apiKey: "bad-key" });
+    const provider = new TavilyLookupProvider({ apiKey: 'bad-key' });
 
     await expect(
       provider.search({
-        query: "openai",
+        query: 'openai',
         maxResults: 3,
         timeoutMs: 5000
       })
-    ).rejects.toThrow("Tavily lookup failed with status 401: bad key");
+    ).rejects.toThrow('Tavily lookup failed with status 401: bad key');
   });
 
-  test("drops malformed rows and nulls missing metrics", async () => {
+  test('drops malformed rows and nulls missing metrics', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
           results: [
             {
-              title: "Valid",
-              url: "https://example.com",
-              content: "keep",
+              title: 'Valid',
+              url: 'https://example.com',
+              content: 'keep',
               score: null
             },
             {
-              title: "",
-              url: "https://example.com/missing-title",
-              content: "drop"
+              title: '',
+              url: 'https://example.com/missing-title',
+              content: 'drop'
             },
             {
-              title: "Missing url",
-              content: "drop"
+              title: 'Missing url',
+              content: 'drop'
             },
             {
-              title: "Missing content",
-              url: "https://example.com/missing-content"
+              title: 'Missing content',
+              url: 'https://example.com/missing-content'
             }
           ]
         }),
         {
           status: 200,
           headers: {
-            "content-type": "application/json"
+            'content-type': 'application/json'
           }
         }
       )
     );
 
-    const provider = new TavilyLookupProvider({ apiKey: "tvly-key" });
+    const provider = new TavilyLookupProvider({ apiKey: 'tvly-key' });
     const result = await provider.search({
-      query: "openai",
+      query: 'openai',
       maxResults: 3,
       timeoutMs: 5000
     });
 
     expect(result.sources).toEqual([
       {
-        title: "Valid",
-        url: "https://example.com",
-        content: "keep",
+        title: 'Valid',
+        url: 'https://example.com',
+        content: 'keep',
         score: null
       }
     ]);
@@ -159,7 +159,7 @@ describe("TavilyLookupProvider", () => {
     expect(result.usageCredits).toBeNull();
   });
 
-  test("treats malformed results containers as no sources", async () => {
+  test('treats malformed results containers as no sources', async () => {
     const fetchMock = vi.mocked(globalThis.fetch);
     fetchMock
       .mockResolvedValueOnce(
@@ -170,7 +170,7 @@ describe("TavilyLookupProvider", () => {
           {
             status: 200,
             headers: {
-              "content-type": "application/json"
+              'content-type': 'application/json'
             }
           }
         )
@@ -183,17 +183,17 @@ describe("TavilyLookupProvider", () => {
           {
             status: 200,
             headers: {
-              "content-type": "application/json"
+              'content-type': 'application/json'
             }
           }
         )
       );
 
-    const provider = new TavilyLookupProvider({ apiKey: "tvly-key" });
+    const provider = new TavilyLookupProvider({ apiKey: 'tvly-key' });
 
     await expect(
       provider.search({
-        query: "openai",
+        query: 'openai',
         maxResults: 3,
         timeoutMs: 5000
       })
@@ -202,7 +202,7 @@ describe("TavilyLookupProvider", () => {
     });
     await expect(
       provider.search({
-        query: "openai",
+        query: 'openai',
         maxResults: 3,
         timeoutMs: 5000
       })

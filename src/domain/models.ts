@@ -1,16 +1,19 @@
-export type ChatType = "private" | "group" | "supergroup" | "channel" | "unknown";
+export type ChatType =
+  | 'private'
+  | 'group'
+  | 'supergroup'
+  | 'channel'
+  | 'unknown';
 
-export type AssistantIntent = "explain" | "summarize" | "decide";
+export type AssistantIntent = 'explain' | 'summarize' | 'decide';
 
 export type DirectTrigger =
   | {
-      kind: "command";
+      kind: 'command';
       intent: AssistantIntent;
       commandText: string;
     }
-  | { kind: "none" };
-
-export type ReplyReason = "command";
+  | { kind: 'none' };
 
 export type NormalizedMessage = {
   chatId: number;

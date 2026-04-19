@@ -1,13 +1,16 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-import OpenAI from "openai";
+import OpenAI from 'openai';
 
-import { parseEnv } from "../src/config/env.js";
-import { buildIntentPrompt } from "../src/llm/prompts.js";
-import type { LookupContext, LookupSource } from "../src/lookup/types.js";
-import { intentEvalFixtures, type IntentEvalFixture } from "./intent-eval-fixtures.js";
+import { parseEnv } from '../src/config/env.js';
+import { buildIntentPrompt } from '../src/llm/prompts.js';
+import type { LookupContext, LookupSource } from '../src/lookup/types.js';
+import {
+  type IntentEvalFixture,
+  intentEvalFixtures
+} from './intent-eval-fixtures.js';
 
 export type RubricResult = {
   include: Array<{ group: string[]; passed: boolean }>;
@@ -52,7 +55,7 @@ export function evaluateRubric(
     })),
     matchRegex: (rubric.mustMatchRegex ?? []).map((pattern) => ({
       pattern,
-      passed: new RegExp(pattern, "iu").test(response)
+      passed: new RegExp(pattern, 'iu').test(response)
     })),
     exclude: rubric.mustNotIncludeAny.map((group) => ({
       group,
@@ -60,7 +63,7 @@ export function evaluateRubric(
     })),
     notMatchRegex: (rubric.mustNotMatchRegex ?? []).map((pattern) => ({
       pattern,
-      passed: !new RegExp(pattern, "iu").test(response)
+      passed: !new RegExp(pattern, 'iu').test(response)
     }))
   };
 }
@@ -81,18 +84,18 @@ export async function main(): Promise<number> {
     apiKey: env.llmApiKey,
     baseURL: env.llmBaseUrl
   });
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const outputDir = path.join(".eval-runs", timestamp);
   const results: EvalResult[] = [];
-
-  await mkdir(outputDir, { recursive: true });
-
   const filters = parseEvalFilters(process.argv.slice(2));
   const selectedFixtures = filterFixtures(intentEvalFixtures, filters);
 
   if (selectedFixtures.length === 0) {
-    throw new Error("No intent eval fixtures matched the provided filters.");
+    throw new Error('No intent eval fixtures matched the provided filters.');
   }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const outputDir = path.join('.eval-runs', timestamp);
+
+  await mkdir(outputDir, { recursive: true });
 
   console.log(
     `Running ${selectedFixtures.length}/${intentEvalFixtures.length} intent eval fixture(s).`
@@ -108,16 +111,17 @@ export async function main(): Promise<number> {
       temperature: env.llmReplyTemperature,
       messages: [
         {
-          role: "system",
-          content: "You are a careful Telegram chat assistant. Answer in Russian."
+          role: 'system',
+          content:
+            'You are a careful Telegram chat assistant. Answer in Russian.'
         },
         {
-          role: "user",
+          role: 'user',
           content: prompt
         }
       ]
     });
-    const response = completion.choices[0]?.message.content?.trim() ?? "";
+    const response = completion.choices[0]?.message.content?.trim() ?? '';
     const result = {
       id: fixture.id,
       intent: fixture.intent,
@@ -130,21 +134,25 @@ export async function main(): Promise<number> {
   }
 
   await writeFile(
-    path.join(outputDir, "assistant-intents.json"),
+    path.join(outputDir, 'assistant-intents.json'),
     JSON.stringify({ generatedAt: new Date().toISOString(), results }, null, 2),
-    "utf8"
+    'utf8'
   );
-  await writeFile(path.join(outputDir, "assistant-intents.md"), formatMarkdown(results), "utf8");
+  await writeFile(
+    path.join(outputDir, 'assistant-intents.md'),
+    formatMarkdown(results),
+    'utf8'
+  );
 
-  console.log("");
+  console.log('');
   console.log(`Saved eval results to ${outputDir}`);
 
   if (results.some((result) => hasRubricFailures(result.rubric))) {
     process.exitCode = 1;
-    console.error("One or more rubric checks failed.");
+    console.error('One or more rubric checks failed.');
   }
 
-  return typeof process.exitCode === "number" ? process.exitCode : 0;
+  return typeof process.exitCode === 'number' ? process.exitCode : 0;
 }
 
 export function parseEvalFilters(args: string[]): EvalFilters {
@@ -154,13 +162,13 @@ export function parseEvalFilters(args: string[]): EvalFilters {
   };
 
   for (const arg of args) {
-    if (arg.startsWith("--id=")) {
-      addCsvValues(filters.ids, arg.slice("--id=".length));
+    if (arg.startsWith('--id=')) {
+      addCsvValues(filters.ids, arg.slice('--id='.length));
       continue;
     }
 
-    if (arg.startsWith("--intent=")) {
-      addCsvValues(filters.intents, arg.slice("--intent=".length));
+    if (arg.startsWith('--intent=')) {
+      addCsvValues(filters.intents, arg.slice('--intent='.length));
       continue;
     }
 
@@ -186,7 +194,7 @@ export function filterFixtures(
 }
 
 function addCsvValues(target: Set<string>, value: string): void {
-  for (const item of value.split(",")) {
+  for (const item of value.split(',')) {
     const normalized = item.trim();
 
     if (normalized.length > 0) {
@@ -195,23 +203,25 @@ function addCsvValues(target: Set<string>, value: string): void {
   }
 }
 
-export function createEvalLookupContext(fixture: IntentEvalFixture): LookupContext | null {
-  if (!fixture.lookupExpectation || fixture.intent === "summarize") {
+export function createEvalLookupContext(
+  fixture: IntentEvalFixture
+): LookupContext | null {
+  if (!fixture.lookupExpectation || fixture.intent === 'summarize') {
     return null;
   }
 
   return {
-    status: fixture.lookupExpectation.shouldLookup ? "used" : "skipped",
-    provider: fixture.lookupExpectation.shouldLookup ? "tavily" : null,
+    status: fixture.lookupExpectation.shouldLookup ? 'used' : 'skipped',
+    provider: fixture.lookupExpectation.shouldLookup ? 'tavily' : null,
     intent: fixture.intent,
     decision: {
       shouldLookup: fixture.lookupExpectation.shouldLookup,
       purpose: fixture.lookupExpectation.purpose,
-      reason: "Fixture-provided lookup context for intent eval.",
+      reason: 'Fixture-provided lookup context for intent eval.',
       queries: fixture.lookupExpectation.includeTerms,
-      confidence: fixture.lookupExpectation.shouldLookup ? "high" : "low"
+      confidence: fixture.lookupExpectation.shouldLookup ? 'high' : 'low'
     },
-    query: fixture.lookupExpectation.includeTerms.join(" "),
+    query: fixture.lookupExpectation.includeTerms.join(' '),
     sources: fixture.lookupExpectation.shouldLookup
       ? createEvalLookupSources(fixture.lookupExpectation.includeTerms)
       : [],
@@ -232,75 +242,91 @@ function createEvalLookupSources(includeTerms: string[]): LookupSource[] {
   return [
     ...sources,
     {
-      title: includeTerms.join(" / "),
-      url: "https://example.test/intent-eval-lookup",
-      content: includeTerms.join(". "),
+      title: includeTerms.join(' / '),
+      url: 'https://example.test/intent-eval-lookup',
+      content: includeTerms.join('. '),
       score: 1
     }
   ];
 }
 
 function printResult(result: EvalResult): void {
-  console.log("");
+  console.log('');
   console.log(`=== ${result.id} (${result.intent}) ===`);
   console.log(result.response);
-  console.log("");
-  console.log("Rubric:");
+  console.log('');
+  console.log('Rubric:');
 
   for (const check of result.rubric.include) {
-    console.log(`${check.passed ? "PASS" : "FAIL"} include any: ${check.group.join(" | ")}`);
+    console.log(
+      `${check.passed ? 'PASS' : 'FAIL'} include any: ${check.group.join(' | ')}`
+    );
   }
 
   for (const check of result.rubric.includeAll) {
-    console.log(`${check.passed ? "PASS" : "FAIL"} include all: ${check.term}`);
+    console.log(`${check.passed ? 'PASS' : 'FAIL'} include all: ${check.term}`);
   }
 
   for (const check of result.rubric.matchRegex) {
-    console.log(`${check.passed ? "PASS" : "FAIL"} match regex: ${check.pattern}`);
+    console.log(
+      `${check.passed ? 'PASS' : 'FAIL'} match regex: ${check.pattern}`
+    );
   }
 
   for (const check of result.rubric.exclude) {
-    console.log(`${check.passed ? "PASS" : "FAIL"} exclude all: ${check.group.join(" | ")}`);
+    console.log(
+      `${check.passed ? 'PASS' : 'FAIL'} exclude all: ${check.group.join(' | ')}`
+    );
   }
 
   for (const check of result.rubric.notMatchRegex) {
-    console.log(`${check.passed ? "PASS" : "FAIL"} not match regex: ${check.pattern}`);
+    console.log(
+      `${check.passed ? 'PASS' : 'FAIL'} not match regex: ${check.pattern}`
+    );
   }
 }
 
 function formatMarkdown(results: EvalResult[]): string {
   return [
-    "# Assistant Intent Eval Results",
-    "",
+    '# Assistant Intent Eval Results',
+    '',
     `Generated at: ${new Date().toISOString()}`,
-    "",
+    '',
     ...results.flatMap((result) => [
       `## ${result.id} (${result.intent})`,
-      "",
+      '',
       result.response,
-      "",
-      "### Rubric",
-      "",
+      '',
+      '### Rubric',
+      '',
       ...result.rubric.include.map(
-        (check) => `- ${check.passed ? "PASS" : "FAIL"} include any: ${check.group.join(" | ")}`
+        (check) =>
+          `- ${check.passed ? 'PASS' : 'FAIL'} include any: ${check.group.join(' | ')}`
       ),
       ...result.rubric.includeAll.map(
-        (check) => `- ${check.passed ? "PASS" : "FAIL"} include all: ${check.term}`
+        (check) =>
+          `- ${check.passed ? 'PASS' : 'FAIL'} include all: ${check.term}`
       ),
       ...result.rubric.matchRegex.map(
-        (check) => `- ${check.passed ? "PASS" : "FAIL"} match regex: ${check.pattern}`
+        (check) =>
+          `- ${check.passed ? 'PASS' : 'FAIL'} match regex: ${check.pattern}`
       ),
       ...result.rubric.exclude.map(
-        (check) => `- ${check.passed ? "PASS" : "FAIL"} exclude all: ${check.group.join(" | ")}`
+        (check) =>
+          `- ${check.passed ? 'PASS' : 'FAIL'} exclude all: ${check.group.join(' | ')}`
       ),
       ...result.rubric.notMatchRegex.map(
-        (check) => `- ${check.passed ? "PASS" : "FAIL"} not match regex: ${check.pattern}`
+        (check) =>
+          `- ${check.passed ? 'PASS' : 'FAIL'} not match regex: ${check.pattern}`
       ),
-      ""
+      ''
     ])
-  ].join("\n");
+  ].join('\n');
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   await main();
 }

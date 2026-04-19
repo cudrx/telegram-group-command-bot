@@ -1,9 +1,13 @@
-import type { AssistantIntent, ReplyContext, StoredMessage } from "../domain/models.js";
-import type { DatabaseClient } from "../storage/database.js";
+import type {
+  AssistantIntent,
+  ReplyContext,
+  StoredMessage
+} from '../domain/models.js';
+import type { DatabaseClient } from '../storage/database.js';
 
 type ReplyContextDb = Pick<
   DatabaseClient,
-  "getMessageByTelegramMessageId" | "getMessagesBefore"
+  'getMessageByTelegramMessageId' | 'getMessagesBefore'
 >;
 
 export function buildReplyContext(input: {
@@ -48,7 +52,7 @@ function buildReplyAnchorMessage(
     botUserId: number;
   }
 ): StoredMessage | null {
-  if (input.intent !== "explain" || !input.triggerMessage.replyToMessageId) {
+  if (input.intent !== 'explain' || !input.triggerMessage.replyToMessageId) {
     return null;
   }
 
@@ -79,7 +83,11 @@ function buildPriorContextMessages(
   }
 
   const lookbackLimit = Math.max(input.contextLimit * 4, priorContextLimit);
-  const priorMessages = db.getMessagesBefore(input.chatId, input.triggerMessageId, lookbackLimit);
+  const priorMessages = db.getMessagesBefore(
+    input.chatId,
+    input.triggerMessageId,
+    lookbackLimit
+  );
   const humanMessages = priorMessages.filter((message) => !message.isBot);
 
   return compactTranscript(humanMessages.slice(-priorContextLimit));
@@ -93,7 +101,9 @@ function emptyReplyContext(): ReplyContext {
   };
 }
 
-function compactTranscript(messages: Array<StoredMessage | null>): StoredMessage[] {
+function compactTranscript(
+  messages: Array<StoredMessage | null>
+): StoredMessage[] {
   const transcriptById = new Map<number, StoredMessage>();
 
   for (const message of messages) {
@@ -102,5 +112,7 @@ function compactTranscript(messages: Array<StoredMessage | null>): StoredMessage
     }
   }
 
-  return Array.from(transcriptById.values()).sort((left, right) => left.messageId - right.messageId);
+  return Array.from(transcriptById.values()).sort(
+    (left, right) => left.messageId - right.messageId
+  );
 }

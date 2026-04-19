@@ -1,13 +1,13 @@
-import type { AssistantIntent } from "../domain/models.js";
+import type { AssistantIntent } from '../domain/models.js';
 
 export type LookupPurpose =
-  | "none"
-  | "entity_grounding"
-  | "fact_check"
-  | "freshness"
-  | "link_extraction";
+  | 'none'
+  | 'entity_grounding'
+  | 'fact_check'
+  | 'freshness'
+  | 'link_extraction';
 
-export type LookupConfidence = "high" | "medium" | "low";
+export type LookupConfidence = 'high' | 'medium' | 'low';
 
 export type LookupDecision = {
   shouldLookup: boolean;
@@ -25,17 +25,17 @@ export type LookupSource = {
 };
 
 export type LookupStatus =
-  | "disabled"
-  | "skipped"
-  | "used"
-  | "failed"
-  | "timed_out"
-  | "weak";
+  | 'disabled'
+  | 'skipped'
+  | 'used'
+  | 'failed'
+  | 'timed_out'
+  | 'weak';
 
 export type LookupContext = {
   status: LookupStatus;
-  provider: "tavily" | null;
-  intent: Exclude<AssistantIntent, "summarize">;
+  provider: 'tavily' | null;
+  intent: Exclude<AssistantIntent, 'summarize'>;
   decision: LookupDecision;
   query: string | null;
   sources: LookupSource[];
@@ -51,7 +51,7 @@ export type LookupProviderSearchInput = {
 };
 
 export type LookupProviderSearchResult = {
-  provider: "tavily";
+  provider: 'tavily';
   query: string;
   sources: LookupSource[];
   responseTimeMs: number | null;

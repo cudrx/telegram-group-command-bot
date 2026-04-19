@@ -1,6 +1,6 @@
-import { DatabaseClient } from "../src/storage/database.js";
+import { DatabaseClient } from '../src/storage/database.js';
 
-const sqlitePath = process.env.SQLITE_PATH ?? "data/bot.sqlite";
+const sqlitePath = process.env.SQLITE_PATH ?? 'data/bot.sqlite';
 const db = DatabaseClient.open(sqlitePath);
 
 db.close();

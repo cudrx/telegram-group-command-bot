@@ -1,20 +1,22 @@
-import { expect, test } from "vitest";
+import { expect, test } from 'vitest';
 
-import { buildDeployUpdatePrompt } from "../src/llm/deploy-update-prompt.js";
+import { buildDeployUpdatePrompt } from '../src/llm/deploy-update-prompt.js';
 
-test("builds a Russian Telegram update formatting prompt", () => {
+test('builds a Russian Telegram update formatting prompt', () => {
   const prompt = buildDeployUpdatePrompt({
-    shortSha: "9c59b85",
+    shortSha: '9c59b85',
     commits: [
-      "fix: handle telegram media captions",
-      "feat: add release update notifications"
+      'fix: handle telegram media captions',
+      'feat: add release update notifications'
     ]
   });
 
-  expect(prompt).toContain("Write in Russian.");
-  expect(prompt).toContain("<b>Добавлено</b>");
-  expect(prompt).toContain("Do not mention git, commits, Docker, CI/CD, deployment");
-  expect(prompt).toContain("Commit SHA: 9c59b85");
-  expect(prompt).toContain("- fix: handle telegram media captions");
-  expect(prompt).toContain("- feat: add release update notifications");
+  expect(prompt).toContain('Write in Russian.');
+  expect(prompt).toContain('<b>Добавлено</b>');
+  expect(prompt).toContain(
+    'Do not mention git, commits, Docker, CI/CD, deployment'
+  );
+  expect(prompt).toContain('Commit SHA: 9c59b85');
+  expect(prompt).toContain('- fix: handle telegram media captions');
+  expect(prompt).toContain('- feat: add release update notifications');
 });

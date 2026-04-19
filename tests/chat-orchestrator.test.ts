@@ -1,15 +1,21 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from 'vitest';
 
-import { ChatOrchestrator } from "../src/app/chat-orchestrator.js";
-import type { AppEnv } from "../src/config/env.js";
-import type { ChatState, NormalizedMessage, StoredMessage } from "../src/domain/models.js";
-import type { LookupProvider } from "../src/lookup/types.js";
-import type { AppLogger, LogFields } from "../src/logging/logger.js";
+import { ChatOrchestrator } from '../src/app/chat-orchestrator.js';
+import type { AppEnv } from '../src/config/env.js';
+import type {
+  ChatState,
+  NormalizedMessage,
+  StoredMessage
+} from '../src/domain/models.js';
+import type { AppLogger } from '../src/logging/logger.js';
+import type { LookupProvider } from '../src/lookup/types.js';
 
-describe("ChatOrchestrator", () => {
-  test("ignores ordinary messages and does not call the LLM", async () => {
+describe('ChatOrchestrator', () => {
+  test('ignores ordinary messages and does not call the LLM', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не надо"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
     const replyDispatcher = vi.fn();
     const orchestrator = createOrchestrator({
       db,
@@ -17,15 +23,19 @@ describe("ChatOrchestrator", () => {
       replyDispatcher
     });
 
-    await orchestrator.handleIncomingMessage(createIncomingMessage({ text: "обычно болтаем" }));
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({ text: 'обычно болтаем' })
+    );
 
     expect(generateReply).not.toHaveBeenCalled();
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
-  test("ignores ordinary mentions and does not call the LLM", async () => {
+  test('ignores ordinary mentions and does not call the LLM', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не надо"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
     const replyDispatcher = vi.fn();
     const orchestrator = createOrchestrator({
       db,
@@ -35,8 +45,8 @@ describe("ChatOrchestrator", () => {
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        text: "@fun_bot кто прав?",
-        entities: [{ type: "mention", offset: 0, length: 8 }]
+        text: '@fun_bot кто прав?',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -44,22 +54,24 @@ describe("ChatOrchestrator", () => {
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
-  test("replies to command modes with assistant instructions and recent chat context", async () => {
+  test('replies to command modes with assistant instructions and recent chat context', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
         messageId: 1,
-        text: "до этого был вопрос",
-        createdAt: "2026-04-03T12:00:00.000Z"
+        text: 'до этого был вопрос',
+        createdAt: '2026-04-03T12:00:00.000Z'
       })
     );
 
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
-    const loadAssistantInstructions = vi.fn().mockResolvedValue("assistant instructions");
+    const loadAssistantInstructions = vi
+      .fn()
+      .mockResolvedValue('assistant instructions');
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
@@ -70,16 +82,18 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/decide",
-        entities: [{ type: "bot_command", offset: 0, length: 7 }]
+        text: '/decide',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
-    expect(loadAssistantInstructions).toHaveBeenCalledWith("config/assistant-instructions.md");
+    expect(loadAssistantInstructions).toHaveBeenCalledWith(
+      'config/assistant-instructions.md'
+    );
     expect(generateReply).toHaveBeenCalledWith({
-      assistantInstructions: "assistant instructions",
-      targetDisplayName: "Tom",
-      intent: "decide",
+      assistantInstructions: 'assistant instructions',
+      targetDisplayName: 'Tom',
+      intent: 'decide',
       lookupContext: null,
       replyContext: expect.objectContaining({
         triggerMessage: expect.objectContaining({ messageId: 2 }),
@@ -90,24 +104,26 @@ describe("ChatOrchestrator", () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: "держи"
+      text: 'держи'
     });
     expect(db.getMessageByTelegramMessageId(1, 1001)).toMatchObject({
       messageId: 1001,
-      text: "держи",
+      text: 'держи',
       replyToMessageId: 2,
       isBot: true
     });
   });
 
-  test("formats replies before dispatching and saving bot messages", async () => {
+  test('formats replies before dispatching and saving bot messages', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(
-      createReplyResult("<b>Коротко</b>\n\n- пункт\n<script>alert</script>")
-    );
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(
+        createReplyResult('<b>Коротко</b>\n\n- пункт\n<script>alert</script>')
+      );
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -118,31 +134,31 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/summarize",
-        entities: [{ type: "bot_command", offset: 0, length: 10 }]
+        text: '/summarize',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
       })
     );
 
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: "<b>Коротко</b>\n\n• пункт\nalert"
+      text: '<b>Коротко</b>\n\n• пункт\nalert'
     });
     expect(db.getMessageByTelegramMessageId(1, 1001)).toMatchObject({
       messageId: 1001,
-      text: "<b>Коротко</b>\n\n• пункт\nalert",
+      text: '<b>Коротко</b>\n\n• пункт\nalert',
       replyToMessageId: 2,
       isBot: true
     });
   });
 
-  test("logs completed reply jobs at debug level only", async () => {
+  test('logs completed reply jobs at debug level only', async () => {
     const db = new FakeDatabaseClient();
     const logger = createLogger();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("держи"));
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -154,41 +170,43 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/summarize",
-        entities: [{ type: "bot_command", offset: 0, length: 10 }]
+        text: '/summarize',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
       })
     );
 
     expect(logger.info).not.toHaveBeenCalledWith(
-      "reply_job_completed",
+      'reply_job_completed',
       expect.any(Object)
     );
     expect(logger.debug).toHaveBeenCalledWith(
-      "reply_job_completed",
+      'reply_job_completed',
       expect.objectContaining({
-        intent: "summarize",
-        llmModel: "reply-model"
+        intent: 'summarize',
+        llmModel: 'reply-model'
       })
     );
   });
 
-  test("uses replied-to non-self bot message as explain request anchor", async () => {
+  test('uses replied-to non-self bot message as explain request anchor', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
         messageId: 1,
         fromUserId: 555,
-        fromDisplayName: "Rofl Bot",
+        fromDisplayName: 'Rofl Bot',
         isBot: true,
-        text: "кто сильнее лев или тигр?",
-        createdAt: "2026-04-03T12:00:00.000Z"
+        text: 'кто сильнее лев или тигр?',
+        createdAt: '2026-04-03T12:00:00.000Z'
       })
     );
 
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("тигр вероятнее"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('тигр вероятнее'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -199,8 +217,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/explain",
-        entities: [{ type: "bot_command", offset: 0, length: 8 }],
+        text: '/explain',
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToUserId: 555
       })
@@ -208,13 +226,13 @@ describe("ChatOrchestrator", () => {
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: "explain",
+        intent: 'explain',
         replyContext: expect.objectContaining({
           triggerMessage: expect.objectContaining({ messageId: 2 }),
           replyAnchorMessage: expect.objectContaining({
             messageId: 1,
             isBot: true,
-            text: "кто сильнее лев или тигр?"
+            text: 'кто сильнее лев или тигр?'
           })
         })
       })
@@ -222,16 +240,18 @@ describe("ChatOrchestrator", () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: "тигр вероятнее"
+      text: 'тигр вероятнее'
     });
   });
 
-  test("uses Telegram reply snapshot as explain anchor when the replied-to bot message is not stored", async () => {
+  test('uses Telegram reply snapshot as explain anchor when the replied-to bot message is not stored', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("это ответ другого бота"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('это ответ другого бота'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -239,37 +259,35 @@ describe("ChatOrchestrator", () => {
       replyDispatcher
     });
 
-    await orchestrator.handleIncomingMessage(
-      {
-        ...createIncomingMessage({
-          messageId: 2,
-          text: "/explain",
-          entities: [{ type: "bot_command", offset: 0, length: 8 }],
-          replyToMessageId: 1,
-          replyToUserId: 555
-        }),
-        replyToMessageSnapshot: {
-          chatId: 1,
-          messageId: 1,
-          userId: 555,
-          senderDisplayName: "Rofl Bot (@rofl_bot)",
-          text: "кто сильнее лев или тигр?",
-          createdAt: "2026-04-03T12:00:00.000Z",
-          isBot: true,
-          replyToMessageId: null
-        }
-      } as NormalizedMessage
-    );
+    await orchestrator.handleIncomingMessage({
+      ...createIncomingMessage({
+        messageId: 2,
+        text: '/explain',
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        replyToMessageId: 1,
+        replyToUserId: 555
+      }),
+      replyToMessageSnapshot: {
+        chatId: 1,
+        messageId: 1,
+        userId: 555,
+        senderDisplayName: 'Rofl Bot (@rofl_bot)',
+        text: 'кто сильнее лев или тигр?',
+        createdAt: '2026-04-03T12:00:00.000Z',
+        isBot: true,
+        replyToMessageId: null
+      }
+    } as NormalizedMessage);
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: "explain",
+        intent: 'explain',
         replyContext: expect.objectContaining({
           replyAnchorMessage: expect.objectContaining({
             messageId: 1,
             userId: 555,
             isBot: true,
-            text: "кто сильнее лев или тигр?"
+            text: 'кто сильнее лев или тигр?'
           })
         })
       })
@@ -277,16 +295,18 @@ describe("ChatOrchestrator", () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: "это ответ другого бота"
+      text: 'это ответ другого бота'
     });
   });
 
-  test("returns local explain placeholder when no usable reply anchor exists", async () => {
+  test('returns local explain placeholder when no usable reply anchor exists', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("не надо"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -297,8 +317,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/explain кто сильнее лев или тигр",
-        entities: [{ type: "bot_command", offset: 0, length: 8 }]
+        text: '/explain кто сильнее лев или тигр',
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
       })
     );
 
@@ -306,24 +326,28 @@ describe("ChatOrchestrator", () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: "Сделай reply на сообщение с вопросом и отправь /explain."
+      text: 'Сделай reply на сообщение с вопросом и отправь /explain.'
     });
   });
 
-  test("does not plan lookup for summarize", async () => {
+  test('does not plan lookup for summarize', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("коротко"));
-    const planLookup = vi.fn().mockResolvedValue(createLookupPlanResult({
-      shouldLookup: true,
-      purpose: "entity_grounding",
-      reason: "Should not be called for summarize.",
-      queries: ["ignored"],
-      confidence: "high"
-    }));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('коротко'));
+    const planLookup = vi.fn().mockResolvedValue(
+      createLookupPlanResult({
+        shouldLookup: true,
+        purpose: 'entity_grounding',
+        reason: 'Should not be called for summarize.',
+        queries: ['ignored'],
+        confidence: 'high'
+      })
+    );
     const lookupProvider = {
       search: vi.fn().mockResolvedValue({
-        provider: "tavily",
-        query: "ignored",
+        provider: 'tavily',
+        query: 'ignored',
         sources: [],
         responseTimeMs: 1,
         usageCredits: 1
@@ -331,7 +355,7 @@ describe("ChatOrchestrator", () => {
     };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -344,8 +368,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/summarize",
-        entities: [{ type: "bot_command", offset: 0, length: 10 }]
+        text: '/summarize',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
       })
     );
 
@@ -353,22 +377,24 @@ describe("ChatOrchestrator", () => {
     expect(lookupProvider.search).not.toHaveBeenCalled();
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: "summarize",
+        intent: 'summarize',
         lookupContext: null
       })
     );
   });
 
-  test("does not plan lookup when lookup is disabled", async () => {
+  test('does not plan lookup when lookup is disabled', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("вердикт"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('вердикт'));
     const planLookup = vi.fn();
     const lookupProvider = {
       search: vi.fn()
     };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -381,8 +407,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/decide",
-        entities: [{ type: "bot_command", offset: 0, length: 7 }]
+        text: '/decide',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
@@ -390,40 +416,44 @@ describe("ChatOrchestrator", () => {
     expect(lookupProvider.search).not.toHaveBeenCalled();
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: "decide",
+        intent: 'decide',
         lookupContext: null
       })
     );
   });
 
-  test("plans and uses Tavily lookup for decide when planner requests it", async () => {
+  test('plans and uses Tavily lookup for decide when planner requests it', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
         messageId: 1,
-        text: "кто лучше дора или мейби бэйби?",
-        createdAt: "2026-04-03T12:00:00.000Z"
+        text: 'кто лучше дора или мейби бэйби?',
+        createdAt: '2026-04-03T12:00:00.000Z'
       })
     );
 
     const decision = {
       shouldLookup: true,
-      purpose: "entity_grounding" as const,
-      reason: "Need to identify the artists.",
-      queries: ["Дора Мэйби Бэйби певицы кто такие"],
-      confidence: "high" as const
+      purpose: 'entity_grounding' as const,
+      reason: 'Need to identify the artists.',
+      queries: ['Дора Мэйби Бэйби певицы кто такие'],
+      confidence: 'high' as const
     };
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("вердикт"));
-    const planLookup = vi.fn().mockResolvedValue(createLookupPlanResult(decision));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('вердикт'));
+    const planLookup = vi
+      .fn()
+      .mockResolvedValue(createLookupPlanResult(decision));
     const lookupProvider = {
       search: vi.fn().mockResolvedValue({
-        provider: "tavily",
-        query: "Дора Мэйби Бэйби певицы кто такие",
+        provider: 'tavily',
+        query: 'Дора Мэйби Бэйби певицы кто такие',
         sources: [
           {
-            title: "Дора (певица)",
-            url: "https://example.com/dora",
-            content: "Дора - российская певица.",
+            title: 'Дора (певица)',
+            url: 'https://example.com/dora',
+            content: 'Дора - российская певица.',
             score: 0.91
           }
         ],
@@ -433,7 +463,7 @@ describe("ChatOrchestrator", () => {
     };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -450,33 +480,33 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/decide",
-        entities: [{ type: "bot_command", offset: 0, length: 7 }]
+        text: '/decide',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
     expect(planLookup).toHaveBeenCalledWith({
-      intent: "decide",
+      intent: 'decide',
       replyContext: expect.objectContaining({
         priorContextMessages: [expect.objectContaining({ messageId: 1 })]
       })
     });
     expect(lookupProvider.search).toHaveBeenCalledWith({
-      query: "Дора Мэйби Бэйби певицы кто такие",
+      query: 'Дора Мэйби Бэйби певицы кто такие',
       maxResults: 3,
       timeoutMs: 7000
     });
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: "decide",
+        intent: 'decide',
         lookupContext: expect.objectContaining({
-          status: "used",
-          provider: "tavily",
-          query: "Дора Мэйби Бэйби певицы кто такие",
+          status: 'used',
+          provider: 'tavily',
+          query: 'Дора Мэйби Бэйби певицы кто такие',
           sources: [
             expect.objectContaining({
-              title: "Дора (певица)",
-              url: "https://example.com/dora"
+              title: 'Дора (певица)',
+              url: 'https://example.com/dora'
             })
           ]
         })
@@ -484,30 +514,34 @@ describe("ChatOrchestrator", () => {
     );
   });
 
-  test("passes failed lookup context to final reply when Tavily fails", async () => {
+  test('passes failed lookup context to final reply when Tavily fails', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
         messageId: 1,
-        text: "кто лучше дора или мейби бэйби?",
-        createdAt: "2026-04-03T12:00:00.000Z"
+        text: 'кто лучше дора или мейби бэйби?',
+        createdAt: '2026-04-03T12:00:00.000Z'
       })
     );
 
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("вердикт"));
-    const planLookup = vi.fn().mockResolvedValue(createLookupPlanResult({
-      shouldLookup: true,
-      purpose: "entity_grounding",
-      reason: "Need to identify the artists.",
-      queries: ["Дора Мэйби Бэйби певицы кто такие"],
-      confidence: "high"
-    }));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('вердикт'));
+    const planLookup = vi.fn().mockResolvedValue(
+      createLookupPlanResult({
+        shouldLookup: true,
+        purpose: 'entity_grounding',
+        reason: 'Need to identify the artists.',
+        queries: ['Дора Мэйби Бэйби певицы кто такие'],
+        confidence: 'high'
+      })
+    );
     const lookupProvider = {
-      search: vi.fn().mockRejectedValue(new Error("network down"))
+      search: vi.fn().mockRejectedValue(new Error('network down'))
     };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -520,31 +554,33 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/decide",
-        entities: [{ type: "bot_command", offset: 0, length: 7 }]
+        text: '/decide',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         lookupContext: expect.objectContaining({
-          status: "failed",
-          errorMessage: "network down"
+          status: 'failed',
+          errorMessage: 'network down'
         })
       })
     );
   });
 
-  test("continues with failed lookup context when planner fails", async () => {
+  test('continues with failed lookup context when planner fails', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("вердикт без поиска"));
-    const planLookup = vi.fn().mockRejectedValue(new Error("planner quota"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('вердикт без поиска'));
+    const planLookup = vi.fn().mockRejectedValue(new Error('planner quota'));
     const lookupProvider = {
       search: vi.fn()
     };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -557,8 +593,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/decide",
-        entities: [{ type: "bot_command", offset: 0, length: 7 }]
+        text: '/decide',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
@@ -566,33 +602,35 @@ describe("ChatOrchestrator", () => {
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         lookupContext: expect.objectContaining({
-          status: "failed",
+          status: 'failed',
           provider: null,
           query: null,
-          errorMessage: "planner quota"
+          errorMessage: 'planner quota'
         })
       })
     );
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: "вердикт без поиска"
+      text: 'вердикт без поиска'
     });
   });
 
-  test("continues with failed lookup context when planner output is malformed", async () => {
+  test('continues with failed lookup context when planner output is malformed', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult("вердикт без поиска"));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('вердикт без поиска'));
     const planLookup = vi.fn().mockResolvedValue({
-      status: "failed",
+      status: 'failed',
       decision: {
         shouldLookup: false,
-        purpose: "none",
-        reason: "Lookup planner returned invalid JSON.",
+        purpose: 'none',
+        reason: 'Lookup planner returned invalid JSON.',
         queries: [],
-        confidence: "low"
+        confidence: 'low'
       },
-      model: "planner-model",
+      model: 'planner-model',
       latencyMs: 5,
       attemptCount: 1,
       promptTokensEstimate: 30
@@ -602,7 +640,7 @@ describe("ChatOrchestrator", () => {
     };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
-      createdAt: "2026-04-03T12:00:30.000Z"
+      createdAt: '2026-04-03T12:00:30.000Z'
     });
     const orchestrator = createOrchestrator({
       db,
@@ -615,8 +653,8 @@ describe("ChatOrchestrator", () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: "/decide",
-        entities: [{ type: "bot_command", offset: 0, length: 7 }]
+        text: '/decide',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
@@ -624,15 +662,14 @@ describe("ChatOrchestrator", () => {
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         lookupContext: expect.objectContaining({
-          status: "failed",
+          status: 'failed',
           provider: null,
           query: null,
-          errorMessage: "Lookup planner returned invalid JSON."
+          errorMessage: 'Lookup planner returned invalid JSON.'
         })
       })
     );
   });
-
 });
 
 function createOrchestrator(input: {
@@ -641,12 +678,12 @@ function createOrchestrator(input: {
     generateReply: (input: {
       assistantInstructions: string;
       targetDisplayName: string;
-      intent: "explain" | "summarize" | "decide";
+      intent: 'explain' | 'summarize' | 'decide';
       replyContext: unknown;
       lookupContext?: unknown;
     }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
-      intent: "explain" | "decide";
+      intent: 'explain' | 'decide';
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createLookupPlanResult>>;
   };
@@ -666,58 +703,61 @@ function createOrchestrator(input: {
       ...input.qwen,
       planLookup:
         input.qwen.planLookup ??
-        vi.fn().mockResolvedValue(createLookupPlanResult({
-          shouldLookup: false,
-          purpose: "none",
-          reason: "No lookup needed.",
-          queries: [],
-          confidence: "low"
-        }))
+        vi.fn().mockResolvedValue(
+          createLookupPlanResult({
+            shouldLookup: false,
+            purpose: 'none',
+            reason: 'No lookup needed.',
+            queries: [],
+            confidence: 'low'
+          })
+        )
     },
     lookupProvider: input.lookupProvider ?? null,
     env: createEnv(input.env),
     bot: {
       userId: 77,
-      username: "fun_bot",
-      displayName: "Fun Bot"
+      username: 'fun_bot',
+      displayName: 'Fun Bot'
     },
     replyDispatcher: input.replyDispatcher,
     sendTyping: vi.fn().mockResolvedValue(undefined),
     delay: vi.fn().mockResolvedValue(undefined),
     loadAssistantInstructions:
-      input.loadAssistantInstructions ?? vi.fn().mockResolvedValue("assistant instructions"),
+      input.loadAssistantInstructions ??
+      vi.fn().mockResolvedValue('assistant instructions'),
     logger: input.logger ?? createLogger(),
     random: () => 0,
-    now: () => "2026-04-13T09:00:10.000Z"
+    now: () => '2026-04-13T09:00:10.000Z'
   });
 }
 
 function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
   return {
-    nodeEnv: "test",
-    telegramBotToken: "telegram-token",
-    llmApiKey: "llm-key",
-    llmBaseUrl: "https://example.com",
-    llmReplyModel: "reply-model",
-    llmFastReplyModel: "fast-reply-model",
+    nodeEnv: 'test',
+    telegramBotToken: 'telegram-token',
+    llmApiKey: 'llm-key',
+    llmBaseUrl: 'https://example.com',
+    llmReplyModel: 'reply-model',
+    llmFastReplyModel: 'fast-reply-model',
     llmReplyTemperature: 0.6,
     llmReplyEnableThinking: false,
     llmTimeoutMs: 20_000,
     llmMaxRetries: 1,
     logLlmText: false,
-    logLevel: "info",
+    logLevel: 'info',
     logColor: true,
-    sqlitePath: ":memory:",
-    assistantInstructionsFile: "config/assistant-instructions.md",
+    sqlitePath: ':memory:',
+    assistantInstructionsFile: 'config/assistant-instructions.md',
     explainContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000,
-    llmPlannerModel: "planner-model",
+    llmPlannerModel: 'planner-model',
     lookupEnabled: false,
-    lookupProvider: "tavily",
+    lookupProvider: 'tavily',
     tavilyApiKey: null,
     lookupTimeoutMs: 7000,
     lookupMaxQueries: 1,
@@ -732,16 +772,16 @@ function createIncomingMessage(
 ): NormalizedMessage {
   return {
     chatId: 1,
-    chatType: "group",
-    chatTitle: "Friends",
+    chatType: 'group',
+    chatTitle: 'Friends',
     messageId: 1,
-    text: "обычное сообщение",
-    createdAt: "2026-04-03T12:00:00.000Z",
+    text: 'обычное сообщение',
+    createdAt: '2026-04-03T12:00:00.000Z',
     fromUserId: 42,
-    fromUsername: "tom",
-    fromFirstName: "Tom",
+    fromUsername: 'tom',
+    fromFirstName: 'Tom',
     fromLastName: null,
-    fromDisplayName: "Tom",
+    fromDisplayName: 'Tom',
     isBot: false,
     entities: [],
     replyToUserId: null,
@@ -754,7 +794,7 @@ function createIncomingMessage(
 function createReplyResult(text: string) {
   return {
     text,
-    model: "reply-model",
+    model: 'reply-model',
     latencyMs: 10,
     attemptCount: 1,
     promptTokensEstimate: 20
@@ -763,15 +803,20 @@ function createReplyResult(text: string) {
 
 function createLookupPlanResult(decision: {
   shouldLookup: boolean;
-  purpose: "none" | "entity_grounding" | "fact_check" | "freshness" | "link_extraction";
+  purpose:
+    | 'none'
+    | 'entity_grounding'
+    | 'fact_check'
+    | 'freshness'
+    | 'link_extraction';
   reason: string;
   queries: string[];
-  confidence: "high" | "medium" | "low";
+  confidence: 'high' | 'medium' | 'low';
 }) {
   return {
-    status: "ok" as const,
+    status: 'ok' as const,
     decision,
-    model: "planner-model",
+    model: 'planner-model',
     latencyMs: 5,
     attemptCount: 1,
     promptTokensEstimate: 30
@@ -834,7 +879,7 @@ class FakeDatabaseClient {
   }): void {
     const chat = this.getOrCreateChat({
       chatId: input.chatId,
-      chatType: input.chatType as NormalizedMessage["chatType"],
+      chatType: input.chatType as NormalizedMessage['chatType'],
       chatTitle: input.chatTitle,
       createdAt: input.createdAt
     });
@@ -860,14 +905,21 @@ class FakeDatabaseClient {
     return chat ? { ...chat } : null;
   }
 
-  getMessagesBefore(chatId: number, beforeMessageId: number, limit: number): StoredMessage[] {
+  getMessagesBefore(
+    chatId: number,
+    beforeMessageId: number,
+    limit: number
+  ): StoredMessage[] {
     return (this.messages.get(chatId) ?? [])
       .filter((message) => message.messageId < beforeMessageId)
       .slice(-limit)
       .map((message) => ({ ...message }));
   }
 
-  getMessageByTelegramMessageId(chatId: number, messageId: number): StoredMessage | null {
+  getMessageByTelegramMessageId(
+    chatId: number,
+    messageId: number
+  ): StoredMessage | null {
     const message = (this.messages.get(chatId) ?? []).find(
       (candidate) => candidate.messageId === messageId
     );
@@ -891,7 +943,7 @@ class FakeDatabaseClient {
 
   private getOrCreateChat(input: {
     chatId: number;
-    chatType: NormalizedMessage["chatType"];
+    chatType: NormalizedMessage['chatType'];
     chatTitle: string | null;
     createdAt: string;
   }): ChatState {

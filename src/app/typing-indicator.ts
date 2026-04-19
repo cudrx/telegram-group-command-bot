@@ -13,7 +13,11 @@ export async function withTypingIndicator<T>(
   operation: () => Promise<T>
 ): Promise<T> {
   const startedAt = Date.now();
-  const visibleTypingMs = pickVisibleTypingMs(options.minTypingMs, options.maxTypingMs, options.random);
+  const visibleTypingMs = pickVisibleTypingMs(
+    options.minTypingMs,
+    options.maxTypingMs,
+    options.random
+  );
 
   void safeSendTyping(options.sendTyping, options.chatId);
 
@@ -46,7 +50,11 @@ export async function withTypingIndicator<T>(
   return result;
 }
 
-function pickVisibleTypingMs(minMs: number, maxMs: number, random: () => number): number {
+function pickVisibleTypingMs(
+  minMs: number,
+  maxMs: number,
+  random: () => number
+): number {
   if (maxMs <= minMs) {
     return minMs;
   }
@@ -54,7 +62,10 @@ function pickVisibleTypingMs(minMs: number, maxMs: number, random: () => number)
   return Math.round(minMs + random() * (maxMs - minMs));
 }
 
-async function safeSendTyping(sendTyping: (chatId: number) => Promise<void>, chatId: number): Promise<void> {
+async function safeSendTyping(
+  sendTyping: (chatId: number) => Promise<void>,
+  chatId: number
+): Promise<void> {
   try {
     await sendTyping(chatId);
   } catch {

@@ -1,14 +1,13 @@
-import { Bot } from "grammy";
-
-import type { AppEnv } from "./config/env.js";
-import { loadAssistantInstructions } from "./config/assistant-instructions.js";
-import { createLogger, serializeError } from "./logging/logger.js";
-import { OpenAiCompatibleLlmClient } from "./llm/openai-compatible-llm-client.js";
-import { TavilyLookupProvider } from "./lookup/tavily-lookup-provider.js";
-import { DatabaseClient } from "./storage/database.js";
-import { normalizeTextMessage } from "./transport/telegram/normalize-message.js";
-import { ChatOrchestrator } from "./app/chat-orchestrator.js";
-import { maybeAnnounceDeployUpdate } from "./app/deploy-announcer.js";
+import { Bot } from 'grammy';
+import { ChatOrchestrator } from './app/chat-orchestrator.js';
+import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
+import { loadAssistantInstructions } from './config/assistant-instructions.js';
+import type { AppEnv } from './config/env.js';
+import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-llm-client.js';
+import { createLogger, serializeError } from './logging/logger.js';
+import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
+import { DatabaseClient } from './storage/database.js';
+import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
 
 export type Application = {
   start(): Promise<void>;
@@ -17,37 +16,44 @@ export type Application = {
 
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
-  const logger = createLogger({
-    service: "telegram-assistant-bot",
-    nodeEnv: env.nodeEnv
-  }, {
-    level: env.logLevel,
-    color: env.logColor
-  });
-  const qwen = new OpenAiCompatibleLlmClient({
-    apiKey: env.llmApiKey,
-    baseUrl: env.llmBaseUrl,
-    replyModel: env.llmReplyModel,
-    fastReplyModel: env.llmFastReplyModel,
-    replyTemperature: env.llmReplyTemperature,
-    replyEnableThinking: env.llmReplyEnableThinking,
-    plannerModel: env.llmPlannerModel,
-    lookupMaxQueries: env.lookupMaxQueries,
-    timeoutMs: env.llmTimeoutMs,
-    maxRetries: env.llmMaxRetries
-  }, undefined, {
-    logger: logger.child({
-      component: "llm"
-    }),
-    logLlmText: env.logLlmText
-  });
+  const logger = createLogger(
+    {
+      service: 'telegram-assistant-bot',
+      nodeEnv: env.nodeEnv
+    },
+    {
+      level: env.logLevel,
+      color: env.logColor
+    }
+  );
+  const qwen = new OpenAiCompatibleLlmClient(
+    {
+      apiKey: env.llmApiKey,
+      baseUrl: env.llmBaseUrl,
+      replyModel: env.llmReplyModel,
+      fastReplyModel: env.llmFastReplyModel,
+      replyTemperature: env.llmReplyTemperature,
+      replyEnableThinking: env.llmReplyEnableThinking,
+      plannerModel: env.llmPlannerModel,
+      lookupMaxQueries: env.lookupMaxQueries,
+      timeoutMs: env.llmTimeoutMs,
+      maxRetries: env.llmMaxRetries
+    },
+    undefined,
+    {
+      logger: logger.child({
+        component: 'llm'
+      }),
+      logLlmText: env.logLlmText
+    }
+  );
   const lookupProvider =
-    env.lookupEnabled && env.lookupProvider === "tavily" && env.tavilyApiKey
+    env.lookupEnabled && env.lookupProvider === 'tavily' && env.tavilyApiKey
       ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
       : null;
   const bot = new Bot(env.telegramBotToken);
   const botInfo = await bot.api.getMe();
-  logger.info("bot_initialized", {
+  logger.info('bot_initialized', {
     botUserId: botInfo.id,
     botUsername: botInfo.username ?? null
   });
@@ -59,11 +65,11 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     bot: {
       userId: botInfo.id,
       username: botInfo.username ?? null,
-      displayName: botInfo.first_name ?? botInfo.username ?? "Bot"
+      displayName: botInfo.first_name ?? botInfo.username ?? 'Bot'
     },
     replyDispatcher: async ({ chatId, replyToMessageId, text }) => {
       const sent = await bot.api.sendMessage(chatId, text, {
-        parse_mode: "HTML",
+        parse_mode: 'HTML',
         reply_parameters: {
           message_id: replyToMessageId
         }
@@ -75,7 +81,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       };
     },
     sendTyping: async (chatId) => {
-      await bot.api.sendChatAction(chatId, "typing");
+      await bot.api.sendChatAction(chatId, 'typing');
     },
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     loadAssistantInstructions,
@@ -86,9 +92,9 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   bot.use(async (ctx, next) => {
     const message = ctx.update.message;
 
-    logger.debug("telegram_update_received", {
+    logger.debug('telegram_update_received', {
       updateId: ctx.update.update_id,
-      updateKinds: Object.keys(ctx.update).filter((key) => key !== "update_id"),
+      updateKinds: Object.keys(ctx.update).filter((key) => key !== 'update_id'),
       hasMessageText: Boolean(message?.text),
       hasMessageCaption: Boolean(message?.caption),
       chatId: message?.chat?.id,
@@ -101,25 +107,27 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   });
 
   bot.catch((error) => {
-    logger.error("telegram_update_failed", {
+    logger.error('telegram_update_failed', {
       ...serializeError(error),
       updateId: error.ctx?.update?.update_id ?? null
     });
   });
 
-  bot.on("message", async (ctx) => {
+  bot.on('message', async (ctx) => {
     const normalized = normalizeTextMessage(ctx);
 
     if (!normalized || normalized.fromUserId === botInfo.id) {
       return;
     }
 
-    logger.debug("incoming_message_received", {
+    logger.debug('incoming_message_received', {
       chatId: normalized.chatId,
       messageId: normalized.messageId,
       chatType: normalized.chatType,
       fromUserId: normalized.fromUserId,
-      hasMention: normalized.entities.some((entity) => entity.type === "mention")
+      hasMention: normalized.entities.some(
+        (entity) => entity.type === 'mention'
+      )
     });
 
     await orchestrator.handleIncomingMessage(normalized);
@@ -133,19 +141,19 @@ export async function createApplication(env: AppEnv): Promise<Application> {
         llm: qwen,
         sendMessage: async ({ chatId, text }) => {
           await bot.api.sendMessage(chatId, text, {
-            parse_mode: "HTML"
+            parse_mode: 'HTML'
           });
         },
         logger,
         now: () => new Date().toISOString()
       });
 
-      logger.info("bot_polling_started", {
-        allowedUpdates: ["message"]
+      logger.info('bot_polling_started', {
+        allowedUpdates: ['message']
       });
 
       await bot.start({
-        allowed_updates: ["message"]
+        allowed_updates: ['message']
       });
     },
 

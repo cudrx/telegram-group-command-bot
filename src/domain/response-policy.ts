@@ -1,6 +1,4 @@
-import type { AssistantIntent, ChatType, DirectTrigger } from "./models.js";
-
-export type { AssistantIntent, DirectTrigger } from "./models.js";
+import type { AssistantIntent, ChatType, DirectTrigger } from './models.js';
 
 export type DetectDirectTriggerInput = {
   botUserId: number;
@@ -19,46 +17,48 @@ export type DecideReplyActionInput = {
 
 export type DecideReplyActionResult = {
   shouldReply: boolean;
-  reason: "command" | "ignore";
+  reason: 'command' | 'ignore';
   intent?: AssistantIntent;
 };
 
 const COMMAND_INTENTS: Record<string, AssistantIntent> = {
-  explain: "explain",
-  summarize: "summarize",
-  decide: "decide"
+  explain: 'explain',
+  summarize: 'summarize',
+  decide: 'decide'
 };
 
 export function detectDirectTrigger(
   input: DetectDirectTriggerInput
 ): DirectTrigger {
-  return detectCommandTrigger(input) ?? { kind: "none" };
+  return detectCommandTrigger(input) ?? { kind: 'none' };
 }
 
 export function decideReplyAction(
   input: DecideReplyActionInput
 ): DecideReplyActionResult {
-  if (input.directTrigger.kind === "command") {
+  if (input.directTrigger.kind === 'command') {
     return {
       shouldReply: true,
-      reason: "command",
+      reason: 'command',
       intent: input.directTrigger.intent
     };
   }
 
   return {
     shouldReply: false,
-    reason: "ignore"
+    reason: 'ignore'
   };
 }
 
-function detectCommandTrigger(input: DetectDirectTriggerInput): DirectTrigger | null {
+function detectCommandTrigger(
+  input: DetectDirectTriggerInput
+): DirectTrigger | null {
   if (!allowsCommands(input.message.chatType)) {
     return null;
   }
 
   const commandEntity = input.message.entities?.find(
-    (entity) => entity.type === "bot_command" && entity.offset === 0
+    (entity) => entity.type === 'bot_command' && entity.offset === 0
   );
 
   if (!commandEntity) {
@@ -90,7 +90,7 @@ function detectCommandTrigger(input: DetectDirectTriggerInput): DirectTrigger | 
   }
 
   return {
-    kind: "command",
+    kind: 'command',
     intent,
     commandText
   };
@@ -99,9 +99,9 @@ function detectCommandTrigger(input: DetectDirectTriggerInput): DirectTrigger | 
 function allowsCommands(chatType: ChatType | undefined): boolean {
   return (
     chatType === undefined ||
-    chatType === "private" ||
-    chatType === "group" ||
-    chatType === "supergroup"
+    chatType === 'private' ||
+    chatType === 'group' ||
+    chatType === 'supergroup'
   );
 }
 
@@ -115,7 +115,7 @@ function parseCommandText(
   }
 
   return {
-    commandName: match[1] ?? "",
+    commandName: match[1] ?? '',
     botUsername: match[2] ?? null
   };
 }

@@ -1,9 +1,9 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from 'vitest';
 
-import { OpenAiCompatibleLlmClient } from "../src/llm/openai-compatible-llm-client.js";
+import { OpenAiCompatibleLlmClient } from '../src/llm/openai-compatible-llm-client.js';
 
-describe("OpenAiCompatibleLlmClient", () => {
-  test("logs compact reply trace without raw prompt or response fields", async () => {
+describe('OpenAiCompatibleLlmClient', () => {
+  test('logs compact reply trace without raw prompt or response fields', async () => {
     const logger = {
       debug: vi.fn(),
       info: vi.fn(),
@@ -16,7 +16,7 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     const client = new OpenAiCompatibleLlmClient(
       createClientConfig(),
-      createOpenAiStub("ready"),
+      createOpenAiStub('ready'),
       {
         logger,
         logLlmText: true
@@ -26,38 +26,38 @@ describe("OpenAiCompatibleLlmClient", () => {
     await client.generateReply(createReplyInput());
 
     expect(logger.info).toHaveBeenCalledWith(
-      "llm.reply.request",
+      'llm.reply.request',
       expect.objectContaining({
-        kind: "reply",
-        model: "reply-model",
+        kind: 'reply',
+        model: 'reply-model',
         promptChars: expect.any(Number),
         promptTokensEstimate: expect.any(Number)
       })
     );
     expect(logger.info).toHaveBeenCalledWith(
-      "llm.reply.response",
+      'llm.reply.response',
       expect.objectContaining({
-        kind: "reply",
-        model: "reply-model",
+        kind: 'reply',
+        model: 'reply-model',
         responseChars: 5,
-        responsePreview: "ready"
+        responsePreview: 'ready'
       })
     );
     expect(logger.info).not.toHaveBeenCalledWith(
-      "llm.reply.request",
+      'llm.reply.request',
       expect.objectContaining({
         prompt: expect.any(String)
       })
     );
     expect(logger.info).not.toHaveBeenCalledWith(
-      "llm.reply.response",
+      'llm.reply.response',
       expect.objectContaining({
         response: expect.any(String)
       })
     );
   });
 
-  test("warns when reply output violates formatting guardrails", async () => {
+  test('warns when reply output violates formatting guardrails', async () => {
     const logger = {
       debug: vi.fn(),
       info: vi.fn(),
@@ -70,7 +70,7 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     const client = new OpenAiCompatibleLlmClient(
       createClientConfig(),
-      createOpenAiStub("Summary:\n**Коротко**"),
+      createOpenAiStub('Summary:\n**Коротко**'),
       {
         logger
       }
@@ -79,23 +79,23 @@ describe("OpenAiCompatibleLlmClient", () => {
     await client.generateReply(createReplyInput());
 
     expect(logger.warn).toHaveBeenCalledWith(
-      "llm.reply_format_guardrail_warning",
+      'llm.reply_format_guardrail_warning',
       expect.objectContaining({
-        kind: "reply",
-        model: "reply-model",
-        intent: "decide",
+        kind: 'reply',
+        model: 'reply-model',
+        intent: 'decide',
         hasEnglishSummaryHeading: true,
         hasMarkdownBold: true,
         violations: expect.arrayContaining([
-          "english_summary_heading",
-          "markdown_bold",
-          "missing_decide_shape"
+          'english_summary_heading',
+          'markdown_bold',
+          'missing_decide_shape'
         ])
       })
     );
   });
 
-  test("warns when explain reply lacks required HTML sections", async () => {
+  test('warns when explain reply lacks required HTML sections', async () => {
     const logger = {
       debug: vi.fn(),
       info: vi.fn(),
@@ -108,26 +108,26 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     const client = new OpenAiCompatibleLlmClient(
       createClientConfig(),
-      createOpenAiStub("Точной даты нет, уточни направление."),
+      createOpenAiStub('Точной даты нет, уточни направление.'),
       {
         logger
       }
     );
 
-    await client.generateReply(createReplyInput("explain"));
+    await client.generateReply(createReplyInput('explain'));
 
     expect(logger.warn).toHaveBeenCalledWith(
-      "llm.reply_format_guardrail_warning",
+      'llm.reply_format_guardrail_warning',
       expect.objectContaining({
-        kind: "reply",
-        model: "reply-model",
-        intent: "explain",
-        violations: expect.arrayContaining(["missing_explain_shape"])
+        kind: 'reply',
+        model: 'reply-model',
+        intent: 'explain',
+        violations: expect.arrayContaining(['missing_explain_shape'])
       })
     );
   });
 
-  test("retries retryable completion errors once", async () => {
+  test('retries retryable completion errors once', async () => {
     let calls = 0;
     const client = new OpenAiCompatibleLlmClient(
       {
@@ -141,7 +141,7 @@ describe("OpenAiCompatibleLlmClient", () => {
               calls += 1;
 
               if (calls === 1) {
-                const error = new Error("temporary failure") as Error & {
+                const error = new Error('temporary failure') as Error & {
                   status: number;
                 };
 
@@ -153,7 +153,7 @@ describe("OpenAiCompatibleLlmClient", () => {
                 choices: [
                   {
                     message: {
-                      content: "ready"
+                      content: 'ready'
                     }
                   }
                 ]
@@ -164,65 +164,73 @@ describe("OpenAiCompatibleLlmClient", () => {
       } as never
     );
 
-    await expect(client.generateReply(createReplyInput())).resolves.toMatchObject({
-      text: "ready",
-      model: "reply-model",
+    await expect(
+      client.generateReply(createReplyInput())
+    ).resolves.toMatchObject({
+      text: 'ready',
+      model: 'reply-model',
       attemptCount: 2
     });
     expect(calls).toBe(2);
   });
 
-  test("uses only reply request settings", async () => {
+  test('uses only reply request settings', async () => {
     let requestBody: Record<string, unknown> | undefined;
-    const client = new OpenAiCompatibleLlmClient(
-      createClientConfig(),
-      {
-        chat: {
-          completions: {
-            create: async (input: Record<string, unknown>) => {
-              requestBody = input;
+    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
+      chat: {
+        completions: {
+          create: async (input: Record<string, unknown>) => {
+            requestBody = input;
 
-              return {
-                choices: [
-                  {
-                    message: {
-                      content: "ready"
-                    }
+            return {
+              choices: [
+                {
+                  message: {
+                    content: 'ready'
                   }
-                ]
-              };
-            }
+                }
+              ]
+            };
           }
         }
-      } as never
-    );
+      }
+    } as never);
 
     await client.generateReply(createReplyInput());
 
-    expect(requestBody?.model).toBe("reply-model");
+    expect(requestBody?.model).toBe('reply-model');
     expect(requestBody?.temperature).toBe(0.6);
     expect(requestBody?.enable_thinking).toBe(false);
-    const messages = requestBody?.messages as Array<{ role: string; content: string }> | undefined;
+    const messages = requestBody?.messages as
+      | Array<{ role: string; content: string }>
+      | undefined;
 
-    expect(messages?.map((message) => message.role)).toEqual(["system", "user"]);
+    expect(messages?.map((message) => message.role)).toEqual([
+      'system',
+      'user'
+    ]);
     expect(messages?.[0]?.content).toContain(
-      "You are a neutral Telegram assistant."
+      'You are a neutral Telegram assistant.'
     );
-    expect(messages?.[1]?.content).toContain("Assistant instructions:");
-    expect(messages?.[1]?.content).toContain("Assistant instructions");
-    expect(messages?.[1]?.content).toContain("Task-specific instructions:");
-    expect(JSON.stringify(requestBody)).toContain("The selected task mode is: decide");
-    expect(JSON.stringify(requestBody)).not.toContain("usually 1-2 short lines");
-    expect(JSON.stringify(requestBody)).not.toContain("summary");
-    expect(JSON.stringify(requestBody)).not.toContain("intervention");
+    expect(messages?.[1]?.content).toContain('Assistant instructions:');
+    expect(messages?.[1]?.content).toContain('Assistant instructions');
+    expect(messages?.[1]?.content).toContain('Task-specific instructions:');
+    expect(JSON.stringify(requestBody)).toContain(
+      'The selected task mode is: decide'
+    );
+    expect(JSON.stringify(requestBody)).not.toContain(
+      'usually 1-2 short lines'
+    );
+    expect(JSON.stringify(requestBody)).not.toContain('summary');
+    expect(JSON.stringify(requestBody)).not.toContain('intervention');
   });
 
-  test("routes summarize and explain replies to the fast model", async () => {
+  test('routes summarize and explain replies to the fast model', async () => {
     const requestBodies: Record<string, unknown>[] = [];
     const client = new OpenAiCompatibleLlmClient(
       {
         ...createClientConfig(),
-        fastReplyModel: "fast-reply-model"
+        fastReplyModel: 'fast-reply-model'
       },
       {
         chat: {
@@ -234,7 +242,7 @@ describe("OpenAiCompatibleLlmClient", () => {
                 choices: [
                   {
                     message: {
-                      content: "ready"
+                      content: 'ready'
                     }
                   }
                 ]
@@ -245,23 +253,23 @@ describe("OpenAiCompatibleLlmClient", () => {
       } as never
     );
 
-    await client.generateReply(createReplyInput("summarize"));
-    await client.generateReply(createReplyInput("explain"));
-    await client.generateReply(createReplyInput("decide"));
+    await client.generateReply(createReplyInput('summarize'));
+    await client.generateReply(createReplyInput('explain'));
+    await client.generateReply(createReplyInput('decide'));
 
     expect(requestBodies.map((body) => body.model)).toEqual([
-      "fast-reply-model",
-      "fast-reply-model",
-      "reply-model"
+      'fast-reply-model',
+      'fast-reply-model',
+      'reply-model'
     ]);
   });
 
-  test("formats deploy updates with the fast reply model", async () => {
+  test('formats deploy updates with the fast reply model', async () => {
     let requestBody: Record<string, unknown> | undefined;
     const client = new OpenAiCompatibleLlmClient(
       {
         ...createClientConfig(),
-        fastReplyModel: "fast-reply-model"
+        fastReplyModel: 'fast-reply-model'
       },
       {
         chat: {
@@ -273,7 +281,8 @@ describe("OpenAiCompatibleLlmClient", () => {
                 choices: [
                   {
                     message: {
-                      content: "<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео."
+                      content:
+                        '<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.'
                     }
                   }
                 ]
@@ -286,68 +295,71 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     await expect(
       client.formatDeployUpdate({
-        shortSha: "9c59b85",
-        commits: ["fix: handle telegram media captions"]
+        shortSha: '9c59b85',
+        commits: ['fix: handle telegram media captions']
       })
     ).resolves.toMatchObject({
-      text: "<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.",
-      model: "fast-reply-model"
+      text: '<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.',
+      model: 'fast-reply-model'
     });
 
     expect(requestBody).toEqual(
       expect.objectContaining({
-        model: "fast-reply-model",
+        model: 'fast-reply-model',
         temperature: 0.4,
         max_tokens: 500,
         enable_thinking: false
       })
     );
     expect(
-      (requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[1]?.content
-    ).toContain("fix: handle telegram media captions");
+      (
+        requestBody?.messages as
+          | Array<{ role: string; content: string }>
+          | undefined
+      )?.[1]?.content
+    ).toContain('fix: handle telegram media captions');
   });
 
-  test("includes lookup context in the final reply prompt", async () => {
+  test('includes lookup context in the final reply prompt', async () => {
     let requestBody: Record<string, unknown> | undefined;
-    const client = new OpenAiCompatibleLlmClient(
-      createClientConfig(),
-      {
-        chat: {
-          completions: {
-            create: async (input: Record<string, unknown>) => {
-              requestBody = input;
+    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
+      chat: {
+        completions: {
+          create: async (input: Record<string, unknown>) => {
+            requestBody = input;
 
-              return {
-                choices: [
-                  {
-                    message: {
-                      content: "ready"
-                    }
+            return {
+              choices: [
+                {
+                  message: {
+                    content: 'ready'
                   }
-                ]
-              };
-            }
+                }
+              ]
+            };
           }
         }
-      } as never
-    );
+      }
+    } as never);
 
-    type ReplyInput = Parameters<OpenAiCompatibleLlmClient["generateReply"]>[0];
-    const hasLookupContext: "lookupContext" extends keyof ReplyInput ? true : false = true;
+    type ReplyInput = Parameters<OpenAiCompatibleLlmClient['generateReply']>[0];
+    const hasLookupContext: 'lookupContext' extends keyof ReplyInput
+      ? true
+      : false = true;
     void hasLookupContext;
 
     const replyInput = {
-      assistantInstructions: "Assistant instructions",
-      targetDisplayName: "Tom",
-      intent: "decide",
+      assistantInstructions: 'Assistant instructions',
+      targetDisplayName: 'Tom',
+      intent: 'decide',
       replyContext: {
         triggerMessage: {
           chatId: 1,
           messageId: 3,
           userId: 42,
-          senderDisplayName: "Tom",
-          text: "/decide кто прав",
-          createdAt: "2026-04-03T12:02:00.000Z",
+          senderDisplayName: 'Tom',
+          text: '/decide кто прав',
+          createdAt: '2026-04-03T12:02:00.000Z',
           isBot: false,
           replyToMessageId: null
         },
@@ -355,22 +367,22 @@ describe("OpenAiCompatibleLlmClient", () => {
         priorContextMessages: []
       },
       lookupContext: {
-        status: "used",
-        provider: "tavily",
-        intent: "decide",
+        status: 'used',
+        provider: 'tavily',
+        intent: 'decide',
         decision: {
           shouldLookup: true,
-          purpose: "entity_grounding",
-          reason: "Need grounding.",
-          queries: ["Дора Мэйби Бэйби певицы кто такие"],
-          confidence: "high"
+          purpose: 'entity_grounding',
+          reason: 'Need grounding.',
+          queries: ['Дора Мэйби Бэйби певицы кто такие'],
+          confidence: 'high'
         },
-        query: "Дора Мэйби Бэйби певицы кто такие",
+        query: 'Дора Мэйби Бэйби певицы кто такие',
         sources: [
           {
-            title: "Дора (певица)",
-            url: "https://example.com/dora",
-            content: "Дора - российская певица.",
+            title: 'Дора (певица)',
+            url: 'https://example.com/dora',
+            content: 'Дора - российская певица.',
             score: 0.91
           }
         ],
@@ -380,15 +392,15 @@ describe("OpenAiCompatibleLlmClient", () => {
       }
     } as ReplyInput & {
       lookupContext: {
-        status: "used";
-        provider: "tavily";
-        intent: "decide";
+        status: 'used';
+        provider: 'tavily';
+        intent: 'decide';
         decision: {
           shouldLookup: boolean;
           purpose: string;
           reason: string;
           queries: string[];
-          confidence: "high";
+          confidence: 'high';
         };
         query: string;
         sources: Array<{
@@ -405,20 +417,25 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     await client.generateReply(replyInput);
 
-    const prompt = (requestBody?.messages as Array<{ role: string; content: string }> | undefined)?.[1]?.content ?? "";
+    const prompt =
+      (
+        requestBody?.messages as
+          | Array<{ role: string; content: string }>
+          | undefined
+      )?.[1]?.content ?? '';
 
-    expect(prompt).toContain("EXTERNAL_LOOKUP_CONTEXT:");
-    expect(prompt).toContain("purpose=entity_grounding");
+    expect(prompt).toContain('EXTERNAL_LOOKUP_CONTEXT:');
+    expect(prompt).toContain('purpose=entity_grounding');
     expect(prompt).toContain('title="Дора (певица)"');
     expect(prompt).toContain('url="https://example.com/dora"');
   });
 
-  test("plans lookup with planner model, JSON settings, and thinking disabled", async () => {
+  test('plans lookup with planner model, JSON settings, and thinking disabled', async () => {
     let requestBody: Record<string, unknown> | undefined;
     const client = new OpenAiCompatibleLlmClient(
       {
         ...createClientConfig(),
-        plannerModel: "planner-model",
+        plannerModel: 'planner-model',
         lookupMaxQueries: 1
       },
       {
@@ -444,30 +461,30 @@ describe("OpenAiCompatibleLlmClient", () => {
     );
 
     const result = await client.planLookup({
-      intent: "decide",
+      intent: 'decide',
       replyContext: createReplyInput().replyContext
     });
 
     expect(result.decision).toEqual({
       shouldLookup: true,
-      purpose: "entity_grounding",
-      reason: "Need grounding.",
-      queries: ["Дора Мэйби Бэйби певицы кто такие"],
-      confidence: "medium"
+      purpose: 'entity_grounding',
+      reason: 'Need grounding.',
+      queries: ['Дора Мэйби Бэйби певицы кто такие'],
+      confidence: 'medium'
     });
-    expect(result.model).toBe("planner-model");
+    expect(result.model).toBe('planner-model');
     expect(result.attemptCount).toBe(1);
-    expect(requestBody?.model).toBe("planner-model");
+    expect(requestBody?.model).toBe('planner-model');
     expect(requestBody?.temperature).toBe(0);
     expect(requestBody?.max_tokens).toBe(500);
     expect(requestBody?.enable_thinking).toBe(false);
   });
 
-  test("marks planner result as failed when planner returns empty content", async () => {
+  test('marks planner result as failed when planner returns empty content', async () => {
     const client = new OpenAiCompatibleLlmClient(
       {
         ...createClientConfig(),
-        plannerModel: "planner-model",
+        plannerModel: 'planner-model',
         lookupMaxQueries: 1
       },
       {
@@ -477,7 +494,7 @@ describe("OpenAiCompatibleLlmClient", () => {
               choices: [
                 {
                   message: {
-                    content: ""
+                    content: ''
                   }
                 }
               ]
@@ -489,40 +506,40 @@ describe("OpenAiCompatibleLlmClient", () => {
 
     await expect(
       client.planLookup({
-        intent: "decide",
+        intent: 'decide',
         replyContext: createReplyInput().replyContext
       })
     ).resolves.toMatchObject({
-      status: "failed",
+      status: 'failed',
       decision: {
         shouldLookup: false,
-        purpose: "none",
-        reason: "Lookup planner returned empty content.",
+        purpose: 'none',
+        reason: 'Lookup planner returned empty content.',
         queries: [],
-        confidence: "low"
+        confidence: 'low'
       }
     });
   });
 
-  test("marks planner result as failed when planner returns invalid JSON", async () => {
+  test('marks planner result as failed when planner returns invalid JSON', async () => {
     const client = new OpenAiCompatibleLlmClient(
       createClientConfig(),
-      createOpenAiStub("not json")
+      createOpenAiStub('not json')
     );
 
     await expect(
       client.planLookup({
-        intent: "decide",
+        intent: 'decide',
         replyContext: createReplyInput().replyContext
       })
     ).resolves.toMatchObject({
-      status: "failed",
+      status: 'failed',
       decision: {
         shouldLookup: false,
-        purpose: "none",
-        reason: "Lookup planner returned invalid JSON.",
+        purpose: 'none',
+        reason: 'Lookup planner returned invalid JSON.',
         queries: [],
-        confidence: "low"
+        confidence: 'low'
       }
     });
   });
@@ -530,13 +547,13 @@ describe("OpenAiCompatibleLlmClient", () => {
 
 function createClientConfig() {
   return {
-    apiKey: "key",
-    baseUrl: "https://example.com",
-    replyModel: "reply-model",
-    fastReplyModel: "reply-model",
+    apiKey: 'key',
+    baseUrl: 'https://example.com',
+    replyModel: 'reply-model',
+    fastReplyModel: 'reply-model',
     replyTemperature: 0.6,
     replyEnableThinking: false,
-    plannerModel: "planner-model",
+    plannerModel: 'planner-model',
     lookupMaxQueries: 1,
     timeoutMs: 20_000,
     maxRetries: 1
@@ -561,19 +578,21 @@ function createOpenAiStub(content: string) {
   } as never;
 }
 
-function createReplyInput(intent: "explain" | "summarize" | "decide" = "decide") {
+function createReplyInput(
+  intent: 'explain' | 'summarize' | 'decide' = 'decide'
+) {
   return {
-    assistantInstructions: "Assistant instructions",
-    targetDisplayName: "Tom",
+    assistantInstructions: 'Assistant instructions',
+    targetDisplayName: 'Tom',
     intent,
     replyContext: {
       triggerMessage: {
         chatId: 1,
         messageId: 3,
         userId: 42,
-        senderDisplayName: "Tom",
-        text: "/decide кто прав",
-        createdAt: "2026-04-03T12:02:00.000Z",
+        senderDisplayName: 'Tom',
+        text: '/decide кто прав',
+        createdAt: '2026-04-03T12:02:00.000Z',
         isBot: false,
         replyToMessageId: null
       },

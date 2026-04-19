@@ -1,23 +1,23 @@
-import { config as loadDotenv } from "dotenv";
-import { z } from "zod";
+import { config as loadDotenv } from 'dotenv';
+import { z } from 'zod';
 
 loadDotenv();
 
 const stringBooleanSchema = z.preprocess((value) => {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return value;
   }
 
   switch (value.trim().toLowerCase()) {
-    case "true":
-    case "1":
-    case "yes":
-    case "on":
+    case 'true':
+    case '1':
+    case 'yes':
+    case 'on':
       return true;
-    case "false":
-    case "0":
-    case "no":
-    case "off":
+    case 'false':
+    case '0':
+    case 'no':
+    case 'off':
       return false;
     default:
       return value;
@@ -25,14 +25,16 @@ const stringBooleanSchema = z.preprocess((value) => {
 }, z.boolean());
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
-  TELEGRAM_BOT_TOKEN: z.string().min(1, "TELEGRAM_BOT_TOKEN is required"),
-  LLM_API_KEY: z.string().min(1, "LLM_API_KEY is required"),
+  NODE_ENV: z
+    .enum(['development', 'test', 'production'])
+    .default('development'),
+  TELEGRAM_BOT_TOKEN: z.string().min(1, 'TELEGRAM_BOT_TOKEN is required'),
+  LLM_API_KEY: z.string().min(1, 'LLM_API_KEY is required'),
   LLM_BASE_URL: z
     .string()
-    .url("LLM_BASE_URL must be a valid URL")
-    .default("https://api.deepseek.com"),
-  LLM_REPLY_MODEL: z.string().min(1).default("deepseek-chat"),
+    .url('LLM_BASE_URL must be a valid URL')
+    .default('https://api.deepseek.com'),
+  LLM_REPLY_MODEL: z.string().min(1).default('deepseek-chat'),
   LLM_FAST_REPLY_MODEL: z.string().min(1).optional(),
   LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
@@ -40,13 +42,13 @@ const envSchema = z.object({
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
   LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
   LOG_LLM_TEXT: stringBooleanSchema.default(false),
-  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
-  SQLITE_PATH: z.string().min(1).default("data/bot.sqlite"),
+  SQLITE_PATH: z.string().min(1).default('data/bot.sqlite'),
   ASSISTANT_INSTRUCTIONS_FILE: z
     .string()
     .min(1)
-    .default("config/assistant-instructions.md"),
+    .default('config/assistant-instructions.md'),
   EXPLAIN_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
   SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(128),
   DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(64),
@@ -54,7 +56,7 @@ const envSchema = z.object({
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000),
   LOOKUP_ENABLED: stringBooleanSchema.default(false),
-  LOOKUP_PROVIDER: z.enum(["tavily"]).default("tavily"),
+  LOOKUP_PROVIDER: z.enum(['tavily']).default('tavily'),
   TAVILY_API_KEY: z.string().min(1).optional(),
   LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(7000),
   LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
@@ -63,7 +65,7 @@ const envSchema = z.object({
 });
 
 type ParsedEnv = {
-  nodeEnv: "development" | "test" | "production";
+  nodeEnv: 'development' | 'test' | 'production';
   telegramBotToken: string;
   llmApiKey: string;
   llmBaseUrl: string;
@@ -75,7 +77,7 @@ type ParsedEnv = {
   llmTimeoutMs: number;
   llmMaxRetries: number;
   logLlmText: boolean;
-  logLevel: "debug" | "info" | "warn" | "error";
+  logLevel: 'debug' | 'info' | 'warn' | 'error';
   logColor: boolean;
   sqlitePath: string;
   assistantInstructionsFile: string;
@@ -86,7 +88,7 @@ type ParsedEnv = {
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
   lookupEnabled: boolean;
-  lookupProvider: "tavily";
+  lookupProvider: 'tavily';
   tavilyApiKey: string | null;
   lookupTimeoutMs: number;
   lookupMaxQueries: number;
@@ -119,7 +121,7 @@ export function parseEnv(
 
   if (usesGenericLlmVars && usesLegacyQwenVars) {
     throw new Error(
-      "Invalid provider config: use either LLM_* or QWEN_* variables for the LLM provider, not both."
+      'Invalid provider config: use either LLM_* or QWEN_* variables for the LLM provider, not both.'
     );
   }
 
@@ -144,14 +146,15 @@ export function parseEnv(
     : {
         LLM_API_KEY: rawEnv.QWEN_API_KEY,
         LLM_BASE_URL:
-          rawEnv.QWEN_BASE_URL ?? "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-        LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
-        LLM_FAST_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
-        LLM_PLANNER_MODEL: rawEnv.QWEN_REPLY_MODEL ?? "qwen-plus",
-        LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? "0.6",
-        LLM_REPLY_ENABLE_THINKING: "false",
-        LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? "20000",
-        LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? "1",
+          rawEnv.QWEN_BASE_URL ??
+          'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+        LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
+        LLM_FAST_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
+        LLM_PLANNER_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
+        LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? '0.6',
+        LLM_REPLY_ENABLE_THINKING: 'false',
+        LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? '20000',
+        LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? '1',
         LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
         LOOKUP_PROVIDER: rawEnv.LOOKUP_PROVIDER,
         TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
@@ -168,19 +171,27 @@ export function parseEnv(
 
   if (parsed.REPLY_MIN_TYPING_MS > parsed.REPLY_MAX_TYPING_MS) {
     throw new Error(
-      "REPLY_MIN_TYPING_MS must be less than or equal to REPLY_MAX_TYPING_MS."
+      'REPLY_MIN_TYPING_MS must be less than or equal to REPLY_MAX_TYPING_MS.'
     );
   }
 
-  if (parsed.LOOKUP_ENABLED && parsed.LOOKUP_PROVIDER === "tavily" && !parsed.TAVILY_API_KEY) {
+  if (
+    parsed.LOOKUP_ENABLED &&
+    parsed.LOOKUP_PROVIDER === 'tavily' &&
+    !parsed.TAVILY_API_KEY
+  ) {
     throw new Error(
-      "TAVILY_API_KEY is required when LOOKUP_ENABLED=true and LOOKUP_PROVIDER=tavily."
+      'TAVILY_API_KEY is required when LOOKUP_ENABLED=true and LOOKUP_PROVIDER=tavily.'
     );
   }
 
-  if (parsed.LOOKUP_ENABLED && parsed.TAVILY_API_KEY && looksLikePlaceholder(parsed.TAVILY_API_KEY)) {
+  if (
+    parsed.LOOKUP_ENABLED &&
+    parsed.TAVILY_API_KEY &&
+    looksLikePlaceholder(parsed.TAVILY_API_KEY)
+  ) {
     throw new Error(
-      "TAVILY_API_KEY contains a placeholder value. Replace it with a real Tavily API key before enabling lookup."
+      'TAVILY_API_KEY contains a placeholder value. Replace it with a real Tavily API key before enabling lookup.'
     );
   }
 
@@ -226,13 +237,13 @@ export function getEnv(): AppEnv {
 function assertNoPlaceholderSecrets(parsed: z.infer<typeof envSchema>): void {
   if (looksLikePlaceholder(parsed.LLM_API_KEY)) {
     throw new Error(
-      "LLM_API_KEY contains a placeholder value. Replace it with a real provider key before starting the bot."
+      'LLM_API_KEY contains a placeholder value. Replace it with a real provider key before starting the bot.'
     );
   }
 
   if (looksLikePlaceholder(parsed.TELEGRAM_BOT_TOKEN)) {
     throw new Error(
-      "TELEGRAM_BOT_TOKEN contains a placeholder value. Replace it with a real bot token before starting the bot."
+      'TELEGRAM_BOT_TOKEN contains a placeholder value. Replace it with a real bot token before starting the bot.'
     );
   }
 }
@@ -242,11 +253,11 @@ function looksLikePlaceholder(value: string): boolean {
 
   return (
     normalized.length === 0 ||
-    normalized.startsWith("your-") ||
-    normalized.includes("-here") ||
-    normalized.includes("example") ||
-    normalized.includes("placeholder") ||
-    normalized === "changeme" ||
-    normalized === "replace-me"
+    normalized.startsWith('your-') ||
+    normalized.includes('-here') ||
+    normalized.includes('example') ||
+    normalized.includes('placeholder') ||
+    normalized === 'changeme' ||
+    normalized === 'replace-me'
   );
 }
