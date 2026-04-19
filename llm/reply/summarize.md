@@ -27,6 +27,6 @@ Required response shape:
 - Add exactly one final line after bullets: <b>Итог</b> — concise takeaway.
 - Insert one empty line between the final bullet and the final <b>Итог</b> line.
 - The final line must not repeat bullets or introduce new unrelated info.
-- use only the Telegram HTML subset from the global rules
+- Use only the Telegram HTML subset from the global rules.
 - No text before <b>Коротко</b>.
 - No text after the final <b>Итог</b> line.

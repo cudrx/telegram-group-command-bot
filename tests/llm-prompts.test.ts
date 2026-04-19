@@ -203,10 +203,10 @@ describe('buildIntentPrompt', () => {
     expect(prompt).toContain('<b>По сути</b>');
     expect(prompt).toContain('<b>Вывод</b>');
     expect(prompt).toContain(
-      'The target message is the main thing to explain.'
+      'The target message is primary; nearby chat context is secondary.'
     );
     expect(prompt).toContain(
-      'Use nearby chat context only when it is necessary to interpret the target message.'
+      'Use nearby context only when it helps interpret the target message.'
     );
     expect(prompt).toContain(
       'Focus on the target message, not the whole chat.'
@@ -215,7 +215,10 @@ describe('buildIntentPrompt', () => {
       'If a target message exists, explain it instead of replying with command usage instructions.'
     );
     expect(prompt).toContain(
-      'If the target message is not a question, explain its likely meaning directly.'
+      'If the target message is not a question, explain its meaning directly.'
+    );
+    expect(prompt).toContain(
+      'Avoid repetitive hedging such as \'скорее всего\' in every block.'
     );
     expect(prompt).toContain('Do not say that there is no question.');
     expect(prompt).toContain('Do not offer generic help categories or menus.');
@@ -282,7 +285,7 @@ describe('buildIntentPrompt', () => {
       'clarify slang, jokes, references, tone, or implied meaning'
     );
     expect(prompt).toContain(
-      'If the target message is not a question, explain its likely meaning directly.'
+      'If the target message is not a question, explain its meaning directly.'
     );
     expect(prompt).toContain(
       'Prefer direct interpretation over clarification.'
@@ -407,16 +410,13 @@ describe('buildIntentPrompt', () => {
       'If the transcript is not enough for a reliable verdict, say so.'
     );
     expect(prompt).toContain(
-      'Preserve concrete named entities, product names, artist names, and model names that are central to the dispute.'
+      'Preserve central named entities, product names, artist names, and model names.'
     );
     expect(prompt).toContain(
-      'If the dispute compares named entities, explicitly name every compared entity in canonical form.'
+      'If named entities are compared, name each compared entity clearly in <b>Позиции</b> and keep the relation explicit, for example "prefers A over B".'
     );
     expect(prompt).toContain(
-      'In <b>Позиции</b>, name every compared entity explicitly; do not replace a compared entity with generic words like "alternative", "other option", or "second side".'
-    );
-    expect(prompt).toContain(
-      'If a side chooses one compared entity over another, write both names with the relation between them, for example "prefers A over B"; do not place entity names next to each other without a relation.'
+      'Do not replace compared entities with generic words like "alternative", "other option", or "second side".'
     );
     expect(prompt).toContain(
       'Do not broaden evidence about one compared entity to all compared entities.'

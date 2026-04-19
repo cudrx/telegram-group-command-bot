@@ -40,16 +40,21 @@ describe('buildLookupPlannerPrompt', () => {
     );
   });
 
-  test('biases decide planning toward entity grounding when references may be misunderstood', () => {
+  test('balances entity grounding with chat-contained skips', () => {
     const prompt = buildLookupPlannerPrompt({
       intent: 'decide',
       replyContext
     });
 
     expect(prompt).toContain(
-      'Always decide whether external lookup is useful for this command.'
+      "Decide whether external lookup would materially improve this command's answer."
     );
-    expect(prompt).toContain('When uncertain, choose lookup.');
+    expect(prompt).toContain(
+      'When uncertain because an external fact, named entity, URL, or currentness may change the answer, choose lookup.'
+    );
+    expect(prompt).toContain(
+      'When uncertain but the case appears chat-contained, skip lookup.'
+    );
     expect(prompt).toContain('entity_grounding');
     expect(prompt).toContain('дора');
     expect(prompt).toContain('мейби');

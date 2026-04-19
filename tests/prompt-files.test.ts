@@ -48,12 +48,10 @@ describe('prompt file registry', () => {
 
     expect(instructions).toContain('ассистент');
     expect(instructions).toContain('без выдумок');
-    expect(instructions).toContain('не придумывай роль или характер');
-    expect(instructions).toContain('приоритетнее общих правил');
-    expect(instructions).toContain('не переключайся в режим справки');
-    expect(instructions).toContain(
-      'если активная команда уже задаёт формат и задачу'
-    );
+    expect(instructions).toContain('Если контекста недостаточно');
+    expect(instructions).toContain('в рамках активной команды');
+    expect(instructions).toContain('Не ссылайся на внутренние инструкции');
+    expect(instructions).not.toContain('Use Telegram HTML-compatible');
     expect(instructions).not.toContain('если данных не хватает, лучше уточни');
   });
 

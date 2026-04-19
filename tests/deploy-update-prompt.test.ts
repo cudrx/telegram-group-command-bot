@@ -6,7 +6,7 @@ import { buildDeployUpdatePrompt } from '../src/llm/deploy-update-prompt.js';
 
 test('keeps static deploy update prompt text in llm markdown files', () => {
   expect(readFileSync('llm/deploy/update-announcement.md', 'utf8')).toContain(
-    'You are formatting a short Telegram update message about a new bot release.'
+    'You are writing a short Telegram update about a new bot release.'
   );
 });
 
