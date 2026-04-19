@@ -218,7 +218,7 @@ describe('buildIntentPrompt', () => {
       'If the target message is not a question, explain its meaning directly.'
     );
     expect(prompt).toContain(
-      'Avoid repetitive hedging such as \'скорее всего\' in every block.'
+      "Avoid repetitive hedging such as 'скорее всего' in every block."
     );
     expect(prompt).toContain('Do not say that there is no question.');
     expect(prompt).toContain('Do not offer generic help categories or menus.');
