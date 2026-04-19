@@ -1,5 +1,7 @@
 # Telegram Rich Text Formatting Implementation Plan
 
+**Status:** Implemented. Keep this plan only as recent implementation context; durable behavior is reflected in README, architecture, and development docs.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make Telegram bot replies visually structured with Telegram HTML formatting while protecting Telegram sends from unsupported or broken HTML.

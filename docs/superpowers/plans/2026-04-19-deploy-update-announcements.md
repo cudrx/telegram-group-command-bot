@@ -1,5 +1,7 @@
 # Deploy Update Announcements Implementation Plan
 
+**Status:** Implemented. Keep this plan only as recent implementation context; durable behavior is reflected in README, architecture, development docs, deploy workflow, and tests.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Send one human-friendly Telegram update message after each successfully deployed commit range.

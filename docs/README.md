@@ -30,10 +30,8 @@ Use these locations consistently:
   крупные post-v0 подсистемы и замороженный “жирный” функционал
 - [`/docs/backlog/small-fixes.md`](/home/tom/Documents/Projects/test-chatbot/docs/backlog/small-fixes.md)
   мелкие фиксы, простые фичи и эксплуатационные улучшения
-- [`/docs/todo/`](/home/tom/Documents/Projects/test-chatbot/docs/todo)
-  working notes and agreed feature formulations before full design/spec work
 - [`/docs/superpowers/plans/`](/home/tom/Documents/Projects/test-chatbot/docs/superpowers/plans)
-  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans; current active roadmap includes internet-backed `/explain`/`/decide` and media intake
+  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans; current active roadmap is media intake, while internet-backed `/explain`/`/decide` lookup is implemented
 
 ## Rules
 
@@ -41,6 +39,6 @@ Use these locations consistently:
 - Do not scatter planning Markdown across ad hoc directories.
 - Keep no more than 5 files in `docs/superpowers/plans/`; remove the oldest implemented plans when adding new ones.
 - After implementing a plan, review `README.md`, `docs/architecture.md`, and `docs/development.md`, then update them if the implemented behavior changed the project.
-- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/todo/`, and `docs/superpowers/plans/`; remove or update stale backlog ideas, todo notes, and implemented plan details once durable decisions are reflected in the main docs.
+- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/backlog/small-fixes.md`, and `docs/superpowers/plans/`; remove or update stale backlog ideas, small-fix notes, and implemented plan details once durable decisions are reflected in the main docs.
 - If a new `.md` file does not clearly fit an existing bucket, update this file first and then add the document.
 - Prefer extending an existing document over creating a near-duplicate one.

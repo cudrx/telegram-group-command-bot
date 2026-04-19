@@ -16,8 +16,8 @@ Use this playbook for large implementation, debugging, or review tasks.
 
 ## Documentation Hygiene
 
-- For large implementation, debugging, or review tasks, review `docs/backlog/ideas.md`, `docs/todo/`, and `docs/superpowers/plans/`.
-- Remove or update stale backlog ideas, todo notes, and implemented plan details once durable decisions are reflected in the main docs.
+- For large implementation, debugging, or review tasks, review `docs/backlog/ideas.md`, `docs/backlog/small-fixes.md`, and `docs/superpowers/plans/`.
+- Remove or update stale backlog ideas, small-fix notes, and implemented plan details once durable decisions are reflected in the main docs.
 
 ## Finish
 

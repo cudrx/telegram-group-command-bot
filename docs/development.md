@@ -56,7 +56,7 @@ $EDITOR config/assistant-instructions.md
 npm run migrate
 ```
 
-Для этого reset-ветки старую SQLite-базу можно удалить и создать заново: совместимость со старой схемой не требуется, потому что production DB будет очищена и пересоздана после деплоя.
+Локальную SQLite-базу можно удалить только для локального reset-теста. Production deploy не очищает БД: `deploy/compose.yml` монтирует `./data` в `/app/data`, а `remote-deploy.sh` только подтягивает image и перезапускает контейнер. Если нужна очистка production SQLite, делайте это отдельной осознанной maintenance-операцией.
 
 5. Запустить бота:
 
@@ -149,8 +149,8 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
 - проверять сначала только явные `/explain`, `/summarize` и `/decide`; для `/explain` использовать reply на сообщение с вопросом;
-- держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть фактический prompt;
-- по логам проверять, почему бот ответил и какой context был передан;
+- держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
+- по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
 - после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
 
 ### Lookup Smoke Tests
@@ -196,7 +196,7 @@ curl -sS --fail-with-body "$LLM_BASE_URL/chat/completions" \
 - [`./architecture.md`](./architecture.md) — если изменились инварианты, компоненты, потоки данных или модель БД;
 - [`./development.md`](./development.md) — если изменились workflow, проверки, CI/CD, деплой, repair steps или maintenance-правила;
 - [`./backlog/ideas.md`](./backlog/ideas.md) — если идея уже реализована, устарела или стала точнее после работы;
-- [`./todo/`](./todo/) — если рабочая заметка уже реализована, переехала в план или должна быть переформулирована;
+- [`./backlog/small-fixes.md`](./backlog/small-fixes.md) — если малая рабочая заметка уже реализована, переехала в план или должна быть переформулирована;
 - [`./superpowers/plans/`](./superpowers/plans/) — если план уже реализован и его устойчивые решения нужно перенести в основные документы.
 
 `docs/superpowers/plans/` не является архивом всех завершённых работ. Держите там не больше 5 планов: когда появляются новые планы, удаляйте самые старые уже реализованные, а устойчивые решения переносите в основные документы.

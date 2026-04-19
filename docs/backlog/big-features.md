@@ -4,10 +4,10 @@
 
 ## Lookup And Research Extensions
 
-Current priority:
+Current state:
 
-- planner-backed internet lookup for `/explain` and factual `/decide` is in progress through the current Tavily contract work;
-- shared source/evidence envelope for fetched pages, snippets, timestamps and provider metadata, so prompt input stays auditable.
+- planner-backed Tavily lookup for `/explain` and factual `/decide` is implemented in the current runtime;
+- source/evidence snippets and provider metadata are passed into prompts as auditable untrusted evidence.
 
 Later:
 

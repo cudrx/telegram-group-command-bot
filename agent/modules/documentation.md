@@ -18,5 +18,5 @@ Use this file for documentation structure and planning-document rules.
 
 - Always review `README.md`, `docs/architecture.md`, and `docs/development.md`.
 - Update those files when behavior, architecture, workflow, deployment, data repair, or documentation policy changed.
-- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/todo/`, and `docs/superpowers/plans/`.
-- Remove or update stale backlog ideas, todo notes, and implemented plan details once their durable decisions are reflected in the main docs.
+- For large implementation, debugging, or review tasks, also review `docs/backlog/ideas.md`, `docs/backlog/small-fixes.md`, and `docs/superpowers/plans/`.
+- Remove or update stale backlog ideas, small-fix notes, and implemented plan details once their durable decisions are reflected in the main docs.

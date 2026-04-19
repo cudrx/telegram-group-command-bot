@@ -2,7 +2,7 @@
 
 ## Current Priority
 
-Lookup-backed `/explain` and `/decide` are now underway through the current planner/lookup contract work; media intake remains the next future stage:
+Lookup-backed `/explain` and `/decide` are implemented through the current planner/Tavily contract. Media intake is the next future stage:
 
 1. Media intake: recognize images, transcribe audio/voice messages, and transcribe Telegram video notes ("кружочки") so `/explain` and later `/decide` can reason over their contents.
 
@@ -16,7 +16,7 @@ V1 уже включает explicit command-only task modes:
 
 Следующие осмысленные расширения вне v1:
 
-- lookup-backed `/explain` уже covered by the current plan scaffolding; next focus remains media intake;
+- lookup-backed `/explain` and factual `/decide` are already covered by planner/Tavily runtime support; next focus remains media intake;
 - media intake для картинок, аудио, voice messages и video notes, сначала как распознанный текст/описание для explicit commands;
 - optional deep-search workflow как отдельная медленная research-надстройка поверх `/explain`, не как новый v1 command;
 - dispute persistence и objective event memory для будущего structured dispute tracking;
