@@ -39,7 +39,6 @@ export class OpenAiCompatibleLlmClient {
       apiKey: string;
       baseUrl: string;
       replyModel: string;
-      fastReplyModel?: string;
       replyTemperature: number;
       replyEnableThinking?: boolean;
       plannerModel?: string;
@@ -167,7 +166,7 @@ export class OpenAiCompatibleLlmClient {
     const prompt = buildIntentPrompt(input);
     const promptTokensEstimate = estimateTokens(prompt);
     const startedAt = Date.now();
-    const replyModel = this.getReplyModel(input.intent);
+    const replyModel = this.config.replyModel;
     this.logLlmText('llm.reply.request', {
       kind: 'reply',
       model: replyModel,
@@ -227,7 +226,7 @@ export class OpenAiCompatibleLlmClient {
     const prompt = buildDeployUpdatePrompt(input);
     const promptTokensEstimate = estimateTokens(prompt);
     const startedAt = Date.now();
-    const model = this.config.fastReplyModel ?? this.config.replyModel;
+    const model = this.config.replyModel;
 
     this.logLlmText('llm.deploy_update.request', {
       kind: 'deploy_update',
@@ -278,14 +277,6 @@ export class OpenAiCompatibleLlmClient {
       attemptCount: completion.attemptCount,
       promptTokensEstimate
     };
-  }
-
-  private getReplyModel(intent: AssistantIntent): string {
-    if (intent === 'summarize' || intent === 'explain') {
-      return this.config.fastReplyModel ?? this.config.replyModel;
-    }
-
-    return this.config.replyModel;
   }
 
   private async withRetry<T>(operation: () => Promise<T>): Promise<{

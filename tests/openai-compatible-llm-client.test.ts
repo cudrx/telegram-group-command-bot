@@ -225,73 +225,61 @@ describe('OpenAiCompatibleLlmClient', () => {
     expect(JSON.stringify(requestBody)).not.toContain('intervention');
   });
 
-  test('routes summarize and explain replies to the fast model', async () => {
+  test('routes all reply intents to the reply model', async () => {
     const requestBodies: Record<string, unknown>[] = [];
-    const client = new OpenAiCompatibleLlmClient(
-      {
-        ...createClientConfig(),
-        fastReplyModel: 'fast-reply-model'
-      },
-      {
-        chat: {
-          completions: {
-            create: async (input: Record<string, unknown>) => {
-              requestBodies.push(input);
+    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
+      chat: {
+        completions: {
+          create: async (input: Record<string, unknown>) => {
+            requestBodies.push(input);
 
-              return {
-                choices: [
-                  {
-                    message: {
-                      content: 'ready'
-                    }
+            return {
+              choices: [
+                {
+                  message: {
+                    content: 'ready'
                   }
-                ]
-              };
-            }
+                }
+              ]
+            };
           }
         }
-      } as never
-    );
+      }
+    } as never);
 
     await client.generateReply(createReplyInput('summarize'));
     await client.generateReply(createReplyInput('explain'));
     await client.generateReply(createReplyInput('decide'));
 
     expect(requestBodies.map((body) => body.model)).toEqual([
-      'fast-reply-model',
-      'fast-reply-model',
+      'reply-model',
+      'reply-model',
       'reply-model'
     ]);
   });
 
-  test('formats deploy updates with the fast reply model', async () => {
+  test('formats deploy updates with the reply model', async () => {
     let requestBody: Record<string, unknown> | undefined;
-    const client = new OpenAiCompatibleLlmClient(
-      {
-        ...createClientConfig(),
-        fastReplyModel: 'fast-reply-model'
-      },
-      {
-        chat: {
-          completions: {
-            create: async (input: Record<string, unknown>) => {
-              requestBody = input;
+    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
+      chat: {
+        completions: {
+          create: async (input: Record<string, unknown>) => {
+            requestBody = input;
 
-              return {
-                choices: [
-                  {
-                    message: {
-                      content:
-                        '<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.'
-                    }
+            return {
+              choices: [
+                {
+                  message: {
+                    content:
+                      '<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.'
                   }
-                ]
-              };
-            }
+                }
+              ]
+            };
           }
         }
-      } as never
-    );
+      }
+    } as never);
 
     await expect(
       client.formatDeployUpdate({
@@ -300,12 +288,12 @@ describe('OpenAiCompatibleLlmClient', () => {
       })
     ).resolves.toMatchObject({
       text: '<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.',
-      model: 'fast-reply-model'
+      model: 'reply-model'
     });
 
     expect(requestBody).toEqual(
       expect.objectContaining({
-        model: 'fast-reply-model',
+        model: 'reply-model',
         temperature: 0.4,
         max_tokens: 500,
         enable_thinking: false
@@ -550,7 +538,6 @@ function createClientConfig() {
     apiKey: 'key',
     baseUrl: 'https://example.com',
     replyModel: 'reply-model',
-    fastReplyModel: 'reply-model',
     replyTemperature: 0.6,
     replyEnableThinking: false,
     plannerModel: 'planner-model',

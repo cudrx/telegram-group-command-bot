@@ -51,7 +51,7 @@ npm install
 cp .env.example .env
 ```
 
-`.env.example` настроен под OpenAI-compatible провайдера. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и, если нужен отдельный дешёвый путь для `/summarize` и `/explain`, `LLM_FAST_REPLY_MODEL`.
+`.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -73,7 +73,6 @@ npm run dev
 - `LLM_API_KEY`
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
-- `LLM_FAST_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
 - `LLM_REPLY_TEMPERATURE`
 - `LLM_REPLY_ENABLE_THINKING`
@@ -154,7 +153,7 @@ docker compose logs bot --tail=200 -f
 
 `SQLite` не хранится внутри контейнера. Файл базы лежит на VPS в bind mount-папке `./data`, которая на сервере должна находиться рядом с `compose.yml`, например в `/opt/test-chatbot/data/bot.sqlite`.
 
-Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_FAST_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `DEPLOY_NOTIFY_CHAT_ID`, и только после успешной отправки сохраняет sha.
+Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `DEPLOY_NOTIFY_CHAT_ID`, и только после успешной отправки сохраняет sha.
 
 ## Local Docker Check
 

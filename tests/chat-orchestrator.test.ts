@@ -729,7 +729,6 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     llmApiKey: 'llm-key',
     llmBaseUrl: 'https://example.com',
     llmReplyModel: 'reply-model',
-    llmFastReplyModel: 'fast-reply-model',
     llmReplyTemperature: 0.6,
     llmReplyEnableThinking: false,
     llmTimeoutMs: 20_000,

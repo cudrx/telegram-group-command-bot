@@ -123,7 +123,7 @@
 2. В контейнере файл доступен как `/app/data/deploy-metadata.json`.
 3. Startup читает metadata и пропускает announcement, если файл отсутствует, невалиден, содержит `sha: "unknown"` или пустой список commits.
 4. Startup сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite.
-5. Если sha новый, `LLM_FAST_REPLY_MODEL` преобразует raw commit messages в короткое русское Telegram HTML-оповещение.
+5. Если sha новый, `LLM_REPLY_MODEL` преобразует raw commit messages в короткое русское Telegram HTML-оповещение.
 6. Бот отправляет оповещение в `DEPLOY_NOTIFY_CHAT_ID`.
 7. Только после успешной отправки startup сохраняет новый sha в `app_state`.
 

@@ -35,7 +35,6 @@ const envSchema = z.object({
     .url('LLM_BASE_URL must be a valid URL')
     .default('https://api.deepseek.com'),
   LLM_REPLY_MODEL: z.string().min(1).default('deepseek-chat'),
-  LLM_FAST_REPLY_MODEL: z.string().min(1).optional(),
   LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
   LLM_REPLY_ENABLE_THINKING: stringBooleanSchema.default(false),
@@ -66,7 +65,6 @@ type ParsedEnv = {
   llmApiKey: string;
   llmBaseUrl: string;
   llmReplyModel: string;
-  llmFastReplyModel: string;
   llmPlannerModel: string;
   llmReplyTemperature: number;
   llmReplyEnableThinking: boolean;
@@ -100,7 +98,6 @@ export function parseEnv(
     rawEnv.LLM_API_KEY !== undefined ||
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
-    rawEnv.LLM_FAST_REPLY_MODEL !== undefined ||
     rawEnv.LLM_PLANNER_MODEL !== undefined ||
     rawEnv.LLM_REPLY_TEMPERATURE !== undefined ||
     rawEnv.LLM_REPLY_ENABLE_THINKING !== undefined ||
@@ -125,7 +122,6 @@ export function parseEnv(
         LLM_API_KEY: rawEnv.LLM_API_KEY,
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
-        LLM_FAST_REPLY_MODEL: rawEnv.LLM_FAST_REPLY_MODEL,
         LLM_PLANNER_MODEL: rawEnv.LLM_PLANNER_MODEL,
         LLM_REPLY_TEMPERATURE: rawEnv.LLM_REPLY_TEMPERATURE,
         LLM_REPLY_ENABLE_THINKING: rawEnv.LLM_REPLY_ENABLE_THINKING,
@@ -144,7 +140,6 @@ export function parseEnv(
           rawEnv.QWEN_BASE_URL ??
           'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
         LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
-        LLM_FAST_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
         LLM_PLANNER_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
         LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? '0.6',
         LLM_REPLY_ENABLE_THINKING: 'false',
@@ -198,7 +193,6 @@ export function parseEnv(
     llmApiKey: parsed.LLM_API_KEY,
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
-    llmFastReplyModel: parsed.LLM_FAST_REPLY_MODEL ?? parsed.LLM_REPLY_MODEL,
     llmPlannerModel: parsed.LLM_PLANNER_MODEL ?? parsed.LLM_REPLY_MODEL,
     llmReplyTemperature: parsed.LLM_REPLY_TEMPERATURE,
     llmReplyEnableThinking: parsed.LLM_REPLY_ENABLE_THINKING,

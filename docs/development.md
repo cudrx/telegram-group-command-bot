@@ -42,7 +42,7 @@ npm install
 cp .env.example .env
 ```
 
-Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и, если нужен отдельный дешёвый путь для `/summarize` и `/explain`, `LLM_FAST_REPLY_MODEL`.
+Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
 3. Отредактировать базовые assistant instructions:
@@ -239,7 +239,7 @@ DEPLOY_NOTIFY_CHAT_ID=-1002155313986
 
 Workflow деплоя записывает release metadata в `${DEPLOY_PATH}/data/deploy-metadata.json` перед рестартом бота. Внутри контейнера этот файл доступен как `/app/data/deploy-metadata.json`.
 
-На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite. Если sha ещё не объявлялся, бот просит `LLM_FAST_REPLY_MODEL` сформатировать короткое русское Telegram HTML-оповещение и отправляет его в `DEPLOY_NOTIFY_CHAT_ID`.
+На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite. Если sha ещё не объявлялся, бот просит `LLM_REPLY_MODEL` сформатировать короткое русское Telegram HTML-оповещение и отправляет его в `DEPLOY_NOTIFY_CHAT_ID`.
 
 Sha сохраняется только после успешной отправки сообщения в Telegram. Ошибки чтения metadata, LLM или Telegram отправки логируются и не блокируют старт бота.
 
