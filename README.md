@@ -8,7 +8,7 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы только для `/explain`, `/summarize` и `/decide`
+- командные режимы только для `/explain`, `/summarize`, `/decide` и `/describe`
 - обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
@@ -27,6 +27,7 @@
 - `/explain` - объяснить сообщение, на которое сделан reply; бот считает replied-to message основным, использует nearby context только для интерпретации, и при включенном lookup может автоматически заземлять внешние сущности/факты через Tavily.
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
+- `/describe` - лениво распознать replied-to медиа и дать осторожный разбор. В v1 поддержаны `photo`, image `document`, `voice`, `audio` и Telegram `video_note`: картинки идут через Cloudflare Workers AI, аудио и кружочки через Gladia, а финальный ответ формирует `LLM_REPLY_MODEL`.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -84,6 +85,17 @@ npm run dev
 - `LOOKUP_TIMEOUT_MS`
 - `LOOKUP_MAX_QUERIES`
 - `LOOKUP_MAX_RESULTS`
+- `MEDIA_ANALYSIS_ENABLED`
+- `DESCRIBE_CONTEXT_LIMIT`
+- `STT_PROVIDER`
+- `GLADIA_API_KEY`
+- `VISION_PROVIDER`
+- `CLOUDFLARE_AI_API_KEY`
+- `CLOUDFLARE_ACCOUNT_ID`
+- `MEDIA_MAX_FILE_BYTES`
+- `MEDIA_ARTIFACT_RETENTION_DAYS`
+- `MESSAGE_RETENTION_DAYS`
+- `DATABASE_CLEANUP_INTERVAL_HOURS`
 - `LOG_LLM_TEXT`
 - `LOG_LEVEL`
 - `LOG_COLOR`
@@ -133,9 +145,10 @@ docker compose logs bot --tail=200 -f
 ## Структура
 
 - `src/domain` — правила ответа
-- `src/storage` — `SQLite`, чаты и сообщения
+- `src/storage` — `SQLite`, чаты, сообщения и media artifact cache
 - `llm` — статические prompt-файлы для assistant, reply modes, planner и deploy announcements
 - `src/llm` — сборка prompt context, LLM-клиент и reply generation
+- `src/media` — Gladia STT, Cloudflare Vision, Telegram media metadata/download helpers
 - `src/app/telegram-html.ts` — Telegram-safe HTML formatting для исходящих ответов
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
@@ -196,4 +209,4 @@ docker compose down
 
 ## Следующие версии
 
-Lookup-backed `/explain` и `/decide` уже подведены к current contract через planner/lookup scaffolding; следующий крупный этап после стабилизации этого пути — media intake для изображений, voice/audio и Telegram video notes. Детали и порядок работ вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md) и [`docs/superpowers/plans/2026-04-18-internet-and-media-intake.md`](./docs/superpowers/plans/2026-04-18-internet-and-media-intake.md).
+Lookup-backed `/explain` и `/decide` уже подведены к current contract через planner/lookup scaffolding. `/describe` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
