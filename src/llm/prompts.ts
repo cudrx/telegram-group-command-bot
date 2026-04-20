@@ -82,7 +82,7 @@ function getIntentDataSections(input: {
   mediaContext?: DescribeMediaContext | null;
 }): string {
   if (input.intent === 'explain') {
-    return renderPromptTemplate(loadPrompt('replyDataExplain'), {
+    return renderPromptTemplate(loadPrompt('replyContextExplain'), {
       targetMessage: formatSingleMessage(input.replyContext.replyAnchorMessage),
       nearbyChatContext: formatReplyContextMessages(
         input.replyContext.priorContextMessages
@@ -94,7 +94,7 @@ function getIntentDataSections(input: {
   }
 
   if (input.intent === 'describe') {
-    return renderPromptTemplate(loadPrompt('replyDataDescribe'), {
+    return renderPromptTemplate(loadPrompt('replyContextDescribe'), {
       currentCommandMessage: formatCommandMessage(
         input.replyContext.triggerMessage
       ),
@@ -114,7 +114,7 @@ function getIntentDataSections(input: {
     });
   }
 
-  return renderPromptTemplate(loadPrompt('replyDataGeneric'), {
+  return renderPromptTemplate(loadPrompt('replyContextGeneric'), {
     currentCommandMessage: formatCommandMessage(
       input.replyContext.triggerMessage
     ),
