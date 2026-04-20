@@ -82,7 +82,7 @@ function getIntentDataSections(input: {
   mediaContext?: DescribeMediaContext | null;
 }): string {
   if (input.intent === 'explain') {
-    return renderPromptTemplate(loadPrompt('replyContextExplain'), {
+    return renderPromptTemplate(loadPrompt('systemExplain'), {
       targetMessage: formatSingleMessage(input.replyContext.replyAnchorMessage),
       nearbyChatContext: formatReplyContextMessages(
         input.replyContext.priorContextMessages
@@ -94,7 +94,7 @@ function getIntentDataSections(input: {
   }
 
   if (input.intent === 'describe') {
-    return renderPromptTemplate(loadPrompt('replyContextDescribe'), {
+    return renderPromptTemplate(loadPrompt('systemDescribe'), {
       currentCommandMessage: formatCommandMessage(
         input.replyContext.triggerMessage
       ),
@@ -114,7 +114,7 @@ function getIntentDataSections(input: {
     });
   }
 
-  return renderPromptTemplate(loadPrompt('replyContextGeneric'), {
+  return renderPromptTemplate(loadPrompt('systemGeneric'), {
     currentCommandMessage: formatCommandMessage(
       input.replyContext.triggerMessage
     ),
@@ -146,7 +146,7 @@ function formatCommandMessage(message: PromptMessage | null): string {
 }
 
 function formatReplyContextMessages(messages: PromptMessage[]): string {
-  return renderPromptTemplate(loadPrompt('replyChatTranscript'), {
+  return renderPromptTemplate(loadPrompt('systemTranscript'), {
     transcript: formatConversationForLlm(messages)
   });
 }

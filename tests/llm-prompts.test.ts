@@ -94,16 +94,16 @@ describe('buildIntentPrompt', () => {
     expect(readFileSync('llm/reply/shell.md', 'utf8')).toContain(
       '{{dataSections}}'
     );
-    expect(readFileSync('llm/reply/context-explain.md', 'utf8')).toContain(
+    expect(readFileSync('llm/system/explain.md', 'utf8')).toContain(
       'TARGET_MESSAGE_TO_EXPLAIN'
     );
-    expect(readFileSync('llm/reply/context-describe.md', 'utf8')).toContain(
+    expect(readFileSync('llm/system/describe.md', 'utf8')).toContain(
       'AUDIO_TRANSCRIPT'
     );
-    expect(readFileSync('llm/reply/context-generic.md', 'utf8')).toContain(
+    expect(readFileSync('llm/system/generic.md', 'utf8')).toContain(
       'No command arguments are used for this mode.'
     );
-    expect(readFileSync('llm/reply/chat-transcript.md', 'utf8')).toContain(
+    expect(readFileSync('llm/system/transcript.md', 'utf8')).toContain(
       'BEGIN CHAT TRANSCRIPT'
     );
     expect(readFileSync('llm/reply/lookup-context.md', 'utf8')).toContain(
