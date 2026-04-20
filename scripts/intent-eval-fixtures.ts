@@ -5,6 +5,7 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../src/domain/models.js';
+import type { DescribeMediaContext } from '../src/llm/prompts.js';
 
 const DEFAULT_ASSISTANT_INSTRUCTIONS = readFileSync(
   'llm/assistant/base.md',
@@ -25,6 +26,7 @@ export type IntentEvalFixture = {
   targetDisplayName: string;
   assistantInstructions: string;
   replyContext: ReplyContext;
+  mediaContext?: DescribeMediaContext;
   lookupExpectation?: {
     shouldLookup: boolean;
     purpose:
@@ -76,6 +78,56 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
         ['Позиции:', '<b>Позиции</b>'],
         ['Вердикт:', '<b>Вердикт</b>'],
         ['не вижу вопроса']
+      ],
+      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
+    }
+  }),
+  createFixture({
+    id: 'describe-vision-meme',
+    intent: 'describe',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:00:00.000Z', 'Артём', 'что там на картинке?']],
+    triggerText: '/describe',
+    mediaContext: {
+      sourceCaption: null,
+      visibleText: ['Leon, necesito que distraigas a Kingpin'],
+      visualDetails: {
+        type: 'vision',
+        kind: 'screenshot',
+        visibleText: ['Leon, necesito que distraigas a Kingpin'],
+        namesMentionedInText: ['Leon', 'Kingpin'],
+        visuallyPresentPeopleOrCharacters: [
+          'Man in black mask and red logo',
+          'Man in black jacket'
+        ],
+        objects: ['Light fixtures', 'Pillars'],
+        scene: 'Indoor setting, possibly a hallway or corridor',
+        actions: [
+          'One man is wearing a mask and a red logo, the other man is wearing a black jacket'
+        ],
+        style: 'Dark and moody',
+        uncertainty: ['The identity of the characters and context of the scene']
+      },
+      audioTranscript: null
+    },
+    rubric: {
+      mustIncludeAny: [
+        ['Leon', 'Леон'],
+        ['Kingpin', 'Кингпин'],
+        ['маск', 'шлем', 'куртк']
+      ],
+      mustIncludeAll: [
+        '<b>Что распознано</b>',
+        '<b>Что можно предположить</b>',
+        '<b>Вывод</b>'
+      ],
+      mustMatchRegex: [
+        '^<b>Что распознано</b>[\\s\\S]+<b>Что можно предположить</b>[\\s\\S]+<b>Вывод</b>'
+      ],
+      mustNotIncludeAny: [
+        ['фильм', 'сериал', 'игра'],
+        ['боевик', 'триллер', 'экшн'],
+        ['антагонист', 'миссия', 'сюжет']
       ],
       mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
     }
@@ -395,6 +447,7 @@ function createFixture(input: {
   replyAnchorIsBot?: boolean;
   assistantInstructions?: string;
   lookupExpectation?: IntentEvalFixture['lookupExpectation'];
+  mediaContext?: DescribeMediaContext;
   rubric: IntentEvalFixture['rubric'];
 }): IntentEvalFixture {
   const priorContextMessages = input.rows.map<StoredMessage>(
@@ -449,6 +502,10 @@ function createFixture(input: {
     },
     rubric: input.rubric
   };
+
+  if (input.mediaContext) {
+    fixture.mediaContext = input.mediaContext;
+  }
 
   if (input.lookupExpectation) {
     fixture.lookupExpectation = input.lookupExpectation;

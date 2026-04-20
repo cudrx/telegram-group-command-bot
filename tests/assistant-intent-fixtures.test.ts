@@ -10,9 +10,12 @@ describe('intent eval fixtures', () => {
       intentEvalFixtures.map((fixture) => fixture.intent)
     );
 
-    expect(coveredIntents).toEqual(new Set(['decide', 'explain', 'summarize']));
+    expect(coveredIntents).toEqual(
+      new Set(['decide', 'describe', 'explain', 'summarize'])
+    );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
       'explain-casual-slang',
+      'describe-vision-meme',
       'explain-practical-request',
       'explain-uncertain-sensitive-topic',
       'summarize-basic-scheduling',

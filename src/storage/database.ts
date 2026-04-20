@@ -9,6 +9,55 @@ import type {
   StoredMessage
 } from '../domain/models.js';
 
+export type MediaArtifactStatus = 'success' | 'failed' | 'partial';
+
+export type SaveMediaArtifactInput = {
+  fileUniqueId: string | null;
+  chatId: number;
+  telegramMessageId: number;
+  mediaKind: string;
+  provider: string;
+  providerModel: string;
+  artifactKind: string;
+  artifactStatus: MediaArtifactStatus;
+  artifactText: string | null;
+  artifactJson: unknown;
+  rawResponseJson: unknown;
+  sourceCaption: string | null;
+  sourceMimeType: string | null;
+  sourceFileSize: number | null;
+  sourceDurationSeconds: number | null;
+  recognitionLanguage: string | null;
+  confidenceJson: unknown;
+  errorText: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+
+export type StoredMediaArtifact = {
+  id: number;
+  fileUniqueId: string | null;
+  chatId: number;
+  telegramMessageId: number;
+  mediaKind: string;
+  provider: string;
+  providerModel: string;
+  artifactKind: string;
+  artifactStatus: MediaArtifactStatus;
+  artifactText: string | null;
+  artifactJson: unknown;
+  rawResponseJson: unknown;
+  sourceCaption: string | null;
+  sourceMimeType: string | null;
+  sourceFileSize: number | null;
+  sourceDurationSeconds: number | null;
+  recognitionLanguage: string | null;
+  confidenceJson: unknown;
+  errorText: string | null;
+  createdAt: string;
+  expiresAt: string;
+};
+
 const schema = `
 CREATE TABLE IF NOT EXISTS chats (
   chat_id INTEGER PRIMARY KEY,
@@ -37,6 +86,31 @@ CREATE TABLE IF NOT EXISTS messages (
   UNIQUE (chat_id, telegram_message_id)
 );
 
+CREATE TABLE IF NOT EXISTS media_artifacts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  file_unique_id TEXT,
+  chat_id INTEGER NOT NULL,
+  telegram_message_id INTEGER NOT NULL,
+  media_kind TEXT NOT NULL,
+  provider TEXT NOT NULL,
+  provider_model TEXT NOT NULL,
+  artifact_kind TEXT NOT NULL,
+  artifact_status TEXT NOT NULL,
+  artifact_text TEXT,
+  artifact_json TEXT,
+  raw_response_json TEXT,
+  source_caption TEXT,
+  source_mime_type TEXT,
+  source_file_size INTEGER,
+  source_duration_seconds REAL,
+  recognition_language TEXT,
+  confidence_json TEXT,
+  error_text TEXT,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS app_state (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL,
@@ -45,6 +119,15 @@ CREATE TABLE IF NOT EXISTS app_state (
 
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at
   ON messages(chat_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_media_artifacts_file_unique_provider
+  ON media_artifacts(file_unique_id, provider, artifact_kind, artifact_status);
+
+CREATE INDEX IF NOT EXISTS idx_media_artifacts_message_provider
+  ON media_artifacts(chat_id, telegram_message_id, provider, artifact_kind, artifact_status);
+
+CREATE INDEX IF NOT EXISTS idx_media_artifacts_expires_at
+  ON media_artifacts(expires_at);
 `;
 
 export class DatabaseClient {
@@ -320,6 +403,202 @@ export class DatabaseClient {
     return row ? toStoredMessage(row) : null;
   }
 
+  saveMediaArtifact(input: SaveMediaArtifactInput): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO media_artifacts (
+            file_unique_id,
+            chat_id,
+            telegram_message_id,
+            media_kind,
+            provider,
+            provider_model,
+            artifact_kind,
+            artifact_status,
+            artifact_text,
+            artifact_json,
+            raw_response_json,
+            source_caption,
+            source_mime_type,
+            source_file_size,
+            source_duration_seconds,
+            recognition_language,
+            confidence_json,
+            error_text,
+            created_at,
+            expires_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `
+      )
+      .run(
+        input.fileUniqueId,
+        input.chatId,
+        input.telegramMessageId,
+        input.mediaKind,
+        input.provider,
+        input.providerModel,
+        input.artifactKind,
+        input.artifactStatus,
+        input.artifactText,
+        stringifyJson(input.artifactJson),
+        stringifyJson(input.rawResponseJson),
+        input.sourceCaption,
+        input.sourceMimeType,
+        input.sourceFileSize,
+        input.sourceDurationSeconds,
+        input.recognitionLanguage,
+        stringifyJson(input.confidenceJson),
+        input.errorText,
+        input.createdAt,
+        input.expiresAt
+      );
+  }
+
+  getSuccessfulMediaArtifact(input: {
+    fileUniqueId: string | null;
+    chatId: number;
+    telegramMessageId: number;
+    provider: string;
+    artifactKind: string;
+  }): StoredMediaArtifact | null {
+    if (input.fileUniqueId) {
+      const byFileUniqueId = getLatestSuccessfulMediaArtifactRow(
+        this.db,
+        `
+          SELECT
+            id,
+            file_unique_id AS fileUniqueId,
+            chat_id AS chatId,
+            telegram_message_id AS telegramMessageId,
+            media_kind AS mediaKind,
+            provider,
+            provider_model AS providerModel,
+            artifact_kind AS artifactKind,
+            artifact_status AS artifactStatus,
+            artifact_text AS artifactText,
+            artifact_json AS artifactJson,
+            raw_response_json AS rawResponseJson,
+            source_caption AS sourceCaption,
+            source_mime_type AS sourceMimeType,
+            source_file_size AS sourceFileSize,
+            source_duration_seconds AS sourceDurationSeconds,
+            recognition_language AS recognitionLanguage,
+            confidence_json AS confidenceJson,
+            error_text AS errorText,
+            created_at AS createdAt,
+            expires_at AS expiresAt
+          FROM media_artifacts
+          WHERE file_unique_id = ?
+            AND provider = ?
+            AND artifact_kind = ?
+            AND artifact_status = 'success'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [input.fileUniqueId, input.provider, input.artifactKind]
+      );
+
+      if (byFileUniqueId) {
+        return byFileUniqueId;
+      }
+    }
+
+    return getLatestSuccessfulMediaArtifactRow(
+      this.db,
+      `
+        SELECT
+          id,
+          file_unique_id AS fileUniqueId,
+          chat_id AS chatId,
+          telegram_message_id AS telegramMessageId,
+          media_kind AS mediaKind,
+          provider,
+          provider_model AS providerModel,
+          artifact_kind AS artifactKind,
+          artifact_status AS artifactStatus,
+          artifact_text AS artifactText,
+          artifact_json AS artifactJson,
+          raw_response_json AS rawResponseJson,
+          source_caption AS sourceCaption,
+          source_mime_type AS sourceMimeType,
+          source_file_size AS sourceFileSize,
+          source_duration_seconds AS sourceDurationSeconds,
+          recognition_language AS recognitionLanguage,
+          confidence_json AS confidenceJson,
+          error_text AS errorText,
+          created_at AS createdAt,
+          expires_at AS expiresAt
+        FROM media_artifacts
+        WHERE chat_id = ?
+          AND telegram_message_id = ?
+          AND provider = ?
+          AND artifact_kind = ?
+          AND artifact_status = 'success'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [
+        input.chatId,
+        input.telegramMessageId,
+        input.provider,
+        input.artifactKind
+      ]
+    );
+  }
+
+  cleanupExpiredData(input: {
+    now: string;
+    messageRetentionDays: number;
+    mediaArtifactRetentionDays: number;
+  }): { mediaArtifacts: number; messages: number; chats: number } {
+    const transaction = this.db.transaction(
+      (cleanupInput: {
+        now: string;
+        messageRetentionDays: number;
+        mediaArtifactRetentionDays: number;
+      }) => {
+        const mediaArtifactCutoff = new Date(
+          new Date(cleanupInput.now).getTime() -
+            cleanupInput.mediaArtifactRetentionDays * 24 * 60 * 60 * 1000
+        ).toISOString();
+
+        const mediaArtifacts = this.db
+          .prepare(
+            `
+              DELETE FROM media_artifacts
+              WHERE expires_at < ? OR created_at < ?
+            `
+          )
+          .run(cleanupInput.now, mediaArtifactCutoff).changes;
+
+        const messageCutoff = new Date(
+          new Date(cleanupInput.now).getTime() -
+            cleanupInput.messageRetentionDays * 24 * 60 * 60 * 1000
+        ).toISOString();
+
+        const messages = this.db
+          .prepare(`DELETE FROM messages WHERE created_at < ?`)
+          .run(messageCutoff).changes;
+
+        const chats = this.db
+          .prepare(
+            `
+              DELETE FROM chats
+              WHERE chat_id NOT IN (SELECT DISTINCT chat_id FROM messages)
+                AND chat_id NOT IN (SELECT DISTINCT chat_id FROM media_artifacts)
+            `
+          )
+          .run().changes;
+
+        return { mediaArtifacts, messages, chats };
+      }
+    );
+
+    return transaction(input);
+  }
+
   getAppState(key: string): string | null {
     const row = this.db
       .prepare(`SELECT value FROM app_state WHERE key = ?`)
@@ -348,6 +627,14 @@ export class DatabaseClient {
         name: string;
       }>
     ).map((column) => column.name);
+  }
+
+  getIndexNames(tableName: string): string[] {
+    return (
+      this.db.prepare(`PRAGMA index_list(${tableName})`).all() as Array<{
+        name: string;
+      }>
+    ).map((index) => index.name);
   }
 
   close(): void {
@@ -391,6 +678,88 @@ function toStoredMessage(
     ...row,
     isBot: Boolean(row.isBot)
   };
+}
+
+function stringifyJson(value: unknown): string | null {
+  return value === null || value === undefined ? null : JSON.stringify(value);
+}
+
+function parseJsonColumn(value: string | null): unknown {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
+function toStoredMediaArtifact(row: {
+  id: number;
+  fileUniqueId: string | null;
+  chatId: number;
+  telegramMessageId: number;
+  mediaKind: string;
+  provider: string;
+  providerModel: string;
+  artifactKind: string;
+  artifactStatus: string;
+  artifactText: string | null;
+  artifactJson: string | null;
+  rawResponseJson: string | null;
+  sourceCaption: string | null;
+  sourceMimeType: string | null;
+  sourceFileSize: number | null;
+  sourceDurationSeconds: number | null;
+  recognitionLanguage: string | null;
+  confidenceJson: string | null;
+  errorText: string | null;
+  createdAt: string;
+  expiresAt: string;
+}): StoredMediaArtifact {
+  return {
+    ...row,
+    artifactStatus: row.artifactStatus as MediaArtifactStatus,
+    artifactJson: parseJsonColumn(row.artifactJson),
+    rawResponseJson: parseJsonColumn(row.rawResponseJson),
+    confidenceJson: parseJsonColumn(row.confidenceJson)
+  };
+}
+
+function getLatestSuccessfulMediaArtifactRow(
+  db: Database.Database,
+  sql: string,
+  params: unknown[]
+): StoredMediaArtifact | null {
+  const row = db.prepare(sql).get(...params) as
+    | {
+        id: number;
+        fileUniqueId: string | null;
+        chatId: number;
+        telegramMessageId: number;
+        mediaKind: string;
+        provider: string;
+        providerModel: string;
+        artifactKind: string;
+        artifactStatus: string;
+        artifactText: string | null;
+        artifactJson: string | null;
+        rawResponseJson: string | null;
+        sourceCaption: string | null;
+        sourceMimeType: string | null;
+        sourceFileSize: number | null;
+        sourceDurationSeconds: number | null;
+        recognitionLanguage: string | null;
+        confidenceJson: string | null;
+        errorText: string | null;
+        createdAt: string;
+        expiresAt: string;
+      }
+    | undefined;
+
+  return row ? toStoredMediaArtifact(row) : null;
 }
 
 function migrateExistingSchema(db: Database.Database): void {

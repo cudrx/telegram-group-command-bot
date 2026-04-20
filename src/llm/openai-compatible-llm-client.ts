@@ -9,7 +9,7 @@ import {
   buildLookupPlannerPrompt,
   parseLookupDecisionResult
 } from './lookup-planner.js';
-import { buildIntentPrompt } from './prompts.js';
+import { buildIntentPrompt, type DescribeMediaContext } from './prompts.js';
 
 export type LlmReplyResult = {
   text: string;
@@ -162,6 +162,7 @@ export class OpenAiCompatibleLlmClient {
     intent: AssistantIntent;
     replyContext: ReplyContext;
     lookupContext?: LookupContext | null;
+    mediaContext?: DescribeMediaContext | null;
   }): Promise<LlmReplyResult> {
     const prompt = buildIntentPrompt(input);
     const promptTokensEstimate = estimateTokens(prompt);

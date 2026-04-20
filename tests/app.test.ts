@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import type { AppEnv } from '../src/config/env.js';
 
@@ -13,6 +13,7 @@ const dbClose = vi.fn();
 const dbOpen = vi.fn();
 const llmConstructor = vi.fn();
 const botGetMe = vi.fn();
+const botGetFile = vi.fn();
 const botStart = vi.fn();
 const botStop = vi.fn();
 const botOn = vi.fn();
@@ -22,7 +23,10 @@ const botSendMessage = vi.fn();
 const botSendChatAction = vi.fn();
 const chatOrchestratorConstructor = vi.fn();
 const tavilyConstructor = vi.fn();
+const gladiaConstructor = vi.fn();
+const cloudflareVisionConstructor = vi.fn();
 const maybeAnnounceDeployUpdate = vi.fn();
+const dbCleanupExpiredData = vi.fn();
 
 const botState: {
   middleware:
@@ -41,6 +45,7 @@ vi.mock('grammy', () => {
   class Bot {
     public readonly api = {
       getMe: botGetMe,
+      getFile: botGetFile,
       sendMessage: botSendMessage,
       sendChatAction: botSendChatAction
     };
@@ -121,6 +126,22 @@ vi.mock('../src/lookup/tavily-lookup-provider.js', () => ({
   })
 }));
 
+vi.mock('../src/media/gladia-transcription-provider.js', () => ({
+  GladiaTranscriptionProvider: vi
+    .fn()
+    .mockImplementation((...args: unknown[]) => {
+      gladiaConstructor(...args);
+      return { transcribe: vi.fn() };
+    })
+}));
+
+vi.mock('../src/media/cloudflare-vision-provider.js', () => ({
+  CloudflareVisionProvider: vi.fn().mockImplementation((...args: unknown[]) => {
+    cloudflareVisionConstructor(...args);
+    return { describe: vi.fn() };
+  })
+}));
+
 describe('createApplication', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -144,7 +165,13 @@ describe('createApplication', () => {
       child: loggerChild
     });
     dbOpen.mockReturnValue({
-      close: dbClose
+      close: dbClose,
+      cleanupExpiredData: dbCleanupExpiredData
+    });
+    dbCleanupExpiredData.mockReturnValue({
+      mediaArtifacts: 0,
+      messages: 0,
+      chats: 0
     });
     botGetMe.mockResolvedValue({
       id: 77,
@@ -152,6 +179,10 @@ describe('createApplication', () => {
       first_name: 'Assistant'
     });
     maybeAnnounceDeployUpdate.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   test('wires v0 reply-only dependencies and forwards text messages', async () => {
@@ -514,6 +545,66 @@ describe('createApplication', () => {
       })
     );
   });
+
+  test('wires media providers when media analysis is enabled', async () => {
+    const { createApplication } = await import('../src/app.js');
+    await createApplication(
+      createEnv({
+        mediaAnalysisEnabled: true,
+        gladiaApiKey: 'gladia-key',
+        cloudflareAiApiKey: 'cf-key',
+        cloudflareAccountId: 'cf-account'
+      })
+    );
+
+    expect(gladiaConstructor).toHaveBeenCalledWith({ apiKey: 'gladia-key' });
+    expect(cloudflareVisionConstructor).toHaveBeenCalledWith({
+      accountId: 'cf-account',
+      apiKey: 'cf-key'
+    });
+    expect(chatOrchestratorConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        speechToTextProvider: expect.objectContaining({
+          transcribe: expect.any(Function)
+        }),
+        visionProvider: expect.objectContaining({
+          describe: expect.any(Function)
+        }),
+        telegramFileApi: expect.objectContaining({
+          getFile: expect.any(Function)
+        }),
+        fetch: expect.any(Function)
+      })
+    );
+  });
+
+  test('runs database cleanup on start and clears timer on stop', async () => {
+    vi.useFakeTimers();
+    const { createApplication } = await import('../src/app.js');
+    const app = await createApplication(
+      createEnv({
+        databaseCleanupIntervalHours: 2,
+        messageRetentionDays: 3,
+        mediaArtifactRetentionDays: 5
+      })
+    );
+
+    await app.start();
+
+    expect(dbCleanupExpiredData).toHaveBeenCalledWith({
+      now: expect.any(String),
+      messageRetentionDays: 3,
+      mediaArtifactRetentionDays: 5
+    });
+
+    vi.advanceTimersByTime(2 * 60 * 60 * 1000);
+    expect(dbCleanupExpiredData).toHaveBeenCalledTimes(2);
+
+    await app.stop();
+    vi.advanceTimersByTime(2 * 60 * 60 * 1000);
+    expect(dbCleanupExpiredData).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
 });
 
 function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
@@ -544,6 +635,17 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupTimeoutMs: 7000,
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
+    mediaAnalysisEnabled: false,
+    describeContextLimit: 10,
+    sttProvider: 'gladia',
+    gladiaApiKey: null,
+    visionProvider: 'cloudflare',
+    cloudflareAiApiKey: null,
+    cloudflareAccountId: null,
+    mediaMaxFileBytes: 10_000_000,
+    mediaArtifactRetentionDays: 7,
+    messageRetentionDays: 7,
+    databaseCleanupIntervalHours: 24,
     deployNotifyChatId: -1002155313986,
     ...overrides
   };

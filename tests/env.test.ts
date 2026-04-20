@@ -89,6 +89,25 @@ describe('parseEnv', () => {
     expect(env.lookupMaxResults).toBe(3);
   });
 
+  test('applies media analysis defaults when disabled', () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key'
+    });
+
+    expect(env.mediaAnalysisEnabled).toBe(false);
+    expect(env.describeContextLimit).toBe(10);
+    expect(env.sttProvider).toBe('gladia');
+    expect(env.gladiaApiKey).toBe(null);
+    expect(env.visionProvider).toBe('cloudflare');
+    expect(env.cloudflareAiApiKey).toBe(null);
+    expect(env.cloudflareAccountId).toBe(null);
+    expect(env.mediaMaxFileBytes).toBe(10_000_000);
+    expect(env.mediaArtifactRetentionDays).toBe(7);
+    expect(env.messageRetentionDays).toBe(7);
+    expect(env.databaseCleanupIntervalHours).toBe(24);
+  });
+
   test('reads planner and tavily lookup settings', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
@@ -113,6 +132,36 @@ describe('parseEnv', () => {
     expect(env.lookupTimeoutMs).toBe(5000);
     expect(env.lookupMaxQueries).toBe(2);
     expect(env.lookupMaxResults).toBe(4);
+  });
+
+  test('reads media provider and retention settings', () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      MEDIA_ANALYSIS_ENABLED: 'true',
+      DESCRIBE_CONTEXT_LIMIT: '12',
+      STT_PROVIDER: 'gladia',
+      GLADIA_API_KEY: 'gladia-key',
+      VISION_PROVIDER: 'cloudflare',
+      CLOUDFLARE_AI_API_KEY: 'cf-key',
+      CLOUDFLARE_ACCOUNT_ID: 'cf-account',
+      MEDIA_MAX_FILE_BYTES: '9000000',
+      MEDIA_ARTIFACT_RETENTION_DAYS: '5',
+      MESSAGE_RETENTION_DAYS: '3',
+      DATABASE_CLEANUP_INTERVAL_HOURS: '12'
+    });
+
+    expect(env.mediaAnalysisEnabled).toBe(true);
+    expect(env.describeContextLimit).toBe(12);
+    expect(env.sttProvider).toBe('gladia');
+    expect(env.gladiaApiKey).toBe('gladia-key');
+    expect(env.visionProvider).toBe('cloudflare');
+    expect(env.cloudflareAiApiKey).toBe('cf-key');
+    expect(env.cloudflareAccountId).toBe('cf-account');
+    expect(env.mediaMaxFileBytes).toBe(9_000_000);
+    expect(env.mediaArtifactRetentionDays).toBe(5);
+    expect(env.messageRetentionDays).toBe(3);
+    expect(env.databaseCleanupIntervalHours).toBe(12);
   });
 
   test('parses deploy notification chat id', () => {
@@ -155,6 +204,62 @@ describe('parseEnv', () => {
         TAVILY_API_KEY: 'your-tavily-api-key'
       })
     ).toThrow(/TAVILY_API_KEY contains a placeholder value/i);
+  });
+
+  test('requires provider keys when media analysis is enabled', () => {
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        MEDIA_ANALYSIS_ENABLED: 'true'
+      })
+    ).toThrow(/GLADIA_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true/i);
+
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        MEDIA_ANALYSIS_ENABLED: 'true',
+        GLADIA_API_KEY: 'gladia-key'
+      })
+    ).toThrow(
+      /CLOUDFLARE_AI_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true/i
+    );
+  });
+
+  test('rejects placeholder provider keys when media analysis is enabled', () => {
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        MEDIA_ANALYSIS_ENABLED: 'true',
+        GLADIA_API_KEY: 'your-gladia-api-key',
+        CLOUDFLARE_AI_API_KEY: 'your-cloudflare-ai-api-key',
+        CLOUDFLARE_ACCOUNT_ID: 'your-cloudflare-account-id'
+      })
+    ).toThrow(/GLADIA_API_KEY contains a placeholder value/i);
+
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        MEDIA_ANALYSIS_ENABLED: 'true',
+        GLADIA_API_KEY: 'gladia-key',
+        CLOUDFLARE_AI_API_KEY: 'your-cloudflare-ai-api-key',
+        CLOUDFLARE_ACCOUNT_ID: 'cf-account'
+      })
+    ).toThrow(/CLOUDFLARE_AI_API_KEY contains a placeholder value/i);
+
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        MEDIA_ANALYSIS_ENABLED: 'true',
+        GLADIA_API_KEY: 'gladia-key',
+        CLOUDFLARE_AI_API_KEY: 'cf-key',
+        CLOUDFLARE_ACCOUNT_ID: 'your-cloudflare-account-id'
+      })
+    ).toThrow(/CLOUDFLARE_ACCOUNT_ID contains a placeholder value/i);
   });
 
   test('parses LOG_LLM_TEXT string booleans explicitly', () => {

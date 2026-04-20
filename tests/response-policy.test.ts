@@ -9,7 +9,8 @@ describe('detectDirectTrigger', () => {
   test.each([
     ['/explain', 'explain'],
     ['/summarize', 'summarize'],
-    ['/decide', 'decide']
+    ['/decide', 'decide'],
+    ['/describe', 'describe']
   ] as const)('returns %s command intent in groups', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
@@ -34,7 +35,8 @@ describe('detectDirectTrigger', () => {
   test.each([
     ['/explain@fun_bot', 'explain'],
     ['/summarize@fun_bot', 'summarize'],
-    ['/decide@fun_bot', 'decide']
+    ['/decide@fun_bot', 'decide'],
+    ['/describe@fun_bot', 'describe']
   ] as const)('returns %s bot-suffixed command intent in groups', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
@@ -95,7 +97,8 @@ describe('detectDirectTrigger', () => {
   test.each([
     ['/explain', 'explain'],
     ['/summarize', 'summarize'],
-    ['/decide', 'decide']
+    ['/decide', 'decide'],
+    ['/describe', 'describe']
   ] as const)('returns %s command intent in private chats', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,

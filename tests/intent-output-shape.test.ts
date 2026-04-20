@@ -70,4 +70,26 @@ describe('getIntentOutputShapeViolations', () => {
       ])
     );
   });
+
+  test('requires describe HTML sections', () => {
+    expect(
+      getIntentOutputShapeViolations(
+        'describe',
+        [
+          '<b>Что распознано</b>',
+          'видимый текст',
+          '',
+          '<b>Что можно предположить</b>',
+          'осторожная интерпретация',
+          '',
+          '<b>Вывод</b>',
+          'коротко'
+        ].join('\n')
+      )
+    ).toEqual([]);
+
+    expect(
+      getIntentOutputShapeViolations('describe', 'просто описание')
+    ).toContain('missing_describe_shape');
+  });
 });

@@ -3,9 +3,17 @@ import { readFileSync } from 'node:fs';
 export const PROMPT_FILE_PATHS = {
   base: 'llm/assistant/base.md',
   global: 'llm/reply/global.md',
+  replyShell: 'llm/reply/shell.md',
   explain: 'llm/reply/explain.md',
   summarize: 'llm/reply/summarize.md',
   decide: 'llm/reply/decide.md',
+  describe: 'llm/reply/describe.md',
+  replyDataExplain: 'llm/reply/data/explain.md',
+  replyDataDescribe: 'llm/reply/data/describe.md',
+  replyDataGeneric: 'llm/reply/data/generic.md',
+  replyChatTranscript: 'llm/reply/data/chat-transcript.md',
+  cloudflareVisionSystem: 'llm/vision/cloudflare-system.md',
+  cloudflareVisionUser: 'llm/vision/cloudflare-user.md',
   lookup: 'llm/planner/lookup.md',
   lookupContext: 'llm/reply/lookup-context.md',
   updateAnnouncement: 'llm/deploy/update-announcement.md'

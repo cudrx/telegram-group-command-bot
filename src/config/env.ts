@@ -56,6 +56,21 @@ const envSchema = z.object({
   LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(7000),
   LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
   LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3),
+  MEDIA_ANALYSIS_ENABLED: stringBooleanSchema.default(false),
+  DESCRIBE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(10),
+  STT_PROVIDER: z.enum(['gladia']).default('gladia'),
+  GLADIA_API_KEY: z.string().min(1).optional(),
+  VISION_PROVIDER: z.enum(['cloudflare']).default('cloudflare'),
+  CLOUDFLARE_AI_API_KEY: z.string().min(1).optional(),
+  CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
+  MEDIA_MAX_FILE_BYTES: z.coerce.number().int().positive().default(10_000_000),
+  MEDIA_ARTIFACT_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
+  MESSAGE_RETENTION_DAYS: z.coerce.number().int().positive().default(7),
+  DATABASE_CLEANUP_INTERVAL_HOURS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(24),
   DEPLOY_NOTIFY_CHAT_ID: z.coerce.number().int()
 });
 
@@ -86,6 +101,17 @@ type ParsedEnv = {
   lookupTimeoutMs: number;
   lookupMaxQueries: number;
   lookupMaxResults: number;
+  mediaAnalysisEnabled: boolean;
+  describeContextLimit: number;
+  sttProvider: 'gladia';
+  gladiaApiKey: string | null;
+  visionProvider: 'cloudflare';
+  cloudflareAiApiKey: string | null;
+  cloudflareAccountId: string | null;
+  mediaMaxFileBytes: number;
+  mediaArtifactRetentionDays: number;
+  messageRetentionDays: number;
+  databaseCleanupIntervalHours: number;
   deployNotifyChatId: number;
 };
 
@@ -185,6 +211,7 @@ export function parseEnv(
     );
   }
 
+  validateMediaAnalysisConfig(parsed);
   assertNoPlaceholderSecrets(parsed);
 
   return {
@@ -214,6 +241,17 @@ export function parseEnv(
     lookupTimeoutMs: parsed.LOOKUP_TIMEOUT_MS,
     lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
+    mediaAnalysisEnabled: parsed.MEDIA_ANALYSIS_ENABLED,
+    describeContextLimit: parsed.DESCRIBE_CONTEXT_LIMIT,
+    sttProvider: parsed.STT_PROVIDER,
+    gladiaApiKey: parsed.GLADIA_API_KEY ?? null,
+    visionProvider: parsed.VISION_PROVIDER,
+    cloudflareAiApiKey: parsed.CLOUDFLARE_AI_API_KEY ?? null,
+    cloudflareAccountId: parsed.CLOUDFLARE_ACCOUNT_ID ?? null,
+    mediaMaxFileBytes: parsed.MEDIA_MAX_FILE_BYTES,
+    mediaArtifactRetentionDays: parsed.MEDIA_ARTIFACT_RETENTION_DAYS,
+    messageRetentionDays: parsed.MESSAGE_RETENTION_DAYS,
+    databaseCleanupIntervalHours: parsed.DATABASE_CLEANUP_INTERVAL_HOURS,
     deployNotifyChatId: parsed.DEPLOY_NOTIFY_CHAT_ID
   };
 }
@@ -233,6 +271,52 @@ function assertNoPlaceholderSecrets(parsed: z.infer<typeof envSchema>): void {
     throw new Error(
       'TELEGRAM_BOT_TOKEN contains a placeholder value. Replace it with a real bot token before starting the bot.'
     );
+  }
+}
+
+function validateMediaAnalysisConfig(parsed: z.infer<typeof envSchema>): void {
+  if (!parsed.MEDIA_ANALYSIS_ENABLED) {
+    return;
+  }
+
+  if (parsed.STT_PROVIDER === 'gladia') {
+    if (!parsed.GLADIA_API_KEY) {
+      throw new Error(
+        'GLADIA_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true and STT_PROVIDER=gladia.'
+      );
+    }
+
+    if (looksLikePlaceholder(parsed.GLADIA_API_KEY)) {
+      throw new Error(
+        'GLADIA_API_KEY contains a placeholder value. Replace it with a real Gladia API key before enabling media analysis.'
+      );
+    }
+  }
+
+  if (parsed.VISION_PROVIDER === 'cloudflare') {
+    if (!parsed.CLOUDFLARE_AI_API_KEY) {
+      throw new Error(
+        'CLOUDFLARE_AI_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true and VISION_PROVIDER=cloudflare.'
+      );
+    }
+
+    if (looksLikePlaceholder(parsed.CLOUDFLARE_AI_API_KEY)) {
+      throw new Error(
+        'CLOUDFLARE_AI_API_KEY contains a placeholder value. Replace it with a real Cloudflare AI API key before enabling media analysis.'
+      );
+    }
+
+    if (!parsed.CLOUDFLARE_ACCOUNT_ID) {
+      throw new Error(
+        'CLOUDFLARE_ACCOUNT_ID is required when MEDIA_ANALYSIS_ENABLED=true and VISION_PROVIDER=cloudflare.'
+      );
+    }
+
+    if (looksLikePlaceholder(parsed.CLOUDFLARE_ACCOUNT_ID)) {
+      throw new Error(
+        'CLOUDFLARE_ACCOUNT_ID contains a placeholder value. Replace it with a real Cloudflare account ID before enabling media analysis.'
+      );
+    }
   }
 }
 

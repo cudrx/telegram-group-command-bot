@@ -1,6 +1,7 @@
 import type { Context } from 'grammy';
 
 import type { ChatType, NormalizedMessage } from '../../domain/models.js';
+import { extractReplyToMediaSnapshot } from '../../media/telegram-media.js';
 
 type TelegramTextPayloadMessage = {
   text?: unknown;
@@ -50,7 +51,8 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     })),
     replyToUserId: message.reply_to_message?.from?.id ?? null,
     replyToMessageId: message.reply_to_message?.message_id ?? null,
-    replyToMessageSnapshot: normalizeReplyToMessageSnapshot(message)
+    replyToMessageSnapshot: normalizeReplyToMessageSnapshot(message),
+    replyToMediaSnapshot: extractReplyToMediaSnapshot(message)
   };
 }
 
