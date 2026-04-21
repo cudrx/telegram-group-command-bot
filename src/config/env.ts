@@ -3,6 +3,14 @@ import { z } from 'zod';
 
 loadDotenv();
 
+const LOOKUP_PROVIDER = 'tavily' as const;
+const STT_PROVIDER = 'gladia' as const;
+const VISION_PROVIDER = 'cloudflare' as const;
+const MEDIA_MAX_FILE_BYTES = 10_000_000;
+const MEDIA_ARTIFACT_RETENTION_DAYS = 7;
+const MESSAGE_RETENTION_DAYS = 7;
+const DATABASE_CLEANUP_INTERVAL_HOURS = 24;
+
 const stringBooleanSchema = z.preprocess((value) => {
   if (typeof value !== 'string') {
     return value;
@@ -39,7 +47,7 @@ const envSchema = z.object({
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
   LLM_REPLY_ENABLE_THINKING: stringBooleanSchema.default(false),
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
-  LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(2),
+  LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(1),
   LOG_LLM_TEXT: stringBooleanSchema.default(false),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
@@ -50,12 +58,16 @@ const envSchema = z.object({
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000),
-  LOOKUP_ENABLED: stringBooleanSchema.default(false),
-  LOOKUP_PROVIDER: z.enum(['tavily']).default('tavily'),
+  LOOKUP_ENABLED: stringBooleanSchema.default(true),
   TAVILY_API_KEY: z.string().min(1).optional(),
   LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(7000),
   LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
   LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3),
+  MEDIA_ANALYSIS_ENABLED: stringBooleanSchema.default(false),
+  READ_CONTEXT_LIMIT: z.coerce.number().int().positive().default(10),
+  GLADIA_API_KEY: z.string().min(1).optional(),
+  CLOUDFLARE_AI_API_KEY: z.string().min(1).optional(),
+  CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
   DEPLOY_NOTIFY_CHAT_ID: z.coerce.number().int()
 });
 
@@ -86,6 +98,17 @@ type ParsedEnv = {
   lookupTimeoutMs: number;
   lookupMaxQueries: number;
   lookupMaxResults: number;
+  mediaAnalysisEnabled: boolean;
+  readContextLimit: number;
+  sttProvider: 'gladia';
+  gladiaApiKey: string | null;
+  visionProvider: 'cloudflare';
+  cloudflareAiApiKey: string | null;
+  cloudflareAccountId: string | null;
+  mediaMaxFileBytes: number;
+  mediaArtifactRetentionDays: number;
+  messageRetentionDays: number;
+  databaseCleanupIntervalHours: number;
   deployNotifyChatId: number;
 };
 
@@ -128,7 +151,6 @@ export function parseEnv(
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
         LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES,
         LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
-        LOOKUP_PROVIDER: rawEnv.LOOKUP_PROVIDER,
         TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
         LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
         LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,
@@ -146,7 +168,6 @@ export function parseEnv(
         LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? '20000',
         LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? '1',
         LOOKUP_ENABLED: rawEnv.LOOKUP_ENABLED,
-        LOOKUP_PROVIDER: rawEnv.LOOKUP_PROVIDER,
         TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
         LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
         LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,
@@ -167,12 +188,10 @@ export function parseEnv(
 
   if (
     parsed.LOOKUP_ENABLED &&
-    parsed.LOOKUP_PROVIDER === 'tavily' &&
+    LOOKUP_PROVIDER === 'tavily' &&
     !parsed.TAVILY_API_KEY
   ) {
-    throw new Error(
-      'TAVILY_API_KEY is required when LOOKUP_ENABLED=true and LOOKUP_PROVIDER=tavily.'
-    );
+    throw new Error('TAVILY_API_KEY is required when LOOKUP_ENABLED=true.');
   }
 
   if (
@@ -185,6 +204,7 @@ export function parseEnv(
     );
   }
 
+  validateMediaAnalysisConfig(parsed);
   assertNoPlaceholderSecrets(parsed);
 
   return {
@@ -209,11 +229,22 @@ export function parseEnv(
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS,
     lookupEnabled: parsed.LOOKUP_ENABLED,
-    lookupProvider: parsed.LOOKUP_PROVIDER,
+    lookupProvider: LOOKUP_PROVIDER,
     tavilyApiKey: parsed.TAVILY_API_KEY ?? null,
     lookupTimeoutMs: parsed.LOOKUP_TIMEOUT_MS,
     lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
+    mediaAnalysisEnabled: parsed.MEDIA_ANALYSIS_ENABLED,
+    readContextLimit: parsed.READ_CONTEXT_LIMIT,
+    sttProvider: STT_PROVIDER,
+    gladiaApiKey: parsed.GLADIA_API_KEY ?? null,
+    visionProvider: VISION_PROVIDER,
+    cloudflareAiApiKey: parsed.CLOUDFLARE_AI_API_KEY ?? null,
+    cloudflareAccountId: parsed.CLOUDFLARE_ACCOUNT_ID ?? null,
+    mediaMaxFileBytes: MEDIA_MAX_FILE_BYTES,
+    mediaArtifactRetentionDays: MEDIA_ARTIFACT_RETENTION_DAYS,
+    messageRetentionDays: MESSAGE_RETENTION_DAYS,
+    databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
     deployNotifyChatId: parsed.DEPLOY_NOTIFY_CHAT_ID
   };
 }
@@ -233,6 +264,52 @@ function assertNoPlaceholderSecrets(parsed: z.infer<typeof envSchema>): void {
     throw new Error(
       'TELEGRAM_BOT_TOKEN contains a placeholder value. Replace it with a real bot token before starting the bot.'
     );
+  }
+}
+
+function validateMediaAnalysisConfig(parsed: z.infer<typeof envSchema>): void {
+  if (!parsed.MEDIA_ANALYSIS_ENABLED) {
+    return;
+  }
+
+  if (STT_PROVIDER === 'gladia') {
+    if (!parsed.GLADIA_API_KEY) {
+      throw new Error(
+        'GLADIA_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.'
+      );
+    }
+
+    if (looksLikePlaceholder(parsed.GLADIA_API_KEY)) {
+      throw new Error(
+        'GLADIA_API_KEY contains a placeholder value. Replace it with a real Gladia API key before enabling media analysis.'
+      );
+    }
+  }
+
+  if (VISION_PROVIDER === 'cloudflare') {
+    if (!parsed.CLOUDFLARE_AI_API_KEY) {
+      throw new Error(
+        'CLOUDFLARE_AI_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.'
+      );
+    }
+
+    if (looksLikePlaceholder(parsed.CLOUDFLARE_AI_API_KEY)) {
+      throw new Error(
+        'CLOUDFLARE_AI_API_KEY contains a placeholder value. Replace it with a real Cloudflare AI API key before enabling media analysis.'
+      );
+    }
+
+    if (!parsed.CLOUDFLARE_ACCOUNT_ID) {
+      throw new Error(
+        'CLOUDFLARE_ACCOUNT_ID is required when MEDIA_ANALYSIS_ENABLED=true.'
+      );
+    }
+
+    if (looksLikePlaceholder(parsed.CLOUDFLARE_ACCOUNT_ID)) {
+      throw new Error(
+        'CLOUDFLARE_ACCOUNT_ID contains a placeholder value. Replace it with a real Cloudflare account ID before enabling media analysis.'
+      );
+    }
   }
 }
 

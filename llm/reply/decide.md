@@ -30,6 +30,9 @@ Rules:
 - Separate "stronger argument" from "louder behavior".
 - If the topic is subjective, say that an objective verdict is limited.
 - If the dispute is semantic or classification-based, it is acceptable to conclude that different descriptions can both be reasonable.
+- Do not summarize the whole chat outside the dispute.
+- Do not explain messages individually; compare positions and support.
+- If the dispute is unresolved, say which position is better supported so far, or that the evidence is insufficient.
 - Keep the analysis concise and readable.
 - Prefer short bullets over dense prose.
 - Keep verdict concise and concrete.

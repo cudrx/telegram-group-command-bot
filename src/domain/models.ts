@@ -5,7 +5,12 @@ export type ChatType =
   | 'channel'
   | 'unknown';
 
-export type AssistantIntent = 'explain' | 'summarize' | 'decide';
+export type AssistantIntent =
+  | 'explain'
+  | 'summarize'
+  | 'decide'
+  | 'read'
+  | 'answer';
 
 export type DirectTrigger =
   | {
@@ -32,6 +37,18 @@ export type NormalizedMessage = {
   replyToUserId: number | null;
   replyToMessageId: number | null;
   replyToMessageSnapshot: StoredMessage | null;
+  replyToMediaSnapshot: MediaMessageSnapshot | null;
+};
+
+export type MediaMessageSnapshot = {
+  messageId: number;
+  mediaKind: 'photo' | 'document_image' | 'voice' | 'audio' | 'video_note';
+  fileId: string;
+  fileUniqueId: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+  durationSeconds: number | null;
+  caption: string | null;
 };
 
 export type StoredMessage = {

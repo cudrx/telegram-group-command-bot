@@ -25,8 +25,13 @@
 
 - `TELEGRAM_BOT_TOKEN`
 - `LLM_API_KEY`
+- `TAVILY_API_KEY`
 
-Полный список смотри в [`../.env.example`](../.env.example).
+Lookup включен по умолчанию и использует Tavily. Если ключа нет, задайте
+`LOOKUP_ENABLED=false` для локального запуска без web grounding. Остальные
+операционные твики имеют кодовые дефолты в
+[`../src/config/env.ts`](../src/config/env.ts), а в
+[`../.env.example`](../.env.example) лежит только основной локальный шаблон.
 
 ## Local Workflow
 
@@ -43,6 +48,8 @@ cp .env.example .env
 ```
 
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
+Lookup уже включен кодовым дефолтом; для него нужен `TAVILY_API_KEY`, либо `LOOKUP_ENABLED=false`, если интернет-заземление в локальном запуске не нужно.
+Для локальной проверки `/read` включите `MEDIA_ANALYSIS_ENABLED=true` и задайте `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`. Без этого команда отвечает локальной фразой, что распознавание медиа выключено.
 Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
 3. Отредактировать базовые assistant instructions:

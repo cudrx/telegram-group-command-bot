@@ -5,6 +5,7 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../src/domain/models.js';
+import type { DescribeMediaContext } from '../src/llm/prompts.js';
 
 const DEFAULT_ASSISTANT_INSTRUCTIONS = readFileSync(
   'llm/assistant/base.md',
@@ -25,6 +26,7 @@ export type IntentEvalFixture = {
   targetDisplayName: string;
   assistantInstructions: string;
   replyContext: ReplyContext;
+  mediaContext?: DescribeMediaContext;
   lookupExpectation?: {
     shouldLookup: boolean;
     purpose:
@@ -40,347 +42,221 @@ export type IntentEvalFixture = {
 
 export const intentEvalFixtures: IntentEvalFixture[] = [
   createFixture({
-    id: 'explain-casual-slang',
-    intent: 'explain',
-    targetDisplayName: 'Ваня',
-    rows: [
-      [
-        '2026-04-03T11:58:00.000Z',
-        'Катя',
-        'ты реально этот трек на репите слушаешь?'
-      ],
-      ['2026-04-03T11:59:00.000Z', 'Олег', 'да, ну это база, ахах'],
-      ['2026-04-03T12:00:00.000Z', 'Катя', 'поняла, значит совсем зашел']
-    ],
-    triggerText: '/explain',
-    replyAnchorText: 'да, ну это база, ахах',
-    rubric: {
-      mustIncludeAny: [
-        ['баз'],
-        ['означает', 'означа', 'имеет в виду', 'то есть', 'проще говоря'],
-        [
-          'нрав',
-          'зашёл',
-          'понрав',
-          'зацепил',
-          'качествен',
-          'повтор',
-          'не надоедает'
-        ]
-      ],
-      mustIncludeAll: ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
-      mustMatchRegex: [
-        '^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>'
-      ],
-      mustNotIncludeAny: [
-        ['Позиции:', '<b>Позиции</b>'],
-        ['Вердикт:', '<b>Вердикт</b>'],
-        ['не вижу вопроса']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'explain-practical-request',
-    intent: 'explain',
-    targetDisplayName: 'Ваня',
-    rows: [
-      [
-        '2026-03-05T15:20:00.000Z',
-        'Олег',
-        'хочу купить наушники до 15к, в основном для музыки'
-      ]
-    ],
-    triggerText: '/explain',
-    replyAnchorText: 'хочу купить наушники до 15к, в основном для музыки',
-    rubric: {
-      mustIncludeAny: [
-        ['наушник'],
-        ['15к', '15'],
-        ['музык'],
-        ['хочет', 'ищет', 'цель', 'критер', 'приоритет']
-      ],
-      mustIncludeAll: ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
-      mustMatchRegex: [
-        '^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>'
-      ],
-      mustNotIncludeAny: [
-        ['Позиции:', '<b>Позиции</b>'],
-        ['Вердикт:', '<b>Вердикт</b>'],
-        ['не вижу вопроса']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'explain-uncertain-sensitive-topic',
-    intent: 'explain',
+    id: 'read-vision-meme',
+    intent: 'read',
     targetDisplayName: 'Артём',
-    rows: [['2026-04-18T15:44:00.000Z', 'Артём', 'чо когда сво закончится?']],
-    triggerText: '/explain',
-    replyAnchorText: 'чо когда сво закончится?',
-    rubric: {
-      mustIncludeAny: [
-        ['сво', 'войн', 'конфликт'],
-        ['нет точной', 'неизвест', 'нельзя', 'не существует', 'нет даты'],
-        ['завис', 'фронт', 'переговор', 'услов', 'полит']
-      ],
-      mustIncludeAll: ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
-      mustMatchRegex: [
-        '^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>'
-      ],
-      mustNotIncludeAny: [
-        ['уточни направление'],
-        ['если нужно разобрать'],
-        ['военный, политический или экономический'],
-        ['не вижу вопроса']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'summarize-basic-scheduling',
-    intent: 'summarize',
-    targetDisplayName: 'Артём',
-    rows: [
-      ['2026-03-06T18:00:00.000Z', 'Артём', 'погнали сегодня в доту'],
-      ['2026-03-06T18:01:00.000Z', 'Саша', 'я не могу'],
-      ['2026-03-06T18:02:00.000Z', 'Дима', 'я могу после 10'],
-      ['2026-03-06T18:03:00.000Z', 'Артём', 'поздно'],
-      ['2026-03-06T18:04:00.000Z', 'Саша', 'давайте завтра'],
-      ['2026-03-06T18:05:00.000Z', 'Дима', 'ок']
-    ],
-    triggerText: '/summarize',
-    rubric: {
-      mustIncludeAny: [
-        ['дот', 'дота', 'dota'],
-        ['сегодня'],
-        ['после 10', 'после десяти', 'после 22', '22:00', 'после 22:00'],
-        ['поздн', 'неудоб'],
-        ['завтра']
-      ],
-      mustIncludeAll: ['<b>Коротко</b>', '<b>Итог</b>'],
-      mustMatchRegex: ['^<b>Коротко</b>', '\\n\\n<b>Итог</b>\\s+—'],
-      mustNotIncludeAny: [
-        ['прав'],
-        ['лучше'],
-        ['потому что они спорят'],
-        ['Итог:']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'summarize-messy-group-chat',
-    intent: 'summarize',
-    targetDisplayName: 'Артём',
-    rows: [
-      ['2026-04-18T13:00:00.000Z', 'Артём', '/explain@hrupa_bot'],
-      [
-        '2026-04-18T13:00:20.000Z',
-        'Пруфик',
-        'Однозначного ответа нет: Дора — певица, Мэйби Бэйби — стример и контент-мейкер.'
-      ],
-      [
-        '2026-04-18T13:01:00.000Z',
-        'Хачик',
-        'Олег не пошёл на концерт и билет Егору отдал'
-      ],
-      [
-        '2026-04-18T13:01:30.000Z',
-        'Олег',
-        'не гони, я был, там ещё Артур с нами должен был быть'
-      ],
-      [
-        '2026-04-18T13:02:00.000Z',
-        'Артур',
-        'я как раз не был, меня не приплетайте'
-      ],
-      ['2026-04-18T13:03:00.000Z', 'Света', 'я в москву приехала'],
-      ['2026-04-18T13:03:20.000Z', 'Артём', '/summarize@hrupa_bot'],
-      [
-        '2026-04-18T13:04:00.000Z',
-        'Дима',
-        'бот опять формат сломал, summary написал'
-      ]
-    ],
-    triggerText: '/summarize',
-    rubric: {
-      mustIncludeAny: [
-        ['бот', 'команд', 'промпт', 'формат'],
-        ['концерт', 'билет'],
-        ['дора', 'мэйби', 'maybe'],
-        ['свет', 'москв']
-      ],
-      mustIncludeAll: ['<b>Коротко</b>', '<b>Итог</b>'],
-      mustMatchRegex: ['^<b>Коротко</b>', '\\n\\n<b>Итог</b>\\s+—'],
-      mustNotIncludeAny: [['Итог:'], ['Summary:']],
-      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'decide-factual-dispute',
-    intent: 'decide',
-    targetDisplayName: 'Игорь',
-    rows: [
-      [
-        '2026-03-07T12:00:00.000Z',
-        'Игорь',
-        'этот ноут говно, вообще не стоит своих денег'
-      ],
-      ['2026-03-07T12:01:00.000Z', 'Макс', 'да норм он, за свои деньги топ'],
-      ['2026-03-07T12:02:00.000Z', 'Лена', 'а вы про какую модель вообще?'],
-      ['2026-03-07T12:02:30.000Z', 'Игорь', 'acer nitro'],
-      ['2026-03-07T12:03:00.000Z', 'Макс', 'там норм железо за цену'],
-      ['2026-03-07T12:03:30.000Z', 'Игорь', 'но сборка говно и греется'],
-      [
-        '2026-03-07T12:04:00.000Z',
-        'Лена',
-        'ну это же игровой ноут, они все греются'
-      ],
-      [
-        '2026-03-07T12:05:00.000Z',
-        'Макс',
-        'да, вопрос в том что ты от него ждешь'
-      ]
-    ],
-    triggerText: '/decide',
-    rubric: {
-      mustIncludeAny: [
-        ['acer', 'nitro'],
-        ['Игорь'],
-        ['Макс'],
-        ['Лена'],
-        ['сборк', 'гре'],
-        ['желез', 'цен'],
-        [
-          'недостаточно',
-          'зависит',
-          'частично',
-          'невозмож',
-          'ожидан',
-          'критер',
-          'разные',
-          'сбалансирован'
-        ]
-      ],
-      mustIncludeAll: ['<b>Позиции</b>', '<b>Что видно</b>', '<b>Вердикт</b>'],
-      mustMatchRegex: [
-        '^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>'
-      ],
-      mustNotIncludeAny: [
-        ['Игорь победил', 'Макс победил'],
-        ['по обзорам', 'по данным', 'официально']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'decide-no-dispute',
-    intent: 'decide',
-    targetDisplayName: 'Саша',
-    rows: [
-      ['2026-03-08T10:00:00.000Z', 'Саша', 'я сегодня закажу пиццу'],
-      ['2026-03-08T10:01:00.000Z', 'Дима', 'ок, я буду через час'],
-      ['2026-03-08T10:02:00.000Z', 'Катя', 'возьмите мне маргариту']
-    ],
-    triggerText: '/decide',
-    rubric: {
-      mustIncludeAny: [
-        [
-          'нет спора',
-          'не видно спора',
-          'отсутствует спор',
-          'спор отсутствует',
-          'без конфликта',
-          'отсутствуют противореч'
-        ]
-      ],
-      mustIncludeAll: ['<b>Позиции</b>', '<b>Что видно</b>', '<b>Вердикт</b>'],
-      mustMatchRegex: [
-        '^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>'
-      ],
-      mustNotIncludeAny: [['победил'], ['прав Саша', 'Саша права']],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'decide-subjective-dispute',
-    intent: 'decide',
-    targetDisplayName: 'Миша',
-    rows: [
-      ['2026-03-08T11:00:00.000Z', 'Миша', "elden ring лучше baldur's gate 3"],
-      [
-        '2026-03-08T11:01:00.000Z',
-        'Оля',
-        "нет, baldur's gate 3 лучше, там сюжет сильнее"
-      ],
-      [
-        '2026-03-08T11:02:00.000Z',
-        'Миша',
-        'зато в elden ring исследование и бои круче'
-      ],
-      ['2026-03-08T11:03:00.000Z', 'Оля', 'это просто разные вкусы']
-    ],
-    triggerText: '/decide',
-    rubric: {
-      mustIncludeAny: [
-        ['субъектив', 'вкус'],
-        ['критери', 'разные'],
-        ['объективн', 'однозначн', 'нет однозначного факта']
-      ],
-      mustIncludeAll: ['<b>Позиции</b>', '<b>Что видно</b>', '<b>Вердикт</b>'],
-      mustMatchRegex: [
-        '^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>'
-      ],
-      mustNotIncludeAny: [
-        ['Миша победил', 'Оля победила'],
-        ['официально лучше']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
-    id: 'decide-entity-grounding-dispute',
-    intent: 'decide',
-    targetDisplayName: 'Артём',
-    rows: [
-      ['2026-04-17T20:10:00.000Z', 'Артём', 'кто лучше дора или мейби бэйби?'],
-      ['2026-04-17T20:11:00.000Z', 'Артур', 'Дерьмишко или говнишко?'],
-      [
-        '2026-04-17T20:11:30.000Z',
-        'Артур',
-        'Мне концерт доры понравился больше!'
-      ],
-      [
-        '2026-04-17T20:12:00.000Z',
-        'Артём',
-        'я думаю что дерьмишко, потому что говнишко это как-то токсично'
-      ]
-    ],
-    triggerText: '/decide',
-    lookupExpectation: {
-      shouldLookup: true,
-      purpose: 'entity_grounding',
-      includeTerms: ['Дора', 'Мэйби Бэйби']
+    rows: [['2026-04-21T16:00:00.000Z', 'Артём', 'что там на картинке?']],
+    triggerText: '/read',
+    mediaContext: {
+      sourceCaption: null,
+      visibleText: ['Leon, necesito que distraigas a Kingpin'],
+      visualDetails: {
+        type: 'vision',
+        kind: 'screenshot',
+        visibleText: ['Leon, necesito que distraigas a Kingpin'],
+        namesMentionedInText: ['Leon', 'Kingpin'],
+        visuallyPresentPeopleOrCharacters: [
+          'Man in black mask and red logo',
+          'Man in black jacket'
+        ],
+        objects: ['Light fixtures', 'Pillars'],
+        scene: 'Indoor setting, possibly a hallway or corridor',
+        actions: [
+          'One man is wearing a mask and a red logo, the other man is wearing a black jacket'
+        ],
+        style: 'Dark and moody',
+        uncertainty: ['The identity of the characters and context of the scene']
+      },
+      audioTranscript: null
     },
     rubric: {
       mustIncludeAny: [
-        ['Дора', 'Дор'],
-        ['Мэйби', 'Maybe Baby'],
-        ['субъектив', 'вкус'],
-        ['концерт', 'концертный', 'выступлен']
+        ['Leon', 'Леон'],
+        ['Kingpin', 'Кингпин'],
+        ['маск', 'шлем', 'куртк']
+      ],
+      mustIncludeAll: ['Original:', 'Leon', 'Kingpin'],
+      mustNotIncludeAny: [
+        [
+          '<b>Что распознано</b>',
+          '<b>Что можно предположить</b>',
+          '<b>Вывод</b>'
+        ],
+        ['мем про', 'шутка в том', 'смысл в том'],
+        ['атмосфер', 'мрачн', 'настроение', 'стиль'],
+        ['фильм', 'сериал', 'игра'],
+        ['боевик', 'триллер', 'экшн'],
+        ['антагонист', 'миссия', 'сюжет']
+      ],
+      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
+    }
+  }),
+  createFixture({
+    id: 'read-audio-transcript',
+    intent: 'read',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:05:00.000Z', 'Артём', 'прочитай войс']],
+    triggerText: '/read',
+    mediaContext: {
+      sourceCaption: null,
+      visibleText: [],
+      visualDetails: null,
+      audioTranscript: {
+        transcript: 'короче я буду минут через десять не начинайте без меня',
+        language: 'ru',
+        sourceDurationSeconds: 4
+      }
+    },
+    rubric: {
+      mustIncludeAny: [
+        ['через десять', 'минут через десять'],
+        ['не начинайте без меня']
+      ],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
+      mustNotIncludeAny: [
+        ['<b>'],
+        ['думаю', 'похоже', 'видимо'],
+        ['смысл', 'значит', 'вывод'],
+        ['это значит', 'имеется в виду'],
+        ['пользователь просит', 'сообщение означает']
+      ],
+      mustNotMatchRegex: [
+        '(^|\\n)\\s*Summary\\s*:',
+        '\\*\\*[^*]+\\*\\*',
+        '^\\s*•'
+      ]
+    }
+  }),
+  createFixture({
+    id: 'answer-factual-question',
+    intent: 'answer',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:10:00.000Z', 'Артём', 'кто такой путин?']],
+    triggerText: '/answer',
+    replyAnchorText: 'кто такой путин?',
+    lookupExpectation: {
+      shouldLookup: true,
+      purpose: 'entity_grounding',
+      includeTerms: ['Владимир Путин']
+    },
+    rubric: {
+      mustIncludeAny: [
+        ['Владимир Путин', 'Путин'],
+        ['президент', 'политик'],
+        ['Россия', 'России', 'российск']
+      ],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
+      mustNotIncludeAny: [
+        ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>', '<b>Позиции</b>'],
+        ['Пользователь спрашивает', 'это вопрос о', 'речь идет о'],
+        ['вопрос означает', 'спрашивает о том', 'имеется в виду']
+      ],
+      mustNotMatchRegex: [
+        '(^|\\n)\\s*Summary\\s*:',
+        '\\*\\*[^*]+\\*\\*',
+        '(?:^|\\n)\\s*•[\\s\\S]*(?:\\n\\s*•[\\s\\S]*){4,}'
+      ]
+    }
+  }),
+  createFixture({
+    id: 'explain-factual-question-meaning',
+    intent: 'explain',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:12:00.000Z', 'Артём', 'кто такой путин?']],
+    triggerText: '/explain',
+    replyAnchorText: 'кто такой путин?',
+    rubric: {
+      mustIncludeAny: [
+        ['спрашивает', 'вопрос', 'хочет понять'],
+        ['кто такой', 'что это за человек', 'личность', 'роль', 'роли'],
+        ['Путин']
+      ],
+      mustIncludeAll: ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
+      mustMatchRegex: [
+        '^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>'
+      ],
+      mustNotIncludeAny: [
+        ['президент России', 'президента России', 'российский политик'],
+        ['родился', 'занимает пост', 'работал в']
+      ],
+      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
+    }
+  }),
+  createFixture({
+    id: 'summarize-basic-discussion',
+    intent: 'summarize',
+    targetDisplayName: 'Артём',
+    rows: [
+      ['2026-04-21T16:15:00.000Z', 'А', 'давайте закажем пиццу'],
+      ['2026-04-21T16:16:00.000Z', 'Б', 'я не хочу пиццу, давайте суши'],
+      ['2026-04-21T16:17:00.000Z', 'В', 'можно и то и то взять'],
+      ['2026-04-21T16:18:00.000Z', 'А', 'ок давайте комбинировать']
+    ],
+    triggerText: '/summarize',
+    rubric: {
+      mustIncludeAny: [['пицц'], ['суш']],
+      mustIncludeAll: ['<b>Коротко</b>', '<b>Итог</b>'],
+      mustMatchRegex: ['^<b>Коротко</b>[\\s\\S]+<b>Итог</b>'],
+      mustNotIncludeAny: [
+        ['кто прав'],
+        ['правильное решение'],
+        ['я считаю'],
+        ['по моему мнению']
+      ],
+      mustNotMatchRegex: [
+        '(^|\\n)\\s*Summary\\s*:',
+        '\\*\\*[^*]+\\*\\*',
+        '<b>Смысл</b>',
+        '<b>По сути</b>',
+        '<b>Вывод</b>'
+      ]
+    }
+  }),
+  createFixture({
+    id: 'decide-basic-dispute',
+    intent: 'decide',
+    targetDisplayName: 'Артём',
+    rows: [
+      [
+        '2026-04-21T16:20:00.000Z',
+        'А',
+        'надо брать PostgreSQL, потому что у нас уже всё на SQL и нужны транзакции'
+      ],
+      ['2026-04-21T16:21:00.000Z', 'Б', 'давайте MongoDB, она гибче по схеме'],
+      [
+        '2026-04-21T16:22:00.000Z',
+        'В',
+        'у нас платежи и отчёты, без транзакций будет больно'
+      ],
+      ['2026-04-21T16:23:00.000Z', 'Б', 'но JSON хранить удобнее'],
+      [
+        '2026-04-21T16:24:00.000Z',
+        'А',
+        'JSON и в PostgreSQL можно хранить, а транзакции нам критичны'
+      ]
+    ],
+    triggerText: '/decide',
+    rubric: {
+      mustIncludeAny: [
+        ['PostgreSQL'],
+        ['MongoDB'],
+        ['транзакц'],
+        ['схем'],
+        ['JSON', 'json']
       ],
       mustIncludeAll: ['<b>Позиции</b>', '<b>Что видно</b>', '<b>Вердикт</b>'],
       mustMatchRegex: [
         '^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>'
       ],
       mustNotIncludeAny: [
-        ['песни, а не соперники'],
-        ['Дора — это песня'],
-        ['Maybe Baby — это песня']
+        ['<b>Коротко</b>', '<b>Итог</b>'],
+        ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
+        ['Summary:'],
+        ['официально', 'по данным']
       ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
+      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
     }
   })
 ];
@@ -395,6 +271,7 @@ function createFixture(input: {
   replyAnchorIsBot?: boolean;
   assistantInstructions?: string;
   lookupExpectation?: IntentEvalFixture['lookupExpectation'];
+  mediaContext?: DescribeMediaContext;
   rubric: IntentEvalFixture['rubric'];
 }): IntentEvalFixture {
   const priorContextMessages = input.rows.map<StoredMessage>(
@@ -431,7 +308,8 @@ function createFixture(input: {
         replyToMessageId: input.replyAnchorText ? anchorMessageId : null
       },
       replyAnchorMessage:
-        input.replyAnchorText && input.intent === 'explain'
+        input.replyAnchorText &&
+        (input.intent === 'explain' || input.intent === 'answer')
           ? {
               chatId: 1,
               messageId: anchorMessageId,
@@ -449,6 +327,10 @@ function createFixture(input: {
     },
     rubric: input.rubric
   };
+
+  if (input.mediaContext) {
+    fixture.mediaContext = input.mediaContext;
+  }
 
   if (input.lookupExpectation) {
     fixture.lookupExpectation = input.lookupExpectation;

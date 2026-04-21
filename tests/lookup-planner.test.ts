@@ -60,6 +60,40 @@ describe('buildLookupPlannerPrompt', () => {
     expect(prompt).toContain('мейби');
     expect(prompt).toContain('Return only minified JSON');
   });
+
+  test('uses reply target data for answer lookup planning', () => {
+    const prompt = buildLookupPlannerPrompt({
+      intent: 'answer',
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 42,
+          senderDisplayName: 'Tom',
+          text: '/answer ignored',
+          createdAt: '2026-04-17T20:13:00.000Z',
+          isBot: false,
+          replyToMessageId: 2
+        },
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 1,
+          senderDisplayName: 'Артём',
+          text: 'кто сейчас президент Франции?',
+          createdAt: '2026-04-17T20:10:00.000Z',
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain('Current command intent: answer');
+    expect(prompt).toContain('TARGET_MESSAGE_TO_ANSWER:');
+    expect(prompt).toContain('кто сейчас президент Франции?');
+    expect(prompt).not.toContain('ignored');
+  });
 });
 
 describe('parseLookupDecision', () => {

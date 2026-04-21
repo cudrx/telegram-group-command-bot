@@ -23,6 +23,7 @@ export type RubricResult = {
 export type EvalResult = {
   id: string;
   intent: string;
+  prompt: string;
   response: string;
   rubric: RubricResult;
 };
@@ -125,6 +126,7 @@ export async function main(): Promise<number> {
     const result = {
       id: fixture.id,
       intent: fixture.intent,
+      prompt,
       response,
       rubric: evaluateRubric(response, fixture.rubric)
     };
@@ -206,7 +208,11 @@ function addCsvValues(target: Set<string>, value: string): void {
 export function createEvalLookupContext(
   fixture: IntentEvalFixture
 ): LookupContext | null {
-  if (!fixture.lookupExpectation || fixture.intent === 'summarize') {
+  if (
+    !fixture.lookupExpectation ||
+    fixture.intent === 'summarize' ||
+    fixture.intent === 'read'
+  ) {
     return null;
   }
 
@@ -294,6 +300,14 @@ function formatMarkdown(results: EvalResult[]): string {
     '',
     ...results.flatMap((result) => [
       `## ${result.id} (${result.intent})`,
+      '',
+      '### Prompt',
+      '',
+      '```text',
+      result.prompt,
+      '```',
+      '',
+      '### Response',
       '',
       result.response,
       '',

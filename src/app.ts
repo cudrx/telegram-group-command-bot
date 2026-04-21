@@ -5,6 +5,8 @@ import type { AppEnv } from './config/env.js';
 import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-llm-client.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
+import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js';
+import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
 import { DatabaseClient } from './storage/database.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
 
@@ -49,6 +51,20 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     env.lookupEnabled && env.lookupProvider === 'tavily' && env.tavilyApiKey
       ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
       : null;
+  const speechToTextProvider =
+    env.mediaAnalysisEnabled && env.sttProvider === 'gladia' && env.gladiaApiKey
+      ? new GladiaTranscriptionProvider({ apiKey: env.gladiaApiKey })
+      : null;
+  const visionProvider =
+    env.mediaAnalysisEnabled &&
+    env.visionProvider === 'cloudflare' &&
+    env.cloudflareAiApiKey &&
+    env.cloudflareAccountId
+      ? new CloudflareVisionProvider({
+          accountId: env.cloudflareAccountId,
+          apiKey: env.cloudflareAiApiKey
+        })
+      : null;
   const bot = new Bot(env.telegramBotToken);
   const botInfo = await bot.api.getMe();
   logger.info('bot_initialized', {
@@ -60,6 +76,10 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     qwen,
     env,
     lookupProvider,
+    speechToTextProvider,
+    visionProvider,
+    telegramFileApi: bot.api,
+    fetch: globalThis.fetch,
     bot: {
       userId: botInfo.id,
       username: botInfo.username ?? null,
@@ -86,6 +106,17 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     random: Math.random,
     now: () => new Date().toISOString()
   });
+  let cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  const runCleanup = () => {
+    const deleted = db.cleanupExpiredData({
+      now: new Date().toISOString(),
+      messageRetentionDays: env.messageRetentionDays,
+      mediaArtifactRetentionDays: env.mediaArtifactRetentionDays
+    });
+
+    logger.debug('database_cleanup_completed', deleted);
+  };
   bot.use(async (ctx, next) => {
     const message = ctx.update.message;
 
@@ -132,6 +163,13 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
   return {
     async start() {
+      runCleanup();
+      cleanupTimer = setInterval(
+        runCleanup,
+        env.databaseCleanupIntervalHours * 60 * 60 * 1000
+      );
+      cleanupTimer.unref?.();
+
       await maybeAnnounceDeployUpdate({
         deployNotifyChatId: env.deployNotifyChatId,
         db,
@@ -155,6 +193,11 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     },
 
     async stop() {
+      if (cleanupTimer) {
+        clearInterval(cleanupTimer);
+        cleanupTimer = null;
+      }
+
       bot.stop();
       db.close();
     }

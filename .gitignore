@@ -5,6 +5,4 @@ dist/
 .env
 coverage/
 .eval-runs/
-data/*.sqlite
-data/*.sqlite-shm
-data/*.sqlite-wal
+/data/

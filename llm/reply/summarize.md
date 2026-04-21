@@ -12,6 +12,7 @@ Rules:
 - Do not add new facts.
 - Do not over-analyze.
 - Do not decide who is right.
+- Do not explain individual messages; summarize the discussion as a whole.
 - Do not use external knowledge.
 - Do not use internet lookup.
 - Avoid quoting users unless necessary.

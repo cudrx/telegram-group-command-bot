@@ -250,8 +250,12 @@ describe('OpenAiCompatibleLlmClient', () => {
     await client.generateReply(createReplyInput('summarize'));
     await client.generateReply(createReplyInput('explain'));
     await client.generateReply(createReplyInput('decide'));
+    await client.generateReply(createReplyInput('read'));
+    await client.generateReply(createReplyInput('answer'));
 
     expect(requestBodies.map((body) => body.model)).toEqual([
+      'reply-model',
+      'reply-model',
       'reply-model',
       'reply-model',
       'reply-model'
@@ -566,7 +570,7 @@ function createOpenAiStub(content: string) {
 }
 
 function createReplyInput(
-  intent: 'explain' | 'summarize' | 'decide' = 'decide'
+  intent: 'explain' | 'summarize' | 'decide' | 'read' | 'answer' = 'decide'
 ) {
   return {
     assistantInstructions: 'Assistant instructions',
@@ -585,6 +589,15 @@ function createReplyInput(
       },
       replyAnchorMessage: null,
       priorContextMessages: []
-    }
+    },
+    mediaContext:
+      intent === 'read'
+        ? {
+            sourceCaption: null,
+            visibleText: [],
+            visualDetails: null,
+            audioTranscript: null
+          }
+        : null
   };
 }

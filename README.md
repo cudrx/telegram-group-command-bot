@@ -8,11 +8,11 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы только для `/explain`, `/summarize` и `/decide`
+- командные режимы только для `/explain`, `/summarize`, `/decide`, `/read` и `/answer`
 - обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
-- сообщения других ботов сохраняются и могут быть reply-якорем для `/explain`
+- сообщения других ботов сохраняются и могут быть reply-якорем для `/explain` и `/answer`
 - Telegram typing indicators и короткая bounded задержка ответа
 - Telegram HTML formatting для структурированных ответов с safe allowlist постобработкой
 - prompt hardening для transcript и structured logs
@@ -27,6 +27,8 @@
 - `/explain` - объяснить сообщение, на которое сделан reply; бот считает replied-to message основным, использует nearby context только для интерпретации, и при включенном lookup может автоматически заземлять внешние сущности/факты через Tavily.
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
+- `/read` - лениво распознать replied-to медиа без интерпретации. В v1 поддержаны `photo`, image `document`, `voice`, `audio` и Telegram `video_note`: картинки идут через Cloudflare Workers AI, аудио и кружочки через Gladia, а финальный ответ форматирует `LLM_REPLY_MODEL`.
+- `/answer` - напрямую ответить на replied-to сообщение; при включенном lookup бот может заземлять внешние сущности, факты, свежесть или ссылки через Tavily.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -36,6 +38,7 @@
 - npm `11+`
 - Telegram bot token
 - LLM API key
+- Tavily API key for default web grounding
 
 ## Локальный запуск
 
@@ -52,6 +55,7 @@ cp .env.example .env
 ```
 
 `.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
+Lookup включен по умолчанию и использует Tavily; для старта задайте `TAVILY_API_KEY` или явно отключите lookup через `LOOKUP_ENABLED=false`.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -74,27 +78,20 @@ npm run dev
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
-- `LLM_REPLY_TEMPERATURE`
-- `LLM_REPLY_ENABLE_THINKING`
-- `LLM_TIMEOUT_MS`
-- `LLM_MAX_RETRIES`
-- `LOOKUP_ENABLED`
-- `LOOKUP_PROVIDER`
 - `TAVILY_API_KEY`
-- `LOOKUP_TIMEOUT_MS`
-- `LOOKUP_MAX_QUERIES`
-- `LOOKUP_MAX_RESULTS`
+- `MEDIA_ANALYSIS_ENABLED`
+- `READ_CONTEXT_LIMIT`
+- `GLADIA_API_KEY`
+- `CLOUDFLARE_AI_API_KEY`
+- `CLOUDFLARE_ACCOUNT_ID`
 - `LOG_LLM_TEXT`
-- `LOG_LEVEL`
-- `LOG_COLOR`
 - `EXPLAIN_CONTEXT_LIMIT`
 - `SUMMARIZE_CONTEXT_LIMIT`
 - `DECIDE_CONTEXT_LIMIT`
-- `REPLY_MIN_TYPING_MS`
-- `REPLY_MAX_TYPING_MS`
-- `REPLY_TYPING_REFRESH_MS`
 - `DEPLOY_NOTIFY_CHAT_ID`
 - `SQLITE_PATH`
+
+Шумные runtime-твики вроде LLM timeout/retries, typing delay, log level/color, lookup limits, media providers, file-size limit и retention имеют кодовые дефолты в [`src/config/env.ts`](./src/config/env.ts). Их можно переопределить через окружение точечно, если они остались в схеме, но в `.env.example` они намеренно не лежат.
 
 ## Логи
 
@@ -133,9 +130,10 @@ docker compose logs bot --tail=200 -f
 ## Структура
 
 - `src/domain` — правила ответа
-- `src/storage` — `SQLite`, чаты и сообщения
+- `src/storage` — `SQLite`, чаты, сообщения и media artifact cache
 - `llm` — статические prompt-файлы для assistant, reply modes, planner и deploy announcements
 - `src/llm` — сборка prompt context, LLM-клиент и reply generation
+- `src/media` — Gladia STT, Cloudflare Vision, Telegram media metadata/download helpers
 - `src/app/telegram-html.ts` — Telegram-safe HTML formatting для исходящих ответов
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
@@ -196,4 +194,4 @@ docker compose down
 
 ## Следующие версии
 
-Lookup-backed `/explain` и `/decide` уже подведены к current contract через planner/lookup scaffolding; следующий крупный этап после стабилизации этого пути — media intake для изображений, voice/audio и Telegram video notes. Детали и порядок работ вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md) и [`docs/superpowers/plans/2026-04-18-internet-and-media-intake.md`](./docs/superpowers/plans/2026-04-18-internet-and-media-intake.md).
+Lookup-backed `/explain`, `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. `/read` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).

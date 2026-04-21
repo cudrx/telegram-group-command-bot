@@ -70,4 +70,14 @@ describe('getIntentOutputShapeViolations', () => {
       ])
     );
   });
+
+  test('does not require fixed shape for read and answer', () => {
+    expect(
+      getIntentOutputShapeViolations('read', 'Просто распознанный текст.')
+    ).toEqual([]);
+
+    expect(
+      getIntentOutputShapeViolations('answer', 'Короткий прямой ответ.')
+    ).toEqual([]);
+  });
 });

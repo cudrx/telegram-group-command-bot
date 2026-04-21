@@ -8,7 +8,7 @@
 
 - читать текстовые сообщения из Telegram;
 - сохранять чаты, входящие сообщения, исходящие сообщения, sender metadata и `reply_to` связи;
-- отвечать только на явные команды `/explain`, `/summarize` и `/decide`;
+- отвечать только на явные команды `/explain`, `/summarize`, `/decide`, `/read` и `/answer`;
 - игнорировать обычный `@mention` и обычный private text;
 - строить короткий human-only local context с per-intent limit;
 - генерировать ответ через `generateReply`;
@@ -28,18 +28,20 @@
 - summary-based retention;
 - planner/provider-driven live internet lookup is gated off by default.
 
-Если `LOOKUP_ENABLED=true`, lookup-backed explain/decide contract behaves like this:
+Если `LOOKUP_ENABLED=true`, lookup-backed explain/decide/answer contract behaves like this:
 
 - runtime uses an LLM planner and Tavily-backed lookup for entity grounding, fact-check, freshness or link understanding;
 - planner/provider behavior is still bounded by config for provider choice, timeouts, max queries, max results and fallback handling;
 - when `LOOKUP_ENABLED=false`, planner/provider are skipped and behavior stays chat-only;
 - `EXTERNAL_LOOKUP_CONTEXT` is appended to the prompt as untrusted evidence, not instructions.
 
-Ближайший post-v1 фокус уже определён, но ещё не реализован в runtime:
+Media intake реализован только как lazy explicit command:
 
-- распознавание изображений;
-- transcription/normalization для audio, voice messages и Telegram video notes;
-- передача распознанного media-текста в тот же explicit-command pipeline без включения autonomous replies.
+- `/read` работает только когда команда отправлена reply на поддержанное медиа;
+- изображения распознаются через Cloudflare Workers AI;
+- `voice`, `audio` и Telegram `video_note` транскрибируются через Gladia;
+- исходные файлы скачиваются во временную папку, удаляются после provider call и не сохраняются в БД;
+- в SQLite сохраняются только raw/normalized media artifacts с TTL.
 
 ## Product Invariants
 
@@ -74,7 +76,8 @@
 
 - чаты;
 - сообщения с `reply_to` связями;
-- sender metadata прямо в `messages`.
+- sender metadata прямо в `messages`;
+- raw и normalized media artifacts для `/read`.
 - маленький `app_state` key-value store для persistent runtime state, например последнего успешно объявленного deploy sha.
 
 ### `src/llm`
@@ -96,6 +99,7 @@
 - решает, должен ли бот отвечать;
 - собирает context;
 - вызывает OpenAI-compatible reply LLM;
+- для `/read` лениво скачивает replied-to media, проверяет artifact cache, вызывает media provider и передаёт в LLM только нормализованный artifact;
 - показывает Telegram typing indicator;
 - форматирует исходящий ответ в Telegram-safe HTML;
 - отправляет ответ в Telegram с `parse_mode=HTML`;
@@ -144,6 +148,15 @@
 - Prompt assembly for `/explain` renders the reply anchor as `TARGET_MESSAGE_TO_EXPLAIN` and the surrounding recent chat as `NEARBY_CHAT_CONTEXT`.
 - Prior messages from this bot в context не попадают.
 
+### `answer`
+
+- Команда напрямую отвечает на сообщение, на которое пользователь сделал reply командой `/answer`.
+- Текст после `/answer` игнорируется.
+- Reply anchor может быть human message или сообщением другого бота, но не сообщением этого бота.
+- При `LOOKUP_ENABLED=true` перед финальным ответом запускается тот же planner/Tavily lookup contract для entity grounding, fact-check, freshness или link understanding.
+- Prompt assembly for `/answer` renders the reply anchor as `TARGET_MESSAGE_TO_ANSWER` and the surrounding recent chat as `NEARBY_CHAT_CONTEXT`.
+- Prior messages from this bot в context не попадают.
+
 ### `summarize`
 
 - Команда суммирует только recent human messages.
@@ -159,6 +172,18 @@
 - Нужно явно говорить, когда победителя нет, критериев нет или контекста недостаточно.
 - Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
+
+### `read`
+
+- Команда считывает только replied-to media: `photo`, image `document`, `voice`, `audio`, `video_note`.
+- Если команда не является reply на поддержанное медиа, бот отвечает локальной usage-фразой без LLM/provider call.
+- Caption хранится и передаётся отдельно от результата распознавания.
+- Cloudflare Vision возвращает structured visual artifact с разделением `visibleText`, `namesMentionedInText` и `visuallyPresentPeopleOrCharacters`.
+- Gladia возвращает transcript artifact; возможные ошибки STT учитываются в финальном prompt.
+- Final prompt получает отдельные блоки `CAPTION`, `VISIBLE_TEXT`, `VISUAL_DETAILS`, `AUDIO_TRANSCRIPT`, `CHAT_CONTEXT`.
+- Lookup для `/read` не запускается; `LOOKUP_CONTEXT` отсутствует.
+- Context limit: `READ_CONTEXT_LIMIT=10`.
+- Prior messages from this bot в context не попадают.
 
 Static prompt text lives under `llm/`; `src/llm/prompt-files.ts` is the single source of truth for prompt asset paths and reads prompt files when prompt builders run. TypeScript code in `src/llm/` keeps ownership of prompt assembly, sanitization, transcript labels, lookup source formatting, and runtime data insertion.
 
