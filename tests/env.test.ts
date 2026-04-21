@@ -5,6 +5,7 @@ import { parseEnv as parseRawEnv } from '../src/config/env.js';
 function parseEnv(rawEnv: Record<string, string | undefined>) {
   return parseRawEnv({
     DEPLOY_NOTIFY_CHAT_ID: '-1002155313986',
+    TAVILY_API_KEY: 'tvly-key',
     ...rawEnv
   });
 }
@@ -21,7 +22,7 @@ describe('parseEnv', () => {
     expect(env.llmReplyModel).toBe('deepseek-chat');
     expect(env.llmReplyTemperature).toBe(0.6);
     expect(env.llmTimeoutMs).toBe(45_000);
-    expect(env.llmMaxRetries).toBe(2);
+    expect(env.llmMaxRetries).toBe(1);
     expect(env.logLlmText).toBe(false);
     expect(env.logLevel).toBe('info');
     expect(env.logColor).toBe(true);
@@ -71,22 +72,34 @@ describe('parseEnv', () => {
     expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
   });
 
-  test('defaults planner model to reply model and keeps lookup disabled', () => {
+  test('defaults planner model to reply model and keeps lookup enabled', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
-      LLM_REPLY_MODEL: 'reply-model'
+      LLM_REPLY_MODEL: 'reply-model',
+      TAVILY_API_KEY: 'tvly-key'
     });
 
     expect(env.llmPlannerModel).toBe('reply-model');
     expect(Object.hasOwn(env, 'llmFastReplyModel')).toBe(false);
     expect(env.llmReplyEnableThinking).toBe(false);
-    expect(env.lookupEnabled).toBe(false);
+    expect(env.lookupEnabled).toBe(true);
     expect(env.lookupProvider).toBe('tavily');
-    expect(env.tavilyApiKey).toBe(null);
+    expect(env.tavilyApiKey).toBe('tvly-key');
     expect(env.lookupTimeoutMs).toBe(7000);
     expect(env.lookupMaxQueries).toBe(1);
     expect(env.lookupMaxResults).toBe(3);
+  });
+
+  test('keeps lookup provider hardcoded to tavily', () => {
+    const env = parseEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
+      LOOKUP_PROVIDER: 'unsupported'
+    });
+
+    expect(env.lookupProvider).toBe('tavily');
   });
 
   test('applies media analysis defaults when disabled', () => {
@@ -116,7 +129,6 @@ describe('parseEnv', () => {
       LLM_PLANNER_MODEL: 'planner-model',
       LLM_REPLY_ENABLE_THINKING: 'true',
       LOOKUP_ENABLED: 'true',
-      LOOKUP_PROVIDER: 'tavily',
       TAVILY_API_KEY: 'tvly-key',
       LOOKUP_TIMEOUT_MS: '5000',
       LOOKUP_MAX_QUERIES: '2',
@@ -134,15 +146,15 @@ describe('parseEnv', () => {
     expect(env.lookupMaxResults).toBe(4);
   });
 
-  test('reads media provider and retention settings', () => {
+  test('keeps media provider and retention defaults hardcoded', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       MEDIA_ANALYSIS_ENABLED: 'true',
       DESCRIBE_CONTEXT_LIMIT: '12',
-      STT_PROVIDER: 'gladia',
+      STT_PROVIDER: 'unsupported',
       GLADIA_API_KEY: 'gladia-key',
-      VISION_PROVIDER: 'cloudflare',
+      VISION_PROVIDER: 'unsupported',
       CLOUDFLARE_AI_API_KEY: 'cf-key',
       CLOUDFLARE_ACCOUNT_ID: 'cf-account',
       MEDIA_MAX_FILE_BYTES: '9000000',
@@ -158,16 +170,17 @@ describe('parseEnv', () => {
     expect(env.visionProvider).toBe('cloudflare');
     expect(env.cloudflareAiApiKey).toBe('cf-key');
     expect(env.cloudflareAccountId).toBe('cf-account');
-    expect(env.mediaMaxFileBytes).toBe(9_000_000);
-    expect(env.mediaArtifactRetentionDays).toBe(5);
-    expect(env.messageRetentionDays).toBe(3);
-    expect(env.databaseCleanupIntervalHours).toBe(12);
+    expect(env.mediaMaxFileBytes).toBe(10_000_000);
+    expect(env.mediaArtifactRetentionDays).toBe(7);
+    expect(env.messageRetentionDays).toBe(7);
+    expect(env.databaseCleanupIntervalHours).toBe(24);
   });
 
   test('parses deploy notification chat id', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
       DEPLOY_NOTIFY_CHAT_ID: '-1002155313986'
     });
 
@@ -189,7 +202,7 @@ describe('parseEnv', () => {
         TELEGRAM_BOT_TOKEN: 'telegram-token',
         LLM_API_KEY: 'llm-key',
         LOOKUP_ENABLED: 'true',
-        LOOKUP_PROVIDER: 'tavily'
+        TAVILY_API_KEY: undefined
       })
     ).toThrow(/TAVILY_API_KEY is required when LOOKUP_ENABLED=true/i);
   });
@@ -200,7 +213,6 @@ describe('parseEnv', () => {
         TELEGRAM_BOT_TOKEN: 'telegram-token',
         LLM_API_KEY: 'llm-key',
         LOOKUP_ENABLED: 'true',
-        LOOKUP_PROVIDER: 'tavily',
         TAVILY_API_KEY: 'your-tavily-api-key'
       })
     ).toThrow(/TAVILY_API_KEY contains a placeholder value/i);

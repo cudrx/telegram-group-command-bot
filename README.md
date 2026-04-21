@@ -37,6 +37,7 @@
 - npm `11+`
 - Telegram bot token
 - LLM API key
+- Tavily API key for default web grounding
 
 ## Локальный запуск
 
@@ -53,6 +54,7 @@ cp .env.example .env
 ```
 
 `.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
+Lookup включен по умолчанию и использует Tavily; для старта задайте `TAVILY_API_KEY` или явно отключите lookup через `LOOKUP_ENABLED=false`.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -75,38 +77,20 @@ npm run dev
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
-- `LLM_REPLY_TEMPERATURE`
-- `LLM_REPLY_ENABLE_THINKING`
-- `LLM_TIMEOUT_MS`
-- `LLM_MAX_RETRIES`
-- `LOOKUP_ENABLED`
-- `LOOKUP_PROVIDER`
 - `TAVILY_API_KEY`
-- `LOOKUP_TIMEOUT_MS`
-- `LOOKUP_MAX_QUERIES`
-- `LOOKUP_MAX_RESULTS`
 - `MEDIA_ANALYSIS_ENABLED`
 - `DESCRIBE_CONTEXT_LIMIT`
-- `STT_PROVIDER`
 - `GLADIA_API_KEY`
-- `VISION_PROVIDER`
 - `CLOUDFLARE_AI_API_KEY`
 - `CLOUDFLARE_ACCOUNT_ID`
-- `MEDIA_MAX_FILE_BYTES`
-- `MEDIA_ARTIFACT_RETENTION_DAYS`
-- `MESSAGE_RETENTION_DAYS`
-- `DATABASE_CLEANUP_INTERVAL_HOURS`
 - `LOG_LLM_TEXT`
-- `LOG_LEVEL`
-- `LOG_COLOR`
 - `EXPLAIN_CONTEXT_LIMIT`
 - `SUMMARIZE_CONTEXT_LIMIT`
 - `DECIDE_CONTEXT_LIMIT`
-- `REPLY_MIN_TYPING_MS`
-- `REPLY_MAX_TYPING_MS`
-- `REPLY_TYPING_REFRESH_MS`
 - `DEPLOY_NOTIFY_CHAT_ID`
 - `SQLITE_PATH`
+
+Шумные runtime-твики вроде LLM timeout/retries, typing delay, log level/color, lookup limits, media providers, file-size limit и retention имеют кодовые дефолты в [`src/config/env.ts`](./src/config/env.ts). Их можно переопределить через окружение точечно, если они остались в схеме, но в `.env.example` они намеренно не лежат.
 
 ## Логи
 
