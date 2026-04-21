@@ -1,22 +1,33 @@
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { loadPrompt } from '../src/llm/prompt-files.js';
 import { CloudflareVisionProvider } from '../src/media/cloudflare-vision-provider.js';
 
-const IMAGE_FILE_PATH = fileURLToPath(
-  new URL('../data/test-meme.jpeg', import.meta.url)
-);
+const tempDirectories: string[] = [];
 
 describe('CloudflareVisionProvider', () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.restoreAllMocks();
     vi.useRealTimers();
+
+    for (const directory of tempDirectories.splice(0)) {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   test('sends image bytes and normalizes a Cloudflare object response', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([
+        0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01,
+        0x02, 0x03, 0xff, 0xd9
+      ])
+    );
     const calls: Array<{ url: string; init?: RequestInit | undefined }> = [];
     const fetchStub = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -50,11 +61,11 @@ describe('CloudflareVisionProvider', () => {
     });
 
     const result = await provider.describe({
-      filePath: IMAGE_FILE_PATH,
+      filePath: imageFilePath,
       timeoutMs: 5000
     });
 
-    const imageBytes = [...(await readFile(IMAGE_FILE_PATH))];
+    const imageBytes = [...(await readFile(imageFilePath))];
 
     expect(result).toMatchObject({
       provider: 'cloudflare',
@@ -92,6 +103,11 @@ describe('CloudflareVisionProvider', () => {
   });
 
   test('normalizes a Cloudflare JSON string response body', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([0x01, 0x02, 0x03])
+    );
     const fetchStub = vi.fn(async () =>
       jsonResponse({
         success: true,
@@ -120,7 +136,7 @@ describe('CloudflareVisionProvider', () => {
 
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).resolves.toMatchObject({
@@ -140,6 +156,11 @@ describe('CloudflareVisionProvider', () => {
   });
 
   test('uses the top-level response body when result.response is absent', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([0x04, 0x05, 0x06])
+    );
     const fetchStub = vi.fn(async () =>
       jsonResponse({
         success: true,
@@ -163,7 +184,7 @@ describe('CloudflareVisionProvider', () => {
 
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).resolves.toMatchObject({
@@ -176,6 +197,11 @@ describe('CloudflareVisionProvider', () => {
   });
 
   test('throws when Cloudflare reports success=false', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([0x07, 0x08, 0x09])
+    );
     const fetchStub = vi.fn(async () =>
       jsonResponse({
         success: false,
@@ -191,19 +217,24 @@ describe('CloudflareVisionProvider', () => {
 
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).rejects.toThrow(/success=false/i);
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).rejects.toThrow(/model unavailable/i);
   });
 
   test('throws on non-2xx HTTP responses', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([0x0a, 0x0b, 0x0c])
+    );
     const fetchStub = vi.fn(
       async () =>
         new Response('bad key', {
@@ -220,7 +251,7 @@ describe('CloudflareVisionProvider', () => {
 
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).rejects.toThrow(
@@ -229,6 +260,11 @@ describe('CloudflareVisionProvider', () => {
   });
 
   test('throws on invalid JSON responses', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([0x0d, 0x0e, 0x0f])
+    );
     const fetchStub = vi.fn(async () => new Response('not json'));
 
     const provider = new CloudflareVisionProvider({
@@ -239,13 +275,18 @@ describe('CloudflareVisionProvider', () => {
 
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).rejects.toThrow('Cloudflare vision request returned invalid JSON.');
   });
 
   test('throws on empty 2xx responses', async () => {
+    const imageFilePath = await createTempFixtureFile(
+      'cloudflare-vision-test-',
+      'test-image.jpeg',
+      Buffer.from([0x10, 0x11, 0x12])
+    );
     const fetchStub = vi.fn(async () => new Response(''));
 
     const provider = new CloudflareVisionProvider({
@@ -256,12 +297,25 @@ describe('CloudflareVisionProvider', () => {
 
     await expect(
       provider.describe({
-        filePath: IMAGE_FILE_PATH,
+        filePath: imageFilePath,
         timeoutMs: 5000
       })
     ).rejects.toThrow('Cloudflare vision request returned an empty response.');
   });
 });
+
+async function createTempFixtureFile(
+  directoryPrefix: string,
+  filename: string,
+  bytes: Buffer
+): Promise<string> {
+  const directory = await mkdtemp(path.join(os.tmpdir(), directoryPrefix));
+  tempDirectories.push(directory);
+  const filePath = path.join(directory, filename);
+  await writeFile(filePath, bytes);
+
+  return filePath;
+}
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
