@@ -56,6 +56,7 @@ cp .env.example .env
 
 `.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 Lookup включен по умолчанию и использует Tavily; для старта задайте `TAVILY_API_KEY` или явно отключите lookup через `LOOKUP_ENABLED=false`.
+`/read` по умолчанию выключен: для распознавания медиа нужно явно включить `MEDIA_ANALYSIS_ENABLED=true` и задать `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -150,6 +151,7 @@ docker compose logs bot --tail=200 -f
 - после этого workflow по `SSH` обновляет deploy-артефакты на VPS и делает `docker compose pull && docker compose up -d`
 
 `SQLite` не хранится внутри контейнера. Файл базы лежит на VPS в bind mount-папке `./data`, которая на сервере должна находиться рядом с `compose.yml`, например в `/opt/test-chatbot/data/bot.sqlite`.
+Распознавание медиа в production тоже по умолчанию выключено: после копирования `deploy/.env.server.example` нужно вручную поставить `MEDIA_ANALYSIS_ENABLED=true`, если на сервере должен работать `/read`.
 
 Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `DEPLOY_NOTIFY_CHAT_ID`, и только после успешной отправки сохраняет sha.
 

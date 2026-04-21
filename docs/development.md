@@ -240,6 +240,17 @@ SQLITE_PATH=/app/data/bot.sqlite
 DEPLOY_NOTIFY_CHAT_ID=-1002155313986
 ```
 
+Если в production нужен `/read`, дополнительно включите:
+
+```dotenv
+MEDIA_ANALYSIS_ENABLED=true
+GLADIA_API_KEY=...
+CLOUDFLARE_AI_API_KEY=...
+CLOUDFLARE_ACCOUNT_ID=...
+```
+
+Без `MEDIA_ANALYSIS_ENABLED=true` бот стартует нормально, но на `/read` отвечает локальной фразой, что распознавание медиа выключено.
+
 Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
 
 ### Deploy Update Announcements
