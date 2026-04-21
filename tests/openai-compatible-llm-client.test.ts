@@ -594,8 +594,8 @@ function createReplyInput(
       intent === 'read'
         ? {
             sourceCaption: null,
-            visibleText: [],
-            visualDetails: null,
+            visionRaw: null,
+            visionInterpretation: null,
             audioTranscript: null
           }
         : null

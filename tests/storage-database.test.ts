@@ -100,7 +100,47 @@ describeWithSqlite('DatabaseClient', () => {
     });
   });
 
-  test('v0 schema keeps messages and chats only, with sender metadata on messages', () => {
+  test('normalizes media-only messages with own media snapshot', () => {
+    const ctx = {
+      message: {
+        message_id: 346,
+        date: 1_744_300_000,
+        photo: [
+          {
+            file_id: 'small-photo',
+            file_unique_id: 'small-unique',
+            file_size: 100
+          },
+          {
+            file_id: 'large-photo',
+            file_unique_id: 'large-unique',
+            file_size: 500
+          }
+        ],
+        from: {
+          id: 99,
+          is_bot: false,
+          first_name: 'Олег'
+        },
+        chat: {
+          id: 1,
+          type: 'group'
+        }
+      }
+    } as never;
+
+    expect(normalizeTextMessage(ctx)).toMatchObject({
+      text: '',
+      mediaSnapshot: {
+        messageId: 346,
+        mediaKind: 'photo',
+        fileId: 'large-photo',
+        fileUniqueId: 'large-unique'
+      }
+    });
+  });
+
+  test('schema keeps messages and chats only, with sender and media metadata on messages', () => {
     const db = createDatabase();
 
     expect(db.getSchemaColumns('chats')).toEqual([
@@ -122,6 +162,13 @@ describeWithSqlite('DatabaseClient', () => {
       'created_at',
       'is_bot',
       'reply_to_telegram_message_id',
+      'media_kind',
+      'media_file_id',
+      'media_file_unique_id',
+      'media_mime_type',
+      'media_file_size',
+      'media_duration_seconds',
+      'media_caption',
       'from_user_id',
       'from_username',
       'from_first_name',
@@ -167,6 +214,41 @@ describeWithSqlite('DatabaseClient', () => {
       userId: 77,
       senderDisplayName: 'Fun Bot',
       replyToMessageId: 10
+    });
+
+    db.close();
+  });
+
+  test('stores and reads media snapshot metadata on message rows', () => {
+    const db = DatabaseClient.open(':memory:');
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        text: '',
+        mediaSnapshot: {
+          messageId: 10,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 500,
+          durationSeconds: null,
+          caption: 'подпись'
+        }
+      })
+    );
+
+    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
+      messageId: 10,
+      mediaSnapshot: {
+        mediaKind: 'photo',
+        fileId: 'photo-file',
+        fileUniqueId: 'photo-unique',
+        mimeType: 'image/jpeg',
+        fileSize: 500,
+        caption: 'подпись'
+      }
     });
 
     db.close();
@@ -730,6 +812,7 @@ function createIncomingMessage(
     replyToMessageId: null,
     replyToMessageSnapshot: null,
     replyToMediaSnapshot: null,
+    mediaSnapshot: null,
     ...overrides
   };
 }

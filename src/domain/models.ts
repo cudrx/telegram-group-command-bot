@@ -38,6 +38,7 @@ export type NormalizedMessage = {
   replyToMessageId: number | null;
   replyToMessageSnapshot: StoredMessage | null;
   replyToMediaSnapshot: MediaMessageSnapshot | null;
+  mediaSnapshot: MediaMessageSnapshot | null;
 };
 
 export type MediaMessageSnapshot = {
@@ -60,6 +61,7 @@ export type StoredMessage = {
   createdAt: string;
   isBot: boolean;
   replyToMessageId: number | null;
+  mediaSnapshot?: MediaMessageSnapshot | null;
 };
 
 export type ReplyContext = {

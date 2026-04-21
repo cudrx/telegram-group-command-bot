@@ -25,7 +25,7 @@ export type VisionArtifact = {
   uncertainty: string[];
 };
 
-export type NormalizedMediaArtifact = TranscriptArtifact | VisionArtifact;
+export type NormalizedMediaArtifact = TranscriptArtifact;
 
 export type SpeechToTextProvider = {
   transcribe(input: {
@@ -46,7 +46,7 @@ export type VisionProvider = {
   describe(input: { filePath: string; timeoutMs: number }): Promise<{
     provider: 'cloudflare';
     providerModel: string;
-    artifact: VisionArtifact;
+    rawText: string;
     rawResponse: unknown;
   }>;
 };

@@ -1,7 +1,10 @@
 import type { Context } from 'grammy';
 
 import type { ChatType, NormalizedMessage } from '../../domain/models.js';
-import { extractReplyToMediaSnapshot } from '../../media/telegram-media.js';
+import {
+  extractMessageMediaSnapshot,
+  extractReplyToMediaSnapshot
+} from '../../media/telegram-media.js';
 
 type TelegramTextPayloadMessage = {
   text?: unknown;
@@ -52,7 +55,8 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     replyToUserId: message.reply_to_message?.from?.id ?? null,
     replyToMessageId: message.reply_to_message?.message_id ?? null,
     replyToMessageSnapshot: normalizeReplyToMessageSnapshot(message),
-    replyToMediaSnapshot: extractReplyToMediaSnapshot(message)
+    replyToMediaSnapshot: extractReplyToMediaSnapshot(message),
+    mediaSnapshot: extractMessageMediaSnapshot(message)
   };
 }
 
@@ -83,7 +87,8 @@ function normalizeReplyToMessageSnapshot(
     text: textPayload.text,
     createdAt: new Date(reply.date * 1000).toISOString(),
     isBot: reply.from?.is_bot ?? false,
-    replyToMessageId: null
+    replyToMessageId: null,
+    mediaSnapshot: extractMessageMediaSnapshot(reply)
   };
 }
 
@@ -114,6 +119,13 @@ function normalizeMessageTextPayload(message: TelegramTextPayloadMessage): {
     return {
       text,
       entities: (message.caption_entities ?? []).map(normalizeEntity)
+    };
+  }
+
+  if (extractMessageMediaSnapshot(message as NonNullable<Context['message']>)) {
+    return {
+      text: '',
+      entities: []
     };
   }
 

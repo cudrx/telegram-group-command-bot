@@ -53,6 +53,7 @@ const envSchema = z.object({
   LOG_COLOR: stringBooleanSchema.default(true),
   SQLITE_PATH: z.string().min(1).default('data/bot.sqlite'),
   EXPLAIN_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
+  ANSWER_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
   SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(128),
   DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(64),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
@@ -87,6 +88,7 @@ type ParsedEnv = {
   logColor: boolean;
   sqlitePath: string;
   explainContextLimit: number;
+  answerContextLimit: number;
   summarizeContextLimit: number;
   decideContextLimit: number;
   replyMinTypingMs: number;
@@ -223,6 +225,7 @@ export function parseEnv(
     logColor: parsed.LOG_COLOR,
     sqlitePath: parsed.SQLITE_PATH,
     explainContextLimit: parsed.EXPLAIN_CONTEXT_LIMIT,
+    answerContextLimit: parsed.ANSWER_CONTEXT_LIMIT,
     summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
     decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,

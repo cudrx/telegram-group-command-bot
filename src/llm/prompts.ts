@@ -13,8 +13,8 @@ export type PromptMessage = Pick<
 
 export type DescribeMediaContext = {
   sourceCaption: string | null;
-  visibleText: string[];
-  visualDetails: unknown;
+  visionRaw: string | null;
+  visionInterpretation: string | null;
   audioTranscript: {
     transcript: string;
     language: string | null;
@@ -84,20 +84,35 @@ function getIntentDataSections(input: {
   mediaContext?: DescribeMediaContext | null;
 }): string {
   if (input.intent === 'explain' || input.intent === 'answer') {
-    return renderPromptTemplate(loadPrompt('systemExplain'), {
-      targetMessage: formatSingleMessage(input.replyContext.replyAnchorMessage),
-      nearbyChatContext: formatReplyContextMessages(
-        input.replyContext.priorContextMessages
-      ),
-      currentCommandMessage: formatCommandMessage(
-        input.replyContext.triggerMessage
-      ),
-      targetLabel:
-        input.intent === 'answer'
-          ? 'TARGET_MESSAGE_TO_ANSWER'
-          : 'TARGET_MESSAGE_TO_EXPLAIN',
-      commandName: input.intent
-    });
+    return renderPromptTemplate(
+      loadPrompt(input.intent === 'answer' ? 'systemAnswer' : 'systemExplain'),
+      {
+        targetMessage: formatSingleMessage(
+          input.replyContext.replyAnchorMessage
+        ),
+        targetMediaCaption: sanitizePromptText(
+          input.mediaContext?.sourceCaption ?? 'No caption.'
+        ),
+        targetMediaRaw: sanitizePromptText(
+          input.mediaContext?.visionRaw ?? 'No media raw context.'
+        ),
+        targetMediaInterpretation: sanitizePromptText(
+          input.mediaContext?.visionInterpretation ??
+            'No media interpretation context.'
+        ),
+        nearbyChatContext: formatReplyContextMessages(
+          input.replyContext.priorContextMessages
+        ),
+        currentCommandMessage: formatCommandMessage(
+          input.replyContext.triggerMessage
+        ),
+        targetLabel:
+          input.intent === 'answer'
+            ? 'TARGET_MESSAGE_TO_ANSWER'
+            : 'TARGET_MESSAGE_TO_EXPLAIN',
+        commandName: input.intent
+      }
+    );
   }
 
   if (input.intent === 'read') {
@@ -108,9 +123,12 @@ function getIntentDataSections(input: {
       caption: sanitizePromptText(
         input.mediaContext?.sourceCaption ?? 'No caption.'
       ),
-      visibleText: formatJsonForPrompt(input.mediaContext?.visibleText ?? []),
-      visualDetails: formatJsonForPrompt(
-        input.mediaContext?.visualDetails ?? null
+      visionRaw: sanitizePromptText(
+        input.mediaContext?.visionRaw ?? 'No vision raw context.'
+      ),
+      visionInterpretation: sanitizePromptText(
+        input.mediaContext?.visionInterpretation ??
+          'No vision interpretation context.'
       ),
       audioTranscript: formatJsonForPrompt(
         input.mediaContext?.audioTranscript ?? null

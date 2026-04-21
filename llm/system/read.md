@@ -7,11 +7,11 @@ If the command message has extra text after /{{commandName}}, ignore it.
 CAPTION:
 {{caption}}
 
-VISIBLE_TEXT:
-{{visibleText}}
+VISION_RAW:
+{{visionRaw}}
 
-VISUAL_DETAILS:
-{{visualDetails}}
+VISION_INTERPRETATION:
+{{visionInterpretation}}
 
 AUDIO_TRANSCRIPT:
 {{audioTranscript}}

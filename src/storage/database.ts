@@ -5,6 +5,7 @@ import Database from 'better-sqlite3';
 
 import type {
   ChatState,
+  MediaMessageSnapshot,
   NormalizedMessage,
   StoredMessage
 } from '../domain/models.js';
@@ -77,6 +78,13 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TEXT NOT NULL,
   is_bot INTEGER NOT NULL DEFAULT 0,
   reply_to_telegram_message_id INTEGER,
+  media_kind TEXT,
+  media_file_id TEXT,
+  media_file_unique_id TEXT,
+  media_mime_type TEXT,
+  media_file_size INTEGER,
+  media_duration_seconds REAL,
+  media_caption TEXT,
   from_user_id INTEGER,
   from_username TEXT,
   from_first_name TEXT,
@@ -178,13 +186,20 @@ export class DatabaseClient {
               created_at,
               is_bot,
               reply_to_telegram_message_id,
+              media_kind,
+              media_file_id,
+              media_file_unique_id,
+              media_mime_type,
+              media_file_size,
+              media_duration_seconds,
+              media_caption,
               from_user_id,
               from_username,
               from_first_name,
               from_last_name,
               from_display_name
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `
         )
         .run(
@@ -196,6 +211,13 @@ export class DatabaseClient {
           incoming.createdAt,
           incoming.isBot ? 1 : 0,
           incoming.replyToMessageId,
+          incoming.mediaSnapshot?.mediaKind ?? null,
+          incoming.mediaSnapshot?.fileId ?? null,
+          incoming.mediaSnapshot?.fileUniqueId ?? null,
+          incoming.mediaSnapshot?.mimeType ?? null,
+          incoming.mediaSnapshot?.fileSize ?? null,
+          incoming.mediaSnapshot?.durationSeconds ?? null,
+          incoming.mediaSnapshot?.caption ?? null,
           incoming.fromUserId,
           incoming.fromUsername,
           incoming.fromFirstName,
@@ -260,13 +282,20 @@ export class DatabaseClient {
                 created_at,
                 is_bot,
                 reply_to_telegram_message_id,
+                media_kind,
+                media_file_id,
+                media_file_unique_id,
+                media_mime_type,
+                media_file_size,
+                media_duration_seconds,
+                media_caption,
                 from_user_id,
                 from_username,
                 from_first_name,
                 from_last_name,
                 from_display_name
               )
-              VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `
           )
           .run(
@@ -276,7 +305,15 @@ export class DatabaseClient {
             outgoing.displayName,
             outgoing.text,
             outgoing.createdAt,
+            1,
             outgoing.replyToMessageId ?? null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
             outgoing.userId,
             outgoing.username,
             null,
@@ -334,7 +371,14 @@ export class DatabaseClient {
             text,
             created_at AS createdAt,
             is_bot AS isBot,
-            reply_to_telegram_message_id AS replyToMessageId
+            reply_to_telegram_message_id AS replyToMessageId,
+            media_kind AS mediaKind,
+            media_file_id AS mediaFileId,
+            media_file_unique_id AS mediaFileUniqueId,
+            media_mime_type AS mediaMimeType,
+            media_file_size AS mediaFileSize,
+            media_duration_seconds AS mediaDurationSeconds,
+            media_caption AS mediaCaption
           FROM messages
           WHERE chat_id = ?
           ORDER BY telegram_message_id DESC
@@ -364,7 +408,14 @@ export class DatabaseClient {
             text,
             created_at AS createdAt,
             is_bot AS isBot,
-            reply_to_telegram_message_id AS replyToMessageId
+            reply_to_telegram_message_id AS replyToMessageId,
+            media_kind AS mediaKind,
+            media_file_id AS mediaFileId,
+            media_file_unique_id AS mediaFileUniqueId,
+            media_mime_type AS mediaMimeType,
+            media_file_size AS mediaFileSize,
+            media_duration_seconds AS mediaDurationSeconds,
+            media_caption AS mediaCaption
           FROM messages
           WHERE chat_id = ? AND telegram_message_id < ?
           ORDER BY telegram_message_id DESC
@@ -391,7 +442,14 @@ export class DatabaseClient {
             text,
             created_at AS createdAt,
             is_bot AS isBot,
-            reply_to_telegram_message_id AS replyToMessageId
+            reply_to_telegram_message_id AS replyToMessageId,
+            media_kind AS mediaKind,
+            media_file_id AS mediaFileId,
+            media_file_unique_id AS mediaFileUniqueId,
+            media_mime_type AS mediaMimeType,
+            media_file_size AS mediaFileSize,
+            media_duration_seconds AS mediaDurationSeconds,
+            media_caption AS mediaCaption
           FROM messages
           WHERE chat_id = ? AND telegram_message_id = ?
         `
@@ -548,6 +606,74 @@ export class DatabaseClient {
     );
   }
 
+  getSuccessfulMediaArtifactsForMessages(input: {
+    chatId: number;
+    messageIds: number[];
+  }): StoredMediaArtifact[] {
+    if (input.messageIds.length === 0) {
+      return [];
+    }
+
+    const placeholders = input.messageIds.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            id,
+            file_unique_id AS fileUniqueId,
+            chat_id AS chatId,
+            telegram_message_id AS telegramMessageId,
+            media_kind AS mediaKind,
+            provider,
+            provider_model AS providerModel,
+            artifact_kind AS artifactKind,
+            artifact_status AS artifactStatus,
+            artifact_text AS artifactText,
+            artifact_json AS artifactJson,
+            raw_response_json AS rawResponseJson,
+            source_caption AS sourceCaption,
+            source_mime_type AS sourceMimeType,
+            source_file_size AS sourceFileSize,
+            source_duration_seconds AS sourceDurationSeconds,
+            recognition_language AS recognitionLanguage,
+            confidence_json AS confidenceJson,
+            error_text AS errorText,
+            created_at AS createdAt,
+            expires_at AS expiresAt
+          FROM media_artifacts
+          WHERE chat_id = ?
+            AND telegram_message_id IN (${placeholders})
+            AND artifact_status = 'success'
+          ORDER BY telegram_message_id DESC, created_at DESC
+        `
+      )
+      .all(input.chatId, ...input.messageIds) as Array<{
+      id: number;
+      fileUniqueId: string | null;
+      chatId: number;
+      telegramMessageId: number;
+      mediaKind: string;
+      provider: string;
+      providerModel: string;
+      artifactKind: string;
+      artifactStatus: string;
+      artifactText: string | null;
+      artifactJson: string | null;
+      rawResponseJson: string | null;
+      sourceCaption: string | null;
+      sourceMimeType: string | null;
+      sourceFileSize: number | null;
+      sourceDurationSeconds: number | null;
+      recognitionLanguage: string | null;
+      confidenceJson: string | null;
+      errorText: string | null;
+      createdAt: string;
+      expiresAt: string;
+    }>;
+
+    return rows.map(toStoredMediaArtifact);
+  }
+
   cleanupExpiredData(input: {
     now: string;
     messageRetentionDays: number;
@@ -672,11 +798,39 @@ function upsertChat(
 }
 
 function toStoredMessage(
-  row: Omit<StoredMessage, 'isBot'> & { isBot: number }
+  row: Omit<StoredMessage, 'isBot'> & {
+    isBot: number;
+    mediaKind?: string | null;
+    mediaFileId?: string | null;
+    mediaFileUniqueId?: string | null;
+    mediaMimeType?: string | null;
+    mediaFileSize?: number | null;
+    mediaDurationSeconds?: number | null;
+    mediaCaption?: string | null;
+  }
 ): StoredMessage {
   return {
-    ...row,
-    isBot: Boolean(row.isBot)
+    chatId: row.chatId,
+    messageId: row.messageId,
+    userId: row.userId,
+    senderDisplayName: row.senderDisplayName,
+    text: row.text,
+    createdAt: row.createdAt,
+    isBot: Boolean(row.isBot),
+    replyToMessageId: row.replyToMessageId,
+    mediaSnapshot:
+      row.mediaKind && row.mediaFileId
+        ? ({
+            messageId: row.messageId,
+            mediaKind: row.mediaKind,
+            fileId: row.mediaFileId,
+            fileUniqueId: row.mediaFileUniqueId ?? null,
+            mimeType: row.mediaMimeType ?? null,
+            fileSize: row.mediaFileSize ?? null,
+            durationSeconds: row.mediaDurationSeconds ?? null,
+            caption: row.mediaCaption ?? null
+          } as MediaMessageSnapshot)
+        : null
   };
 }
 
@@ -763,6 +917,13 @@ function getLatestSuccessfulMediaArtifactRow(
 }
 
 function migrateExistingSchema(db: Database.Database): void {
+  ensureColumn(db, 'messages', 'media_kind', 'TEXT');
+  ensureColumn(db, 'messages', 'media_file_id', 'TEXT');
+  ensureColumn(db, 'messages', 'media_file_unique_id', 'TEXT');
+  ensureColumn(db, 'messages', 'media_mime_type', 'TEXT');
+  ensureColumn(db, 'messages', 'media_file_size', 'INTEGER');
+  ensureColumn(db, 'messages', 'media_duration_seconds', 'REAL');
+  ensureColumn(db, 'messages', 'media_caption', 'TEXT');
   ensureColumn(db, 'messages', 'from_user_id', 'INTEGER');
   ensureColumn(db, 'messages', 'from_username', 'TEXT');
   ensureColumn(db, 'messages', 'from_first_name', 'TEXT');

@@ -12,6 +12,7 @@ You may:
 
 Rules:
 - Focus on the target message, not the whole chat.
+- If target media blocks are present, use them to interpret the target message together with its text and caption.
 - Explain what the target message means; do not answer it as a participant would.
 - If the target message is a factual question, explain what is being asked and what kind of answer it calls for, without giving the factual answer or examples of the answer.
 - Do not summarize the whole discussion.

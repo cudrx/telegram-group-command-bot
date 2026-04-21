@@ -1,7 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
 import { loadPrompt } from '../llm/prompt-files.js';
-import { normalizeCloudflareVisionResponse } from './normalize.js';
 import type { VisionProvider } from './types.js';
 
 const CLOUDFLARE_VISION_PROVIDER_MODEL =
@@ -21,7 +20,7 @@ export class CloudflareVisionProvider implements VisionProvider {
   async describe(input: { filePath: string; timeoutMs: number }): Promise<{
     provider: 'cloudflare';
     providerModel: string;
-    artifact: ReturnType<typeof normalizeCloudflareVisionResponse>;
+    rawText: string;
     rawResponse: unknown;
   }> {
     const fetchImpl = this.config.fetch ?? globalThis.fetch;
@@ -55,12 +54,12 @@ export class CloudflareVisionProvider implements VisionProvider {
 
     ensureCloudflareSuccess(rawResponse);
 
-    const artifact = normalizeCloudflareVisionResponse(responseBody);
+    const rawText = extractCloudflareVisionText(responseBody);
 
     return {
       provider: 'cloudflare',
       providerModel: CLOUDFLARE_VISION_PROVIDER_MODEL,
-      artifact,
+      rawText,
       rawResponse
     };
   }
@@ -73,10 +72,7 @@ export class CloudflareVisionProvider implements VisionProvider {
     const bytes = await readFile(filePath);
 
     return JSON.stringify({
-      messages: [
-        { role: 'system', content: loadPrompt('cloudflareVisionSystem') },
-        { role: 'user', content: loadPrompt('cloudflareVisionUser') }
-      ],
+      prompt: loadPrompt('cloudflareVisionImageRawUser'),
       image: Array.from(bytes),
       max_tokens: 700,
       temperature: 0
@@ -96,6 +92,31 @@ export class CloudflareVisionProvider implements VisionProvider {
       throw new Error('Cloudflare vision request returned invalid JSON.');
     }
   }
+}
+
+function extractCloudflareVisionText(input: unknown): string {
+  if (typeof input === 'string') {
+    const trimmed = input.trim();
+
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  if (
+    typeof input === 'object' &&
+    input !== null &&
+    'response' in input &&
+    typeof input.response === 'string'
+  ) {
+    const trimmed = input.response.trim();
+
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  }
+
+  throw new Error('Cloudflare vision request returned empty text content.');
 }
 
 function createTimeoutSignal(timeoutMs: number): {

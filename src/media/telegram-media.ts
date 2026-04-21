@@ -44,6 +44,20 @@ export function extractReplyToMediaSnapshot(
     return null;
   }
 
+  return extractMessageMediaSnapshot(reply);
+}
+
+export function extractMessageMediaSnapshot(message: {
+  message_id: number;
+  caption?: unknown;
+  voice?: TelegramFileMedia & { duration?: unknown };
+  audio?: TelegramFileMedia & { duration?: unknown };
+  video_note?: TelegramFileMedia & { duration?: unknown };
+  photo?: TelegramPhotoSize[];
+  document?: TelegramFileMedia & { file_name?: unknown };
+}): MediaMessageSnapshot | null {
+  const reply = message;
+
   const caption = normalizeCaption(reply.caption);
 
   if (reply.voice) {

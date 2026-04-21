@@ -31,7 +31,10 @@ import type {
   SpeechToTextProvider,
   VisionProvider
 } from '../media/types.js';
-import type { DatabaseClient } from '../storage/database.js';
+import type {
+  DatabaseClient,
+  StoredMediaArtifact
+} from '../storage/database.js';
 import { buildReplyContext } from './reply-context-builder.js';
 import { formatTelegramHtmlReply } from './telegram-html.js';
 import { withTypingIndicator } from './typing-indicator.js';
@@ -89,6 +92,11 @@ const READ_USAGE_PLACEHOLDER =
 const READ_DISABLED_PLACEHOLDER = 'Распознавание медиа сейчас выключено.';
 const READ_FAILED_PLACEHOLDER =
   'Не удалось распознать медиа. Попробуй позже или с другим файлом.';
+const NEARBY_MEDIA_SCAN_LIMIT = 10;
+const IMAGE_RAW_PROVIDER = 'cloudflare';
+const IMAGE_RAW_ARTIFACT_KIND = 'vision_raw';
+const IMAGE_INTERPRETATION_PROVIDER = 'deepseek';
+const IMAGE_INTERPRETATION_ARTIFACT_KIND = 'vision_interpretation';
 
 export class ChatOrchestrator {
   constructor(
@@ -242,7 +250,7 @@ export class ChatOrchestrator {
       return this.executeReadGeneration(request, logger);
     }
 
-    const replyContext = withReplySnapshotFallback(
+    let replyContext = withReplySnapshotFallback(
       buildReplyContext({
         db: this.deps.db,
         chatId: request.chatId,
@@ -274,6 +282,17 @@ export class ChatOrchestrator {
       );
     }
 
+    replyContext = await this.enrichReplyContextWithNearbyMedia(
+      request,
+      replyContext,
+      logger
+    );
+    const targetMediaContext = await this.buildTargetMediaContext(
+      request,
+      replyContext,
+      logger
+    );
+
     return this.withReplyTyping(request.chatId, async () => {
       const assistantInstructions = loadPrompt('base');
       const lookupContext = await this.buildLookupContext({
@@ -287,7 +306,8 @@ export class ChatOrchestrator {
         targetDisplayName: request.fromDisplayName,
         intent: request.intent,
         replyContext,
-        lookupContext
+        lookupContext,
+        mediaContext: targetMediaContext
       });
     });
   }
@@ -306,27 +326,25 @@ export class ChatOrchestrator {
       return createLocalReplyResult(READ_USAGE_PLACEHOLDER);
     }
 
-    const provider = getProviderForMediaKind(media.mediaKind);
-    const artifactKind = getArtifactKindForMediaKind(media.mediaKind);
-    const cached = this.deps.db.getSuccessfulMediaArtifact({
-      fileUniqueId: media.fileUniqueId,
-      chatId: request.chatId,
-      telegramMessageId: media.messageId,
-      provider,
-      artifactKind
+    const mediaContext = await this.ensureMediaContext({
+      request,
+      media,
+      logger
     });
-    const recognized = cached
-      ? artifactFromStoredMediaArtifact(cached.artifactJson)
-      : await this.recognizeAndStoreMediaArtifact({
-          request,
-          media,
-          provider,
-          artifactKind,
-          logger
-        });
 
-    if (!recognized) {
+    if (!mediaContext) {
       return createLocalReplyResult(READ_FAILED_PLACEHOLDER);
+    }
+
+    if (media.mediaKind === 'photo' || media.mediaKind === 'document_image') {
+      const interpreted =
+        mediaContext.visionInterpretation ?? mediaContext.visionRaw;
+
+      if (!interpreted) {
+        return createLocalReplyResult(READ_FAILED_PLACEHOLDER);
+      }
+
+      return createLocalReplyResult(interpreted);
     }
 
     const replyContext = buildReplyContext({
@@ -336,11 +354,6 @@ export class ChatOrchestrator {
       contextLimit: this.deps.env.readContextLimit,
       intent: request.intent,
       botUserId: this.deps.bot.userId
-    });
-    const mediaContext = buildDescribeMediaContext({
-      media,
-      artifact: recognized.artifact,
-      sourceDurationSeconds: recognized.sourceDurationSeconds
     });
 
     return this.withReplyTyping(request.chatId, async () =>
@@ -358,8 +371,8 @@ export class ChatOrchestrator {
   private async recognizeAndStoreMediaArtifact(input: {
     request: ReplyRequest;
     media: MediaMessageSnapshot;
-    provider: 'gladia' | 'cloudflare';
-    artifactKind: 'transcript' | 'vision_structured';
+    provider: 'gladia';
+    artifactKind: 'transcript';
     logger: AppLogger;
   }): Promise<{
     artifact: NormalizedMediaArtifact;
@@ -387,13 +400,10 @@ export class ChatOrchestrator {
         fetch: this.deps.fetch
       });
 
-      const result =
-        input.provider === 'gladia'
-          ? await this.transcribeDownloadedMedia(
-              input.media,
-              downloaded.filePath
-            )
-          : await this.describeDownloadedImage(downloaded.filePath);
+      const result = await this.transcribeDownloadedMedia(
+        input.media,
+        downloaded.filePath
+      );
       const createdAt = this.deps.now();
 
       this.deps.db.saveMediaArtifact({
@@ -444,6 +454,381 @@ export class ChatOrchestrator {
     }
   }
 
+  private async buildTargetMediaContext(
+    request: ReplyRequest,
+    replyContext: ReplyContext,
+    logger: AppLogger
+  ): Promise<DescribeMediaContext | null> {
+    if (request.intent !== 'explain' && request.intent !== 'answer') {
+      return null;
+    }
+
+    const targetMedia = this.getTargetMediaSnapshot(request, replyContext);
+
+    if (!targetMedia) {
+      return null;
+    }
+
+    return this.ensureMediaContext({
+      request,
+      media: targetMedia,
+      logger
+    });
+  }
+
+  private getTargetMediaSnapshot(
+    request: ReplyRequest,
+    replyContext: ReplyContext
+  ): MediaMessageSnapshot | null {
+    return (
+      request.replyToMediaSnapshot ??
+      replyContext.replyAnchorMessage?.mediaSnapshot ??
+      null
+    );
+  }
+
+  private async enrichReplyContextWithNearbyMedia(
+    request: ReplyRequest,
+    replyContext: ReplyContext,
+    logger: AppLogger
+  ): Promise<ReplyContext> {
+    if (
+      request.intent !== 'explain' &&
+      request.intent !== 'decide' &&
+      request.intent !== 'answer'
+    ) {
+      return replyContext;
+    }
+
+    const nearbyWindow = this.deps.db.getMessagesBefore(
+      request.chatId,
+      request.triggerMessageId,
+      NEARBY_MEDIA_SCAN_LIMIT
+    );
+    const nearbyMediaMessages = nearbyWindow.filter(
+      (message) => message.mediaSnapshot
+    );
+
+    const newestMediaMessage =
+      nearbyMediaMessages[nearbyMediaMessages.length - 1] ?? null;
+
+    if (newestMediaMessage?.mediaSnapshot) {
+      const hasCached = this.getPreferredMediaSummary(
+        this.deps.db.getSuccessfulMediaArtifactsForMessages({
+          chatId: request.chatId,
+          messageIds: [newestMediaMessage.messageId]
+        }),
+        newestMediaMessage.messageId,
+        newestMediaMessage.mediaSnapshot.mediaKind
+      );
+
+      if (!hasCached) {
+        await this.ensureMediaContext({
+          request,
+          media: newestMediaMessage.mediaSnapshot,
+          logger
+        });
+      }
+    }
+
+    const cachedArtifacts = this.deps.db.getSuccessfulMediaArtifactsForMessages(
+      {
+        chatId: request.chatId,
+        messageIds: nearbyMediaMessages.map((message) => message.messageId)
+      }
+    );
+    const messagesById = new Map<number, StoredMessage>();
+
+    for (const message of replyContext.priorContextMessages) {
+      messagesById.set(message.messageId, { ...message });
+    }
+
+    for (const message of nearbyMediaMessages) {
+      const mediaSnapshot = message.mediaSnapshot;
+
+      if (!mediaSnapshot) {
+        continue;
+      }
+
+      const summary = this.getPreferredMediaSummary(
+        cachedArtifacts,
+        message.messageId,
+        mediaSnapshot.mediaKind
+      );
+
+      if (!summary) {
+        continue;
+      }
+
+      messagesById.set(message.messageId, {
+        ...message,
+        text: appendMediaSummaryToMessageText(message.text, summary)
+      });
+    }
+
+    return {
+      ...replyContext,
+      priorContextMessages: Array.from(messagesById.values()).sort(
+        (left, right) => left.messageId - right.messageId
+      )
+    };
+  }
+
+  private getPreferredMediaSummary(
+    artifacts: StoredMediaArtifact[],
+    messageId: number,
+    mediaKind: MediaMessageSnapshot['mediaKind']
+  ): string | null {
+    const matching = artifacts.filter(
+      (artifact) => artifact.telegramMessageId === messageId
+    );
+
+    if (matching.length === 0) {
+      return null;
+    }
+
+    if (mediaKind === 'photo' || mediaKind === 'document_image') {
+      return (
+        matching.find(
+          (artifact) =>
+            artifact.artifactKind === IMAGE_INTERPRETATION_ARTIFACT_KIND
+        )?.artifactText ??
+        matching.find(
+          (artifact) => artifact.artifactKind === IMAGE_RAW_ARTIFACT_KIND
+        )?.artifactText ??
+        null
+      );
+    }
+
+    return (
+      matching.find((artifact) => artifact.artifactKind === 'transcript')
+        ?.artifactText ?? null
+    );
+  }
+
+  private async ensureMediaContext(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    logger: AppLogger;
+  }): Promise<DescribeMediaContext | null> {
+    if (
+      input.media.mediaKind === 'photo' ||
+      input.media.mediaKind === 'document_image'
+    ) {
+      return this.ensureImageMediaContext(input);
+    }
+
+    const cached = this.deps.db.getSuccessfulMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      provider: 'gladia',
+      artifactKind: 'transcript'
+    });
+    const recognized = cached
+      ? artifactFromStoredMediaArtifact(cached.artifactJson)
+      : await this.recognizeAndStoreMediaArtifact({
+          request: input.request,
+          media: input.media,
+          provider: 'gladia',
+          artifactKind: 'transcript',
+          logger: input.logger
+        });
+
+    if (!recognized) {
+      return null;
+    }
+
+    return buildTranscriptMediaContext({
+      media: input.media,
+      artifact: recognized.artifact,
+      sourceDurationSeconds: recognized.sourceDurationSeconds
+    });
+  }
+
+  private async ensureImageMediaContext(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    logger: AppLogger;
+  }): Promise<DescribeMediaContext | null> {
+    let visionRaw =
+      this.deps.db.getSuccessfulMediaArtifact({
+        fileUniqueId: input.media.fileUniqueId,
+        chatId: input.request.chatId,
+        telegramMessageId: input.media.messageId,
+        provider: IMAGE_RAW_PROVIDER,
+        artifactKind: IMAGE_RAW_ARTIFACT_KIND
+      })?.artifactText ?? null;
+
+    if (!visionRaw) {
+      visionRaw = await this.generateAndStoreVisionRaw(input);
+    }
+
+    if (!visionRaw) {
+      return null;
+    }
+
+    let visionInterpretation =
+      this.deps.db.getSuccessfulMediaArtifact({
+        fileUniqueId: input.media.fileUniqueId,
+        chatId: input.request.chatId,
+        telegramMessageId: input.media.messageId,
+        provider: IMAGE_INTERPRETATION_PROVIDER,
+        artifactKind: IMAGE_INTERPRETATION_ARTIFACT_KIND
+      })?.artifactText ?? null;
+
+    if (!visionInterpretation) {
+      visionInterpretation = await this.generateAndStoreVisionInterpretation({
+        request: input.request,
+        media: input.media,
+        visionRaw
+      });
+    }
+
+    return {
+      sourceCaption: input.media.caption,
+      visionRaw,
+      visionInterpretation,
+      audioTranscript: null
+    };
+  }
+
+  private async generateAndStoreVisionRaw(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    logger: AppLogger;
+  }): Promise<string | null> {
+    const telegramFileApi = this.deps.telegramFileApi;
+
+    if (!telegramFileApi) {
+      input.logger.warn('describe_telegram_file_api_missing');
+      return null;
+    }
+
+    let downloaded: Awaited<
+      ReturnType<typeof downloadTelegramFileToTemp>
+    > | null = null;
+
+    try {
+      downloaded = await downloadTelegramFileToTemp({
+        api: telegramFileApi,
+        botToken: this.deps.env.telegramBotToken,
+        fileId: input.media.fileId,
+        filename: createMediaFilename(input.media),
+        maxBytes: this.deps.env.mediaMaxFileBytes,
+        fileSize: input.media.fileSize,
+        fetch: this.deps.fetch
+      });
+
+      const result = await this.describeDownloadedImage(downloaded.filePath);
+      const createdAt = this.deps.now();
+
+      this.deps.db.saveMediaArtifact({
+        fileUniqueId: input.media.fileUniqueId,
+        chatId: input.request.chatId,
+        telegramMessageId: input.media.messageId,
+        mediaKind: input.media.mediaKind,
+        provider: result.provider,
+        providerModel: result.providerModel,
+        artifactKind: IMAGE_RAW_ARTIFACT_KIND,
+        artifactStatus: 'success',
+        artifactText: result.rawText,
+        artifactJson: { text: result.rawText },
+        rawResponseJson: result.rawResponse,
+        sourceCaption: input.media.caption,
+        sourceMimeType: input.media.mimeType,
+        sourceFileSize: input.media.fileSize ?? downloaded.bytes,
+        sourceDurationSeconds: null,
+        recognitionLanguage: null,
+        confidenceJson: null,
+        errorText: null,
+        createdAt,
+        expiresAt: addDaysIso(
+          createdAt,
+          this.deps.env.mediaArtifactRetentionDays
+        )
+      });
+
+      return result.rawText;
+    } catch (error) {
+      input.logger.warn('describe_media_recognition_failed', {
+        provider: IMAGE_RAW_PROVIDER,
+        mediaKind: input.media.mediaKind,
+        ...serializeError(error)
+      });
+
+      return null;
+    } finally {
+      if (downloaded) {
+        await downloaded.cleanup();
+      }
+    }
+  }
+
+  private async generateAndStoreVisionInterpretation(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    visionRaw: string;
+  }): Promise<string | null> {
+    const result = await this.deps.qwen.generateReply({
+      assistantInstructions: loadPrompt('base'),
+      targetDisplayName: input.request.fromDisplayName,
+      intent: 'read',
+      replyContext: {
+        triggerMessage: {
+          chatId: input.request.chatId,
+          messageId: input.media.messageId,
+          userId: null,
+          senderDisplayName: 'Media',
+          text: '/read',
+          createdAt: input.request.createdAt,
+          isBot: false,
+          replyToMessageId: null
+        },
+        replyAnchorMessage: null,
+        priorContextMessages: []
+      },
+      lookupContext: null,
+      mediaContext: {
+        sourceCaption: input.media.caption,
+        visionRaw: input.visionRaw,
+        visionInterpretation: null,
+        audioTranscript: null
+      }
+    });
+    const createdAt = this.deps.now();
+
+    this.deps.db.saveMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      mediaKind: input.media.mediaKind,
+      provider: IMAGE_INTERPRETATION_PROVIDER,
+      providerModel: result.model,
+      artifactKind: IMAGE_INTERPRETATION_ARTIFACT_KIND,
+      artifactStatus: 'success',
+      artifactText: result.text,
+      artifactJson: { text: result.text },
+      rawResponseJson: {
+        model: result.model,
+        latencyMs: result.latencyMs,
+        attemptCount: result.attemptCount,
+        promptTokensEstimate: result.promptTokensEstimate
+      },
+      sourceCaption: input.media.caption,
+      sourceMimeType: input.media.mimeType,
+      sourceFileSize: input.media.fileSize,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt,
+      expiresAt: addDaysIso(createdAt, this.deps.env.mediaArtifactRetentionDays)
+    });
+
+    return result.text;
+  }
+
   private async transcribeDownloadedMedia(
     media: MediaMessageSnapshot,
     filePath: string
@@ -469,7 +854,7 @@ export class ChatOrchestrator {
   private async describeDownloadedImage(filePath: string): Promise<{
     provider: 'cloudflare';
     providerModel: string;
-    artifact: NormalizedMediaArtifact;
+    rawText: string;
     rawResponse: unknown;
     sourceDurationSeconds: null;
   }> {
@@ -653,24 +1038,8 @@ function getContextLimitForIntent(
     case 'read':
       return env.readContextLimit;
     case 'answer':
-      return env.explainContextLimit;
+      return env.answerContextLimit;
   }
-}
-
-function getProviderForMediaKind(
-  mediaKind: MediaMessageSnapshot['mediaKind']
-): 'gladia' | 'cloudflare' {
-  return mediaKind === 'photo' || mediaKind === 'document_image'
-    ? 'cloudflare'
-    : 'gladia';
-}
-
-function getArtifactKindForMediaKind(
-  mediaKind: MediaMessageSnapshot['mediaKind']
-): 'transcript' | 'vision_structured' {
-  return mediaKind === 'photo' || mediaKind === 'document_image'
-    ? 'vision_structured'
-    : 'transcript';
 }
 
 function artifactFromStoredMediaArtifact(input: unknown): {
@@ -690,24 +1059,15 @@ function artifactFromStoredMediaArtifact(input: unknown): {
   };
 }
 
-function buildDescribeMediaContext(input: {
+function buildTranscriptMediaContext(input: {
   media: MediaMessageSnapshot;
   artifact: NormalizedMediaArtifact;
   sourceDurationSeconds: number | null;
 }): DescribeMediaContext {
-  if (input.artifact.type === 'vision') {
-    return {
-      sourceCaption: input.media.caption,
-      visibleText: input.artifact.visibleText,
-      visualDetails: input.artifact,
-      audioTranscript: null
-    };
-  }
-
   return {
     sourceCaption: input.media.caption,
-    visibleText: [],
-    visualDetails: null,
+    visionRaw: null,
+    visionInterpretation: null,
     audioTranscript: {
       transcript: input.artifact.transcript,
       language: input.artifact.language,
@@ -717,13 +1077,24 @@ function buildDescribeMediaContext(input: {
 }
 
 function artifactToText(artifact: NormalizedMediaArtifact): string | null {
-  if (artifact.type === 'transcript') {
-    return artifact.transcript;
+  return artifact.transcript;
+}
+
+function appendMediaSummaryToMessageText(
+  text: string,
+  summary: string
+): string {
+  const trimmedSummary = summary.trim();
+
+  if (trimmedSummary.length === 0) {
+    return text;
   }
 
-  return artifact.visibleText.length > 0
-    ? artifact.visibleText.join('\n')
-    : null;
+  if (text.trim().length === 0) {
+    return `[media] ${trimmedSummary}`;
+  }
+
+  return `${text}\n[media] ${trimmedSummary}`;
 }
 
 function createMediaFilename(media: MediaMessageSnapshot): string {

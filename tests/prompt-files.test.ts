@@ -30,11 +30,13 @@ describe('prompt file registry', () => {
       answer: 'llm/reply/answer.md',
       replyShell: 'llm/reply/shell.md',
       systemExplain: 'llm/system/explain.md',
+      systemAnswer: 'llm/system/answer.md',
       systemRead: 'llm/system/read.md',
       systemGeneric: 'llm/system/generic.md',
       systemTranscript: 'llm/system/transcript.md',
       cloudflareVisionSystem: 'llm/vision/cloudflare-system.md',
       cloudflareVisionUser: 'llm/vision/cloudflare-user.md',
+      cloudflareVisionImageRawUser: 'llm/vision/cloudflare-image-raw-user.md',
       lookup: 'llm/planner/lookup.md',
       lookupContext: 'llm/reply/lookup-context.md',
       updateAnnouncement: 'llm/deploy/update-announcement.md'

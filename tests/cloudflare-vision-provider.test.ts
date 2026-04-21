@@ -37,17 +37,8 @@ describe('CloudflareVisionProvider', () => {
         return jsonResponse({
           success: true,
           result: {
-            response: {
-              kind: 'screenshot',
-              visible_text: ['Leon, necesito que distraigas a Kingpin'],
-              names_mentioned_in_text: ['Leon', 'Kingpin'],
-              visually_present_people_or_characters: ['Man in black mask'],
-              objects: ['Light fixtures'],
-              scene: 'Indoor setting',
-              actions: ['standing'],
-              style: 'Dark and moody',
-              uncertainty: ['context']
-            }
+            response:
+              'Two men stand in a dim hallway. Visible text: "Leon, necesito que distraigas a Kingpin".'
           },
           errors: []
         });
@@ -70,12 +61,8 @@ describe('CloudflareVisionProvider', () => {
     expect(result).toMatchObject({
       provider: 'cloudflare',
       providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
-      artifact: {
-        type: 'vision',
-        kind: 'screenshot',
-        namesMentionedInText: ['Leon', 'Kingpin'],
-        visuallyPresentPeopleOrCharacters: ['Man in black mask']
-      }
+      rawText:
+        'Two men stand in a dim hallway. Visible text: "Leon, necesito que distraigas a Kingpin".'
     });
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toBe(
@@ -83,7 +70,7 @@ describe('CloudflareVisionProvider', () => {
     );
 
     const requestBody = JSON.parse(String(calls[0]?.init?.body)) as {
-      messages: Array<{ role: string; content: string }>;
+      prompt: string;
       image: number[];
       max_tokens: number;
       temperature: number;
@@ -92,10 +79,7 @@ describe('CloudflareVisionProvider', () => {
     expect(requestBody.image).toEqual(imageBytes);
     expect(requestBody.max_tokens).toBe(700);
     expect(requestBody.temperature).toBe(0);
-    expect(requestBody.messages).toEqual([
-      { role: 'system', content: loadPrompt('cloudflareVisionSystem') },
-      { role: 'user', content: loadPrompt('cloudflareVisionUser') }
-    ]);
+    expect(requestBody.prompt).toBe(loadPrompt('cloudflareVisionImageRawUser'));
     expect(calls[0]?.init?.headers).toMatchObject({
       authorization: 'Bearer key',
       'content-type': 'application/json'
@@ -140,18 +124,8 @@ describe('CloudflareVisionProvider', () => {
         timeoutMs: 5000
       })
     ).resolves.toMatchObject({
-      artifact: {
-        type: 'vision',
-        kind: 'meme',
-        visibleText: ['CAPTION'],
-        namesMentionedInText: ['CAPTION'],
-        visuallyPresentPeopleOrCharacters: ['smiling person'],
-        objects: ['phone'],
-        scene: 'outdoors',
-        actions: ['holding phone'],
-        style: 'bright',
-        uncertainty: []
-      }
+      rawText:
+        '{"kind":"meme","visible_text":["CAPTION"],"names_mentioned_in_text":["CAPTION"],"visually_present_people_or_characters":["smiling person"],"objects":["phone"],"scene":"outdoors","actions":["holding phone"],"style":"bright","uncertainty":[]}'
     });
   });
 
@@ -164,15 +138,8 @@ describe('CloudflareVisionProvider', () => {
     const fetchStub = vi.fn(async () =>
       jsonResponse({
         success: true,
-        kind: 'photo',
-        visible_text: ['top-level'],
-        names_mentioned_in_text: ['top-level name'],
-        visually_present_people_or_characters: ['person'],
-        objects: ['chair'],
-        scene: 'room',
-        actions: ['standing'],
-        style: 'neutral',
-        uncertainty: ['could be indoors']
+        response:
+          'Top-level response text describing a person standing in a room.'
       })
     );
 
@@ -188,11 +155,7 @@ describe('CloudflareVisionProvider', () => {
         timeoutMs: 5000
       })
     ).resolves.toMatchObject({
-      artifact: {
-        kind: 'photo',
-        visibleText: ['top-level'],
-        namesMentionedInText: ['top-level name']
-      }
+      rawText: 'Top-level response text describing a person standing in a room.'
     });
   });
 

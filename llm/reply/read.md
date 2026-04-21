@@ -35,16 +35,13 @@ Video notes:
 
 Images:
 
-- Describe only clearly visible elements.
-- Do not describe mood, atmosphere, or genre unless explicitly visible in text.
-- Ignore artifact fields about style, mood, or atmosphere unless they are literal visible text.
-- Then extract all readable text separately.
-- If both non-text visual elements and readable text are present, include both.
-- Never return only visible text when VISUAL_DETAILS contains non-text visual elements.
-- Do not explain meaning or jokes.
-- Do not infer context such as memes, references, or cultural meaning.
-- Even if it looks like a meme, describe only what is visible.
-- If both visual details and readable text are present, include both; do not return OCR text alone.
+- Use VISION_INTERPRETATION as the main image understanding layer.
+- Use VISION_RAW as supporting evidence when it adds useful observable detail or preserves wording.
+- Preserve clearly visible text from the image and keep caption context when it helps explain what is shown.
+- Do not invent details that are absent from both VISION_INTERPRETATION and VISION_RAW.
+- If VISION_RAW is richer but more speculative, prefer the more grounded reading from VISION_INTERPRETATION.
+- If both image content and readable text matter, include both.
+- Do not turn the result into EXPLAIN mode or answer questions that the image merely suggests.
 
 Output format:
 

@@ -49,24 +49,10 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     triggerText: '/read',
     mediaContext: {
       sourceCaption: null,
-      visibleText: ['Leon, necesito que distraigas a Kingpin'],
-      visualDetails: {
-        type: 'vision',
-        kind: 'screenshot',
-        visibleText: ['Leon, necesito que distraigas a Kingpin'],
-        namesMentionedInText: ['Leon', 'Kingpin'],
-        visuallyPresentPeopleOrCharacters: [
-          'Man in black mask and red logo',
-          'Man in black jacket'
-        ],
-        objects: ['Light fixtures', 'Pillars'],
-        scene: 'Indoor setting, possibly a hallway or corridor',
-        actions: [
-          'One man is wearing a mask and a red logo, the other man is wearing a black jacket'
-        ],
-        style: 'Dark and moody',
-        uncertainty: ['The identity of the characters and context of the scene']
-      },
+      visionRaw:
+        'The image shows two men standing in a dim hallway. Visible text: "Leon, necesito que distraigas a Kingpin".',
+      visionInterpretation:
+        'Это мемный кадр: двое мужчин стоят в коридоре, а текст намекает, что один просит другого отвлечь Кингпина.',
       audioTranscript: null
     },
     rubric: {
@@ -99,8 +85,8 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     triggerText: '/read',
     mediaContext: {
       sourceCaption: null,
-      visibleText: [],
-      visualDetails: null,
+      visionRaw: null,
+      visionInterpretation: null,
       audioTranscript: {
         transcript: 'короче я буду минут через десять не начинайте без меня',
         language: 'ru',

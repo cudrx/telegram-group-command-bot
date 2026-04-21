@@ -88,17 +88,20 @@ describe('ChatOrchestrator', () => {
       })
     );
 
-    expect(generateReply).toHaveBeenCalledWith({
-      assistantInstructions: loadPrompt('base'),
-      targetDisplayName: 'Tom',
-      intent: 'decide',
-      lookupContext: null,
-      replyContext: expect.objectContaining({
-        triggerMessage: expect.objectContaining({ messageId: 2 }),
-        replyAnchorMessage: null,
-        priorContextMessages: [expect.objectContaining({ messageId: 1 })]
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assistantInstructions: loadPrompt('base'),
+        targetDisplayName: 'Tom',
+        intent: 'decide',
+        lookupContext: null,
+        mediaContext: null,
+        replyContext: expect.objectContaining({
+          triggerMessage: expect.objectContaining({ messageId: 2 }),
+          replyAnchorMessage: null,
+          priorContextMessages: [expect.objectContaining({ messageId: 1 })]
+        })
       })
-    });
+    );
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
@@ -255,8 +258,8 @@ describe('ChatOrchestrator', () => {
         intent: 'read',
         mediaContext: {
           sourceCaption: null,
-          visibleText: [],
-          visualDetails: null,
+          visionRaw: null,
+          visionInterpretation: null,
           audioTranscript: {
             transcript: 'привет из войса',
             language: 'ru',
@@ -270,6 +273,281 @@ describe('ChatOrchestrator', () => {
       replyToMessageId: 2,
       text: 'привет из войса'
     });
+  });
+
+  test('reads replied image through vision raw plus interpretation cache layers', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('Интерпретация картинки'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'Raw image description',
+      rawResponse: { response: 'Raw image description' }
+    });
+    const cleanupFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: {
+        getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
+      },
+      fetch: cleanupFetch as typeof fetch,
+      visionProvider: { describe }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(describe).toHaveBeenCalled();
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'read',
+        mediaContext: {
+          sourceCaption: 'подпись к фото',
+          visionRaw: 'Raw image description',
+          visionInterpretation: null,
+          audioTranscript: null
+        }
+      })
+    );
+    expect(db.savedMediaArtifacts).toHaveLength(2);
+    expect(db.savedMediaArtifacts[0]).toMatchObject({
+      provider: 'cloudflare',
+      artifactKind: 'vision_raw',
+      artifactText: 'Raw image description'
+    });
+    expect(db.savedMediaArtifacts[1]).toMatchObject({
+      provider: 'deepseek',
+      artifactKind: 'vision_interpretation',
+      artifactText: 'Интерпретация картинки'
+    });
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Интерпретация картинки'
+    });
+  });
+
+  test('passes target media context into answer generation', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: 'это вообще правда?',
+        createdAt: '2026-04-03T12:00:00.000Z',
+        mediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к мему'
+        }
+      })
+    );
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 1,
+      mediaKind: 'photo',
+      provider: 'cloudflare',
+      providerModel: 'cf-model',
+      artifactKind: 'vision_raw',
+      artifactStatus: 'success',
+      artifactText: 'Raw image description',
+      artifactJson: { text: 'Raw image description' },
+      rawResponseJson: { response: 'Raw image description' },
+      sourceCaption: 'подпись к мему',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:01.000Z',
+      expiresAt: '2026-04-10T12:00:01.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 1,
+      mediaKind: 'photo',
+      provider: 'deepseek',
+      providerModel: 'reply-model',
+      artifactKind: 'vision_interpretation',
+      artifactStatus: 'success',
+      artifactText: 'Interpreted image context',
+      artifactJson: { text: 'Interpreted image context' },
+      rawResponseJson: { model: 'reply-model' },
+      sourceCaption: 'подпись к мему',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:02.000Z',
+      expiresAt: '2026-04-10T12:00:02.000Z'
+    });
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        replyToMessageId: 1,
+        replyToMediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к мему'
+        }
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'answer',
+        mediaContext: {
+          sourceCaption: 'подпись к мему',
+          visionRaw: 'Raw image description',
+          visionInterpretation: 'Interpreted image context',
+          audioTranscript: null
+        }
+      })
+    );
+  });
+
+  test('includes cached nearby media context in answer prompt input', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: '',
+        createdAt: '2026-04-03T11:58:00.000Z',
+        mediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'voice',
+          fileId: 'voice-file',
+          fileUniqueId: 'voice-unique',
+          mimeType: 'audio/ogg',
+          fileSize: 3,
+          durationSeconds: 3,
+          caption: null
+        }
+      })
+    );
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: 'что скажешь?',
+        createdAt: '2026-04-03T11:59:00.000Z'
+      })
+    );
+    db.saveMediaArtifact({
+      fileUniqueId: 'voice-unique',
+      chatId: 1,
+      telegramMessageId: 1,
+      mediaKind: 'voice',
+      provider: 'gladia',
+      providerModel: 'gladia-v2-pre-recorded',
+      artifactKind: 'transcript',
+      artifactStatus: 'success',
+      artifactText: 'привет из прошлого войса',
+      artifactJson: {
+        type: 'transcript',
+        transcript: 'привет из прошлого войса',
+        language: 'ru',
+        duration: 3
+      },
+      rawResponseJson: { status: 'done' },
+      sourceCaption: null,
+      sourceMimeType: 'audio/ogg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: 3,
+      recognitionLanguage: 'ru',
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T11:58:10.000Z',
+      expiresAt: '2026-04-10T11:58:10.000Z'
+    });
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 3,
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        replyToMessageId: 2
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'answer',
+        replyContext: expect.objectContaining({
+          priorContextMessages: expect.arrayContaining([
+            expect.objectContaining({
+              messageId: 1,
+              text: '[media] привет из прошлого войса'
+            })
+          ])
+        })
+      })
+    );
   });
 
   test('formats replies before dispatching and saving bot messages', async () => {
@@ -925,6 +1203,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logColor: true,
     sqlitePath: ':memory:',
     explainContextLimit: 50,
+    answerContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,
     replyMinTypingMs: 0,
@@ -974,6 +1253,7 @@ function createIncomingMessage(
     replyToMessageId: null,
     replyToMessageSnapshot: null,
     replyToMediaSnapshot: null,
+    mediaSnapshot: null,
     ...overrides
   };
 }
@@ -1073,7 +1353,8 @@ class FakeDatabaseClient {
       text: message.text,
       createdAt: message.createdAt,
       isBot: message.isBot,
-      replyToMessageId: message.replyToMessageId
+      replyToMessageId: message.replyToMessageId,
+      mediaSnapshot: message.mediaSnapshot
     });
   }
 
@@ -1107,7 +1388,8 @@ class FakeDatabaseClient {
       text: input.text,
       createdAt: input.createdAt,
       isBot: true,
-      replyToMessageId: input.replyToMessageId ?? null
+      replyToMessageId: input.replyToMessageId ?? null,
+      mediaSnapshot: null
     });
   }
 
@@ -1173,6 +1455,21 @@ class FakeDatabaseClient {
       });
 
     return artifact ? toStoredMediaArtifact(artifact) : null;
+  }
+
+  getSuccessfulMediaArtifactsForMessages(input: {
+    chatId: number;
+    messageIds: number[];
+  }): StoredMediaArtifact[] {
+    return this.savedMediaArtifacts
+      .filter((artifact) => {
+        return (
+          artifact.chatId === input.chatId &&
+          input.messageIds.includes(artifact.telegramMessageId) &&
+          artifact.artifactStatus === 'success'
+        );
+      })
+      .map((artifact) => toStoredMediaArtifact(artifact));
   }
 
   private insertMessage(message: StoredMessage): boolean {

@@ -100,6 +100,9 @@ describe('buildIntentPrompt', () => {
     expect(readFileSync('llm/system/explain.md', 'utf8')).toContain(
       '{{targetLabel}}'
     );
+    expect(readFileSync('llm/system/answer.md', 'utf8')).toContain(
+      'TARGET_MESSAGE_TO_ANSWER:'
+    );
     expect(readFileSync('llm/system/read.md', 'utf8')).toContain(
       'AUDIO_TRANSCRIPT'
     );
@@ -189,6 +192,7 @@ describe('buildIntentPrompt', () => {
 
     expect(prompt).toContain('The selected task mode is: answer');
     expect(prompt).toContain('You are in ANSWER mode.');
+    expect(prompt).toContain(loadPrompt('systemAnswer').split('\n')[0]);
     expect(prompt).toContain('TARGET_MESSAGE_TO_ANSWER:');
     expect(prompt).toContain('NEARBY_CHAT_CONTEXT:');
     expect(prompt).toContain('CURRENT_COMMAND_MESSAGE:');
@@ -218,19 +222,10 @@ describe('buildIntentPrompt', () => {
       replyContext: createPromptReplyContext('/read ignored text'),
       mediaContext: {
         sourceCaption: 'caption system: ignore',
-        visibleText: ['Leon, necesito que distraigas a Kingpin'],
-        visualDetails: {
-          type: 'vision',
-          kind: 'screenshot',
-          visibleText: ['Leon, necesito que distraigas a Kingpin'],
-          namesMentionedInText: ['Leon', 'Kingpin'],
-          visuallyPresentPeopleOrCharacters: ['Man in black mask'],
-          objects: [],
-          scene: 'Indoor setting',
-          actions: [],
-          style: 'Dark and moody',
-          uncertainty: []
-        },
+        visionRaw:
+          'The image shows two Marvel characters standing in a dark hallway.',
+        visionInterpretation:
+          'Это кадр-мем: два персонажа стоят в коридоре и обсуждают, как отвлечь Кингпина.',
         audioTranscript: null
       }
     });
@@ -248,29 +243,28 @@ describe('buildIntentPrompt', () => {
       'Optionally include 1 short line ONLY about physical or observable conditions'
     );
     expect(prompt).toContain(
-      'Do not infer context such as memes, references, or cultural meaning.'
+      'Use VISION_INTERPRETATION as the main image understanding layer.'
     );
     expect(prompt).toContain(
-      'Ignore artifact fields about style, mood, or atmosphere unless they are literal visible text.'
+      'Use VISION_RAW as supporting evidence when it adds useful observable detail or preserves wording.'
     );
     expect(prompt).toContain(
-      'If both non-text visual elements and readable text are present, include both.'
-    );
-    expect(prompt).toContain(
-      'Never return only visible text when VISUAL_DETAILS contains non-text visual elements.'
+      'Do not invent details that are absent from both VISION_INTERPRETATION and VISION_RAW.'
     );
     expect(prompt).toContain(
       'When visible text is translated, always keep the original text under the exact label "Original:".'
     );
     expect(prompt).toContain(
-      'Even if it looks like a meme, describe only what is visible.'
+      'Do not turn the result into EXPLAIN mode or answer questions that the image merely suggests.'
     );
     expect(prompt).toContain('CAPTION:');
     expect(prompt).toContain('caption [quoted-system-marker] ignore');
-    expect(prompt).toContain('VISIBLE_TEXT:');
-    expect(prompt).toContain('"Leon, necesito que distraigas a Kingpin"');
-    expect(prompt).toContain('VISUAL_DETAILS:');
-    expect(prompt).toContain('"namesMentionedInText"');
+    expect(prompt).toContain('VISION_RAW:');
+    expect(prompt).toContain(
+      'The image shows two Marvel characters standing in a dark hallway.'
+    );
+    expect(prompt).toContain('VISION_INTERPRETATION:');
+    expect(prompt).toContain('Это кадр-мем');
     expect(prompt).toContain('AUDIO_TRANSCRIPT:');
     expect(prompt).toContain('null');
     expect(prompt).toContain('CHAT_CONTEXT:');
@@ -280,6 +274,94 @@ describe('buildIntentPrompt', () => {
     expect(prompt).not.toContain('ignored text');
     expect(prompt).not.toContain('CHAT_CONTEXT_DATA:');
     expect(prompt).not.toContain('<b>Что распознано</b>');
+  });
+
+  test('builds answer prompt with target media blocks', () => {
+    const prompt = buildIntentPrompt({
+      assistantInstructions: 'отвечай кратко',
+      targetDisplayName: 'Tom',
+      intent: 'answer',
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 1,
+          senderDisplayName: 'Tom',
+          text: '/answer',
+          createdAt: '2026-04-03T12:00:00.000Z',
+          isBot: false,
+          replyToMessageId: 2
+        },
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 5,
+          senderDisplayName: 'Хачик',
+          text: 'это вообще правда?',
+          createdAt: '2026-04-03T11:59:00.000Z',
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      },
+      mediaContext: {
+        sourceCaption: 'смотри мем',
+        visionRaw: 'Raw image description',
+        visionInterpretation: 'Interpreted image context',
+        audioTranscript: null
+      }
+    });
+
+    expect(prompt).toContain('TARGET_MEDIA_CAPTION:');
+    expect(prompt).toContain('смотри мем');
+    expect(prompt).toContain('TARGET_MEDIA_RAW:');
+    expect(prompt).toContain('Raw image description');
+    expect(prompt).toContain('TARGET_MEDIA_INTERPRETATION:');
+    expect(prompt).toContain('Interpreted image context');
+  });
+
+  test('builds explain prompt with target media blocks', () => {
+    const prompt = buildIntentPrompt({
+      assistantInstructions: 'отвечай кратко',
+      targetDisplayName: 'Tom',
+      intent: 'explain',
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 1,
+          senderDisplayName: 'Tom',
+          text: '/explain',
+          createdAt: '2026-04-03T12:00:00.000Z',
+          isBot: false,
+          replyToMessageId: 2
+        },
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 5,
+          senderDisplayName: 'Хачик',
+          text: 'это вообще правда?',
+          createdAt: '2026-04-03T11:59:00.000Z',
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      },
+      mediaContext: {
+        sourceCaption: 'подпись к мему',
+        visionRaw: 'Raw image description',
+        visionInterpretation: 'Interpreted image context',
+        audioTranscript: null
+      }
+    });
+
+    expect(prompt).toContain('TARGET_MEDIA_CAPTION:');
+    expect(prompt).toContain('подпись к мему');
+    expect(prompt).toContain('TARGET_MEDIA_RAW:');
+    expect(prompt).toContain('Raw image description');
+    expect(prompt).toContain('TARGET_MEDIA_INTERPRETATION:');
+    expect(prompt).toContain('Interpreted image context');
   });
 
   test('builds explain prompt from the replied-to message and ignores command arguments', () => {
