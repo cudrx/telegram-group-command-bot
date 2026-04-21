@@ -8,11 +8,11 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы только для `/explain`, `/summarize`, `/decide` и `/describe`
+- командные режимы только для `/explain`, `/summarize`, `/decide`, `/read` и `/answer`
 - обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
-- сообщения других ботов сохраняются и могут быть reply-якорем для `/explain`
+- сообщения других ботов сохраняются и могут быть reply-якорем для `/explain` и `/answer`
 - Telegram typing indicators и короткая bounded задержка ответа
 - Telegram HTML formatting для структурированных ответов с safe allowlist постобработкой
 - prompt hardening для transcript и structured logs
@@ -27,7 +27,8 @@
 - `/explain` - объяснить сообщение, на которое сделан reply; бот считает replied-to message основным, использует nearby context только для интерпретации, и при включенном lookup может автоматически заземлять внешние сущности/факты через Tavily.
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
-- `/describe` - лениво распознать replied-to медиа и дать осторожный разбор. В v1 поддержаны `photo`, image `document`, `voice`, `audio` и Telegram `video_note`: картинки идут через Cloudflare Workers AI, аудио и кружочки через Gladia, а финальный ответ формирует `LLM_REPLY_MODEL`.
+- `/read` - лениво распознать replied-to медиа без интерпретации. В v1 поддержаны `photo`, image `document`, `voice`, `audio` и Telegram `video_note`: картинки идут через Cloudflare Workers AI, аудио и кружочки через Gladia, а финальный ответ форматирует `LLM_REPLY_MODEL`.
+- `/answer` - напрямую ответить на replied-to сообщение; при включенном lookup бот может заземлять внешние сущности, факты, свежесть или ссылки через Tavily.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -79,7 +80,7 @@ npm run dev
 - `LLM_PLANNER_MODEL`
 - `TAVILY_API_KEY`
 - `MEDIA_ANALYSIS_ENABLED`
-- `DESCRIBE_CONTEXT_LIMIT`
+- `READ_CONTEXT_LIMIT`
 - `GLADIA_API_KEY`
 - `CLOUDFLARE_AI_API_KEY`
 - `CLOUDFLARE_ACCOUNT_ID`
@@ -193,4 +194,4 @@ docker compose down
 
 ## Следующие версии
 
-Lookup-backed `/explain` и `/decide` уже подведены к current contract через planner/lookup scaffolding. `/describe` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
+Lookup-backed `/explain`, `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. `/read` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
