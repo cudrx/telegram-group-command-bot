@@ -11,19 +11,15 @@ describe('intent eval fixtures', () => {
     );
 
     expect(coveredIntents).toEqual(
-      new Set(['decide', 'describe', 'explain', 'summarize'])
+      new Set(['answer', 'decide', 'explain', 'read', 'summarize'])
     );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
-      'explain-casual-slang',
-      'describe-vision-meme',
-      'explain-practical-request',
-      'explain-uncertain-sensitive-topic',
-      'summarize-basic-scheduling',
-      'summarize-messy-group-chat',
-      'decide-factual-dispute',
-      'decide-no-dispute',
-      'decide-subjective-dispute',
-      'decide-entity-grounding-dispute'
+      'read-vision-meme',
+      'read-audio-transcript',
+      'answer-factual-question',
+      'explain-factual-question-meaning',
+      'summarize-basic-discussion',
+      'decide-basic-dispute'
     ]);
   });
 
@@ -37,15 +33,14 @@ describe('intent eval fixtures', () => {
     }
   });
 
-  test('explain fixtures use reply anchors instead of command arguments', () => {
-    const explainFixtures = intentEvalFixtures.filter(
-      (fixture) => fixture.intent === 'explain'
+  test('reply-target fixtures use anchors instead of command arguments', () => {
+    const replyTargetFixtures = intentEvalFixtures.filter(
+      (fixture) => fixture.intent === 'explain' || fixture.intent === 'answer'
     );
 
-    expect(explainFixtures.length).toBeGreaterThan(0);
+    expect(replyTargetFixtures.length).toBeGreaterThan(0);
 
-    for (const fixture of explainFixtures) {
-      expect(fixture.replyContext.triggerMessage?.text).toBe('/explain');
+    for (const fixture of replyTargetFixtures) {
       expect(fixture.replyContext.replyAnchorMessage).not.toBe(null);
     }
   });
@@ -63,96 +58,18 @@ describe('intent eval fixtures', () => {
     }
   });
 
-  test('summarize fixtures guard against heading and styling regressions', () => {
-    const summarizeFixtures = intentEvalFixtures.filter(
-      (fixture) => fixture.intent === 'summarize'
-    );
-
-    expect(summarizeFixtures).toHaveLength(2);
-
-    for (const fixture of summarizeFixtures) {
-      expect(fixture.rubric.mustIncludeAll).toEqual(
-        expect.arrayContaining(['<b>Коротко</b>', '<b>Итог</b>'])
-      );
-      expect(fixture.rubric.mustMatchRegex).toEqual(
-        expect.arrayContaining(['^<b>Коротко</b>', '\\n\\n<b>Итог</b>\\s+—'])
-      );
-      expect(fixture.rubric.mustNotMatchRegex).toEqual(
-        expect.arrayContaining(['\\*\\*[^*]+\\*\\*'])
-      );
-    }
-  });
-
-  test('fixtures accept common Russian and normalized English wording', () => {
-    const slangFixture = intentEvalFixtures.find(
-      (fixture) => fixture.id === 'explain-casual-slang'
-    );
-    const summarizeFixture = intentEvalFixtures.find(
-      (fixture) => fixture.id === 'summarize-basic-scheduling'
-    );
-    const noDisputeFixture = intentEvalFixtures.find(
-      (fixture) => fixture.id === 'decide-no-dispute'
-    );
-
-    expect(slangFixture?.rubric.mustIncludeAny).toEqual(
-      expect.arrayContaining([
-        expect.arrayContaining([
-          'зацепил',
-          'не надоедает',
-          'качествен',
-          'повтор'
-        ])
-      ])
-    );
-    expect(summarizeFixture?.rubric.mustIncludeAny).toEqual(
-      expect.arrayContaining([
-        expect.arrayContaining(['dota', 'дота']),
-        expect.arrayContaining(['после 22', '22:00', 'после 22:00']),
-        expect.arrayContaining(['поздн', 'неудоб'])
-      ])
-    );
-    expect(noDisputeFixture?.rubric.mustIncludeAny).toEqual(
-      expect.arrayContaining([
-        expect.arrayContaining([
-          'отсутствует спор',
-          'спор отсутствует',
-          'без конфликта',
-          'отсутствуют противореч'
-        ])
-      ])
-    );
-  });
-
   test('lookup fixtures cover entity grounding expectations', () => {
     const lookupFixtures = intentEvalFixtures.filter(
       (fixture) => fixture.lookupExpectation
     );
 
-    expect(lookupFixtures.length).toBeGreaterThanOrEqual(1);
-    expect(
-      lookupFixtures.some(
-        (fixture) => fixture.lookupExpectation?.purpose === 'entity_grounding'
-      )
-    ).toBe(true);
-  });
-
-  test('Dora entity-grounding fixture keeps the lookup mock focused on canonical compared artists', () => {
-    const doraFixture = intentEvalFixtures.find(
-      (fixture) => fixture.id === 'decide-entity-grounding-dispute'
-    );
-
-    expect(doraFixture?.lookupExpectation?.includeTerms).toEqual([
-      'Дора',
-      'Мэйби Бэйби'
+    expect(lookupFixtures.map((fixture) => fixture.id)).toEqual([
+      'answer-factual-question'
     ]);
-    expect(doraFixture?.rubric.mustIncludeAny).toEqual(
-      expect.arrayContaining([expect.arrayContaining(['Дора', 'Дор'])])
-    );
-    expect(doraFixture?.rubric.mustIncludeAny).toEqual(
-      expect.arrayContaining([
-        expect.arrayContaining(['концерт', 'концертный', 'выступлен'])
-      ])
-    );
+    expect(lookupFixtures[0]?.lookupExpectation).toMatchObject({
+      purpose: 'entity_grounding',
+      includeTerms: ['Владимир Путин']
+    });
   });
 
   test('fixtures use production assistant instructions by default', () => {
