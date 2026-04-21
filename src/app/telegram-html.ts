@@ -4,7 +4,12 @@ const MARKDOWN_AMP = '\uE000AMP\uE000';
 const MARKDOWN_LT = '\uE000LT\uE000';
 const MARKDOWN_GT = '\uE000GT\uE000';
 
-type TelegramReplyIntent = 'explain' | 'summarize' | 'decide' | 'describe';
+type TelegramReplyIntent =
+  | 'explain'
+  | 'summarize'
+  | 'decide'
+  | 'read'
+  | 'answer';
 
 export function formatTelegramHtmlReply(
   text: string,

@@ -112,7 +112,7 @@ describe('ChatOrchestrator', () => {
     });
   });
 
-  test('returns local describe disabled placeholder when media analysis is off', async () => {
+  test('returns local read disabled placeholder when media analysis is off', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
@@ -130,8 +130,8 @@ describe('ChatOrchestrator', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/describe',
-        entities: [{ type: 'bot_command', offset: 0, length: 9 }]
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
       })
     );
 
@@ -143,7 +143,7 @@ describe('ChatOrchestrator', () => {
     });
   });
 
-  test('returns describe usage when command is not a reply to media', async () => {
+  test('returns read usage when command is not a reply to media', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
@@ -162,8 +162,8 @@ describe('ChatOrchestrator', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/describe',
-        entities: [{ type: 'bot_command', offset: 0, length: 9 }]
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
       })
     );
 
@@ -171,7 +171,7 @@ describe('ChatOrchestrator', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Сделай reply на голосовое, кружочек или картинку и отправь /describe.'
+      text: 'Сделай reply на голосовое, кружочек или картинку и отправь /read.'
     });
   });
 
@@ -186,7 +186,7 @@ describe('ChatOrchestrator', () => {
     );
     const generateReply = vi
       .fn()
-      .mockResolvedValue(createReplyResult('<b>Что распознано</b>\n\nголос'));
+      .mockResolvedValue(createReplyResult('привет из войса'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
       createdAt: '2026-04-03T12:00:30.000Z'
@@ -221,8 +221,8 @@ describe('ChatOrchestrator', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/describe',
-        entities: [{ type: 'bot_command', offset: 0, length: 9 }],
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
         replyToMessageId: 90,
         replyToMediaSnapshot: {
           messageId: 90,
@@ -252,7 +252,7 @@ describe('ChatOrchestrator', () => {
     });
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: 'describe',
+        intent: 'read',
         mediaContext: {
           sourceCaption: null,
           visibleText: [],
@@ -268,7 +268,7 @@ describe('ChatOrchestrator', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: '<b>Что распознано</b>\n\nголос'
+      text: 'привет из войса'
     });
   });
 
@@ -836,13 +836,13 @@ function createOrchestrator(input: {
     generateReply: (input: {
       assistantInstructions: string;
       targetDisplayName: string;
-      intent: 'explain' | 'summarize' | 'decide' | 'describe';
+      intent: 'explain' | 'summarize' | 'decide' | 'read' | 'answer';
       replyContext: unknown;
       lookupContext?: unknown;
       mediaContext?: unknown;
     }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
-      intent: 'explain' | 'decide' | 'describe';
+      intent: 'explain' | 'decide' | 'answer';
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createLookupPlanResult>>;
   };
@@ -938,7 +938,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
     mediaAnalysisEnabled: false,
-    describeContextLimit: 10,
+    readContextLimit: 10,
     sttProvider: 'gladia',
     gladiaApiKey: null,
     visionProvider: 'cloudflare',

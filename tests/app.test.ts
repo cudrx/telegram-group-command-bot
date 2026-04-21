@@ -636,7 +636,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
     mediaAnalysisEnabled: false,
-    describeContextLimit: 10,
+    readContextLimit: 10,
     sttProvider: 'gladia',
     gladiaApiKey: null,
     visionProvider: 'cloudflare',

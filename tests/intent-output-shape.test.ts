@@ -71,25 +71,13 @@ describe('getIntentOutputShapeViolations', () => {
     );
   });
 
-  test('requires describe HTML sections', () => {
+  test('does not require fixed shape for read and answer', () => {
     expect(
-      getIntentOutputShapeViolations(
-        'describe',
-        [
-          '<b>Что распознано</b>',
-          'видимый текст',
-          '',
-          '<b>Что можно предположить</b>',
-          'осторожная интерпретация',
-          '',
-          '<b>Вывод</b>',
-          'коротко'
-        ].join('\n')
-      )
+      getIntentOutputShapeViolations('read', 'Просто распознанный текст.')
     ).toEqual([]);
 
     expect(
-      getIntentOutputShapeViolations('describe', 'просто описание')
-    ).toContain('missing_describe_shape');
+      getIntentOutputShapeViolations('answer', 'Короткий прямой ответ.')
+    ).toEqual([]);
   });
 });

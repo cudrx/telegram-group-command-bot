@@ -64,7 +64,7 @@ const envSchema = z.object({
   LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
   LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3),
   MEDIA_ANALYSIS_ENABLED: stringBooleanSchema.default(false),
-  DESCRIBE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(10),
+  READ_CONTEXT_LIMIT: z.coerce.number().int().positive().default(10),
   GLADIA_API_KEY: z.string().min(1).optional(),
   CLOUDFLARE_AI_API_KEY: z.string().min(1).optional(),
   CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
@@ -99,7 +99,7 @@ type ParsedEnv = {
   lookupMaxQueries: number;
   lookupMaxResults: number;
   mediaAnalysisEnabled: boolean;
-  describeContextLimit: number;
+  readContextLimit: number;
   sttProvider: 'gladia';
   gladiaApiKey: string | null;
   visionProvider: 'cloudflare';
@@ -191,9 +191,7 @@ export function parseEnv(
     LOOKUP_PROVIDER === 'tavily' &&
     !parsed.TAVILY_API_KEY
   ) {
-    throw new Error(
-      'TAVILY_API_KEY is required when LOOKUP_ENABLED=true.'
-    );
+    throw new Error('TAVILY_API_KEY is required when LOOKUP_ENABLED=true.');
   }
 
   if (
@@ -237,7 +235,7 @@ export function parseEnv(
     lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
     mediaAnalysisEnabled: parsed.MEDIA_ANALYSIS_ENABLED,
-    describeContextLimit: parsed.DESCRIBE_CONTEXT_LIMIT,
+    readContextLimit: parsed.READ_CONTEXT_LIMIT,
     sttProvider: STT_PROVIDER,
     gladiaApiKey: parsed.GLADIA_API_KEY ?? null,
     visionProvider: VISION_PROVIDER,

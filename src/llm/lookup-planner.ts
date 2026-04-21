@@ -1,20 +1,23 @@
-import type { AssistantIntent, ReplyContext } from '../domain/models.js';
+import type { ReplyContext } from '../domain/models.js';
 import type {
   LookupConfidence,
   LookupDecision,
+  LookupIntent,
   LookupPurpose
 } from '../lookup/types.js';
 import { loadPrompt } from './prompt-files.js';
 import { formatConversationForLlm } from './prompts.js';
 
 export function buildLookupPlannerPrompt(input: {
-  intent: Exclude<AssistantIntent, 'summarize'>;
+  intent: LookupIntent;
   replyContext: ReplyContext;
 }): string {
   const targetSection =
-    input.intent === 'explain'
+    input.intent === 'explain' || input.intent === 'answer'
       ? [
-          'TARGET_MESSAGE_TO_EXPLAIN:',
+          input.intent === 'answer'
+            ? 'TARGET_MESSAGE_TO_ANSWER:'
+            : 'TARGET_MESSAGE_TO_EXPLAIN:',
           input.replyContext.replyAnchorMessage
             ? formatConversationForLlm([input.replyContext.replyAnchorMessage])
             : 'No target message available.'
@@ -33,9 +36,18 @@ export function buildLookupPlannerPrompt(input: {
     '',
     'CURRENT_COMMAND_MESSAGE:',
     input.replyContext.triggerMessage
-      ? formatConversationForLlm([input.replyContext.triggerMessage])
+      ? formatConversationForLlm([
+          {
+            ...input.replyContext.triggerMessage,
+            text: stripCommandArguments(input.replyContext.triggerMessage.text)
+          }
+        ])
       : 'No command message available.'
   ].join('\n');
+}
+
+function stripCommandArguments(text: string): string {
+  return text.trim().split(/\s+/, 1)[0] ?? '';
 }
 
 export function parseLookupDecision(

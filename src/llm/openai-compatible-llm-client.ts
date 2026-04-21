@@ -2,7 +2,11 @@ import OpenAI from 'openai';
 
 import type { AssistantIntent, ReplyContext } from '../domain/models.js';
 import type { AppLogger } from '../logging/logger.js';
-import type { LookupContext, LookupDecision } from '../lookup/types.js';
+import type {
+  LookupContext,
+  LookupDecision,
+  LookupIntent
+} from '../lookup/types.js';
 import { buildDeployUpdatePrompt } from './deploy-update-prompt.js';
 import { getIntentOutputShapeViolations } from './intent-output-shape.js';
 import {
@@ -66,7 +70,7 @@ export class OpenAiCompatibleLlmClient {
   }
 
   async planLookup(input: {
-    intent: Exclude<AssistantIntent, 'summarize'>;
+    intent: LookupIntent;
     replyContext: ReplyContext;
   }): Promise<LookupPlanResult> {
     const prompt = buildLookupPlannerPrompt(input);

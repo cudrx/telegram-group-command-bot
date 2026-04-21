@@ -193,6 +193,47 @@ test("does not use this bot's own message as explain anchor", () => {
   expect(context.replyAnchorMessage).toBe(null);
 });
 
+test('uses a replied-to non-self message as answer anchor', () => {
+  const db = new FakeDatabaseClient();
+
+  db.seedStoredMessages(1, [
+    {
+      messageId: 98,
+      userId: 42,
+      senderDisplayName: 'Tom',
+      text: 'кто такой путин?',
+      isBot: false,
+      replyToMessageId: null,
+      createdAt: '2026-04-10T11:59:50.000Z',
+      chatId: 1
+    },
+    {
+      messageId: 99,
+      userId: 43,
+      senderDisplayName: 'Max',
+      text: '/answer',
+      isBot: false,
+      replyToMessageId: 98,
+      createdAt: '2026-04-10T12:00:00.000Z',
+      chatId: 1
+    }
+  ]);
+
+  const context = buildReplyContext({
+    db,
+    chatId: 1,
+    triggerMessageId: 99,
+    contextLimit: 3,
+    intent: 'answer',
+    botUserId: 77
+  });
+
+  expect(context.replyAnchorMessage).toMatchObject({
+    messageId: 98,
+    text: 'кто такой путин?'
+  });
+});
+
 test('ignores reply anchors for decide and summarize', () => {
   const db = new FakeDatabaseClient();
 

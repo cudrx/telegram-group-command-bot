@@ -71,8 +71,10 @@ function getIntentPrompt(intent: AssistantIntent): string {
       return loadPrompt('summarize');
     case 'decide':
       return loadPrompt('decide');
-    case 'describe':
-      return loadPrompt('describe');
+    case 'read':
+      return loadPrompt('read');
+    case 'answer':
+      return loadPrompt('answer');
   }
 }
 
@@ -81,7 +83,7 @@ function getIntentDataSections(input: {
   replyContext: ReplyContext;
   mediaContext?: DescribeMediaContext | null;
 }): string {
-  if (input.intent === 'explain') {
+  if (input.intent === 'explain' || input.intent === 'answer') {
     return renderPromptTemplate(loadPrompt('systemExplain'), {
       targetMessage: formatSingleMessage(input.replyContext.replyAnchorMessage),
       nearbyChatContext: formatReplyContextMessages(
@@ -89,12 +91,17 @@ function getIntentDataSections(input: {
       ),
       currentCommandMessage: formatCommandMessage(
         input.replyContext.triggerMessage
-      )
+      ),
+      targetLabel:
+        input.intent === 'answer'
+          ? 'TARGET_MESSAGE_TO_ANSWER'
+          : 'TARGET_MESSAGE_TO_EXPLAIN',
+      commandName: input.intent
     });
   }
 
-  if (input.intent === 'describe') {
-    return renderPromptTemplate(loadPrompt('systemDescribe'), {
+  if (input.intent === 'read') {
+    return renderPromptTemplate(loadPrompt('systemRead'), {
       currentCommandMessage: formatCommandMessage(
         input.replyContext.triggerMessage
       ),
@@ -110,7 +117,8 @@ function getIntentDataSections(input: {
       ),
       chatContext: formatReplyContextMessages(
         input.replyContext.priorContextMessages
-      )
+      ),
+      commandName: input.intent
     });
   }
 

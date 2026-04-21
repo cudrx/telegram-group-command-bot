@@ -5,8 +5,7 @@ export type IntentOutputShapeViolation =
   | 'markdown_bold'
   | 'missing_explain_shape'
   | 'missing_summarize_shape'
-  | 'missing_decide_shape'
-  | 'missing_describe_shape';
+  | 'missing_decide_shape';
 
 export function getIntentOutputShapeViolations(
   intent: AssistantIntent,
@@ -41,17 +40,6 @@ export function getIntentOutputShapeViolations(
     !hasOrderedSections(reply, ['Позиции', 'Что видно', 'Вердикт'])
   ) {
     violations.push('missing_decide_shape');
-  }
-
-  if (
-    intent === 'describe' &&
-    !hasOrderedSections(reply, [
-      'Что распознано',
-      'Что можно предположить',
-      'Вывод'
-    ])
-  ) {
-    violations.push('missing_describe_shape');
   }
 
   return violations;

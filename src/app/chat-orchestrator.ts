@@ -22,6 +22,7 @@ import { type AppLogger, serializeError } from '../logging/logger.js';
 import type {
   LookupContext,
   LookupDecision,
+  LookupIntent,
   LookupProvider
 } from '../lookup/types.js';
 import { downloadTelegramFileToTemp } from '../media/telegram-media.js';
@@ -62,7 +63,7 @@ export type LlmClient = {
     mediaContext?: DescribeMediaContext | null;
   }): Promise<LlmReplyResult>;
   planLookup(input: {
-    intent: Exclude<AssistantIntent, 'summarize'>;
+    intent: LookupIntent;
     replyContext: ReplyContext;
   }): Promise<LookupPlanResult>;
 };
@@ -81,10 +82,12 @@ type ReplyRequest = {
 
 const EXPLAIN_USAGE_PLACEHOLDER =
   'Сделай reply на сообщение с вопросом и отправь /explain.';
-const DESCRIBE_USAGE_PLACEHOLDER =
-  'Сделай reply на голосовое, кружочек или картинку и отправь /describe.';
-const DESCRIBE_DISABLED_PLACEHOLDER = 'Распознавание медиа сейчас выключено.';
-const DESCRIBE_FAILED_PLACEHOLDER =
+const ANSWER_USAGE_PLACEHOLDER =
+  'Сделай reply на сообщение с вопросом и отправь /answer.';
+const READ_USAGE_PLACEHOLDER =
+  'Сделай reply на голосовое, кружочек или картинку и отправь /read.';
+const READ_DISABLED_PLACEHOLDER = 'Распознавание медиа сейчас выключено.';
+const READ_FAILED_PLACEHOLDER =
   'Не удалось распознать медиа. Попробуй позже или с другим файлом.';
 
 export class ChatOrchestrator {
@@ -235,11 +238,11 @@ export class ChatOrchestrator {
     request: ReplyRequest,
     logger: AppLogger
   ): Promise<LlmReplyResult | null> {
-    if (request.intent === 'describe') {
-      return this.executeDescribeGeneration(request, logger);
+    if (request.intent === 'read') {
+      return this.executeReadGeneration(request, logger);
     }
 
-    const replyContext = withExplainReplySnapshotFallback(
+    const replyContext = withReplySnapshotFallback(
       buildReplyContext({
         db: this.deps.db,
         chatId: request.chatId,
@@ -255,13 +258,20 @@ export class ChatOrchestrator {
       }
     );
 
-    if (request.intent === 'explain' && !replyContext.replyAnchorMessage) {
-      logger.warn('explain_anchor_missing', {
+    if (
+      (request.intent === 'explain' || request.intent === 'answer') &&
+      !replyContext.replyAnchorMessage
+    ) {
+      logger.warn(`${request.intent}_anchor_missing`, {
         replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
         replyToUserId: request.replyToMessageSnapshot?.userId ?? null
       });
 
-      return createLocalReplyResult(EXPLAIN_USAGE_PLACEHOLDER);
+      return createLocalReplyResult(
+        request.intent === 'answer'
+          ? ANSWER_USAGE_PLACEHOLDER
+          : EXPLAIN_USAGE_PLACEHOLDER
+      );
     }
 
     return this.withReplyTyping(request.chatId, async () => {
@@ -282,18 +292,18 @@ export class ChatOrchestrator {
     });
   }
 
-  private async executeDescribeGeneration(
+  private async executeReadGeneration(
     request: ReplyRequest,
     logger: AppLogger
   ): Promise<LlmReplyResult> {
     if (!this.deps.env.mediaAnalysisEnabled) {
-      return createLocalReplyResult(DESCRIBE_DISABLED_PLACEHOLDER);
+      return createLocalReplyResult(READ_DISABLED_PLACEHOLDER);
     }
 
     const media = request.replyToMediaSnapshot;
 
     if (!media) {
-      return createLocalReplyResult(DESCRIBE_USAGE_PLACEHOLDER);
+      return createLocalReplyResult(READ_USAGE_PLACEHOLDER);
     }
 
     const provider = getProviderForMediaKind(media.mediaKind);
@@ -316,14 +326,14 @@ export class ChatOrchestrator {
         });
 
     if (!recognized) {
-      return createLocalReplyResult(DESCRIBE_FAILED_PLACEHOLDER);
+      return createLocalReplyResult(READ_FAILED_PLACEHOLDER);
     }
 
     const replyContext = buildReplyContext({
       db: this.deps.db,
       chatId: request.chatId,
       triggerMessageId: request.triggerMessageId,
-      contextLimit: this.deps.env.describeContextLimit,
+      contextLimit: this.deps.env.readContextLimit,
       intent: request.intent,
       botUserId: this.deps.bot.userId
     });
@@ -483,9 +493,11 @@ export class ChatOrchestrator {
     replyContext: ReplyContext;
     logger: AppLogger;
   }): Promise<LookupContext | null> {
-    if (input.intent === 'summarize') {
+    if (input.intent === 'summarize' || input.intent === 'read') {
       return null;
     }
+
+    const lookupIntent: LookupIntent = input.intent;
 
     if (!this.deps.env.lookupEnabled || !this.deps.lookupProvider) {
       return null;
@@ -495,7 +507,7 @@ export class ChatOrchestrator {
 
     try {
       plan = await this.deps.qwen.planLookup({
-        intent: input.intent,
+        intent: lookupIntent,
         replyContext: input.replyContext
       });
     } catch (error) {
@@ -506,7 +518,7 @@ export class ChatOrchestrator {
 
       return createLookupContext({
         status: 'failed',
-        intent: input.intent,
+        intent: lookupIntent,
         decision: createFailedLookupDecision('Lookup planner failed.'),
         errorMessage: error instanceof Error ? error.message : String(error)
       });
@@ -517,7 +529,7 @@ export class ChatOrchestrator {
     if (plan.status === 'failed') {
       return createLookupContext({
         status: 'failed',
-        intent: input.intent,
+        intent: lookupIntent,
         decision,
         errorMessage: decision.reason
       });
@@ -536,7 +548,7 @@ export class ChatOrchestrator {
     if (!decision.shouldLookup) {
       return createLookupContext({
         status: 'skipped',
-        intent: input.intent,
+        intent: lookupIntent,
         decision
       });
     }
@@ -546,7 +558,7 @@ export class ChatOrchestrator {
     if (!query) {
       return createLookupContext({
         status: 'skipped',
-        intent: input.intent,
+        intent: lookupIntent,
         decision
       });
     }
@@ -561,7 +573,7 @@ export class ChatOrchestrator {
       return createLookupContext({
         status: result.sources.length > 0 ? 'used' : 'weak',
         provider: result.provider,
-        intent: input.intent,
+        intent: lookupIntent,
         decision,
         query: result.query,
         sources: result.sources,
@@ -577,7 +589,7 @@ export class ChatOrchestrator {
 
       return createLookupContext({
         status: isTimeoutError(error) ? 'timed_out' : 'failed',
-        intent: input.intent,
+        intent: lookupIntent,
         decision,
         query,
         errorMessage: error instanceof Error ? error.message : String(error)
@@ -604,7 +616,7 @@ export class ChatOrchestrator {
   }
 }
 
-function withExplainReplySnapshotFallback(
+function withReplySnapshotFallback(
   context: ReplyContext,
   input: {
     intent: AssistantIntent;
@@ -613,7 +625,7 @@ function withExplainReplySnapshotFallback(
   }
 ): ReplyContext {
   if (
-    input.intent !== 'explain' ||
+    (input.intent !== 'explain' && input.intent !== 'answer') ||
     context.replyAnchorMessage ||
     !input.replyToMessageSnapshot ||
     input.replyToMessageSnapshot.userId === input.botUserId
@@ -638,7 +650,9 @@ function getContextLimitForIntent(
       return env.summarizeContextLimit;
     case 'decide':
       return env.decideContextLimit;
-    case 'describe':
+    case 'read':
+      return env.readContextLimit;
+    case 'answer':
       return env.explainContextLimit;
   }
 }
@@ -765,7 +779,7 @@ function createLocalReplyResult(text: string): LlmReplyResult {
 function createLookupContext(input: {
   status: LookupContext['status'];
   provider?: LookupContext['provider'];
-  intent: Exclude<AssistantIntent, 'summarize'>;
+  intent: LookupIntent;
   decision: LookupDecision;
   query?: string | null;
   sources?: LookupContext['sources'];

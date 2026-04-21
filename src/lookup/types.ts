@@ -1,5 +1,7 @@
 import type { AssistantIntent } from '../domain/models.js';
 
+export type LookupIntent = Exclude<AssistantIntent, 'summarize' | 'read'>;
+
 export type LookupPurpose =
   | 'none'
   | 'entity_grounding'
@@ -35,7 +37,7 @@ export type LookupStatus =
 export type LookupContext = {
   status: LookupStatus;
   provider: 'tavily' | null;
-  intent: Exclude<AssistantIntent, 'summarize'>;
+  intent: LookupIntent;
   decision: LookupDecision;
   query: string | null;
   sources: LookupSource[];

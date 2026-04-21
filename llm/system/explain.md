@@ -1,4 +1,4 @@
-TARGET_MESSAGE_TO_EXPLAIN:
+{{targetLabel}}:
 {{targetMessage}}
 
 NEARBY_CHAT_CONTEXT:
@@ -8,4 +8,4 @@ CURRENT_COMMAND_MESSAGE:
 {{currentCommandMessage}}
 
 COMMAND_ARGUMENT_POLICY:
-If the command message has extra text after /explain, ignore it. Explain TARGET_MESSAGE_TO_EXPLAIN.
+If the command message has extra text after /{{commandName}}, ignore it. Use {{targetLabel}}.
