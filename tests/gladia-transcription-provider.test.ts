@@ -1,21 +1,29 @@
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { GladiaTranscriptionProvider } from '../src/media/gladia-transcription-provider.js';
 
-const AUDIO_FILE_PATH = fileURLToPath(
-  new URL('../data/test-audio-message.ogg', import.meta.url)
-);
+const tempDirectories: string[] = [];
 
 describe('GladiaTranscriptionProvider', () => {
-  afterEach(() => {
+  afterEach(async () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+
+    for (const directory of tempDirectories.splice(0)) {
+      await rm(directory, { recursive: true, force: true });
+    }
   });
 
   test('uploads local audio and polls transcription result', async () => {
+    const audioFilePath = await createTempFixtureFile(
+      'gladia-test-',
+      'test-audio-message.ogg',
+      Buffer.from([0x4f, 0x67, 0x67, 0x53, 0x00, 0x02, 0x03])
+    );
     const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
     const fetchStub = vi.fn(
       async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -60,7 +68,7 @@ describe('GladiaTranscriptionProvider', () => {
     });
 
     const result = await provider.transcribe({
-      filePath: AUDIO_FILE_PATH,
+      filePath: audioFilePath,
       filename: 'test-audio-message.ogg',
       mimeType: 'audio/ogg',
       timeoutMs: 5000
@@ -90,7 +98,7 @@ describe('GladiaTranscriptionProvider', () => {
     expect((uploadedAudio as File).name).toBe('test-audio-message.ogg');
     expect((uploadedAudio as Blob).type).toBe('audio/ogg');
     expect(Buffer.from(await (uploadedAudio as Blob).arrayBuffer())).toEqual(
-      await readFile(AUDIO_FILE_PATH)
+      await readFile(audioFilePath)
     );
     expect(calls[1]?.init?.headers).toMatchObject({
       'content-type': 'application/json',
@@ -99,6 +107,11 @@ describe('GladiaTranscriptionProvider', () => {
   });
 
   test('polls the result_url returned by Gladia', async () => {
+    const audioFilePath = await createTempFixtureFile(
+      'gladia-test-',
+      'test-audio-message.ogg',
+      Buffer.from([0x10, 0x20, 0x30])
+    );
     const calls: string[] = [];
     const fetchStub = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -136,7 +149,7 @@ describe('GladiaTranscriptionProvider', () => {
 
     await expect(
       provider.transcribe({
-        filePath: AUDIO_FILE_PATH,
+        filePath: audioFilePath,
         filename: 'test-audio-message.ogg',
         mimeType: 'audio/ogg',
         timeoutMs: 5000
@@ -157,6 +170,11 @@ describe('GladiaTranscriptionProvider', () => {
   });
 
   test('throws when the transcription job reports an error status', async () => {
+    const audioFilePath = await createTempFixtureFile(
+      'gladia-test-',
+      'test-audio-message.ogg',
+      Buffer.from([0x11, 0x21, 0x31])
+    );
     const fetchStub = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -187,7 +205,7 @@ describe('GladiaTranscriptionProvider', () => {
 
     await expect(
       provider.transcribe({
-        filePath: AUDIO_FILE_PATH,
+        filePath: audioFilePath,
         filename: 'test-audio-message.ogg',
         mimeType: 'audio/ogg',
         timeoutMs: 5000
@@ -196,6 +214,11 @@ describe('GladiaTranscriptionProvider', () => {
   });
 
   test('times out after exhausting polling attempts', async () => {
+    const audioFilePath = await createTempFixtureFile(
+      'gladia-test-',
+      'test-audio-message.ogg',
+      Buffer.from([0x12, 0x22, 0x32])
+    );
     const delay = vi.fn(async () => undefined);
     const fetchStub = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -229,7 +252,7 @@ describe('GladiaTranscriptionProvider', () => {
 
     await expect(
       provider.transcribe({
-        filePath: AUDIO_FILE_PATH,
+        filePath: audioFilePath,
         filename: 'test-audio-message.ogg',
         mimeType: 'audio/ogg',
         timeoutMs: 5000
@@ -243,6 +266,11 @@ describe('GladiaTranscriptionProvider', () => {
   });
 
   test('respects the total operation timeout while polling', async () => {
+    const audioFilePath = await createTempFixtureFile(
+      'gladia-test-',
+      'test-audio-message.ogg',
+      Buffer.from([0x13, 0x23, 0x33])
+    );
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-04-21T10:00:00.000Z'));
 
@@ -281,7 +309,7 @@ describe('GladiaTranscriptionProvider', () => {
 
     await expect(
       provider.transcribe({
-        filePath: AUDIO_FILE_PATH,
+        filePath: audioFilePath,
         filename: 'test-audio-message.ogg',
         mimeType: 'audio/ogg',
         timeoutMs: 10
@@ -292,6 +320,11 @@ describe('GladiaTranscriptionProvider', () => {
   });
 
   test('throws on non-2xx HTTP responses', async () => {
+    const audioFilePath = await createTempFixtureFile(
+      'gladia-test-',
+      'test-audio-message.ogg',
+      Buffer.from([0x14, 0x24, 0x34])
+    );
     const fetchStub = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
 
@@ -313,7 +346,7 @@ describe('GladiaTranscriptionProvider', () => {
 
     await expect(
       provider.transcribe({
-        filePath: AUDIO_FILE_PATH,
+        filePath: audioFilePath,
         filename: 'test-audio-message.ogg',
         mimeType: 'audio/ogg',
         timeoutMs: 5000
@@ -323,6 +356,19 @@ describe('GladiaTranscriptionProvider', () => {
     );
   });
 });
+
+async function createTempFixtureFile(
+  directoryPrefix: string,
+  filename: string,
+  bytes: Buffer
+): Promise<string> {
+  const directory = await mkdtemp(path.join(os.tmpdir(), directoryPrefix));
+  tempDirectories.push(directory);
+  const filePath = path.join(directory, filename);
+  await writeFile(filePath, bytes);
+
+  return filePath;
+}
 
 function jsonResponse(body: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(body), {
