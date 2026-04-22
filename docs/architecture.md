@@ -26,7 +26,7 @@
 - reply-to-bot routing;
 - фоновые LLM jobs;
 - summary-based retention;
-- planner/provider-driven live internet lookup is gated off by default.
+- planner/provider-driven live internet lookup is enabled by default and can be disabled with `LOOKUP_ENABLED=false`.
 
 Если `LOOKUP_ENABLED=true`, lookup-backed explain/decide/answer contract behaves like this:
 
@@ -38,7 +38,10 @@
 Media intake реализован только как lazy explicit command:
 
 - `/read` работает только когда команда отправлена reply на поддержанное медиа;
-- изображения распознаются через Cloudflare Workers AI;
+- изображения проходят через Cloudflare Workers AI для `vision_description`, который дает только визуальное описание, а не OCR;
+- OCR.space сохраняет отдельные текстовые артефакты `ocr_text_ru` для `language=rus` и `OCREngine=2`, а также `ocr_text_default` без `language` и с `OCREngine=2`;
+- пустые OCR-результаты не сохраняются;
+- image flow продолжается, если доступен хотя бы один из артефактов `vision_description`, `ocr_text_ru` или `ocr_text_default`;
 - `voice`, `audio` и Telegram `video_note` транскрибируются через Gladia;
 - исходные файлы скачиваются во временную папку, удаляются после provider call и не сохраняются в БД;
 - в SQLite сохраняются только raw/normalized media artifacts с TTL.

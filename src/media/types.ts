@@ -27,6 +27,8 @@ export type VisionArtifact = {
 
 export type NormalizedMediaArtifact = TranscriptArtifact;
 
+export type OcrLanguage = 'rus' | null;
+
 export type SpeechToTextProvider = {
   transcribe(input: {
     filePath: string;
@@ -47,6 +49,20 @@ export type VisionProvider = {
     provider: 'cloudflare';
     providerModel: string;
     rawText: string;
+    rawResponse: unknown;
+  }>;
+};
+
+export type OcrProvider = {
+  extractText(input: {
+    filePath: string;
+    language: OcrLanguage;
+    timeoutMs: number;
+  }): Promise<{
+    provider: 'ocr_space';
+    providerModel: string;
+    text: string;
+    language: OcrLanguage;
     rawResponse: unknown;
   }>;
 };

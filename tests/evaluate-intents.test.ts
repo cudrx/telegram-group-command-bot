@@ -68,6 +68,6 @@ describe('evaluate-intents helpers', () => {
         ids: new Set(),
         intents: new Set(['read'])
       }).map((fixture) => fixture.intent)
-    ).toEqual(['read', 'read']);
+    ).toEqual(['read', 'read', 'read']);
   });
 });

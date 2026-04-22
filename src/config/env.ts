@@ -65,6 +65,7 @@ const envSchema = z.object({
   LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
   LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3),
   MEDIA_ANALYSIS_ENABLED: stringBooleanSchema.default(false),
+  OCR_SPACE_API_KEY: z.string().min(1).optional(),
   READ_CONTEXT_LIMIT: z.coerce.number().int().positive().default(10),
   GLADIA_API_KEY: z.string().min(1).optional(),
   CLOUDFLARE_AI_API_KEY: z.string().min(1).optional(),
@@ -101,6 +102,7 @@ type ParsedEnv = {
   lookupMaxQueries: number;
   lookupMaxResults: number;
   mediaAnalysisEnabled: boolean;
+  ocrSpaceApiKey: string | null;
   readContextLimit: number;
   sttProvider: 'gladia';
   gladiaApiKey: string | null;
@@ -238,6 +240,7 @@ export function parseEnv(
     lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
     mediaAnalysisEnabled: parsed.MEDIA_ANALYSIS_ENABLED,
+    ocrSpaceApiKey: parsed.OCR_SPACE_API_KEY ?? null,
     readContextLimit: parsed.READ_CONTEXT_LIMIT,
     sttProvider: STT_PROVIDER,
     gladiaApiKey: parsed.GLADIA_API_KEY ?? null,
@@ -313,6 +316,16 @@ function validateMediaAnalysisConfig(parsed: z.infer<typeof envSchema>): void {
         'CLOUDFLARE_ACCOUNT_ID contains a placeholder value. Replace it with a real Cloudflare account ID before enabling media analysis.'
       );
     }
+  }
+
+  if (!parsed.OCR_SPACE_API_KEY) {
+    throw new Error('OCR_SPACE_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.');
+  }
+
+  if (looksLikePlaceholder(parsed.OCR_SPACE_API_KEY)) {
+    throw new Error(
+      'OCR_SPACE_API_KEY contains a placeholder value. Replace it with a real OCR.space API key before enabling media analysis.'
+    );
   }
 }
 

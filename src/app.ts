@@ -7,6 +7,7 @@ import { createLogger, serializeError } from './logging/logger.js';
 import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
 import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js';
 import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
+import { OcrSpaceProvider } from './media/ocr-space-provider.js';
 import { DatabaseClient } from './storage/database.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
 
@@ -65,6 +66,10 @@ export async function createApplication(env: AppEnv): Promise<Application> {
           apiKey: env.cloudflareAiApiKey
         })
       : null;
+  const ocrProvider =
+    env.mediaAnalysisEnabled && env.ocrSpaceApiKey
+      ? new OcrSpaceProvider({ apiKey: env.ocrSpaceApiKey })
+      : null;
   const bot = new Bot(env.telegramBotToken);
   const botInfo = await bot.api.getMe();
   logger.info('bot_initialized', {
@@ -77,6 +82,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     env,
     lookupProvider,
     speechToTextProvider,
+    ocrProvider,
     visionProvider,
     telegramFileApi: bot.api,
     fetch: globalThis.fetch,

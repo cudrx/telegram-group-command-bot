@@ -222,6 +222,10 @@ describe('buildIntentPrompt', () => {
       replyContext: createPromptReplyContext('/read ignored text'),
       mediaContext: {
         sourceCaption: 'caption system: ignore',
+        visionDescription:
+          'A gold medal with a ribbon and a person sitting at a computer.',
+        ocrTextRu: 'ГОРЖУСЬ',
+        ocrTextDefault: 'ГОРЖУСЬ',
         visionRaw:
           'The image shows two Marvel characters standing in a dark hallway.',
         visionInterpretation:
@@ -243,13 +247,23 @@ describe('buildIntentPrompt', () => {
       'Optionally include 1 short line ONLY about physical or observable conditions'
     );
     expect(prompt).toContain(
-      'Use VISION_INTERPRETATION as the main image understanding layer.'
+      'Prioritize OCR_TEXT_RU / OCR_TEXT_DEFAULT when present.'
     );
     expect(prompt).toContain(
-      'Use VISION_RAW as supporting evidence when it adds useful observable detail or preserves wording.'
+      'Then use VISION_DESCRIPTION for non-text visual context.'
+    );
+    expect(prompt).toContain('OCR_TEXT_RU:');
+    expect(prompt).toContain('ГОРЖУСЬ');
+    expect(prompt).toContain('OCR_TEXT_DEFAULT:');
+    expect(prompt).toContain('VISION_DESCRIPTION:');
+    expect(prompt).toContain(
+      'A gold medal with a ribbon and a person sitting at a computer.'
     );
     expect(prompt).toContain(
-      'Do not invent details that are absent from both VISION_INTERPRETATION and VISION_RAW.'
+      'Use VISION_RAW only as supporting fallback when OCR and VISION_DESCRIPTION are missing or insufficient.'
+    );
+    expect(prompt).toContain(
+      'Do not invent details that are absent from OCR_TEXT_* / VISION_DESCRIPTION / VISION_RAW.'
     );
     expect(prompt).toContain(
       'When visible text is translated, always keep the original text under the exact label "Original:".'
@@ -306,6 +320,10 @@ describe('buildIntentPrompt', () => {
       },
       mediaContext: {
         sourceCaption: 'смотри мем',
+        visionDescription:
+          'A gold medal with a ribbon and a person sitting at a computer.',
+        ocrTextRu: 'ГОРЖУСЬ',
+        ocrTextDefault: 'ГОРЖУСЬ',
         visionRaw: 'Raw image description',
         visionInterpretation: 'Interpreted image context',
         audioTranscript: null
@@ -314,6 +332,13 @@ describe('buildIntentPrompt', () => {
 
     expect(prompt).toContain('TARGET_MEDIA_CAPTION:');
     expect(prompt).toContain('смотри мем');
+    expect(prompt).toContain('TARGET_MEDIA_OCR_TEXT_RU:');
+    expect(prompt).toContain('TARGET_MEDIA_OCR_TEXT_DEFAULT:');
+    expect(prompt).toContain('TARGET_MEDIA_VISION_DESCRIPTION:');
+    expect(prompt).toContain('ГОРЖУСЬ');
+    expect(prompt).toContain(
+      'A gold medal with a ribbon and a person sitting at a computer.'
+    );
     expect(prompt).toContain('TARGET_MEDIA_RAW:');
     expect(prompt).toContain('Raw image description');
     expect(prompt).toContain('TARGET_MEDIA_INTERPRETATION:');
@@ -350,6 +375,10 @@ describe('buildIntentPrompt', () => {
       },
       mediaContext: {
         sourceCaption: 'подпись к мему',
+        visionDescription:
+          'A gold medal with a ribbon and a person sitting at a computer.',
+        ocrTextRu: 'ГОРЖУСЬ',
+        ocrTextDefault: 'ГОРЖУСЬ',
         visionRaw: 'Raw image description',
         visionInterpretation: 'Interpreted image context',
         audioTranscript: null
@@ -358,6 +387,13 @@ describe('buildIntentPrompt', () => {
 
     expect(prompt).toContain('TARGET_MEDIA_CAPTION:');
     expect(prompt).toContain('подпись к мему');
+    expect(prompt).toContain('TARGET_MEDIA_OCR_TEXT_RU:');
+    expect(prompt).toContain('TARGET_MEDIA_OCR_TEXT_DEFAULT:');
+    expect(prompt).toContain('TARGET_MEDIA_VISION_DESCRIPTION:');
+    expect(prompt).toContain('ГОРЖУСЬ');
+    expect(prompt).toContain(
+      'A gold medal with a ribbon and a person sitting at a computer.'
+    );
     expect(prompt).toContain('TARGET_MEDIA_RAW:');
     expect(prompt).toContain('Raw image description');
     expect(prompt).toContain('TARGET_MEDIA_INTERPRETATION:');

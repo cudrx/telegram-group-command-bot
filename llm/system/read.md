@@ -7,6 +7,15 @@ If the command message has extra text after /{{commandName}}, ignore it.
 CAPTION:
 {{caption}}
 
+OCR_TEXT_RU:
+{{ocrTextRu}}
+
+OCR_TEXT_DEFAULT:
+{{ocrTextDefault}}
+
+VISION_DESCRIPTION:
+{{visionDescription}}
+
 VISION_RAW:
 {{visionRaw}}
 

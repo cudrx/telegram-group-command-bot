@@ -606,6 +606,96 @@ export class DatabaseClient {
     );
   }
 
+  getLatestMediaArtifact(input: {
+    fileUniqueId: string | null;
+    chatId: number;
+    telegramMessageId: number;
+    provider: string;
+    artifactKind: string;
+  }): StoredMediaArtifact | null {
+    if (input.fileUniqueId) {
+      const byFileUniqueId = getLatestMediaArtifactRow(
+        this.db,
+        `
+          SELECT
+            id,
+            file_unique_id AS fileUniqueId,
+            chat_id AS chatId,
+            telegram_message_id AS telegramMessageId,
+            media_kind AS mediaKind,
+            provider,
+            provider_model AS providerModel,
+            artifact_kind AS artifactKind,
+            artifact_status AS artifactStatus,
+            artifact_text AS artifactText,
+            artifact_json AS artifactJson,
+            raw_response_json AS rawResponseJson,
+            source_caption AS sourceCaption,
+            source_mime_type AS sourceMimeType,
+            source_file_size AS sourceFileSize,
+            source_duration_seconds AS sourceDurationSeconds,
+            recognition_language AS recognitionLanguage,
+            confidence_json AS confidenceJson,
+            error_text AS errorText,
+            created_at AS createdAt,
+            expires_at AS expiresAt
+          FROM media_artifacts
+          WHERE file_unique_id = ?
+            AND provider = ?
+            AND artifact_kind = ?
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+        [input.fileUniqueId, input.provider, input.artifactKind]
+      );
+
+      if (byFileUniqueId) {
+        return byFileUniqueId;
+      }
+    }
+
+    return getLatestMediaArtifactRow(
+      this.db,
+      `
+        SELECT
+          id,
+          file_unique_id AS fileUniqueId,
+          chat_id AS chatId,
+          telegram_message_id AS telegramMessageId,
+          media_kind AS mediaKind,
+          provider,
+          provider_model AS providerModel,
+          artifact_kind AS artifactKind,
+          artifact_status AS artifactStatus,
+          artifact_text AS artifactText,
+          artifact_json AS artifactJson,
+          raw_response_json AS rawResponseJson,
+          source_caption AS sourceCaption,
+          source_mime_type AS sourceMimeType,
+          source_file_size AS sourceFileSize,
+          source_duration_seconds AS sourceDurationSeconds,
+          recognition_language AS recognitionLanguage,
+          confidence_json AS confidenceJson,
+          error_text AS errorText,
+          created_at AS createdAt,
+          expires_at AS expiresAt
+        FROM media_artifacts
+        WHERE chat_id = ?
+          AND telegram_message_id = ?
+          AND provider = ?
+          AND artifact_kind = ?
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [
+        input.chatId,
+        input.telegramMessageId,
+        input.provider,
+        input.artifactKind
+      ]
+    );
+  }
+
   getSuccessfulMediaArtifactsForMessages(input: {
     chatId: number;
     messageIds: number[];
@@ -883,6 +973,40 @@ function toStoredMediaArtifact(row: {
 }
 
 function getLatestSuccessfulMediaArtifactRow(
+  db: Database.Database,
+  sql: string,
+  params: unknown[]
+): StoredMediaArtifact | null {
+  const row = db.prepare(sql).get(...params) as
+    | {
+        id: number;
+        fileUniqueId: string | null;
+        chatId: number;
+        telegramMessageId: number;
+        mediaKind: string;
+        provider: string;
+        providerModel: string;
+        artifactKind: string;
+        artifactStatus: string;
+        artifactText: string | null;
+        artifactJson: string | null;
+        rawResponseJson: string | null;
+        sourceCaption: string | null;
+        sourceMimeType: string | null;
+        sourceFileSize: number | null;
+        sourceDurationSeconds: number | null;
+        recognitionLanguage: string | null;
+        confidenceJson: string | null;
+        errorText: string | null;
+        createdAt: string;
+        expiresAt: string;
+      }
+    | undefined;
+
+  return row ? toStoredMediaArtifact(row) : null;
+}
+
+function getLatestMediaArtifactRow(
   db: Database.Database,
   sql: string,
   params: unknown[]

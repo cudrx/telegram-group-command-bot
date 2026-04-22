@@ -35,11 +35,12 @@ Video notes:
 
 Images:
 
-- Use VISION_INTERPRETATION as the main image understanding layer.
-- Use VISION_RAW as supporting evidence when it adds useful observable detail or preserves wording.
+- Prioritize OCR_TEXT_RU / OCR_TEXT_DEFAULT when present.
+- Then use VISION_DESCRIPTION for non-text visual context.
+- Use VISION_RAW only as supporting fallback when OCR and VISION_DESCRIPTION are missing or insufficient.
 - Preserve clearly visible text from the image and keep caption context when it helps explain what is shown.
-- Do not invent details that are absent from both VISION_INTERPRETATION and VISION_RAW.
-- If VISION_RAW is richer but more speculative, prefer the more grounded reading from VISION_INTERPRETATION.
+- VISION_INTERPRETATION may be absent; if it is present, treat it as a derived helper, not a primary source.
+- Do not invent details that are absent from OCR_TEXT_* / VISION_DESCRIPTION / VISION_RAW.
 - If both image content and readable text matter, include both.
 - Do not turn the result into EXPLAIN mode or answer questions that the image merely suggests.
 

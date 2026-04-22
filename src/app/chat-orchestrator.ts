@@ -28,6 +28,7 @@ import type {
 import { downloadTelegramFileToTemp } from '../media/telegram-media.js';
 import type {
   NormalizedMediaArtifact,
+  OcrProvider,
   SpeechToTextProvider,
   VisionProvider
 } from '../media/types.js';
@@ -93,10 +94,14 @@ const READ_DISABLED_PLACEHOLDER = 'Распознавание медиа сей�
 const READ_FAILED_PLACEHOLDER =
   'Не удалось распознать медиа. Попробуй позже или с другим файлом.';
 const NEARBY_MEDIA_SCAN_LIMIT = 10;
-const IMAGE_RAW_PROVIDER = 'cloudflare';
-const IMAGE_RAW_ARTIFACT_KIND = 'vision_raw';
+const IMAGE_DESCRIPTION_PROVIDER = 'cloudflare';
+const IMAGE_DESCRIPTION_ARTIFACT_KIND = 'vision_description';
+const OCR_PROVIDER = 'ocr_space';
+const OCR_TEXT_RU_ARTIFACT_KIND = 'ocr_text_ru';
+const OCR_TEXT_DEFAULT_ARTIFACT_KIND = 'ocr_text_default';
 const IMAGE_INTERPRETATION_PROVIDER = 'deepseek';
 const IMAGE_INTERPRETATION_ARTIFACT_KIND = 'vision_interpretation';
+const EMPTY_OCR_RESULT_MARKER = 'empty_result';
 
 export class ChatOrchestrator {
   constructor(
@@ -106,6 +111,7 @@ export class ChatOrchestrator {
       env: AppEnv;
       lookupProvider: LookupProvider | null;
       speechToTextProvider?: SpeechToTextProvider | null;
+      ocrProvider?: OcrProvider | null;
       visionProvider?: VisionProvider | null;
       telegramFileApi?: {
         getFile(fileId: string): Promise<{ file_path?: string | null }>;
@@ -338,7 +344,11 @@ export class ChatOrchestrator {
 
     if (media.mediaKind === 'photo' || media.mediaKind === 'document_image') {
       const interpreted =
-        mediaContext.visionInterpretation ?? mediaContext.visionRaw;
+        mediaContext.visionInterpretation ??
+        mediaContext.ocrTextRu ??
+        mediaContext.ocrTextDefault ??
+        mediaContext.visionDescription ??
+        mediaContext.visionRaw;
 
       if (!interpreted) {
         return createLocalReplyResult(READ_FAILED_PLACEHOLDER);
@@ -449,7 +459,16 @@ export class ChatOrchestrator {
       return null;
     } finally {
       if (downloaded) {
-        await downloaded.cleanup();
+        try {
+          await downloaded.cleanup();
+        } catch (error) {
+          input.logger.warn('media_download_cleanup_failed', {
+            provider: input.provider,
+            mediaKind: input.media.mediaKind,
+            fileId: input.media.fileId,
+            ...serializeError(error)
+          });
+        }
       }
     }
   }
@@ -469,10 +488,105 @@ export class ChatOrchestrator {
       return null;
     }
 
+    if (!this.deps.env.mediaAnalysisEnabled) {
+      return this.getCachedMediaContext({ request, media: targetMedia });
+    }
+
     return this.ensureMediaContext({
       request,
       media: targetMedia,
       logger
+    });
+  }
+
+  private getCachedMediaContext(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+  }): DescribeMediaContext | null {
+    if (
+      input.media.mediaKind === 'photo' ||
+      input.media.mediaKind === 'document_image'
+    ) {
+      const visionDescription =
+        this.getCachedImageArtifact({
+          request: input.request,
+          media: input.media,
+          provider: IMAGE_DESCRIPTION_PROVIDER,
+          artifactKind: IMAGE_DESCRIPTION_ARTIFACT_KIND
+        })?.artifactText ?? null;
+      const ocrTextRu =
+        this.getCachedImageArtifact({
+          request: input.request,
+          media: input.media,
+          provider: OCR_PROVIDER,
+          artifactKind: OCR_TEXT_RU_ARTIFACT_KIND
+        })?.artifactText ?? null;
+      const ocrTextDefault =
+        this.getCachedImageArtifact({
+          request: input.request,
+          media: input.media,
+          provider: OCR_PROVIDER,
+          artifactKind: OCR_TEXT_DEFAULT_ARTIFACT_KIND
+        })?.artifactText ?? null;
+      const visionInterpretation =
+        this.deps.db.getSuccessfulMediaArtifact({
+          fileUniqueId: input.media.fileUniqueId,
+          chatId: input.request.chatId,
+          telegramMessageId: input.media.messageId,
+          provider: IMAGE_INTERPRETATION_PROVIDER,
+          artifactKind: IMAGE_INTERPRETATION_ARTIFACT_KIND
+        })?.artifactText ?? null;
+      const visionRaw =
+        this.getCachedImageArtifact({
+          request: input.request,
+          media: input.media,
+          provider: IMAGE_DESCRIPTION_PROVIDER,
+          artifactKind: 'vision_raw'
+        })?.artifactText ?? null;
+
+      if (
+        !visionInterpretation &&
+        !visionDescription &&
+        !ocrTextRu &&
+        !ocrTextDefault &&
+        !visionRaw
+      ) {
+        return null;
+      }
+
+      return {
+        sourceCaption: input.media.caption,
+        visionDescription,
+        ocrTextRu,
+        ocrTextDefault,
+        visionRaw,
+        visionInterpretation,
+        audioTranscript: null
+      };
+    }
+
+    const cached = this.deps.db.getSuccessfulMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      provider: 'gladia',
+      artifactKind: 'transcript'
+    });
+
+    if (!cached) {
+      return null;
+    }
+
+    const recognized = artifactFromStoredMediaArtifact(cached.artifactJson);
+
+    if (!recognized) {
+      return null;
+    }
+
+    return buildTranscriptMediaContext({
+      media: input.media,
+      artifact: recognized.artifact,
+      sourceDurationSeconds: recognized.sourceDurationSeconds
     });
   }
 
@@ -522,7 +636,7 @@ export class ChatOrchestrator {
         newestMediaMessage.mediaSnapshot.mediaKind
       );
 
-      if (!hasCached) {
+      if (!hasCached && this.deps.env.mediaAnalysisEnabled) {
         await this.ensureMediaContext({
           request,
           media: newestMediaMessage.mediaSnapshot,
@@ -594,8 +708,18 @@ export class ChatOrchestrator {
             artifact.artifactKind === IMAGE_INTERPRETATION_ARTIFACT_KIND
         )?.artifactText ??
         matching.find(
-          (artifact) => artifact.artifactKind === IMAGE_RAW_ARTIFACT_KIND
+          (artifact) => artifact.artifactKind === OCR_TEXT_RU_ARTIFACT_KIND
         )?.artifactText ??
+        matching.find(
+          (artifact) =>
+            artifact.artifactKind === OCR_TEXT_DEFAULT_ARTIFACT_KIND
+        )?.artifactText ??
+        matching.find(
+          (artifact) =>
+            artifact.artifactKind === IMAGE_DESCRIPTION_ARTIFACT_KIND
+        )?.artifactText ??
+        matching.find((artifact) => artifact.artifactKind === 'vision_raw')
+          ?.artifactText ??
         null
       );
     }
@@ -651,24 +775,7 @@ export class ChatOrchestrator {
     media: MediaMessageSnapshot;
     logger: AppLogger;
   }): Promise<DescribeMediaContext | null> {
-    let visionRaw =
-      this.deps.db.getSuccessfulMediaArtifact({
-        fileUniqueId: input.media.fileUniqueId,
-        chatId: input.request.chatId,
-        telegramMessageId: input.media.messageId,
-        provider: IMAGE_RAW_PROVIDER,
-        artifactKind: IMAGE_RAW_ARTIFACT_KIND
-      })?.artifactText ?? null;
-
-    if (!visionRaw) {
-      visionRaw = await this.generateAndStoreVisionRaw(input);
-    }
-
-    if (!visionRaw) {
-      return null;
-    }
-
-    let visionInterpretation =
+    const cachedInterpretation =
       this.deps.db.getSuccessfulMediaArtifact({
         fileUniqueId: input.media.fileUniqueId,
         chatId: input.request.chatId,
@@ -677,37 +784,288 @@ export class ChatOrchestrator {
         artifactKind: IMAGE_INTERPRETATION_ARTIFACT_KIND
       })?.artifactText ?? null;
 
-    if (!visionInterpretation) {
-      visionInterpretation = await this.generateAndStoreVisionInterpretation({
+    let visionDescription =
+      this.getCachedImageArtifact({
         request: input.request,
         media: input.media,
+        provider: IMAGE_DESCRIPTION_PROVIDER,
+        artifactKind: IMAGE_DESCRIPTION_ARTIFACT_KIND
+      })?.artifactText ?? null;
+    let ocrTextRu =
+      this.getCachedImageArtifact({
+        request: input.request,
+        media: input.media,
+        provider: OCR_PROVIDER,
+        artifactKind: OCR_TEXT_RU_ARTIFACT_KIND
+      })?.artifactText ?? null;
+    let ocrTextDefault =
+      this.getCachedImageArtifact({
+        request: input.request,
+        media: input.media,
+        provider: OCR_PROVIDER,
+        artifactKind: OCR_TEXT_DEFAULT_ARTIFACT_KIND
+      })?.artifactText ?? null;
+    const visionRaw =
+      this.getCachedImageArtifact({
+        request: input.request,
+        media: input.media,
+        provider: IMAGE_DESCRIPTION_PROVIDER,
+        artifactKind: 'vision_raw'
+      })?.artifactText ?? null;
+
+    const hasUsefulCachedImageArtifact = Boolean(
+      cachedInterpretation ||
+        visionDescription ||
+        ocrTextRu ||
+        ocrTextDefault ||
         visionRaw
-      });
+    );
+
+    const hasEmptyOcrTextRuMarker = isEmptyOcrResultMarker(
+      this.getLatestImageArtifact({
+        request: input.request,
+        media: input.media,
+        provider: OCR_PROVIDER,
+        artifactKind: OCR_TEXT_RU_ARTIFACT_KIND
+      })
+    );
+    const hasEmptyOcrTextDefaultMarker = isEmptyOcrResultMarker(
+      this.getLatestImageArtifact({
+        request: input.request,
+        media: input.media,
+        provider: OCR_PROVIDER,
+        artifactKind: OCR_TEXT_DEFAULT_ARTIFACT_KIND
+      })
+    );
+
+    const missing = {
+      visionDescription: !visionDescription,
+      ocrTextRu: !ocrTextRu && !hasEmptyOcrTextRuMarker,
+      ocrTextDefault: !ocrTextDefault && !hasEmptyOcrTextDefaultMarker
+    };
+
+    if (missing.visionDescription || missing.ocrTextRu || missing.ocrTextDefault) {
+      try {
+        const generated = await this.generateAndStoreImageAnalysis({
+          request: input.request,
+          media: input.media,
+          logger: input.logger,
+          missing
+        });
+
+        visionDescription = visionDescription ?? generated.visionDescription;
+        ocrTextRu = ocrTextRu ?? generated.ocrTextRu;
+        ocrTextDefault = ocrTextDefault ?? generated.ocrTextDefault;
+      } catch (error) {
+        // generateAndStoreImageAnalysis should be best-effort: if any usable cache exists, keep serving it.
+        input.logger.warn('image_analysis_failed', {
+          mediaKind: input.media.mediaKind,
+          fileId: input.media.fileId,
+          hasUsefulCachedImageArtifact,
+          ...serializeError(error)
+        });
+      }
+    }
+
+    if (
+      !cachedInterpretation &&
+      !visionDescription &&
+      !ocrTextRu &&
+      !ocrTextDefault &&
+      !visionRaw
+    ) {
+      return null;
+    }
+
+    let visionInterpretation: string | null = cachedInterpretation;
+    const hasNewAnalysis = Boolean(
+      visionDescription || ocrTextRu || ocrTextDefault
+    );
+
+    if (!visionInterpretation && hasNewAnalysis) {
+      try {
+        visionInterpretation = await this.generateAndStoreVisionInterpretation({
+          request: input.request,
+          media: input.media,
+          visionDescription,
+          ocrTextRu,
+          ocrTextDefault
+        });
+      } catch (error) {
+        input.logger.warn('image_interpretation_failed', {
+          provider: IMAGE_INTERPRETATION_PROVIDER,
+          mediaKind: input.media.mediaKind,
+          ...serializeError(error)
+        });
+
+        visionInterpretation = null;
+      }
     }
 
     return {
       sourceCaption: input.media.caption,
+      visionDescription,
+      ocrTextRu,
+      ocrTextDefault,
       visionRaw,
       visionInterpretation,
       audioTranscript: null
     };
   }
 
-  private async generateAndStoreVisionRaw(input: {
+  private getCachedImageArtifact(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    provider: string;
+    artifactKind: string;
+  }): StoredMediaArtifact | null {
+    return this.deps.db.getSuccessfulMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      provider: input.provider,
+      artifactKind: input.artifactKind
+    });
+  }
+
+  private getLatestImageArtifact(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    provider: string;
+    artifactKind: string;
+  }): StoredMediaArtifact | null {
+    return this.deps.db.getLatestMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      provider: input.provider,
+      artifactKind: input.artifactKind
+    });
+  }
+
+  private saveImageTextArtifact(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    provider: string;
+    providerModel: string;
+    artifactKind: string;
+    artifactText: string;
+    rawResponseJson: unknown;
+    recognitionLanguage: string | null;
+    sourceFileSize: number | null;
+  }): void {
+    const createdAt = this.deps.now();
+
+    this.deps.db.saveMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      mediaKind: input.media.mediaKind,
+      provider: input.provider,
+      providerModel: input.providerModel,
+      artifactKind: input.artifactKind,
+      artifactStatus: 'success',
+      artifactText: input.artifactText,
+      artifactJson: { text: input.artifactText },
+      rawResponseJson: input.rawResponseJson,
+      sourceCaption: input.media.caption,
+      sourceMimeType: input.media.mimeType,
+      sourceFileSize: input.sourceFileSize,
+      sourceDurationSeconds: null,
+      recognitionLanguage: input.recognitionLanguage,
+      confidenceJson: null,
+      errorText: null,
+      createdAt,
+      expiresAt: addDaysIso(createdAt, this.deps.env.mediaArtifactRetentionDays)
+    });
+  }
+
+  private saveImageArtifactMarker(input: {
+    request: ReplyRequest;
+    media: MediaMessageSnapshot;
+    provider: string;
+    providerModel: string;
+    artifactKind: string;
+    rawResponseJson: unknown;
+    recognitionLanguage: string | null;
+    sourceFileSize: number | null;
+    errorText: string;
+    artifactJson: unknown;
+  }): void {
+    const createdAt = this.deps.now();
+
+    this.deps.db.saveMediaArtifact({
+      fileUniqueId: input.media.fileUniqueId,
+      chatId: input.request.chatId,
+      telegramMessageId: input.media.messageId,
+      mediaKind: input.media.mediaKind,
+      provider: input.provider,
+      providerModel: input.providerModel,
+      artifactKind: input.artifactKind,
+      artifactStatus: 'partial',
+      artifactText: null,
+      artifactJson: input.artifactJson,
+      rawResponseJson: input.rawResponseJson,
+      sourceCaption: input.media.caption,
+      sourceMimeType: input.media.mimeType,
+      sourceFileSize: input.sourceFileSize,
+      sourceDurationSeconds: null,
+      recognitionLanguage: input.recognitionLanguage,
+      confidenceJson: null,
+      errorText: input.errorText,
+      createdAt,
+      expiresAt: addDaysIso(createdAt, this.deps.env.mediaArtifactRetentionDays)
+    });
+  }
+
+  private async extractDownloadedImageOcr(
+    filePath: string,
+    language: 'rus' | null
+  ): Promise<{
+    provider: 'ocr_space';
+    providerModel: string;
+    text: string;
+    language: 'rus' | null;
+    rawResponse: unknown;
+  }> {
+    if (!this.deps.ocrProvider) {
+      throw new Error('OCR provider is not configured.');
+    }
+
+    return this.deps.ocrProvider.extractText({
+      filePath,
+      language,
+      timeoutMs: this.deps.env.llmTimeoutMs
+    });
+  }
+
+  private async generateAndStoreImageAnalysis(input: {
     request: ReplyRequest;
     media: MediaMessageSnapshot;
     logger: AppLogger;
-  }): Promise<string | null> {
+    missing: {
+      visionDescription: boolean;
+      ocrTextRu: boolean;
+      ocrTextDefault: boolean;
+    };
+  }): Promise<{
+    visionDescription: string | null;
+    ocrTextRu: string | null;
+    ocrTextDefault: string | null;
+  }> {
     const telegramFileApi = this.deps.telegramFileApi;
 
     if (!telegramFileApi) {
       input.logger.warn('describe_telegram_file_api_missing');
-      return null;
+      return { visionDescription: null, ocrTextRu: null, ocrTextDefault: null };
     }
 
     let downloaded: Awaited<
       ReturnType<typeof downloadTelegramFileToTemp>
     > | null = null;
+    let visionDescription: string | null = null;
+    let ocrTextRu: string | null = null;
+    let ocrTextDefault: string | null = null;
 
     try {
       downloaded = await downloadTelegramFileToTemp({
@@ -720,47 +1078,163 @@ export class ChatOrchestrator {
         fetch: this.deps.fetch
       });
 
-      const result = await this.describeDownloadedImage(downloaded.filePath);
-      const createdAt = this.deps.now();
+      const sourceFileSize = input.media.fileSize ?? downloaded.bytes;
+      const jobs: Promise<void>[] = [];
 
-      this.deps.db.saveMediaArtifact({
-        fileUniqueId: input.media.fileUniqueId,
-        chatId: input.request.chatId,
-        telegramMessageId: input.media.messageId,
-        mediaKind: input.media.mediaKind,
-        provider: result.provider,
-        providerModel: result.providerModel,
-        artifactKind: IMAGE_RAW_ARTIFACT_KIND,
-        artifactStatus: 'success',
-        artifactText: result.rawText,
-        artifactJson: { text: result.rawText },
-        rawResponseJson: result.rawResponse,
-        sourceCaption: input.media.caption,
-        sourceMimeType: input.media.mimeType,
-        sourceFileSize: input.media.fileSize ?? downloaded.bytes,
-        sourceDurationSeconds: null,
-        recognitionLanguage: null,
-        confidenceJson: null,
-        errorText: null,
-        createdAt,
-        expiresAt: addDaysIso(
-          createdAt,
-          this.deps.env.mediaArtifactRetentionDays
-        )
-      });
+      if (input.missing.visionDescription) {
+        jobs.push(
+          (async () => {
+            try {
+              const result = await this.describeDownloadedImage(
+                downloaded.filePath
+              );
+              visionDescription = result.rawText;
 
-      return result.rawText;
+              this.saveImageTextArtifact({
+                request: input.request,
+                media: input.media,
+                provider: result.provider,
+                providerModel: result.providerModel,
+                artifactKind: IMAGE_DESCRIPTION_ARTIFACT_KIND,
+                artifactText: result.rawText,
+                rawResponseJson: result.rawResponse,
+                recognitionLanguage: null,
+                sourceFileSize
+              });
+            } catch (error) {
+              input.logger.warn('describe_media_recognition_failed', {
+                provider: IMAGE_DESCRIPTION_PROVIDER,
+                mediaKind: input.media.mediaKind,
+                ...serializeError(error)
+              });
+            }
+          })()
+        );
+      }
+
+      if (input.missing.ocrTextRu) {
+        jobs.push(
+          (async () => {
+            try {
+              const result = await this.extractDownloadedImageOcr(
+                downloaded.filePath,
+                'rus'
+              );
+              const text = result.text.trim();
+
+              if (!text) {
+                this.saveImageArtifactMarker({
+                  request: input.request,
+                  media: input.media,
+                  provider: result.provider,
+                  providerModel: result.providerModel,
+                  artifactKind: OCR_TEXT_RU_ARTIFACT_KIND,
+                  rawResponseJson: result.rawResponse,
+                  recognitionLanguage: result.language,
+                  sourceFileSize,
+                  errorText: EMPTY_OCR_RESULT_MARKER,
+                  artifactJson: { text: null, reason: EMPTY_OCR_RESULT_MARKER }
+                });
+                return;
+              }
+
+              ocrTextRu = text;
+              this.saveImageTextArtifact({
+                request: input.request,
+                media: input.media,
+                provider: result.provider,
+                providerModel: result.providerModel,
+                artifactKind: OCR_TEXT_RU_ARTIFACT_KIND,
+                artifactText: text,
+                rawResponseJson: result.rawResponse,
+                recognitionLanguage: result.language,
+                sourceFileSize
+              });
+            } catch (error) {
+              input.logger.warn('ocr_media_recognition_failed', {
+                provider: OCR_PROVIDER,
+                artifactKind: OCR_TEXT_RU_ARTIFACT_KIND,
+                mediaKind: input.media.mediaKind,
+                ...serializeError(error)
+              });
+            }
+          })()
+        );
+      }
+
+      if (input.missing.ocrTextDefault) {
+        jobs.push(
+          (async () => {
+            try {
+              const result = await this.extractDownloadedImageOcr(
+                downloaded.filePath,
+                null
+              );
+              const text = result.text.trim();
+
+              if (!text) {
+                this.saveImageArtifactMarker({
+                  request: input.request,
+                  media: input.media,
+                  provider: result.provider,
+                  providerModel: result.providerModel,
+                  artifactKind: OCR_TEXT_DEFAULT_ARTIFACT_KIND,
+                  rawResponseJson: result.rawResponse,
+                  recognitionLanguage: result.language,
+                  sourceFileSize,
+                  errorText: EMPTY_OCR_RESULT_MARKER,
+                  artifactJson: { text: null, reason: EMPTY_OCR_RESULT_MARKER }
+                });
+                return;
+              }
+
+              ocrTextDefault = text;
+              this.saveImageTextArtifact({
+                request: input.request,
+                media: input.media,
+                provider: result.provider,
+                providerModel: result.providerModel,
+                artifactKind: OCR_TEXT_DEFAULT_ARTIFACT_KIND,
+                artifactText: text,
+                rawResponseJson: result.rawResponse,
+                recognitionLanguage: result.language,
+                sourceFileSize
+              });
+            } catch (error) {
+              input.logger.warn('ocr_media_recognition_failed', {
+                provider: OCR_PROVIDER,
+                artifactKind: OCR_TEXT_DEFAULT_ARTIFACT_KIND,
+                mediaKind: input.media.mediaKind,
+                ...serializeError(error)
+              });
+            }
+          })()
+        );
+      }
+
+      await Promise.allSettled(jobs);
+
+      return { visionDescription, ocrTextRu, ocrTextDefault };
     } catch (error) {
-      input.logger.warn('describe_media_recognition_failed', {
-        provider: IMAGE_RAW_PROVIDER,
+      input.logger.warn('image_analysis_download_failed', {
         mediaKind: input.media.mediaKind,
+        fileId: input.media.fileId,
+        fileSize: input.media.fileSize,
         ...serializeError(error)
       });
 
-      return null;
+      return { visionDescription: null, ocrTextRu: null, ocrTextDefault: null };
     } finally {
       if (downloaded) {
-        await downloaded.cleanup();
+        try {
+          await downloaded.cleanup();
+        } catch (error) {
+          input.logger.warn('image_download_cleanup_failed', {
+            mediaKind: input.media.mediaKind,
+            fileId: input.media.fileId,
+            ...serializeError(error)
+          });
+        }
       }
     }
   }
@@ -768,7 +1242,9 @@ export class ChatOrchestrator {
   private async generateAndStoreVisionInterpretation(input: {
     request: ReplyRequest;
     media: MediaMessageSnapshot;
-    visionRaw: string;
+    visionDescription: string | null;
+    ocrTextRu: string | null;
+    ocrTextDefault: string | null;
   }): Promise<string | null> {
     const result = await this.deps.qwen.generateReply({
       assistantInstructions: loadPrompt('base'),
@@ -791,7 +1267,10 @@ export class ChatOrchestrator {
       lookupContext: null,
       mediaContext: {
         sourceCaption: input.media.caption,
-        visionRaw: input.visionRaw,
+        visionDescription: input.visionDescription,
+        ocrTextRu: input.ocrTextRu,
+        ocrTextDefault: input.ocrTextDefault,
+        visionRaw: null,
         visionInterpretation: null,
         audioTranscript: null
       }
@@ -1066,6 +1545,9 @@ function buildTranscriptMediaContext(input: {
 }): DescribeMediaContext {
   return {
     sourceCaption: input.media.caption,
+    visionDescription: null,
+    ocrTextRu: null,
+    ocrTextDefault: null,
     visionRaw: null,
     visionInterpretation: null,
     audioTranscript: {
@@ -1135,6 +1617,14 @@ function addDaysIso(value: string, days: number): string {
   return new Date(
     new Date(value).getTime() + days * 24 * 60 * 60 * 1000
   ).toISOString();
+}
+
+function isEmptyOcrResultMarker(artifact: StoredMediaArtifact | null): boolean {
+  return Boolean(
+    artifact &&
+      artifact.artifactStatus === 'partial' &&
+      artifact.errorText === EMPTY_OCR_RESULT_MARKER
+  );
 }
 
 function createLocalReplyResult(text: string): LlmReplyResult {

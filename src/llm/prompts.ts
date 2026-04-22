@@ -13,6 +13,9 @@ export type PromptMessage = Pick<
 
 export type DescribeMediaContext = {
   sourceCaption: string | null;
+  visionDescription: string | null;
+  ocrTextRu: string | null;
+  ocrTextDefault: string | null;
   visionRaw: string | null;
   visionInterpretation: string | null;
   audioTranscript: {
@@ -93,6 +96,15 @@ function getIntentDataSections(input: {
         targetMediaCaption: sanitizePromptText(
           input.mediaContext?.sourceCaption ?? 'No caption.'
         ),
+        targetMediaOcrTextRu: sanitizePromptText(
+          input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
+        ),
+        targetMediaOcrTextDefault: sanitizePromptText(
+          input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
+        ),
+        targetMediaVisionDescription: sanitizePromptText(
+          input.mediaContext?.visionDescription ?? 'No vision description.'
+        ),
         targetMediaRaw: sanitizePromptText(
           input.mediaContext?.visionRaw ?? 'No media raw context.'
         ),
@@ -122,6 +134,15 @@ function getIntentDataSections(input: {
       ),
       caption: sanitizePromptText(
         input.mediaContext?.sourceCaption ?? 'No caption.'
+      ),
+      ocrTextRu: sanitizePromptText(
+        input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
+      ),
+      ocrTextDefault: sanitizePromptText(
+        input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
+      ),
+      visionDescription: sanitizePromptText(
+        input.mediaContext?.visionDescription ?? 'No vision description.'
       ),
       visionRaw: sanitizePromptText(
         input.mediaContext?.visionRaw ?? 'No vision raw context.'

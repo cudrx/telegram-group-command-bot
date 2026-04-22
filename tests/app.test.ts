@@ -25,6 +25,7 @@ const chatOrchestratorConstructor = vi.fn();
 const tavilyConstructor = vi.fn();
 const gladiaConstructor = vi.fn();
 const cloudflareVisionConstructor = vi.fn();
+const ocrSpaceConstructor = vi.fn();
 const maybeAnnounceDeployUpdate = vi.fn();
 const dbCleanupExpiredData = vi.fn();
 
@@ -139,6 +140,13 @@ vi.mock('../src/media/cloudflare-vision-provider.js', () => ({
   CloudflareVisionProvider: vi.fn().mockImplementation((...args: unknown[]) => {
     cloudflareVisionConstructor(...args);
     return { describe: vi.fn() };
+  })
+}));
+
+vi.mock('../src/media/ocr-space-provider.js', () => ({
+  OcrSpaceProvider: vi.fn().mockImplementation((...args: unknown[]) => {
+    ocrSpaceConstructor(...args);
+    return { extractText: vi.fn() };
   })
 }));
 
@@ -551,6 +559,7 @@ describe('createApplication', () => {
     await createApplication(
       createEnv({
         mediaAnalysisEnabled: true,
+        ocrSpaceApiKey: 'ocr-key',
         gladiaApiKey: 'gladia-key',
         cloudflareAiApiKey: 'cf-key',
         cloudflareAccountId: 'cf-account'
@@ -558,6 +567,7 @@ describe('createApplication', () => {
     );
 
     expect(gladiaConstructor).toHaveBeenCalledWith({ apiKey: 'gladia-key' });
+    expect(ocrSpaceConstructor).toHaveBeenCalledWith({ apiKey: 'ocr-key' });
     expect(cloudflareVisionConstructor).toHaveBeenCalledWith({
       accountId: 'cf-account',
       apiKey: 'cf-key'
@@ -566,6 +576,9 @@ describe('createApplication', () => {
       expect.objectContaining({
         speechToTextProvider: expect.objectContaining({
           transcribe: expect.any(Function)
+        }),
+        ocrProvider: expect.objectContaining({
+          extractText: expect.any(Function)
         }),
         visionProvider: expect.objectContaining({
           describe: expect.any(Function)
@@ -637,6 +650,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
     mediaAnalysisEnabled: false,
+    ocrSpaceApiKey: null,
     readContextLimit: 10,
     sttProvider: 'gladia',
     gladiaApiKey: null,

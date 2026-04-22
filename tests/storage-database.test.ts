@@ -450,6 +450,82 @@ describeWithSqlite('DatabaseClient', () => {
     db.close();
   });
 
+  test('returns latest media artifact regardless of status (including partial markers)', () => {
+    const db = DatabaseClient.open(':memory:');
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        chatId: 1,
+        chatTitle: 'Cache chat',
+        messageId: 20,
+        createdAt: '2026-04-21T10:00:00.000Z'
+      })
+    );
+
+    db.saveMediaArtifact({
+      fileUniqueId: 'telegram-file-unique',
+      chatId: 1,
+      telegramMessageId: 20,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_default',
+      artifactStatus: 'success',
+      artifactText: 'hello',
+      artifactJson: { text: 'hello' },
+      rawResponseJson: { status: 'ok', language: null },
+      sourceCaption: null,
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 123,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-21T10:00:01.000Z',
+      expiresAt: '2026-04-28T10:00:01.000Z'
+    });
+
+    db.saveMediaArtifact({
+      fileUniqueId: 'telegram-file-unique',
+      chatId: 1,
+      telegramMessageId: 20,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_default',
+      artifactStatus: 'partial',
+      artifactText: null,
+      artifactJson: { text: null, reason: 'empty_result' },
+      rawResponseJson: { status: 'ok', language: null },
+      sourceCaption: null,
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 123,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: 'empty_result',
+      createdAt: '2026-04-21T10:00:02.000Z',
+      expiresAt: '2026-04-28T10:00:02.000Z'
+    });
+
+    expect(
+      db.getLatestMediaArtifact({
+        fileUniqueId: 'telegram-file-unique',
+        chatId: 1,
+        telegramMessageId: 20,
+        provider: 'ocr_space',
+        artifactKind: 'ocr_text_default'
+      })
+    ).toMatchObject({
+      artifactStatus: 'partial',
+      artifactText: null,
+      errorText: 'empty_result',
+      artifactJson: { text: null, reason: 'empty_result' }
+    });
+
+    db.close();
+  });
+
   test('cleans up expired media artifacts, old messages, and empty chats', () => {
     const db = DatabaseClient.open(':memory:');
 

@@ -4,6 +4,15 @@
 TARGET_MEDIA_CAPTION:
 {{targetMediaCaption}}
 
+TARGET_MEDIA_OCR_TEXT_RU:
+{{targetMediaOcrTextRu}}
+
+TARGET_MEDIA_OCR_TEXT_DEFAULT:
+{{targetMediaOcrTextDefault}}
+
+TARGET_MEDIA_VISION_DESCRIPTION:
+{{targetMediaVisionDescription}}
+
 TARGET_MEDIA_RAW:
 {{targetMediaRaw}}
 

@@ -258,6 +258,9 @@ describe('ChatOrchestrator', () => {
         intent: 'read',
         mediaContext: {
           sourceCaption: null,
+          visionDescription: null,
+          ocrTextRu: null,
+          ocrTextDefault: null,
           visionRaw: null,
           visionInterpretation: null,
           audioTranscript: {
@@ -275,7 +278,7 @@ describe('ChatOrchestrator', () => {
     });
   });
 
-  test('reads replied image through vision raw plus interpretation cache layers', async () => {
+  test('reads replied image through vision description plus OCR cache layers', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
@@ -287,9 +290,16 @@ describe('ChatOrchestrator', () => {
     const describe = vi.fn().mockResolvedValue({
       provider: 'cloudflare',
       providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
-      rawText: 'Raw image description',
-      rawResponse: { response: 'Raw image description' }
+      rawText: 'A gold medal with a person at a computer.',
+      rawResponse: { response: 'A gold medal with a person at a computer.' }
     });
+    const extractText = vi.fn().mockImplementation(async (input) => ({
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      text: 'ГОРЖУСЬ',
+      language: input.language,
+      rawResponse: { status: 'ok', language: input.language }
+    }));
     const cleanupFetch = vi
       .fn()
       .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
@@ -302,7 +312,8 @@ describe('ChatOrchestrator', () => {
         getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
       },
       fetch: cleanupFetch as typeof fetch,
-      visionProvider: { describe }
+      visionProvider: { describe },
+      ocrProvider: { extractText }
     });
 
     await orchestrator.handleIncomingMessage(
@@ -324,34 +335,1223 @@ describe('ChatOrchestrator', () => {
       })
     );
 
-    expect(describe).toHaveBeenCalled();
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledTimes(2);
+    expect(extractText).toHaveBeenCalledWith(
+      expect.objectContaining({ language: 'rus' })
+    );
+    expect(extractText).toHaveBeenCalledWith(
+      expect.objectContaining({ language: null })
+    );
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         intent: 'read',
         mediaContext: {
           sourceCaption: 'подпись к фото',
-          visionRaw: 'Raw image description',
+          visionDescription: 'A gold medal with a person at a computer.',
+          ocrTextRu: 'ГОРЖУСЬ',
+          ocrTextDefault: 'ГОРЖУСЬ',
+          visionRaw: null,
           visionInterpretation: null,
           audioTranscript: null
         }
       })
     );
-    expect(db.savedMediaArtifacts).toHaveLength(2);
-    expect(db.savedMediaArtifacts[0]).toMatchObject({
-      provider: 'cloudflare',
-      artifactKind: 'vision_raw',
-      artifactText: 'Raw image description'
-    });
-    expect(db.savedMediaArtifacts[1]).toMatchObject({
-      provider: 'deepseek',
-      artifactKind: 'vision_interpretation',
-      artifactText: 'Интерпретация картинки'
-    });
+    expect(db.savedMediaArtifacts).toHaveLength(4);
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'cloudflare',
+          artifactKind: 'vision_description',
+          artifactText: 'A gold medal with a person at a computer.'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_ru',
+          artifactText: 'ГОРЖУСЬ',
+          recognitionLanguage: 'rus'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_default',
+          artifactText: 'ГОРЖУСЬ',
+          recognitionLanguage: null
+        }),
+        expect.objectContaining({
+          provider: 'deepseek',
+          artifactKind: 'vision_interpretation',
+          artifactText: 'Интерпретация картинки'
+        })
+      ])
+    );
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
       text: 'Интерпретация картинки'
     });
+  });
+
+  test('reuses cached image OCR and vision description artifacts', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      artifactKind: 'vision_description',
+      artifactStatus: 'success',
+      artifactText: 'Cached visual description',
+      artifactJson: { response: 'Cached visual description' },
+      rawResponseJson: { response: 'Cached visual description' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:01.000Z',
+      expiresAt: '2026-04-10T12:00:01.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_ru',
+      artifactStatus: 'success',
+      artifactText: 'ГОРЖУСЬ',
+      artifactJson: { text: 'ГОРЖУСЬ' },
+      rawResponseJson: { status: 'ok', language: 'rus' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: 'rus',
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:02.000Z',
+      expiresAt: '2026-04-10T12:00:02.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_default',
+      artifactStatus: 'success',
+      artifactText: 'ГОРЖУСЬ',
+      artifactJson: { text: 'ГОРЖУСЬ' },
+      rawResponseJson: { status: 'ok', language: null },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:03.000Z',
+      expiresAt: '2026-04-10T12:00:03.000Z'
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('Кэшированная интерпретация'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockRejectedValue(new Error('should not call'));
+    const fetch = vi.fn().mockRejectedValue(new Error('should not call'));
+    const describe = vi.fn().mockRejectedValue(new Error('should not call'));
+    const extractText = vi.fn().mockRejectedValue(new Error('should not call'));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(getFile).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(describe).not.toHaveBeenCalled();
+    expect(extractText).not.toHaveBeenCalled();
+    expect(db.savedMediaArtifacts).toHaveLength(4);
+    expect(generateReply).toHaveBeenCalledTimes(1);
+    expect(replyDispatcher).toHaveBeenCalledTimes(1);
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'read',
+        mediaContext: {
+          sourceCaption: 'подпись к фото',
+          visionDescription: 'Cached visual description',
+          ocrTextRu: 'ГОРЖУСЬ',
+          ocrTextDefault: 'ГОРЖУСЬ',
+          visionRaw: null,
+          visionInterpretation: null,
+          audioTranscript: null
+        }
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Кэшированная интерпретация'
+    });
+  });
+
+  test('heals missing image passes when partial cache exists and only runs missing providers', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_ru',
+      artifactStatus: 'success',
+      artifactText: 'ГОРЖУСЬ',
+      artifactJson: { text: 'ГОРЖУСЬ' },
+      rawResponseJson: { status: 'ok', language: 'rus' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: 'rus',
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:02.000Z',
+      expiresAt: '2026-04-10T12:00:02.000Z'
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('Интерпретация из partial cache'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' });
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'A gold medal with a person at a computer.',
+      rawResponse: { response: 'A gold medal with a person at a computer.' }
+    });
+    const extractText = vi.fn().mockImplementation(async (input) => ({
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      text: 'TEXT DEFAULT',
+      language: input.language,
+      rawResponse: { status: 'ok', language: input.language }
+    }));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(getFile).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledWith(
+      expect.objectContaining({ language: null })
+    );
+    expect(generateReply).toHaveBeenCalledTimes(1);
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'read',
+        mediaContext: expect.objectContaining({
+          sourceCaption: 'подпись к фото',
+          visionDescription: 'A gold medal with a person at a computer.',
+          ocrTextRu: 'ГОРЖУСЬ',
+          ocrTextDefault: 'TEXT DEFAULT',
+          visionInterpretation: null
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Интерпретация из partial cache'
+    });
+
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'cloudflare',
+          artifactKind: 'vision_description',
+          artifactStatus: 'success',
+          artifactText: 'A gold medal with a person at a computer.'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_default',
+          artifactStatus: 'success',
+          artifactText: 'TEXT DEFAULT',
+          recognitionLanguage: null
+        }),
+        expect.objectContaining({
+          provider: 'deepseek',
+          artifactKind: 'vision_interpretation',
+          artifactStatus: 'success',
+          artifactText: 'Интерпретация из partial cache'
+        })
+      ])
+    );
+  });
+
+  test('negative-caches empty OCR results as partial markers and continues with vision description', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('Описание картинки'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'A gold medal with a person at a computer.',
+      rawResponse: { response: 'A gold medal with a person at a computer.' }
+    });
+    const extractText = vi.fn().mockImplementation(async (input) => ({
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      text: '   \n  ',
+      language: input.language,
+      rawResponse: { status: 'ok', language: input.language }
+    }));
+    const cleanupFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: {
+        getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
+      },
+      fetch: cleanupFetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledTimes(2);
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'cloudflare',
+          artifactKind: 'vision_description',
+          artifactText: 'A gold medal with a person at a computer.'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_ru',
+          artifactStatus: 'partial',
+          artifactText: null,
+          errorText: 'empty_result',
+          artifactJson: { text: null, reason: 'empty_result' },
+          recognitionLanguage: 'rus'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_default',
+          artifactStatus: 'partial',
+          artifactText: null,
+          errorText: 'empty_result',
+          artifactJson: { text: null, reason: 'empty_result' },
+          recognitionLanguage: null
+        }),
+        expect.objectContaining({
+          provider: 'deepseek',
+          artifactKind: 'vision_interpretation',
+          artifactText: 'Описание картинки'
+        })
+      ])
+    );
+    expect(
+      db.savedMediaArtifacts.some(
+        (artifact) =>
+          artifact.provider === 'ocr_space' && artifact.artifactStatus === 'success'
+      )
+    ).toBe(false);
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'read',
+        mediaContext: expect.objectContaining({
+          sourceCaption: 'подпись к фото',
+          visionDescription: 'A gold medal with a person at a computer.',
+          ocrTextRu: null,
+          ocrTextDefault: null,
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Описание картинки'
+    });
+  });
+
+  test('heals missing vision description when interpretation is cached and does not rerun OCR', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_ru',
+      artifactStatus: 'success',
+      artifactText: 'ГОРЖУСЬ',
+      artifactJson: { text: 'ГОРЖУСЬ' },
+      rawResponseJson: { status: 'ok', language: 'rus' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: 'rus',
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:02.000Z',
+      expiresAt: '2026-04-10T12:00:02.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_default',
+      artifactStatus: 'success',
+      artifactText: 'DEFAULT',
+      artifactJson: { text: 'DEFAULT' },
+      rawResponseJson: { status: 'ok', language: null },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:02.500Z',
+      expiresAt: '2026-04-10T12:00:02.500Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'deepseek',
+      providerModel: 'reply-model',
+      artifactKind: 'vision_interpretation',
+      artifactStatus: 'success',
+      artifactText: 'Cached interpretation text',
+      artifactJson: { text: 'Cached interpretation text' },
+      rawResponseJson: { model: 'reply-model' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:03.000Z',
+      expiresAt: '2026-04-10T12:00:03.000Z'
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockRejectedValue(new Error('should not call'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' });
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'Healed description',
+      rawResponse: { response: 'Healed description' }
+    });
+    const extractText = vi.fn().mockRejectedValue(new Error('should not call'));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(getFile).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).not.toHaveBeenCalled();
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'cloudflare',
+          artifactKind: 'vision_description',
+          artifactStatus: 'success',
+          artifactText: 'Healed description'
+        })
+      ])
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Cached interpretation text'
+    });
+  });
+
+  test('heals vision description from legacy vision_raw and reuses empty OCR markers', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'cloudflare',
+      providerModel: 'cf-model',
+      artifactKind: 'vision_raw',
+      artifactStatus: 'success',
+      artifactText: 'Legacy raw image description',
+      artifactJson: { text: 'Legacy raw image description' },
+      rawResponseJson: { response: 'Legacy raw image description' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:01.000Z',
+      expiresAt: '2026-04-10T12:00:01.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_ru',
+      artifactStatus: 'partial',
+      artifactText: null,
+      artifactJson: { text: null, reason: 'empty_result' },
+      rawResponseJson: { status: 'ok', language: 'rus' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: 'rus',
+      confidenceJson: null,
+      errorText: 'empty_result',
+      createdAt: '2026-04-03T12:00:02.000Z',
+      expiresAt: '2026-04-10T12:00:02.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_default',
+      artifactStatus: 'partial',
+      artifactText: null,
+      artifactJson: { text: null, reason: 'empty_result' },
+      rawResponseJson: { status: 'ok', language: null },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: 'empty_result',
+      createdAt: '2026-04-03T12:00:03.000Z',
+      expiresAt: '2026-04-10T12:00:03.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'deepseek',
+      providerModel: 'reply-model',
+      artifactKind: 'vision_interpretation',
+      artifactStatus: 'success',
+      artifactText: 'Cached interpretation text',
+      artifactJson: { text: 'Cached interpretation text' },
+      rawResponseJson: { model: 'reply-model' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:04.000Z',
+      expiresAt: '2026-04-10T12:00:04.000Z'
+    });
+
+    const generateReply = vi
+      .fn()
+      .mockRejectedValue(new Error('should not call'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' });
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'Healed description',
+      rawResponse: { response: 'Healed description' }
+    });
+    const extractText = vi.fn().mockRejectedValue(new Error('should not call'));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(getFile).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).not.toHaveBeenCalled();
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'cloudflare',
+          artifactKind: 'vision_description',
+          artifactStatus: 'success',
+          artifactText: 'Healed description'
+        })
+      ])
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Cached interpretation text'
+    });
+  });
+
+  test('continues when Cloudflare fails but OCR succeeds', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('ГОРЖУСЬ'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const describe = vi.fn().mockRejectedValue(new Error('cloudflare unavailable'));
+    const extractText = vi.fn().mockImplementation(async (input) => ({
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      text: 'ГОРЖУСЬ',
+      language: input.language,
+      rawResponse: { status: 'ok', language: input.language }
+    }));
+    const cleanupFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: {
+        getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
+      },
+      fetch: cleanupFetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledTimes(2);
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_ru',
+          artifactText: 'ГОРЖУСЬ',
+          recognitionLanguage: 'rus'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_default',
+          artifactText: 'ГОРЖУСЬ',
+          recognitionLanguage: null
+        }),
+        expect.objectContaining({
+          provider: 'deepseek',
+          artifactKind: 'vision_interpretation',
+          artifactText: 'ГОРЖУСЬ'
+        })
+      ])
+    );
+    expect(
+      db.savedMediaArtifacts.some(
+        (artifact) =>
+          artifact.provider === 'cloudflare' &&
+          artifact.artifactKind === 'vision_description' &&
+          artifact.artifactStatus === 'success'
+      )
+    ).toBe(false);
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'read',
+        mediaContext: expect.objectContaining({
+          sourceCaption: 'подпись к фото',
+          visionDescription: null,
+          ocrTextRu: 'ГОРЖУСЬ',
+          ocrTextDefault: 'ГОРЖУСЬ',
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'ГОРЖУСЬ'
+    });
+  });
+
+  test('prefers OCR over vision description when image interpretation is missing', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi.fn().mockRejectedValue(new Error('LLM down'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'A gold medal with a person at a computer.',
+      rawResponse: { response: 'A gold medal with a person at a computer.' }
+    });
+    const extractText = vi.fn().mockImplementation(async (input) => ({
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      text: 'ГОРЖУСЬ',
+      language: input.language,
+      rawResponse: { status: 'ok', language: input.language }
+    }));
+    const cleanupFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const logger = createLogger();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: {
+        getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
+      },
+      fetch: cleanupFetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText },
+      logger
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledTimes(2);
+    // generateReply is used for the interpretation step; it fails here.
+    expect(generateReply).toHaveBeenCalledTimes(1);
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'ГОРЖУСЬ'
+    });
+    expect(logger.warn).toHaveBeenCalledWith(
+      'image_interpretation_failed',
+      expect.objectContaining({ provider: 'deepseek' })
+    );
+  });
+
+  test('reads replied image from cached interpretation and heals missing image passes', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'deepseek',
+      providerModel: 'reply-model',
+      artifactKind: 'vision_interpretation',
+      artifactStatus: 'success',
+      artifactText: 'Cached interpretation text',
+      artifactJson: { text: 'Cached interpretation text' },
+      rawResponseJson: { model: 'reply-model' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:02.000Z',
+      expiresAt: '2026-04-10T12:00:02.000Z'
+    });
+
+    const generateReply = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' });
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3])));
+    const describe = vi.fn().mockResolvedValue({
+      provider: 'cloudflare',
+      providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+      rawText: 'Healed description',
+      rawResponse: { response: 'Healed description' }
+    });
+    const extractText = vi.fn().mockImplementation(async (input) => ({
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      text: input.language === 'rus' ? 'RU OCR' : 'DEFAULT OCR',
+      language: input.language,
+      rawResponse: { status: 'ok', language: input.language }
+    }));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Cached interpretation text'
+    });
+    expect(getFile).toHaveBeenCalledTimes(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(describe).toHaveBeenCalledTimes(1);
+    expect(extractText).toHaveBeenCalledTimes(2);
+    expect(db.savedMediaArtifacts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          provider: 'cloudflare',
+          artifactKind: 'vision_description',
+          artifactStatus: 'success',
+          artifactText: 'Healed description'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_ru',
+          artifactStatus: 'success',
+          artifactText: 'RU OCR',
+          recognitionLanguage: 'rus'
+        }),
+        expect.objectContaining({
+          provider: 'ocr_space',
+          artifactKind: 'ocr_text_default',
+          artifactStatus: 'success',
+          artifactText: 'DEFAULT OCR',
+          recognitionLanguage: null
+        })
+      ])
+    );
+    expect(generateReply).not.toHaveBeenCalled();
+  });
+
+  test('returns read failed placeholder when image download fails', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' });
+    const fetch = vi.fn().mockRejectedValue(new Error('download failed'));
+    const describe = vi.fn();
+    const extractText = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Не удалось распознать медиа. Попробуй позже или с другим файлом.'
+    });
+    expect(describe).not.toHaveBeenCalled();
+    expect(extractText).not.toHaveBeenCalled();
+    expect(generateReply).not.toHaveBeenCalled();
+  });
+
+  test('uses legacy vision_raw when download fails and no new image artifacts exist', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 90,
+      mediaKind: 'photo',
+      provider: 'cloudflare',
+      providerModel: 'cf-model',
+      artifactKind: 'vision_raw',
+      artifactStatus: 'success',
+      artifactText: 'Legacy raw image description',
+      artifactJson: { text: 'Legacy raw image description' },
+      rawResponseJson: { response: 'Legacy raw image description' },
+      sourceCaption: 'подпись к фото',
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T12:00:01.000Z',
+      expiresAt: '2026-04-10T12:00:01.000Z'
+    });
+
+    const generateReply = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' });
+    const fetch = vi.fn().mockRejectedValue(new Error('download failed'));
+    const describe = vi.fn().mockRejectedValue(new Error('should not call'));
+    const extractText = vi.fn().mockRejectedValue(new Error('should not call'));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply } as never,
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/read',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToMessageId: 90,
+        replyToMediaSnapshot: {
+          messageId: 90,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к фото'
+        }
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Legacy raw image description'
+    });
+    expect(describe).not.toHaveBeenCalled();
+    expect(extractText).not.toHaveBeenCalled();
+    expect(generateReply).not.toHaveBeenCalled();
+  });
+
+  test('does not download target media for /answer when media analysis is disabled', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: 'это вообще правда?',
+        createdAt: '2026-04-03T12:00:00.000Z',
+        mediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к мему'
+        }
+      })
+    );
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const getFile = vi.fn().mockRejectedValue(new Error('should not call'));
+    const fetch = vi.fn().mockRejectedValue(new Error('should not call'));
+    const describe = vi.fn().mockRejectedValue(new Error('should not call'));
+    const extractText = vi.fn().mockRejectedValue(new Error('should not call'));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: false },
+      telegramFileApi: { getFile },
+      fetch: fetch as typeof fetch,
+      visionProvider: { describe },
+      ocrProvider: { extractText }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        replyToMessageId: 1,
+        replyToMediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: 'подпись к мему'
+        }
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'answer',
+        mediaContext: null
+      })
+    );
+    expect(getFile).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(describe).not.toHaveBeenCalled();
+    expect(extractText).not.toHaveBeenCalled();
   });
 
   test('passes target media context into answer generation', async () => {
@@ -380,7 +1580,7 @@ describe('ChatOrchestrator', () => {
       mediaKind: 'photo',
       provider: 'cloudflare',
       providerModel: 'cf-model',
-      artifactKind: 'vision_raw',
+      artifactKind: 'vision_description',
       artifactStatus: 'success',
       artifactText: 'Raw image description',
       artifactJson: { text: 'Raw image description' },
@@ -453,7 +1653,10 @@ describe('ChatOrchestrator', () => {
         intent: 'answer',
         mediaContext: {
           sourceCaption: 'подпись к мему',
-          visionRaw: 'Raw image description',
+          visionDescription: 'Raw image description',
+          ocrTextRu: null,
+          ocrTextDefault: null,
+          visionRaw: null,
           visionInterpretation: 'Interpreted image context',
           audioTranscript: null
         }
@@ -543,6 +1746,113 @@ describe('ChatOrchestrator', () => {
             expect.objectContaining({
               messageId: 1,
               text: '[media] привет из прошлого войса'
+            })
+          ])
+        })
+      })
+    );
+  });
+
+  test('prefers OCR over vision description for nearby image summaries', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: '',
+        createdAt: '2026-04-03T11:58:00.000Z',
+        mediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: 'что скажешь?',
+        createdAt: '2026-04-03T11:59:00.000Z'
+      })
+    );
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 1,
+      mediaKind: 'photo',
+      provider: 'cloudflare',
+      providerModel: 'cf-model',
+      artifactKind: 'vision_description',
+      artifactStatus: 'success',
+      artifactText: 'A gold medal with a person at a computer.',
+      artifactJson: { text: 'A gold medal with a person at a computer.' },
+      rawResponseJson: { response: 'A gold medal with a person at a computer.' },
+      sourceCaption: null,
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: null,
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T11:58:10.000Z',
+      expiresAt: '2026-04-10T11:58:10.000Z'
+    });
+    db.saveMediaArtifact({
+      fileUniqueId: 'photo-unique',
+      chatId: 1,
+      telegramMessageId: 1,
+      mediaKind: 'photo',
+      provider: 'ocr_space',
+      providerModel: 'ocr-model',
+      artifactKind: 'ocr_text_ru',
+      artifactStatus: 'success',
+      artifactText: 'ГОРЖУСЬ',
+      artifactJson: { text: 'ГОРЖУСЬ' },
+      rawResponseJson: { status: 'ok', language: 'rus' },
+      sourceCaption: null,
+      sourceMimeType: 'image/jpeg',
+      sourceFileSize: 3,
+      sourceDurationSeconds: null,
+      recognitionLanguage: 'rus',
+      confidenceJson: null,
+      errorText: null,
+      createdAt: '2026-04-03T11:58:11.000Z',
+      expiresAt: '2026-04-10T11:58:11.000Z'
+    });
+
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      env: { mediaAnalysisEnabled: true }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 3,
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        replyToMessageId: 2
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'answer',
+        replyContext: expect.objectContaining({
+          priorContextMessages: expect.arrayContaining([
+            expect.objectContaining({
+              messageId: 1,
+              text: '[media] ГОРЖУСЬ'
             })
           ])
         })
@@ -1138,6 +2448,13 @@ function createOrchestrator(input: {
       timeoutMs: number;
     }) => Promise<unknown>;
   } | null;
+  ocrProvider?: {
+    extractText: (input: {
+      filePath: string;
+      language: 'rus' | null;
+      timeoutMs: number;
+    }) => Promise<unknown>;
+  } | null;
   visionProvider?: {
     describe: (input: {
       filePath: string;
@@ -1169,6 +2486,7 @@ function createOrchestrator(input: {
     },
     lookupProvider: input.lookupProvider ?? null,
     speechToTextProvider: input.speechToTextProvider as never,
+    ocrProvider: input.ocrProvider as never,
     visionProvider: input.visionProvider as never,
     telegramFileApi: input.telegramFileApi ?? null,
     fetch: input.fetch,
@@ -1217,6 +2535,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
     mediaAnalysisEnabled: false,
+    ocrSpaceApiKey: null,
     readContextLimit: 10,
     sttProvider: 'gladia',
     gladiaApiKey: null,
@@ -1451,6 +2770,36 @@ class FakeDatabaseClient {
           candidate.provider === input.provider &&
           candidate.artifactKind === input.artifactKind &&
           candidate.artifactStatus === 'success'
+        );
+      });
+
+    return artifact ? toStoredMediaArtifact(artifact) : null;
+  }
+
+  getLatestMediaArtifact(input: {
+    fileUniqueId: string | null;
+    chatId: number;
+    telegramMessageId: number;
+    provider: string;
+    artifactKind: string;
+  }): StoredMediaArtifact | null {
+    const byFileUniqueId = input.fileUniqueId
+      ? findLastMediaArtifact(this.savedMediaArtifacts, (artifact) => {
+          return (
+            artifact.fileUniqueId === input.fileUniqueId &&
+            artifact.provider === input.provider &&
+            artifact.artifactKind === input.artifactKind
+          );
+        })
+      : null;
+    const artifact =
+      byFileUniqueId ??
+      findLastMediaArtifact(this.savedMediaArtifacts, (candidate) => {
+        return (
+          candidate.chatId === input.chatId &&
+          candidate.telegramMessageId === input.telegramMessageId &&
+          candidate.provider === input.provider &&
+          candidate.artifactKind === input.artifactKind
         );
       });
 

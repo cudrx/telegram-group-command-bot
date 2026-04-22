@@ -49,6 +49,9 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     triggerText: '/read',
     mediaContext: {
       sourceCaption: null,
+      visionDescription: null,
+      ocrTextRu: null,
+      ocrTextDefault: null,
       visionRaw:
         'The image shows two men standing in a dim hallway. Visible text: "Leon, necesito que distraigas a Kingpin".',
       visionInterpretation:
@@ -78,6 +81,38 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
+    id: 'read-ocr-image-receipt',
+    intent: 'read',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:02:00.000Z', 'Артём', 'что написано на чеке?']],
+    triggerText: '/read',
+    mediaContext: {
+      sourceCaption: null,
+      visionDescription:
+        'A small paper receipt photographed on a table. The text is the main content.',
+      ocrTextRu: 'МАГАЗИН РОМАШКА\nХЛЕБ 1 x 120,00\nИТОГО 120,00',
+      ocrTextDefault: 'MAGAZIN ROMASHKA\nKHLEB 1 x 120.00\nITOGO 120.00',
+      visionRaw: null,
+      visionInterpretation: null,
+      audioTranscript: null
+    },
+    rubric: {
+      mustIncludeAny: [['ХЛЕБ', 'KHLEB'], ['ИТОГО', 'ITOGO'], ['120']],
+      mustIncludeAll: ['Original:', '120'],
+      mustNotIncludeAny: [
+        [
+          '<b>Что распознано</b>',
+          '<b>Что можно предположить</b>',
+          '<b>Вывод</b>'
+        ],
+        ['мем про', 'шутка в том', 'смысл в том'],
+        ['думаю', 'похоже', 'видимо'],
+        ['вывод', 'итог:', 'summary:']
+      ],
+      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
+    }
+  }),
+  createFixture({
     id: 'read-audio-transcript',
     intent: 'read',
     targetDisplayName: 'Артём',
@@ -85,6 +120,9 @@ export const intentEvalFixtures: IntentEvalFixture[] = [
     triggerText: '/read',
     mediaContext: {
       sourceCaption: null,
+      visionDescription: null,
+      ocrTextRu: null,
+      ocrTextDefault: null,
       visionRaw: null,
       visionInterpretation: null,
       audioTranscript: {

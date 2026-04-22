@@ -15,6 +15,7 @@ describe('intent eval fixtures', () => {
     );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
       'read-vision-meme',
+      'read-ocr-image-receipt',
       'read-audio-transcript',
       'answer-factual-question',
       'explain-factual-question-meaning',
