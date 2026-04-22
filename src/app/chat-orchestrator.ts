@@ -711,8 +711,7 @@ export class ChatOrchestrator {
           (artifact) => artifact.artifactKind === OCR_TEXT_RU_ARTIFACT_KIND
         )?.artifactText ??
         matching.find(
-          (artifact) =>
-            artifact.artifactKind === OCR_TEXT_DEFAULT_ARTIFACT_KIND
+          (artifact) => artifact.artifactKind === OCR_TEXT_DEFAULT_ARTIFACT_KIND
         )?.artifactText ??
         matching.find(
           (artifact) =>
@@ -844,7 +843,11 @@ export class ChatOrchestrator {
       ocrTextDefault: !ocrTextDefault && !hasEmptyOcrTextDefaultMarker
     };
 
-    if (missing.visionDescription || missing.ocrTextRu || missing.ocrTextDefault) {
+    if (
+      missing.visionDescription ||
+      missing.ocrTextRu ||
+      missing.ocrTextDefault
+    ) {
       try {
         const generated = await this.generateAndStoreImageAnalysis({
           request: input.request,

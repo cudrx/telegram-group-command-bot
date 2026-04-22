@@ -26,7 +26,10 @@ export class OcrSpaceProvider implements OcrProvider {
     rawResponse: unknown;
   }> {
     const fetchImpl = this.config.fetch ?? globalThis.fetch;
-    const formData = await this.buildRequestBody(input.filePath, input.language);
+    const formData = await this.buildRequestBody(
+      input.filePath,
+      input.language
+    );
     const { signal, clear } = createTimeoutSignal(input.timeoutMs);
     let response: Response;
 
@@ -144,7 +147,9 @@ function ensureOcrSpaceSuccess(input: unknown): void {
   }
 }
 
-function collectOcrSpaceFailureDetails(input: Record<string, unknown>): string[] {
+function collectOcrSpaceFailureDetails(
+  input: Record<string, unknown>
+): string[] {
   const messages = [
     ...collectStrings(input.ErrorMessage),
     ...collectStrings(input.ErrorDetails)
@@ -217,7 +222,9 @@ function collectStrings(value: unknown): string[] {
 }
 
 function getNumericValue(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function getOcrSpaceBlobType(filename: string): string {

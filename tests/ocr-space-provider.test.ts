@@ -113,10 +113,8 @@ describe('OcrSpaceProvider', () => {
     });
 
     const requestBody = (
-      (fetchStub.mock.calls[0]?.[1] as RequestInit | undefined)?.body as
-        | FormData
-        | undefined
-    );
+      fetchStub.mock.calls[0]?.[1] as RequestInit | undefined
+    )?.body as FormData | undefined;
 
     expect(requestBody).toBeInstanceOf(FormData);
     expect((requestBody as FormData).has('language')).toBe(false);

@@ -753,7 +753,8 @@ describe('ChatOrchestrator', () => {
     expect(
       db.savedMediaArtifacts.some(
         (artifact) =>
-          artifact.provider === 'ocr_space' && artifact.artifactStatus === 'success'
+          artifact.provider === 'ocr_space' &&
+          artifact.artifactStatus === 'success'
       )
     ).toBe(false);
     expect(generateReply).toHaveBeenCalledWith(
@@ -763,7 +764,7 @@ describe('ChatOrchestrator', () => {
           sourceCaption: 'подпись к фото',
           visionDescription: 'A gold medal with a person at a computer.',
           ocrTextRu: null,
-          ocrTextDefault: null,
+          ocrTextDefault: null
         })
       })
     );
@@ -1076,12 +1077,16 @@ describe('ChatOrchestrator', () => {
 
   test('continues when Cloudflare fails but OCR succeeds', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn().mockResolvedValue(createReplyResult('ГОРЖУСЬ'));
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('ГОРЖУСЬ'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
       createdAt: '2026-04-03T12:00:30.000Z'
     });
-    const describe = vi.fn().mockRejectedValue(new Error('cloudflare unavailable'));
+    const describe = vi
+      .fn()
+      .mockRejectedValue(new Error('cloudflare unavailable'));
     const extractText = vi.fn().mockImplementation(async (input) => ({
       provider: 'ocr_space',
       providerModel: 'ocr-model',
@@ -1162,7 +1167,7 @@ describe('ChatOrchestrator', () => {
           sourceCaption: 'подпись к фото',
           visionDescription: null,
           ocrTextRu: 'ГОРЖУСЬ',
-          ocrTextDefault: 'ГОРЖУСЬ',
+          ocrTextDefault: 'ГОРЖУСЬ'
         })
       })
     );
@@ -1790,7 +1795,9 @@ describe('ChatOrchestrator', () => {
       artifactStatus: 'success',
       artifactText: 'A gold medal with a person at a computer.',
       artifactJson: { text: 'A gold medal with a person at a computer.' },
-      rawResponseJson: { response: 'A gold medal with a person at a computer.' },
+      rawResponseJson: {
+        response: 'A gold medal with a person at a computer.'
+      },
       sourceCaption: null,
       sourceMimeType: 'image/jpeg',
       sourceFileSize: 3,

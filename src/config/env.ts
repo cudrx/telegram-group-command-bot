@@ -319,7 +319,9 @@ function validateMediaAnalysisConfig(parsed: z.infer<typeof envSchema>): void {
   }
 
   if (!parsed.OCR_SPACE_API_KEY) {
-    throw new Error('OCR_SPACE_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.');
+    throw new Error(
+      'OCR_SPACE_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.'
+    );
   }
 
   if (looksLikePlaceholder(parsed.OCR_SPACE_API_KEY)) {
