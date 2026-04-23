@@ -1,5 +1,5 @@
 import { Bot } from 'grammy';
-import { ChatOrchestrator } from './app/chat-orchestrator.js';
+import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
 import type { AppEnv } from './config/env.js';
 import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-llm-client.js';

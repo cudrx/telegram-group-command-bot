@@ -106,7 +106,7 @@ vi.mock('../src/logging/logger.js', () => ({
   })
 }));
 
-vi.mock('../src/app/chat-orchestrator.js', () => ({
+vi.mock('../src/app/chat-orchestrator/index.js', () => ({
   ChatOrchestrator: vi.fn().mockImplementation((...args: unknown[]) => {
     chatOrchestratorConstructor(...args);
 
