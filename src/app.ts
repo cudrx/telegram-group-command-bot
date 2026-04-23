@@ -8,7 +8,7 @@ import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
 import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js';
 import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
 import { OcrSpaceProvider } from './media/ocr-space-provider.js';
-import { DatabaseClient } from './storage/database.js';
+import { DatabaseClient } from './database/index.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
 
 export type Application = {

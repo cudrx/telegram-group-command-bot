@@ -3,7 +3,7 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../domain/models.js';
-import type { DatabaseClient } from '../storage/database.js';
+import type { DatabaseClient } from '../database/index.js';
 
 type ReplyContextDb = Pick<
   DatabaseClient,

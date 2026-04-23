@@ -3,7 +3,7 @@ import type {
   ReplyContext
 } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
-import type { StoredMediaArtifact } from '../../../storage/database.js';
+import type { StoredMediaArtifact } from '../../../database/index.js';
 import {
   IMAGE_DESCRIPTION_ARTIFACT_KIND,
   IMAGE_DESCRIPTION_PROVIDER,

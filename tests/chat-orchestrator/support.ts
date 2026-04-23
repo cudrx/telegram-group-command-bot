@@ -12,7 +12,7 @@ import type { LookupProvider } from '../../src/lookup/types.js';
 import type {
   SaveMediaArtifactInput,
   StoredMediaArtifact
-} from '../../src/storage/database.js';
+} from '../../src/database/index.js';
 
 export function createOrchestrator(input: {
   db: FakeDatabaseClient;

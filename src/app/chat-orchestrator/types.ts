@@ -17,7 +17,7 @@ import type {
   SpeechToTextProvider,
   VisionProvider
 } from '../../media/types.js';
-import type { DatabaseClient } from '../../storage/database.js';
+import type { DatabaseClient } from '../../database/index.js';
 
 export type BotIdentity = {
   userId: number;

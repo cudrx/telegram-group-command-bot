@@ -84,7 +84,7 @@ vi.mock('grammy', () => {
   return { Bot };
 });
 
-vi.mock('../src/storage/database.js', () => ({
+vi.mock('../src/database/index.js', () => ({
   DatabaseClient: {
     open: dbOpen
   }
