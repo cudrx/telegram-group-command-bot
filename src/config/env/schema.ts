@@ -39,7 +39,8 @@ export const envSchema = z.object({
   GLADIA_API_KEY: z.string().min(1).optional(),
   CLOUDFLARE_AI_API_KEY: z.string().min(1).optional(),
   CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
-  DEPLOY_NOTIFY_CHAT_ID: z.coerce.number().int()
+  TELEGRAM_CHAT_ID: z.coerce.number().int(),
+  TELEGRAM_ADMIN_ID: z.coerce.number().int()
 });
 
 export type ParsedRawEnv = z.infer<typeof envSchema>;

@@ -4,7 +4,8 @@ export { parseRawEnv };
 
 export function parseEnv(rawEnv: Record<string, string | undefined>) {
   return parseRawEnv({
-    DEPLOY_NOTIFY_CHAT_ID: '-1002155313986',
+    TELEGRAM_CHAT_ID: '-1002155313986',
+    TELEGRAM_ADMIN_ID: '-1002155313987',
     TAVILY_API_KEY: 'tvly-key',
     ...rawEnv
   });

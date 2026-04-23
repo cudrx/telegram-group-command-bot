@@ -3,6 +3,7 @@ import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
 import type { AppEnv } from './config/env/index.js';
 import { DatabaseClient } from './database/index.js';
+import type { AuthorizedMode, ChatType } from './domain/models.js';
 import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-client/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
@@ -15,6 +16,29 @@ type Application = {
   start(): Promise<void>;
   stop(): Promise<void>;
 };
+
+function resolveAuthorizedMode(input: {
+  env: AppEnv;
+  chatId: number;
+  chatType: ChatType;
+  fromUserId: number | null;
+}): AuthorizedMode | null {
+  if (
+    (input.chatType === 'group' || input.chatType === 'supergroup') &&
+    input.chatId === input.env.telegramChatId
+  ) {
+    return 'chat';
+  }
+
+  if (
+    input.chatType === 'private' &&
+    input.fromUserId === input.env.telegramAdminId
+  ) {
+    return 'private_admin';
+  }
+
+  return null;
+}
 
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
@@ -164,7 +188,26 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       )
     });
 
-    await orchestrator.handleIncomingMessage(normalized);
+    const authorizedMode = resolveAuthorizedMode({
+      env,
+      chatId: normalized.chatId,
+      chatType: normalized.chatType,
+      fromUserId: normalized.fromUserId
+    });
+
+    if (!authorizedMode) {
+      logger.debug('incoming_message_rejected_by_access_policy', {
+        chatId: normalized.chatId,
+        chatType: normalized.chatType,
+        fromUserId: normalized.fromUserId
+      });
+      return;
+    }
+
+    await orchestrator.handleIncomingMessage({
+      ...normalized,
+      authorizedMode
+    });
   });
 
   return {
@@ -177,7 +220,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       cleanupTimer.unref?.();
 
       await maybeAnnounceDeployUpdate({
-        deployNotifyChatId: env.deployNotifyChatId,
+        telegramChatId: env.telegramChatId,
         db,
         llm: qwen,
         sendMessage: async ({ chatId, text }) => {

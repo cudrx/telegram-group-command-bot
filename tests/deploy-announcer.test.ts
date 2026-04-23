@@ -92,7 +92,7 @@ function createDeps(
     });
 
   return {
-    deployNotifyChatId: -1002155313986,
+    telegramChatId: -1002155313986,
     db: {
       getAppState,
       setAppState

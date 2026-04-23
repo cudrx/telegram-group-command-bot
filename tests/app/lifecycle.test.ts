@@ -61,7 +61,7 @@ describe('createApplication lifecycle', () => {
 
     expect(maybeAnnounceDeployUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        deployNotifyChatId: -1002155313986,
+        telegramChatId: -1002155313986,
         db: expect.any(Object),
         llm: expect.any(Object),
         sendMessage: expect.any(Function),

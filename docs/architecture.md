@@ -7,9 +7,10 @@
 Бот умеет:
 
 - читать текстовые сообщения из Telegram;
+- принимать сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`;
 - сохранять чаты, входящие сообщения, исходящие сообщения, sender metadata и `reply_to` связи;
 - отвечать только на явные команды `/summarize`, `/decide`, `/read` и `/answer`;
-- игнорировать обычный `@mention` и обычный private text;
+- игнорировать обычный `@mention`, обычный private text и все текущие команды в `private_admin`;
 - строить короткий human-only local context с per-intent limit;
 - генерировать ответ через `generateReply`;
 - сохранять исходящее bot-сообщение;
@@ -49,6 +50,7 @@ Media intake реализован только как lazy explicit command:
 ## Product Invariants
 
 - главный источник истины для ответа — event log в `messages`, а не summary или memory;
+- неавторизованные чаты и private-сообщения от не-админа отбрасываются до записи в БД;
 - бот отвечает только когда его явно вызвали command trigger-ом;
 - каждый ответ должен объясняться по логам через `trigger`, `replyToMessageId`, `context` и факт LLM-решения;
 - prompt не должен содержать chat summary, participant memory, social-QA bundle, self-memory или prior messages from this bot;
@@ -70,7 +72,7 @@ Media intake реализован только как lazy explicit command:
 
 Чистая логика проекта:
 
-- определение прямого триггера ответа (`command`, `none`);
+- определение прямого триггера ответа (`command`, `none`) с учетом `chat` vs `private_admin` mode;
 - решение `reply` / `ignore`.
 
 ### `src/storage`
@@ -98,6 +100,8 @@ Media intake реализован только как lazy explicit command:
 Координирует приложение:
 
 - принимает нормализованное сообщение;
+- отбрасывает неавторизованные сообщения до `ChatOrchestrator` и до записи в SQLite;
+- помечает разрешенное сообщение как `chat` или `private_admin`;
 - сохраняет его в БД;
 - решает, должен ли бот отвечать;
 - собирает context;
@@ -113,10 +117,11 @@ Media intake реализован только как lazy explicit command:
 
 1. `grammY` получает новое текстовое сообщение.
 2. `normalizeTextMessage` переводит его в локальный `NormalizedMessage`.
-3. `DatabaseClient.saveIncomingMessage` сохраняет чат и сообщение.
-4. `detectDirectTrigger` и `decideReplyAction` определяют `command` или `ignore`.
-5. Если ответ не нужен, pipeline заканчивается.
-6. Если ответ нужен:
+3. App-level access gate пропускает только `TELEGRAM_CHAT_ID` и `private` от `TELEGRAM_ADMIN_ID`, затем выставляет `authorizedMode`.
+4. `DatabaseClient.saveIncomingMessage` сохраняет только разрешенный чат и сообщение.
+5. `detectDirectTrigger` и `decideReplyAction` определяют `command` или `ignore`.
+6. Если ответ не нужен, pipeline заканчивается.
+7. Если ответ нужен:
    - подтягиваются assistant instructions;
    - строится `ReplyContext` с recent human messages only;
    - вызывается reply LLM;
@@ -131,7 +136,7 @@ Media intake реализован только как lazy explicit command:
 3. Startup читает metadata и пропускает announcement, если файл отсутствует, невалиден, содержит `sha: "unknown"` или пустой список commits.
 4. Startup сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite.
 5. Если sha новый, `LLM_REPLY_MODEL` преобразует raw commit messages в короткое русское Telegram HTML-оповещение.
-6. Бот отправляет оповещение в `DEPLOY_NOTIFY_CHAT_ID`.
+6. Бот отправляет оповещение в `TELEGRAM_CHAT_ID`.
 7. Только после успешной отправки startup сохраняет новый sha в `app_state`.
 
 Ошибки чтения metadata, LLM formatting или Telegram send логируются и не блокируют long polling.
@@ -178,6 +183,11 @@ Media intake реализован только как lazy explicit command:
 Static prompt text lives under `llm/`; `src/llm/prompt-files.ts` is the single source of truth for prompt asset paths and reads prompt files when prompt builders run. TypeScript code in `src/llm/` keeps ownership of prompt assembly, sanitization, transcript labels, lookup source formatting, and runtime data insertion.
 
 Assistant instructions загружаются отдельно из `llm/assistant/base.md` и не смешиваются с per-chat context.
+
+## Access Modes
+
+- `chat` mode доступен только в `TELEGRAM_CHAT_ID` для `group` и `supergroup`; здесь продолжают работать `/summarize`, `/decide`, `/read` и `/answer`.
+- `private_admin` mode доступен только в `private` от `TELEGRAM_ADMIN_ID`; в текущей версии он зарезервирован под будущую админ-панель и не принимает текущие пользовательские команды.
 
 ## Database Model
 

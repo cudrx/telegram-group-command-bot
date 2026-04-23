@@ -68,7 +68,8 @@ export function parseEnv(
     mediaArtifactRetentionDays: MEDIA_ARTIFACT_RETENTION_DAYS,
     messageRetentionDays: MESSAGE_RETENTION_DAYS,
     databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
-    deployNotifyChatId: parsed.DEPLOY_NOTIFY_CHAT_ID
+    telegramChatId: parsed.TELEGRAM_CHAT_ID,
+    telegramAdminId: parsed.TELEGRAM_ADMIN_ID
   };
 }
 

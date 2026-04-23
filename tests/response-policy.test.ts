@@ -11,12 +11,12 @@ describe('detectDirectTrigger', () => {
     ['/decide', 'decide'],
     ['/read', 'read'],
     ['/answer', 'answer']
-  ] as const)('returns %s command intent in groups', (commandText, intent) => {
+  ] as const)('returns %s command intent in chat mode', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'group',
+        authorizedMode: 'chat',
         text: `${commandText} ignored arguments`,
         entities: [
           { type: 'bot_command', offset: 0, length: commandText.length }
@@ -37,12 +37,12 @@ describe('detectDirectTrigger', () => {
     ['/decide@fun_bot', 'decide'],
     ['/read@fun_bot', 'read'],
     ['/answer@fun_bot', 'answer']
-  ] as const)('returns %s bot-suffixed command intent in groups', (commandText, intent) => {
+  ] as const)('returns %s bot-suffixed command intent in chat mode', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'group',
+        authorizedMode: 'chat',
         text: `${commandText} ignored arguments`,
         entities: [
           { type: 'bot_command', offset: 0, length: commandText.length }
@@ -66,7 +66,7 @@ describe('detectDirectTrigger', () => {
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'group',
+        authorizedMode: 'chat',
         text: `${commandText} ignored arguments`,
         entities: [
           { type: 'bot_command', offset: 0, length: commandText.length }
@@ -83,7 +83,7 @@ describe('detectDirectTrigger', () => {
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'group',
+        authorizedMode: 'chat',
         text: '/decide@other_bot ignored arguments',
         entities: [
           {
@@ -104,7 +104,7 @@ describe('detectDirectTrigger', () => {
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'group',
+        authorizedMode: 'chat',
         text: 'эй, @fun_bot, расскажи что-нибудь',
         entities: [{ type: 'mention', offset: 4, length: 8 }],
         replyToUserId: null
@@ -115,16 +115,16 @@ describe('detectDirectTrigger', () => {
   });
 
   test.each([
-    ['/summarize', 'summarize'],
-    ['/decide', 'decide'],
-    ['/read', 'read'],
-    ['/answer', 'answer']
-  ] as const)('returns %s command intent in private chats', (commandText, intent) => {
+    '/summarize',
+    '/decide',
+    '/read',
+    '/answer'
+  ] as const)('returns none for %s command in private admin mode', (commandText) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'private',
+        authorizedMode: 'private_admin',
         text: `${commandText} ignored arguments`,
         entities: [
           { type: 'bot_command', offset: 0, length: commandText.length }
@@ -133,19 +133,15 @@ describe('detectDirectTrigger', () => {
       }
     });
 
-    expect(trigger).toEqual({
-      kind: 'command',
-      intent,
-      commandText
-    });
+    expect(trigger).toEqual({ kind: 'none' });
   });
 
-  test('returns none for ordinary private text', () => {
+  test('returns none for ordinary private admin text', () => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
       botUsername: 'fun_bot',
       message: {
-        chatType: 'private',
+        authorizedMode: 'private_admin',
         text: 'обычное личное сообщение',
         entities: [],
         replyToUserId: null

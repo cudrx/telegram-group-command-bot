@@ -5,6 +5,8 @@ export type ChatType =
   | 'channel'
   | 'unknown';
 
+export type AuthorizedMode = 'chat' | 'private_admin';
+
 export type AssistantIntent = 'summarize' | 'decide' | 'read' | 'answer';
 
 export type DirectTrigger =
@@ -18,6 +20,7 @@ export type DirectTrigger =
 export type NormalizedMessage = {
   chatId: number;
   chatType: ChatType;
+  authorizedMode?: AuthorizedMode;
   chatTitle: string | null;
   messageId: number;
   text: string;

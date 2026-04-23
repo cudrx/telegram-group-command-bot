@@ -24,6 +24,8 @@
 Минимально нужны:
 
 - `TELEGRAM_BOT_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_ADMIN_ID`
 - `LLM_API_KEY`
 - `TAVILY_API_KEY`, если lookup остается включенным (`LOOKUP_ENABLED=true`)
 
@@ -157,6 +159,7 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
+- проверить, что `TELEGRAM_CHAT_ID` совпадает с тестовой группой, а `TELEGRAM_ADMIN_ID` совпадает с вашим личным user id;
 - проверять сначала только явные `/answer`, `/summarize` и `/decide`; для `/answer` использовать reply на сообщение с вопросом;
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
 - по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
@@ -223,7 +226,8 @@ Workflow деплоя лежит в [`../.github/workflows/deploy.yml`](../.gith
 - `DEPLOY_SSH_KEY` — приватный ключ, который GitHub Actions использует для входа на сервер
 - `SERVER_GHCR_USERNAME` — GitHub username, у которого есть `read:packages`
 - `SERVER_GHCR_TOKEN` — PAT с правом `read:packages` для `docker login ghcr.io` на VPS
-- `DEPLOY_NOTIFY_CHAT_ID` — Telegram chat id для deploy update announcements, сейчас `-1002155313986`
+- `TELEGRAM_CHAT_ID` — единственный рабочий Telegram chat id бота; deploy announcements отправляются туда же
+- `TELEGRAM_ADMIN_ID` — Telegram user id, которому разрешен `private_admin` mode
 
 ### One-Time VPS Bootstrap
 
@@ -238,7 +242,8 @@ cp deploy/.env.server.example /opt/test-chatbot/.env
 GHCR_IMAGE=ghcr.io/<github-owner>/test-chatbot
 IMAGE_TAG=latest
 SQLITE_PATH=/app/data/bot.sqlite
-DEPLOY_NOTIFY_CHAT_ID=-1002155313986
+TELEGRAM_CHAT_ID=-1002155313986
+TELEGRAM_ADMIN_ID=84626969
 ```
 
 Если в production нужен `/read`, дополнительно включите:
@@ -259,7 +264,7 @@ OCR_SPACE_API_KEY=...
 
 Workflow деплоя записывает release metadata в `${DEPLOY_PATH}/data/deploy-metadata.json` перед рестартом бота. Внутри контейнера этот файл доступен как `/app/data/deploy-metadata.json`.
 
-На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite. Если sha ещё не объявлялся, бот просит `LLM_REPLY_MODEL` сформатировать короткое русское Telegram HTML-оповещение и отправляет его в `DEPLOY_NOTIFY_CHAT_ID`.
+На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite. Если sha ещё не объявлялся, бот просит `LLM_REPLY_MODEL` сформатировать короткое русское Telegram HTML-оповещение и отправляет его в `TELEGRAM_CHAT_ID`.
 
 Sha сохраняется только после успешной отправки сообщения в Telegram. Ошибки чтения metadata, LLM или Telegram отправки логируются и не блокируют старт бота.
 
