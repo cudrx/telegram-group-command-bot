@@ -8,7 +8,7 @@ import type {
 import type {
   LlmReplyResult,
   LookupPlanResult
-} from '../../llm/openai-compatible-llm-client.js';
+} from '../../llm/openai-compatible-client/index.js';
 import type { DescribeMediaContext } from '../../llm/prompts.js';
 import type { AppLogger } from '../../logging/logger.js';
 import type { LookupIntent, LookupProvider } from '../../lookup/types.js';

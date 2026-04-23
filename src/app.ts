@@ -2,7 +2,7 @@ import { Bot } from 'grammy';
 import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
 import type { AppEnv } from './config/env.js';
-import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-llm-client.js';
+import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-client/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
 import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js';

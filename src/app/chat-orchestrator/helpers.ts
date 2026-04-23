@@ -5,7 +5,7 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../../domain/models.js';
-import type { LlmReplyResult } from '../../llm/openai-compatible-llm-client.js';
+import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js';
 import type { DescribeMediaContext } from '../../llm/prompts.js';
 import type {
   LookupContext,

@@ -6,7 +6,7 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../../../domain/models.js';
-import type { LlmReplyResult } from '../../../llm/openai-compatible-llm-client.js';
+import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
 import { buildReplyContext } from '../../reply-context-builder.js';
 import {
   NEARBY_MEDIA_SCAN_LIMIT,

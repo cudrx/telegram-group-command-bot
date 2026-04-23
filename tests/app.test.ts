@@ -90,7 +90,7 @@ vi.mock('../src/database/index.js', () => ({
   }
 }));
 
-vi.mock('../src/llm/openai-compatible-llm-client.js', () => ({
+vi.mock('../src/llm/openai-compatible-client/index.js', () => ({
   OpenAiCompatibleLlmClient: vi
     .fn()
     .mockImplementation((...args: unknown[]) => {

@@ -5,7 +5,7 @@ import {
   decideReplyAction,
   detectDirectTrigger
 } from '../../domain/response-policy.js';
-import type { LlmReplyResult } from '../../llm/openai-compatible-llm-client.js';
+import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js';
 import { loadPrompt } from '../../llm/prompt-files.js';
 import { serializeError } from '../../logging/logger.js';
 import { buildReplyContext } from '../reply-context-builder.js';
