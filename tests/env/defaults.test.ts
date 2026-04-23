@@ -19,7 +19,6 @@ describe('parseEnv defaults', () => {
     expect(env.logLevel).toBe('info');
     expect(env.logColor).toBe(true);
     expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
-    expect(env.explainContextLimit).toBe(16);
     expect(env.summarizeContextLimit).toBe(128);
     expect(env.decideContextLimit).toBe(64);
     expect(env.replyMinTypingMs).toBe(900);
@@ -32,13 +31,11 @@ describe('parseEnv defaults', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       ANSWER_CONTEXT_LIMIT: '78',
-      EXPLAIN_CONTEXT_LIMIT: '12',
       SUMMARIZE_CONTEXT_LIMIT: '34',
       DECIDE_CONTEXT_LIMIT: '56'
     });
 
     expect(env.answerContextLimit).toBe(78);
-    expect(env.explainContextLimit).toBe(12);
     expect(env.summarizeContextLimit).toBe(34);
     expect(env.decideContextLimit).toBe(56);
   });
@@ -52,7 +49,6 @@ describe('parseEnv defaults', () => {
 
     expect(Object.hasOwn(env, 'messageContextLimit')).toBe(false);
     expect(env.answerContextLimit).toBe(16);
-    expect(env.explainContextLimit).toBe(16);
     expect(env.summarizeContextLimit).toBe(128);
     expect(env.decideContextLimit).toBe(64);
   });

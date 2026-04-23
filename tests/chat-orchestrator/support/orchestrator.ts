@@ -15,13 +15,13 @@ export function createOrchestrator(input: {
     generateReply: (input: {
       assistantInstructions: string;
       targetDisplayName: string;
-      intent: 'explain' | 'summarize' | 'decide' | 'read' | 'answer';
+      intent: 'summarize' | 'decide' | 'read' | 'answer';
       replyContext: unknown;
       lookupContext?: unknown;
       mediaContext?: unknown;
     }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
-      intent: 'explain' | 'decide' | 'answer';
+      intent: 'decide' | 'answer';
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createLookupPlanResult>>;
   };

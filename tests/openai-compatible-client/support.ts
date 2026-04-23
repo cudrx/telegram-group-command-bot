@@ -33,7 +33,7 @@ export function createOpenAiStub(content: string) {
 }
 
 export function createReplyInput(
-  intent: 'explain' | 'summarize' | 'decide' | 'read' | 'answer' = 'decide'
+  intent: 'summarize' | 'decide' | 'read' | 'answer' = 'decide'
 ): Parameters<OpenAiCompatibleLlmClient['generateReply']>[0] {
   return {
     assistantInstructions: 'Assistant instructions',

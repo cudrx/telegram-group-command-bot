@@ -40,8 +40,6 @@ export function buildIntentPrompt(input: {
 
 function getIntentPrompt(intent: AssistantIntent): string {
   switch (intent) {
-    case 'explain':
-      return loadPrompt('explain');
     case 'summarize':
       return loadPrompt('summarize');
     case 'decide':

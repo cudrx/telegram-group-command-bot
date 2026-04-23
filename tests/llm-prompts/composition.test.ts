@@ -5,21 +5,6 @@ import { buildIntentPrompt } from '../../src/llm/prompts.js';
 import { createPromptReplyContext } from './support.js';
 
 describe('buildIntentPrompt composition', () => {
-  test('composes explain prompt from base, global, and explain prompt files', () => {
-    const prompt = buildIntentPrompt({
-      assistantInstructions: loadPrompt('base'),
-      targetDisplayName: 'Tom',
-      intent: 'explain',
-      replyContext: createPromptReplyContext('/explain')
-    });
-
-    expect(prompt).toContain(loadPrompt('base'));
-    expect(prompt).toContain(loadPrompt('replyShell').split('\n')[0]);
-    expect(prompt).toContain(loadPrompt('global'));
-    expect(prompt).toContain(loadPrompt('explain'));
-    expect(prompt).not.toContain(loadPrompt('lookupContext'));
-  });
-
   test('composes summarize prompt from base, global, and summarize prompt files', () => {
     const prompt = buildIntentPrompt({
       assistantInstructions: loadPrompt('base'),

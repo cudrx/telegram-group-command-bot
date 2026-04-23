@@ -11,14 +11,13 @@ describe('intent eval fixtures', () => {
     );
 
     expect(coveredIntents).toEqual(
-      new Set(['answer', 'decide', 'explain', 'read', 'summarize'])
+      new Set(['answer', 'decide', 'read', 'summarize'])
     );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
       'read-vision-meme',
       'read-ocr-image-receipt',
       'read-audio-transcript',
       'answer-factual-question',
-      'explain-factual-question-meaning',
       'summarize-basic-discussion',
       'decide-basic-dispute'
     ]);
@@ -36,7 +35,7 @@ describe('intent eval fixtures', () => {
 
   test('reply-target fixtures use anchors instead of command arguments', () => {
     const replyTargetFixtures = intentEvalFixtures.filter(
-      (fixture) => fixture.intent === 'explain' || fixture.intent === 'answer'
+      (fixture) => fixture.intent === 'answer'
     );
 
     expect(replyTargetFixtures.length).toBeGreaterThan(0);
@@ -81,19 +80,6 @@ describe('intent eval fixtures', () => {
 
     for (const fixture of intentEvalFixtures) {
       expect(fixture.assistantInstructions).toBe(productionInstructions);
-    }
-  });
-
-  test('explain fixtures do not require redirecting to another command', () => {
-    const explainFixtures = intentEvalFixtures.filter(
-      (fixture) => fixture.intent === 'explain'
-    );
-
-    for (const fixture of explainFixtures) {
-      const includeTerms = fixture.rubric.mustIncludeAny.flat();
-
-      expect(includeTerms).not.toContain('/decide');
-      expect(includeTerms).not.toContain('decide');
     }
   });
 });

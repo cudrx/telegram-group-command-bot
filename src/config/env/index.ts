@@ -44,7 +44,6 @@ export function parseEnv(
     logLevel: parsed.LOG_LEVEL,
     logColor: parsed.LOG_COLOR,
     sqlitePath: parsed.SQLITE_PATH,
-    explainContextLimit: parsed.EXPLAIN_CONTEXT_LIMIT,
     answerContextLimit: parsed.ANSWER_CONTEXT_LIMIT,
     summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
     decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,

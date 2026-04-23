@@ -22,7 +22,6 @@ export type DecideReplyActionResult = {
 };
 
 const COMMAND_INTENTS: Record<string, AssistantIntent> = {
-  explain: 'explain',
   summarize: 'summarize',
   decide: 'decide',
   read: 'read',

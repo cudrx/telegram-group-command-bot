@@ -13,7 +13,6 @@ import { formatTelegramHtmlReply } from '../telegram-html.js';
 import {
   ANSWER_USAGE_PLACEHOLDER,
   createLocalReplyResult,
-  EXPLAIN_USAGE_PLACEHOLDER,
   getContextLimitForIntent,
   runWithReplyTyping,
   withReplySnapshotFallback
@@ -181,20 +180,13 @@ export class ChatOrchestrator {
       }
     );
 
-    if (
-      (request.intent === 'explain' || request.intent === 'answer') &&
-      !replyContext.replyAnchorMessage
-    ) {
+    if (request.intent === 'answer' && !replyContext.replyAnchorMessage) {
       logger.warn(`${request.intent}_anchor_missing`, {
         replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
         replyToUserId: request.replyToMessageSnapshot?.userId ?? null
       });
 
-      return createLocalReplyResult(
-        request.intent === 'answer'
-          ? ANSWER_USAGE_PLACEHOLDER
-          : EXPLAIN_USAGE_PLACEHOLDER
-      );
+      return createLocalReplyResult(ANSWER_USAGE_PLACEHOLDER);
     }
 
     replyContext = await this.mediaSupport.enrichReplyContextWithNearbyMedia(

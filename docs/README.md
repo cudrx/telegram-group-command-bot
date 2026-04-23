@@ -33,7 +33,7 @@ Use these locations consistently:
 - [`/docs/backlog/small-fixes.md`](/home/tom/Documents/Projects/test-chatbot/docs/backlog/small-fixes.md)
   мелкие фиксы, простые фичи и эксплуатационные улучшения
 - [`/docs/superpowers/plans/`](/home/tom/Documents/Projects/test-chatbot/docs/superpowers/plans)
-  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans; current active roadmap is media intake, while internet-backed `/explain`/`/decide` lookup is implemented
+  rolling window for recent planning documents: design docs, TЗ, implementation plans, rollout plans; current active roadmap is media intake, while internet-backed `/decide`/`/answer` lookup is implemented
 
 ## Rules
 

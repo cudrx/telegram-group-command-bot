@@ -8,11 +8,11 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы только для `/explain`, `/summarize`, `/decide`, `/read` и `/answer`
+- командные режимы только для `/summarize`, `/decide`, `/read` и `/answer`
 - обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
-- сообщения других ботов сохраняются и могут быть reply-якорем для `/explain` и `/answer`
+- сообщения других ботов сохраняются и могут быть reply-якорем для `/answer`
 - Telegram typing indicators и короткая bounded задержка ответа
 - Telegram HTML formatting для структурированных ответов с safe allowlist постобработкой
 - prompt hardening для transcript и structured logs
@@ -24,7 +24,6 @@
 
 ### Команды
 
-- `/explain` - объяснить сообщение, на которое сделан reply; бот считает replied-to message основным, использует nearby context только для интерпретации, и при включенном lookup может автоматически заземлять внешние сущности/факты через Tavily.
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
 - `/read` - лениво распознать replied-to медиа без интерпретации. В v1 поддержаны `photo`, image `document`, `voice`, `audio` и Telegram `video_note`: картинки идут через Cloudflare Workers AI для визуального описания и OCR.space для двух OCR-слоёв (`rus` и default), аудио и кружочки через Gladia, а финальный ответ форматирует `LLM_REPLY_MODEL`.
@@ -87,7 +86,6 @@ npm run dev
 - `CLOUDFLARE_ACCOUNT_ID`
 - `OCR_SPACE_API_KEY`
 - `LOG_LLM_TEXT`
-- `EXPLAIN_CONTEXT_LIMIT`
 - `SUMMARIZE_CONTEXT_LIMIT`
 - `DECIDE_CONTEXT_LIMIT`
 - `DEPLOY_NOTIFY_CHAT_ID`
@@ -197,4 +195,4 @@ docker compose down
 
 ## Следующие версии
 
-Lookup-backed `/explain`, `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. `/read` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
+Lookup-backed `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. `/read` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).

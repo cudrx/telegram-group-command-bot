@@ -33,7 +33,7 @@ describe('formatTelegramHtmlReply', () => {
     const formatted = formatTelegramHtmlReply(
       [
         'Summary:',
-        '- Участники тестируют команды (`/summarize`, `/explain`).',
+        '- Участники тестируют команды (`/summarize`, `/answer`).',
         '- **Краткий ориентир:** бот проверяют на спорных репликах.',
         '- Итог: чат работает как полигон для отладки.'
       ].join('\n'),
@@ -42,37 +42,9 @@ describe('formatTelegramHtmlReply', () => {
 
     expect(formatted).toBe(
       [
-        '• Участники тестируют команды (<code>/summarize</code>, <code>/explain</code>).',
+        '• Участники тестируют команды (<code>/summarize</code>, <code>/answer</code>).',
         '• <b>Краткий ориентир:</b> бот проверяют на спорных репликах.',
         '<b>Итог</b> — чат работает как полигон для отладки.'
-      ].join('\n')
-    );
-  });
-
-  test('separates explain section headings from following text', () => {
-    const formatted = formatTelegramHtmlReply(
-      [
-        '<b>Смысл</b>',
-        'Коротко.',
-        '',
-        '<b>По сути</b>',
-        '• пункт',
-        '',
-        '<b>Вывод</b>Бот выдал странный ответ.'
-      ].join('\n'),
-      { intent: 'explain' }
-    );
-
-    expect(formatted).toBe(
-      [
-        '<b>Смысл</b>',
-        'Коротко.',
-        '',
-        '<b>По сути</b>',
-        '• пункт',
-        '',
-        '<b>Вывод</b>',
-        'Бот выдал странный ответ.'
       ].join('\n')
     );
   });

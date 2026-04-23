@@ -17,8 +17,6 @@ import type { NormalizedMediaArtifact } from '../../media/types.js';
 import { withTypingIndicator } from '../typing-indicator.js';
 import type { ChatOrchestratorDeps } from './types.js';
 
-export const EXPLAIN_USAGE_PLACEHOLDER =
-  'Сделай reply на сообщение с вопросом и отправь /explain.';
 export const ANSWER_USAGE_PLACEHOLDER =
   'Сделай reply на сообщение с вопросом и отправь /answer.';
 export const READ_USAGE_PLACEHOLDER =
@@ -46,7 +44,7 @@ export function withReplySnapshotFallback(
   }
 ): ReplyContext {
   if (
-    (input.intent !== 'explain' && input.intent !== 'answer') ||
+    input.intent !== 'answer' ||
     context.replyAnchorMessage ||
     !input.replyToMessageSnapshot ||
     input.replyToMessageSnapshot.userId === input.botUserId
@@ -65,8 +63,6 @@ export function getContextLimitForIntent(
   intent: AssistantIntent
 ): number {
   switch (intent) {
-    case 'explain':
-      return env.explainContextLimit;
     case 'summarize':
       return env.summarizeContextLimit;
     case 'decide':

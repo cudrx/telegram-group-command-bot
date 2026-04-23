@@ -5,12 +5,7 @@ export type ChatType =
   | 'channel'
   | 'unknown';
 
-export type AssistantIntent =
-  | 'explain'
-  | 'summarize'
-  | 'decide'
-  | 'read'
-  | 'answer';
+export type AssistantIntent = 'summarize' | 'decide' | 'read' | 'answer';
 
 export type DirectTrigger =
   | {

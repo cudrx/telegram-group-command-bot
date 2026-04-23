@@ -52,10 +52,7 @@ function buildReplyAnchorMessage(
     botUserId: number;
   }
 ): StoredMessage | null {
-  if (
-    (input.intent !== 'explain' && input.intent !== 'answer') ||
-    !input.triggerMessage.replyToMessageId
-  ) {
+  if (input.intent !== 'answer' || !input.triggerMessage.replyToMessageId) {
     return null;
   }
 

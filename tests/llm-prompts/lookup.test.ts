@@ -3,18 +3,18 @@ import { describe, expect, test } from 'vitest';
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
 
 describe('buildIntentPrompt lookup context', () => {
-  test('adds external lookup context for explain when provided', () => {
+  test('adds external lookup context for answer when provided', () => {
     const prompt = buildIntentPrompt({
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
-      intent: 'explain',
+      intent: 'answer',
       replyContext: {
         triggerMessage: {
           chatId: 1,
           messageId: 3,
           userId: 1,
           senderDisplayName: 'Tom',
-          text: '/explain',
+          text: '/answer',
           createdAt: '2026-04-03T12:00:00.000Z',
           isBot: false,
           replyToMessageId: 2
@@ -34,7 +34,7 @@ describe('buildIntentPrompt lookup context', () => {
       lookupContext: {
         status: 'used',
         provider: 'tavily',
-        intent: 'explain',
+        intent: 'answer',
         decision: {
           shouldLookup: true,
           purpose: 'entity_grounding',

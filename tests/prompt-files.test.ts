@@ -23,13 +23,11 @@ describe('prompt file registry', () => {
     expect(PROMPT_FILE_PATHS).toEqual({
       base: 'llm/assistant/base.md',
       global: 'llm/reply/global.md',
-      explain: 'llm/reply/explain.md',
       summarize: 'llm/reply/summarize.md',
       decide: 'llm/reply/decide.md',
       read: 'llm/reply/read.md',
       answer: 'llm/reply/answer.md',
       replyShell: 'llm/reply/shell.md',
-      systemExplain: 'llm/system/explain.md',
       systemAnswer: 'llm/system/answer.md',
       systemRead: 'llm/system/read.md',
       systemGeneric: 'llm/system/generic.md',

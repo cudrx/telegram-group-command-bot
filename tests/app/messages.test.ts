@@ -11,7 +11,7 @@ import {
 describe('createApplication message forwarding', () => {
   installAppTestHooks();
 
-  test('forwards text messages from other bots so explain replies can use them as anchors', async () => {
+  test('forwards text messages from other bots so answer replies can use them as anchors', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(createEnv());
 
@@ -45,7 +45,7 @@ describe('createApplication message forwarding', () => {
     );
   });
 
-  test('forwards replied-to text snapshots for explain fallback anchors', async () => {
+  test('forwards replied-to text snapshots for answer fallback anchors', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(createEnv());
 
@@ -53,8 +53,8 @@ describe('createApplication message forwarding', () => {
       message: {
         message_id: 13,
         date: 1_744_000_030,
-        text: '/explain',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
         from: {
           id: 123,
           is_bot: false,
@@ -140,7 +140,7 @@ describe('createApplication message forwarding', () => {
     );
   });
 
-  test('forwards replied-to media captions for explain fallback anchors', async () => {
+  test('forwards replied-to media captions for answer fallback anchors', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(createEnv());
 
@@ -148,8 +148,8 @@ describe('createApplication message forwarding', () => {
       message: {
         message_id: 15,
         date: 1_744_000_050,
-        text: '/explain',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
         from: {
           id: 123,
           is_bot: false,

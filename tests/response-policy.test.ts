@@ -7,7 +7,6 @@ import {
 
 describe('detectDirectTrigger', () => {
   test.each([
-    ['/explain', 'explain'],
     ['/summarize', 'summarize'],
     ['/decide', 'decide'],
     ['/read', 'read'],
@@ -34,7 +33,6 @@ describe('detectDirectTrigger', () => {
   });
 
   test.each([
-    ['/explain@fun_bot', 'explain'],
     ['/summarize@fun_bot', 'summarize'],
     ['/decide@fun_bot', 'decide'],
     ['/read@fun_bot', 'read'],
@@ -58,6 +56,26 @@ describe('detectDirectTrigger', () => {
       intent,
       commandText
     });
+  });
+
+  test.each([
+    '/explain',
+    '/explain@fun_bot'
+  ] as const)('returns none for removed %s command', (commandText) => {
+    const trigger = detectDirectTrigger({
+      botUserId: 77,
+      botUsername: 'fun_bot',
+      message: {
+        chatType: 'group',
+        text: `${commandText} ignored arguments`,
+        entities: [
+          { type: 'bot_command', offset: 0, length: commandText.length }
+        ],
+        replyToUserId: null
+      }
+    });
+
+    expect(trigger).toEqual({ kind: 'none' });
   });
 
   test('returns none for commands addressed to another bot', () => {
@@ -97,7 +115,6 @@ describe('detectDirectTrigger', () => {
   });
 
   test.each([
-    ['/explain', 'explain'],
     ['/summarize', 'summarize'],
     ['/decide', 'decide'],
     ['/read', 'read'],

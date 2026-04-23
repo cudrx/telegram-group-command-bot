@@ -7,9 +7,6 @@ describe('LLM prompt files', () => {
     expect(readFileSync('llm/reply/global.md', 'utf8')).toContain(
       'Use Telegram HTML-compatible structure.'
     );
-    expect(readFileSync('llm/reply/explain.md', 'utf8')).toContain(
-      'You are in EXPLAIN mode.'
-    );
     expect(readFileSync('llm/reply/summarize.md', 'utf8')).toContain(
       'You are in SUMMARIZE mode.'
     );
@@ -24,9 +21,6 @@ describe('LLM prompt files', () => {
     );
     expect(readFileSync('llm/reply/shell.md', 'utf8')).toContain(
       '{{dataSections}}'
-    );
-    expect(readFileSync('llm/system/explain.md', 'utf8')).toContain(
-      '{{targetLabel}}'
     );
     expect(readFileSync('llm/system/answer.md', 'utf8')).toContain(
       'TARGET_MESSAGE_TO_ANSWER:'

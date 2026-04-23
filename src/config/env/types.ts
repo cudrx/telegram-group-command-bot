@@ -13,7 +13,6 @@ export type ParsedEnv = {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   logColor: boolean;
   sqlitePath: string;
-  explainContextLimit: number;
   answerContextLimit: number;
   summarizeContextLimit: number;
   decideContextLimit: number;

@@ -35,30 +35,6 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
-    id: 'explain-factual-question-meaning',
-    intent: 'explain',
-    targetDisplayName: 'Артём',
-    rows: [['2026-04-21T16:12:00.000Z', 'Артём', 'кто такой путин?']],
-    triggerText: '/explain',
-    replyAnchorText: 'кто такой путин?',
-    rubric: {
-      mustIncludeAny: [
-        ['спрашивает', 'вопрос', 'хочет понять'],
-        ['кто такой', 'что это за человек', 'личность', 'роль', 'роли'],
-        ['Путин']
-      ],
-      mustIncludeAll: ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
-      mustMatchRegex: [
-        '^<b>Смысл</b>[\\s\\S]+<b>По сути</b>[\\s\\S]+<b>Вывод</b>'
-      ],
-      mustNotIncludeAny: [
-        ['президент России', 'президента России', 'российский политик'],
-        ['родился', 'занимает пост', 'работал в']
-      ],
-      mustNotMatchRegex: ['(^|\\n)\\s*Summary\\s*:', '\\*\\*[^*]+\\*\\*']
-    }
-  }),
-  createFixture({
     id: 'summarize-basic-discussion',
     intent: 'summarize',
     targetDisplayName: 'Артём',

@@ -91,7 +91,7 @@ export class ChatOrchestratorMediaSupport {
     replyContext: ReplyContext,
     logger: AppLogger
   ): Promise<DescribeMediaContext | null> {
-    if (request.intent !== 'explain' && request.intent !== 'answer') {
+    if (request.intent !== 'answer') {
       return null;
     }
 
@@ -113,11 +113,7 @@ export class ChatOrchestratorMediaSupport {
     replyContext: ReplyContext,
     logger: AppLogger
   ): Promise<ReplyContext> {
-    if (
-      request.intent !== 'explain' &&
-      request.intent !== 'decide' &&
-      request.intent !== 'answer'
-    ) {
+    if (request.intent !== 'decide' && request.intent !== 'answer') {
       return replyContext;
     }
 

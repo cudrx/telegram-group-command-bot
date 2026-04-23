@@ -22,7 +22,6 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
   SQLITE_PATH: z.string().min(1).default('data/bot.sqlite'),
-  EXPLAIN_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
   ANSWER_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
   SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(128),
   DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(64),

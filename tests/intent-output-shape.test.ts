@@ -3,28 +3,6 @@ import { describe, expect, test } from 'vitest';
 import { getIntentOutputShapeViolations } from '../src/llm/intent-output-shape.js';
 
 describe('getIntentOutputShapeViolations', () => {
-  test('requires explain HTML sections', () => {
-    expect(
-      getIntentOutputShapeViolations(
-        'explain',
-        [
-          '<b>Смысл</b>',
-          'Коротко.',
-          '',
-          '<b>По сути</b>',
-          '• пункт',
-          '',
-          '<b>Вывод</b>',
-          'итог'
-        ].join('\n')
-      )
-    ).toEqual([]);
-
-    expect(
-      getIntentOutputShapeViolations('explain', 'просто сухой абзац')
-    ).toContain('missing_explain_shape');
-  });
-
   test('requires summarize heading and separated final takeaway', () => {
     expect(
       getIntentOutputShapeViolations(

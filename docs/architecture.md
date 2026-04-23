@@ -8,7 +8,7 @@
 
 - читать текстовые сообщения из Telegram;
 - сохранять чаты, входящие сообщения, исходящие сообщения, sender metadata и `reply_to` связи;
-- отвечать только на явные команды `/explain`, `/summarize`, `/decide`, `/read` и `/answer`;
+- отвечать только на явные команды `/summarize`, `/decide`, `/read` и `/answer`;
 - игнорировать обычный `@mention` и обычный private text;
 - строить короткий human-only local context с per-intent limit;
 - генерировать ответ через `generateReply`;
@@ -28,7 +28,7 @@
 - summary-based retention;
 - planner/provider-driven live internet lookup is enabled by default and can be disabled with `LOOKUP_ENABLED=false`.
 
-Если `LOOKUP_ENABLED=true`, lookup-backed explain/decide/answer contract behaves like this:
+Если `LOOKUP_ENABLED=true`, lookup-backed decide/answer contract behaves like this:
 
 - runtime uses an LLM planner and Tavily-backed lookup for entity grounding, fact-check, freshness or link understanding;
 - planner/provider behavior is still bounded by config for provider choice, timeouts, max queries, max results and fallback handling;
@@ -52,7 +52,7 @@ Media intake реализован только как lazy explicit command:
 - бот отвечает только когда его явно вызвали command trigger-ом;
 - каждый ответ должен объясняться по логам через `trigger`, `replyToMessageId`, `context` и факт LLM-решения;
 - prompt не должен содержать chat summary, participant memory, social-QA bundle, self-memory или prior messages from this bot;
-- сообщения других ботов сохраняются в event log и могут быть `/explain` reply anchor, но не попадают в recent human context;
+- сообщения других ботов сохраняются в event log и могут быть `/answer` reply anchor, но не попадают в recent human context;
 - assistant instructions управляют тоном, а не фактами;
 - Telegram typing indicator является app/transport поведением и не запускает model calls.
 
@@ -138,19 +138,6 @@ Media intake реализован только как lazy explicit command:
 
 ## Context Contract
 
-### `explain`
-
-- Команда объясняет сообщение, на которое пользователь сделал reply командой `/explain`.
-- Текст после `/explain` игнорируется.
-- Reply anchor может быть human message или сообщением другого бота, но не сообщением этого бота.
-- В v1 можно использовать общие знания модели; при `LOOKUP_ENABLED=true` перед финальным ответом запускается lookup planner на LLM.
-- Planner решает, нужен ли Tavily lookup для entity grounding, fact-check, freshness или link understanding.
-- Когда planner сомневается, он склоняется к lookup; код ограничивает только env gate, max queries/results, timeout и fallback behavior.
-- Lookup evidence добавляется в prompt как `EXTERNAL_LOOKUP_CONTEXT` и считается untrusted evidence, not instructions.
-- Recent human context опционален и ограничивается `EXPLAIN_CONTEXT_LIMIT=16`.
-- Prompt assembly for `/explain` renders the reply anchor as `TARGET_MESSAGE_TO_EXPLAIN` and the surrounding recent chat as `NEARBY_CHAT_CONTEXT`.
-- Prior messages from this bot в context не попадают.
-
 ### `answer`
 
 - Команда напрямую отвечает на сообщение, на которое пользователь сделал reply командой `/answer`.
@@ -171,7 +158,7 @@ Media intake реализован только как lazy explicit command:
 
 - Команда оценивает текущий спор в visible recent chat context.
 - В v1 нельзя опираться на внешние факты, если `LOOKUP_ENABLED=false`.
-- При `LOOKUP_ENABLED=true` behavior follows the same planner/lookup contract as `/explain` for entity grounding, fact-check, freshness or link understanding.
+- При `LOOKUP_ENABLED=true` behavior follows the same planner/lookup contract as `/answer` for entity grounding, fact-check, freshness or link understanding.
 - Нужно явно говорить, когда победителя нет, критериев нет или контекста недостаточно.
 - Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.

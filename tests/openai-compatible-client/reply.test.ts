@@ -100,38 +100,6 @@ describe('OpenAiCompatibleLlmClient reply', () => {
     );
   });
 
-  test('warns when explain reply lacks required HTML sections', async () => {
-    const logger = {
-      debug: vi.fn(),
-      info: vi.fn(),
-      warn: vi.fn(),
-      error: vi.fn(),
-      child: vi.fn()
-    };
-
-    logger.child.mockReturnValue(logger);
-
-    const client = new OpenAiCompatibleLlmClient(
-      createClientConfig(),
-      createOpenAiStub('Точной даты нет, уточни направление.'),
-      {
-        logger
-      }
-    );
-
-    await client.generateReply(createReplyInput('explain'));
-
-    expect(logger.warn).toHaveBeenCalledWith(
-      'llm.reply_format_guardrail_warning',
-      expect.objectContaining({
-        kind: 'reply',
-        model: 'reply-model',
-        intent: 'explain',
-        violations: expect.arrayContaining(['missing_explain_shape'])
-      })
-    );
-  });
-
   test('uses only reply request settings', async () => {
     let requestBody: Record<string, unknown> | undefined;
     const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
@@ -206,13 +174,11 @@ describe('OpenAiCompatibleLlmClient reply', () => {
     } as never);
 
     await client.generateReply(createReplyInput('summarize'));
-    await client.generateReply(createReplyInput('explain'));
     await client.generateReply(createReplyInput('decide'));
     await client.generateReply(createReplyInput('read'));
     await client.generateReply(createReplyInput('answer'));
 
     expect(requestBodies.map((body) => body.model)).toEqual([
-      'reply-model',
       'reply-model',
       'reply-model',
       'reply-model',

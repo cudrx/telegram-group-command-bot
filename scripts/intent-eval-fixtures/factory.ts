@@ -59,8 +59,7 @@ export function createFixture(input: {
         replyToMessageId: input.replyAnchorText ? anchorMessageId : null
       },
       replyAnchorMessage:
-        input.replyAnchorText &&
-        (input.intent === 'explain' || input.intent === 'answer')
+        input.replyAnchorText && input.intent === 'answer'
           ? {
               chatId: 1,
               messageId: anchorMessageId,

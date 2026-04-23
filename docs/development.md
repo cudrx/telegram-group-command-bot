@@ -157,7 +157,7 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
-- проверять сначала только явные `/explain`, `/summarize` и `/decide`; для `/explain` использовать reply на сообщение с вопросом;
+- проверять сначала только явные `/answer`, `/summarize` и `/decide`; для `/answer` использовать reply на сообщение с вопросом;
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
 - по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
 - после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.

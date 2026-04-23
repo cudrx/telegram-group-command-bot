@@ -113,7 +113,7 @@ test('builds command reply context from the current command and recent human con
   expect('anchorParentMessage' in context).toBe(false);
 });
 
-test('uses a replied-to non-self bot message as explain anchor', () => {
+test('uses a replied-to non-self bot message as answer anchor', () => {
   const db = new FakeDatabaseClient();
 
   db.seedStoredMessages(1, [
@@ -131,7 +131,7 @@ test('uses a replied-to non-self bot message as explain anchor', () => {
       messageId: 99,
       userId: 42,
       senderDisplayName: 'Tom',
-      text: '/explain',
+      text: '/answer',
       isBot: false,
       replyToMessageId: 98,
       createdAt: '2026-04-10T12:00:00.000Z',
@@ -144,7 +144,7 @@ test('uses a replied-to non-self bot message as explain anchor', () => {
     chatId: 1,
     triggerMessageId: 99,
     contextLimit: 3,
-    intent: 'explain',
+    intent: 'answer',
     botUserId: 77
   });
 
@@ -155,7 +155,7 @@ test('uses a replied-to non-self bot message as explain anchor', () => {
   });
 });
 
-test("does not use this bot's own message as explain anchor", () => {
+test("does not use this bot's own message as answer anchor", () => {
   const db = new FakeDatabaseClient();
 
   db.seedStoredMessages(1, [
@@ -173,7 +173,7 @@ test("does not use this bot's own message as explain anchor", () => {
       messageId: 99,
       userId: 42,
       senderDisplayName: 'Tom',
-      text: '/explain',
+      text: '/answer',
       isBot: false,
       replyToMessageId: 98,
       createdAt: '2026-04-10T12:00:00.000Z',
@@ -186,7 +186,7 @@ test("does not use this bot's own message as explain anchor", () => {
     chatId: 1,
     triggerMessageId: 99,
     contextLimit: 3,
-    intent: 'explain',
+    intent: 'answer',
     botUserId: 77
   });
 

@@ -4,12 +4,7 @@ const MARKDOWN_AMP = '\uE000AMP\uE000';
 const MARKDOWN_LT = '\uE000LT\uE000';
 const MARKDOWN_GT = '\uE000GT\uE000';
 
-type TelegramReplyIntent =
-  | 'explain'
-  | 'summarize'
-  | 'decide'
-  | 'read'
-  | 'answer';
+type TelegramReplyIntent = 'summarize' | 'decide' | 'read' | 'answer';
 
 export function formatTelegramHtmlReply(
   text: string,
@@ -53,13 +48,7 @@ function normalizeLine(
     return normalizeMarkdownLine(summarizeLine);
   }
 
-  const markdownLine = normalizeMarkdownLine(bulletLine);
-
-  if (options.intent === 'explain') {
-    return normalizeExplainLine(markdownLine);
-  }
-
-  return markdownLine;
+  return normalizeMarkdownLine(bulletLine);
 }
 
 function normalizeBulletLine(line: string): string {
@@ -78,10 +67,6 @@ function normalizeSummarizeLine(line: string): string | null {
   }
 
   return line;
-}
-
-function normalizeExplainLine(line: string): string {
-  return line.replace(/(<b>(?:Смысл|По сути|Вывод)<\/b>)(?=\S)/gu, '$1\n');
 }
 
 function normalizeMarkdownLine(line: string): string {

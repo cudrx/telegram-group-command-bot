@@ -1,16 +1,16 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+  createOcrProvider,
+  createReplyDispatcher,
+  createSuccessfulDownloadDeps
+} from '../media-image/support.js';
+import {
   createIncomingMessage,
   createOrchestrator,
   createReplyResult,
   FakeDatabaseClient
 } from '../support.js';
-import {
-  createOcrProvider,
-  createReplyDispatcher,
-  createSuccessfulDownloadDeps
-} from '../media-image/support.js';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;

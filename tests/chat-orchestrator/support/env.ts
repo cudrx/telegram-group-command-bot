@@ -15,7 +15,6 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath: ':memory:',
-    explainContextLimit: 50,
     answerContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,

@@ -135,18 +135,18 @@ describe('buildIntentPrompt media context', () => {
     expect(prompt).toContain('Interpreted image context');
   });
 
-  test('builds explain prompt with target media blocks', () => {
+  test('builds answer prompt with target media blocks', () => {
     const prompt = buildIntentPrompt({
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
-      intent: 'explain',
+      intent: 'answer',
       replyContext: {
         triggerMessage: {
           chatId: 1,
           messageId: 3,
           userId: 1,
           senderDisplayName: 'Tom',
-          text: '/explain',
+          text: '/answer',
           createdAt: '2026-04-03T12:00:00.000Z',
           isBot: false,
           replyToMessageId: 2

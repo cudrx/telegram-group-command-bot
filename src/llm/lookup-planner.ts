@@ -13,11 +13,9 @@ export function buildLookupPlannerPrompt(input: {
   replyContext: ReplyContext;
 }): string {
   const targetSection =
-    input.intent === 'explain' || input.intent === 'answer'
+    input.intent === 'answer'
       ? [
-          input.intent === 'answer'
-            ? 'TARGET_MESSAGE_TO_ANSWER:'
-            : 'TARGET_MESSAGE_TO_EXPLAIN:',
+          'TARGET_MESSAGE_TO_ANSWER:',
           input.replyContext.replyAnchorMessage
             ? formatConversationForLlm([input.replyContext.replyAnchorMessage])
             : 'No target message available.'

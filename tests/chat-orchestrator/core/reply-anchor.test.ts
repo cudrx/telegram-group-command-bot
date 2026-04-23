@@ -9,7 +9,7 @@ import {
 } from '../support.js';
 
 describe('ChatOrchestrator reply anchors', () => {
-  test('uses replied-to non-self bot message as explain request anchor', async () => {
+  test('uses replied-to non-self bot message as answer request anchor', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
@@ -38,8 +38,8 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/explain',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
         replyToMessageId: 1,
         replyToUserId: 555
       })
@@ -47,7 +47,7 @@ describe('ChatOrchestrator reply anchors', () => {
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: 'explain',
+        intent: 'answer',
         replyContext: expect.objectContaining({
           triggerMessage: expect.objectContaining({ messageId: 2 }),
           replyAnchorMessage: expect.objectContaining({
@@ -65,7 +65,7 @@ describe('ChatOrchestrator reply anchors', () => {
     });
   });
 
-  test('uses Telegram reply snapshot as explain anchor when the replied-to bot message is not stored', async () => {
+  test('uses Telegram reply snapshot as answer anchor when the replied-to bot message is not stored', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
@@ -83,8 +83,8 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage({
       ...createIncomingMessage({
         messageId: 2,
-        text: '/explain',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
         replyToMessageId: 1,
         replyToUserId: 555
       }),
@@ -102,7 +102,7 @@ describe('ChatOrchestrator reply anchors', () => {
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        intent: 'explain',
+        intent: 'answer',
         replyContext: expect.objectContaining({
           replyAnchorMessage: expect.objectContaining({
             messageId: 1,
@@ -120,7 +120,7 @@ describe('ChatOrchestrator reply anchors', () => {
     });
   });
 
-  test('returns local explain placeholder when no usable reply anchor exists', async () => {
+  test('returns local answer placeholder when no usable reply anchor exists', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
@@ -138,8 +138,8 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/explain кто сильнее лев или тигр',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
+        text: '/answer кто сильнее лев или тигр',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
       })
     );
 
@@ -147,7 +147,7 @@ describe('ChatOrchestrator reply anchors', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Сделай reply на сообщение с вопросом и отправь /explain.'
+      text: 'Сделай reply на сообщение с вопросом и отправь /answer.'
     });
   });
 });
