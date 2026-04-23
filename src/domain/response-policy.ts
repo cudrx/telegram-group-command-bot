@@ -1,4 +1,8 @@
-import type { AssistantIntent, AuthorizedMode, DirectTrigger } from './models.js';
+import type {
+  AssistantIntent,
+  AuthorizedMode,
+  DirectTrigger
+} from './models.js';
 
 export type DetectDirectTriggerInput = {
   botUserId: number;

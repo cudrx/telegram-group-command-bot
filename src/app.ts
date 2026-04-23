@@ -3,6 +3,7 @@ import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
 import type { AppEnv } from './config/env/index.js';
 import { DatabaseClient } from './database/index.js';
+import type { AuthorizedMode, ChatType } from './domain/models.js';
 import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-client/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
@@ -10,7 +11,6 @@ import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js'
 import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
 import { OcrSpaceProvider } from './media/ocr-space-provider.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
-import type { AuthorizedMode, ChatType } from './domain/models.js';
 
 type Application = {
   start(): Promise<void>;
