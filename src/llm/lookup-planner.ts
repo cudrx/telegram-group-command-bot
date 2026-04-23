@@ -48,13 +48,6 @@ function stripCommandArguments(text: string): string {
   return text.trim().split(/\s+/, 1)[0] ?? '';
 }
 
-export function parseLookupDecision(
-  raw: string,
-  maxQueries: number
-): LookupDecision {
-  return parseLookupDecisionResult(raw, maxQueries).decision;
-}
-
 export function parseLookupDecisionResult(
   raw: string,
   maxQueries: number

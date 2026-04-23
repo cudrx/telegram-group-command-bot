@@ -11,11 +11,11 @@ export type DetectDirectTriggerInput = {
   };
 };
 
-export type DecideReplyActionInput = {
+type DecideReplyActionInput = {
   directTrigger: DirectTrigger;
 };
 
-export type DecideReplyActionResult = {
+type DecideReplyActionResult = {
   shouldReply: boolean;
   reason: 'command' | 'ignore';
   intent?: AssistantIntent;

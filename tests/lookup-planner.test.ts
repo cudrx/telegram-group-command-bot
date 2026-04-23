@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   buildLookupPlannerPrompt,
-  parseLookupDecision
+  parseLookupDecisionResult
 } from '../src/llm/lookup-planner.js';
 
 const replyContext = {
@@ -99,10 +99,10 @@ describe('buildLookupPlannerPrompt', () => {
 describe('parseLookupDecision', () => {
   test('parses and clamps a usable lookup decision', () => {
     expect(
-      parseLookupDecision(
+      parseLookupDecisionResult(
         '{"shouldLookup":true,"purpose":"entity_grounding","reason":"Need to know who Dora and Maybe Baby are.","queries":["Дора Мэйби Бэйби певицы кто такие","unused"],"confidence":"medium"}',
         1
-      )
+      ).decision
     ).toEqual({
       shouldLookup: true,
       purpose: 'entity_grounding',
@@ -113,7 +113,7 @@ describe('parseLookupDecision', () => {
   });
 
   test('returns a safe skip decision for invalid JSON', () => {
-    expect(parseLookupDecision('not json', 1)).toEqual({
+    expect(parseLookupDecisionResult('not json', 1).decision).toEqual({
       shouldLookup: false,
       purpose: 'none',
       reason: 'Lookup planner returned invalid JSON.',
@@ -124,10 +124,10 @@ describe('parseLookupDecision', () => {
 
   test('forces skip when shouldLookup is true but no query exists', () => {
     expect(
-      parseLookupDecision(
+      parseLookupDecisionResult(
         '{"shouldLookup":true,"purpose":"fact_check","reason":"Need facts.","queries":[],"confidence":"high"}',
         1
-      )
+      ).decision
     ).toEqual({
       shouldLookup: false,
       purpose: 'none',

@@ -11,7 +11,7 @@ import { GladiaTranscriptionProvider } from './media/gladia-transcription-provid
 import { OcrSpaceProvider } from './media/ocr-space-provider.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
 
-export type Application = {
+type Application = {
   start(): Promise<void>;
   stop(): Promise<void>;
 };

@@ -1,39 +1,4 @@
-import type { TranscriptArtifact, VisionArtifact } from './types.js';
-
-const VISION_KINDS = new Set<VisionArtifact['kind']>([
-  'photo',
-  'screenshot',
-  'meme',
-  'document',
-  'other'
-]);
-
-export function normalizeCloudflareVisionResponse(
-  input: unknown
-): VisionArtifact {
-  const payload = unwrapCloudflareVisionPayload(input);
-
-  return {
-    type: 'vision',
-    kind: normalizeVisionKind(readOptionalString(payload, 'kind')),
-    visibleText: readStringArray(payload, 'visibleText', 'visible_text'),
-    namesMentionedInText: readStringArray(
-      payload,
-      'namesMentionedInText',
-      'names_mentioned_in_text'
-    ),
-    visuallyPresentPeopleOrCharacters: readStringArray(
-      payload,
-      'visuallyPresentPeopleOrCharacters',
-      'visually_present_people_or_characters'
-    ),
-    objects: readStringArray(payload, 'objects'),
-    scene: readString(payload, 'scene'),
-    actions: readStringArray(payload, 'actions'),
-    style: readString(payload, 'style'),
-    uncertainty: readStringArray(payload, 'uncertainty')
-  };
-}
+import type { TranscriptArtifact } from './types.js';
 
 export function normalizeGladiaTranscriptionResult(
   input: unknown
@@ -83,39 +48,6 @@ export function normalizeGladiaTranscriptionResult(
   };
 }
 
-function unwrapCloudflareVisionPayload(
-  input: unknown
-): Record<string, unknown> {
-  const parsed = parseJsonIfString(input);
-
-  if (!isRecord(parsed)) {
-    return {};
-  }
-
-  if (looksLikeVisionPayload(parsed)) {
-    return parsed;
-  }
-
-  for (const key of [
-    'response',
-    'result',
-    'output',
-    'data',
-    'body',
-    'payload',
-    'message'
-  ] as const) {
-    const nested = parsed[key];
-    const unwrapped = unwrapCloudflareVisionPayload(nested);
-
-    if (looksLikeVisionPayload(unwrapped)) {
-      return unwrapped;
-    }
-  }
-
-  return parsed;
-}
-
 function unwrapGladiaPayload(input: unknown): Record<string, unknown> {
   const parsed = parseJsonIfString(input);
 
@@ -146,23 +78,6 @@ function unwrapGladiaPayload(input: unknown): Record<string, unknown> {
   return parsed;
 }
 
-function looksLikeVisionPayload(value: Record<string, unknown>): boolean {
-  return (
-    'kind' in value ||
-    'visible_text' in value ||
-    'visibleText' in value ||
-    'names_mentioned_in_text' in value ||
-    'namesMentionedInText' in value ||
-    'visually_present_people_or_characters' in value ||
-    'visuallyPresentPeopleOrCharacters' in value ||
-    'objects' in value ||
-    'scene' in value ||
-    'actions' in value ||
-    'style' in value ||
-    'uncertainty' in value
-  );
-}
-
 function looksLikeGladiaPayload(value: Record<string, unknown>): boolean {
   return (
     'transcript' in value ||
@@ -173,26 +88,6 @@ function looksLikeGladiaPayload(value: Record<string, unknown>): boolean {
     'audio_metadata' in value ||
     'audioMetadata' in value
   );
-}
-
-function normalizeVisionKind(value: string | null): VisionArtifact['kind'] {
-  if (value && VISION_KINDS.has(value as VisionArtifact['kind'])) {
-    return value as VisionArtifact['kind'];
-  }
-
-  return 'other';
-}
-
-function readString(value: Record<string, unknown>, ...keys: string[]): string {
-  for (const key of keys) {
-    const candidate = value[key];
-
-    if (typeof candidate === 'string') {
-      return candidate;
-    }
-  }
-
-  return '';
 }
 
 function readOptionalString(
@@ -208,23 +103,6 @@ function readOptionalString(
   }
 
   return null;
-}
-
-function readStringArray(
-  value: Record<string, unknown>,
-  ...keys: string[]
-): string[] {
-  for (const key of keys) {
-    const candidate = value[key];
-
-    if (Array.isArray(candidate)) {
-      return candidate.filter(
-        (item): item is string => typeof item === 'string'
-      );
-    }
-  }
-
-  return [];
 }
 
 function readDuration(value: Record<string, unknown>): number | null {

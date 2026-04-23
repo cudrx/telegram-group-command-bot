@@ -1,4 +1,4 @@
-export type TypingIndicatorOptions = {
+type TypingIndicatorOptions = {
   chatId: number;
   minTypingMs: number;
   maxTypingMs: number;
