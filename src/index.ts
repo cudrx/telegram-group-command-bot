@@ -1,5 +1,5 @@
 import { createApplication } from './app.js';
-import { getEnv } from './config/env.js';
+import { getEnv } from './config/env/index.js';
 import { logInfo } from './logging/logger.js';
 
 const app = await createApplication(getEnv());

@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 import OpenAI from 'openai';
 
-import { parseEnv } from '../src/config/env.js';
+import { parseEnv } from '../src/config/env/index.js';
 import { buildIntentPrompt } from '../src/llm/prompts.js';
 import type { LookupContext, LookupSource } from '../src/lookup/types.js';
 import {

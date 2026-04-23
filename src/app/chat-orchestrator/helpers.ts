@@ -1,4 +1,4 @@
-import type { AppEnv } from '../../config/env.js';
+import type { AppEnv } from '../../config/env/index.js';
 import type {
   AssistantIntent,
   MediaMessageSnapshot,
