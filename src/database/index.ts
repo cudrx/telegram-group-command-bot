@@ -3,12 +3,12 @@ import path from 'node:path';
 
 import Database from 'better-sqlite3';
 import {
-  cleanupExpiredData,
   getLatestMediaArtifact,
   getSuccessfulMediaArtifact,
   getSuccessfulMediaArtifactsForMessages,
   saveMediaArtifact
 } from './artifacts.js';
+import { cleanupExpiredData } from './artifacts-cleanup.js';
 import { normalizeDatabaseOpenError } from './errors.js';
 import {
   getChatState,
