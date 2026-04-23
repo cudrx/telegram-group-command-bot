@@ -238,7 +238,8 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     mediaArtifactRetentionDays: 7,
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
-    deployNotifyChatId: -1002155313986,
+    telegramChatId: -1002155313986,
+    telegramAdminId: 84626969,
     ...overrides
   };
 }

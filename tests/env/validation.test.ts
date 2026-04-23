@@ -3,13 +3,13 @@ import { describe, expect, test } from 'vitest';
 import { parseEnv, parseRawEnv } from './support.js';
 
 describe('parseEnv validation', () => {
-  test('requires deploy notification chat id', () => {
+  test('requires telegram chat and admin ids', () => {
     expect(() =>
       parseRawEnv({
         TELEGRAM_BOT_TOKEN: 'telegram-token',
         LLM_API_KEY: 'llm-key'
       })
-    ).toThrow(/DEPLOY_NOTIFY_CHAT_ID/);
+    ).toThrow(/TELEGRAM_CHAT_ID/);
   });
 
   test('rejects placeholder secrets', () => {

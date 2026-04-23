@@ -63,14 +63,16 @@ describe('parseEnv defaults', () => {
     expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
   });
 
-  test('parses deploy notification chat id', () => {
+  test('parses telegram chat and admin ids', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      DEPLOY_NOTIFY_CHAT_ID: '-1002155313986'
+      TELEGRAM_CHAT_ID: '-1002155313986',
+      TELEGRAM_ADMIN_ID: '-1002155313987'
     });
 
-    expect(env.deployNotifyChatId).toBe(-1002155313986);
+    expect(env.telegramChatId).toBe(-1002155313986);
+    expect(env.telegramAdminId).toBe(-1002155313987);
   });
 });

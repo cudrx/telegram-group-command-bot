@@ -37,7 +37,8 @@ export type ParsedEnv = {
   mediaArtifactRetentionDays: number;
   messageRetentionDays: number;
   databaseCleanupIntervalHours: number;
-  deployNotifyChatId: number;
+  telegramChatId: number;
+  telegramAdminId: number;
 };
 
 export type AppEnv = ParsedEnv;

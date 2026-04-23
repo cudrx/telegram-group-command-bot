@@ -9,7 +9,7 @@ import { formatTelegramHtmlReply } from './telegram-html.js';
 const LAST_ANNOUNCED_DEPLOY_SHA_KEY = 'last_announced_deploy_sha';
 
 export async function maybeAnnounceDeployUpdate(input: {
-  deployNotifyChatId: number;
+  telegramChatId: number;
   db: {
     getAppState(key: string): string | null;
     setAppState(key: string, value: string, updatedAt: string): void;
@@ -51,7 +51,7 @@ export async function maybeAnnounceDeployUpdate(input: {
     const text = formatTelegramHtmlReply(result.text);
 
     await input.sendMessage({
-      chatId: input.deployNotifyChatId,
+      chatId: input.telegramChatId,
       text
     });
     input.db.setAppState(

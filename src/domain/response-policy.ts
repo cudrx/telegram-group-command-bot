@@ -1,10 +1,10 @@
-import type { AssistantIntent, ChatType, DirectTrigger } from './models.js';
+import type { AssistantIntent, AuthorizedMode, DirectTrigger } from './models.js';
 
 export type DetectDirectTriggerInput = {
   botUserId: number;
   botUsername: string | null;
   message: {
-    chatType?: ChatType;
+    authorizedMode?: AuthorizedMode;
     text: string;
     entities?: Array<{ type: string; offset: number; length: number }>;
     replyToUserId: number | null;
@@ -54,7 +54,7 @@ export function decideReplyAction(
 function detectCommandTrigger(
   input: DetectDirectTriggerInput
 ): DirectTrigger | null {
-  if (!allowsCommands(input.message.chatType)) {
+  if (!allowsCommands(input.message.authorizedMode)) {
     return null;
   }
 
@@ -97,13 +97,8 @@ function detectCommandTrigger(
   };
 }
 
-function allowsCommands(chatType: ChatType | undefined): boolean {
-  return (
-    chatType === undefined ||
-    chatType === 'private' ||
-    chatType === 'group' ||
-    chatType === 'supergroup'
-  );
+function allowsCommands(mode: AuthorizedMode | undefined): boolean {
+  return mode === undefined || mode === 'chat';
 }
 
 function parseCommandText(

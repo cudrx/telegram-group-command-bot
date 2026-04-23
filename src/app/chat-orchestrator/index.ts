@@ -60,7 +60,9 @@ export class ChatOrchestrator {
       botUserId: this.deps.bot.userId,
       botUsername: this.deps.bot.username,
       message: {
-        chatType: message.chatType,
+        ...(message.authorizedMode
+          ? { authorizedMode: message.authorizedMode }
+          : {}),
         text: message.text,
         entities: message.entities,
         replyToUserId: message.replyToUserId

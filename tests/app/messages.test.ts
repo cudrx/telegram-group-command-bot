@@ -11,9 +11,13 @@ import {
 describe('createApplication message forwarding', () => {
   installAppTestHooks();
 
+  function createAllowedAppEnv() {
+    return createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 });
+  }
+
   test('forwards text messages from other bots so answer replies can use them as anchors', async () => {
     const { createApplication } = await importCreateApplication();
-    await createApplication(createEnv());
+    await createApplication(createAllowedAppEnv());
 
     await botState.messageHandler?.({
       message: {
@@ -47,7 +51,7 @@ describe('createApplication message forwarding', () => {
 
   test('forwards replied-to text snapshots for answer fallback anchors', async () => {
     const { createApplication } = await importCreateApplication();
-    await createApplication(createEnv());
+    await createApplication(createAllowedAppEnv());
 
     await botState.messageHandler?.({
       message: {
@@ -101,7 +105,7 @@ describe('createApplication message forwarding', () => {
 
   test('forwards media captions as message text', async () => {
     const { createApplication } = await importCreateApplication();
-    await createApplication(createEnv());
+    await createApplication(createAllowedAppEnv());
 
     await botState.messageHandler?.({
       message: {
@@ -142,7 +146,7 @@ describe('createApplication message forwarding', () => {
 
   test('forwards replied-to media captions for answer fallback anchors', async () => {
     const { createApplication } = await importCreateApplication();
-    await createApplication(createEnv());
+    await createApplication(createAllowedAppEnv());
 
     await botState.messageHandler?.({
       message: {

@@ -9,7 +9,8 @@
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
 - командные режимы только для `/summarize`, `/decide`, `/read` и `/answer`
-- обычный `@mention` и обычный private text не запускают LLM
+- бот принимает сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`
+- обычный `@mention`, обычный private text и все команды в `private_admin` сейчас не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
 - сообщения других ботов сохраняются и могут быть reply-якорем для `/answer`
@@ -88,7 +89,8 @@ npm run dev
 - `LOG_LLM_TEXT`
 - `SUMMARIZE_CONTEXT_LIMIT`
 - `DECIDE_CONTEXT_LIMIT`
-- `DEPLOY_NOTIFY_CHAT_ID`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_ADMIN_ID`
 - `SQLITE_PATH`
 
 Шумные runtime-твики вроде LLM timeout/retries, typing delay, log level/color, lookup limits, media providers, file-size limit и retention имеют кодовые дефолты в [`src/config/env.ts`](./src/config/env.ts). Их можно переопределить через окружение точечно, если они остались в схеме, но в `.env.example` они намеренно не лежат.
@@ -150,9 +152,9 @@ docker compose logs bot --tail=200 -f
 - после этого workflow по `SSH` обновляет deploy-артефакты на VPS и делает `docker compose pull && docker compose up -d`
 
 `SQLite` не хранится внутри контейнера. Файл базы лежит на VPS в bind mount-папке `./data`, которая на сервере должна находиться рядом с `compose.yml`, например в `/opt/test-chatbot/data/bot.sqlite`.
-`deploy/.env.server.example` уже включает `MEDIA_ANALYSIS_ENABLED=true`; после копирования проверьте только реальные значения секретов и `DEPLOY_NOTIFY_CHAT_ID`.
+`deploy/.env.server.example` уже включает `MEDIA_ANALYSIS_ENABLED=true`; после копирования проверьте реальные значения секретов, `TELEGRAM_CHAT_ID` и `TELEGRAM_ADMIN_ID`.
 
-Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `DEPLOY_NOTIFY_CHAT_ID`, и только после успешной отправки сохраняет sha.
+Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `TELEGRAM_CHAT_ID`, и только после успешной отправки сохраняет sha.
 
 ## Local Docker Check
 
