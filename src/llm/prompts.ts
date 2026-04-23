@@ -1,41 +1,12 @@
-import type {
-  AssistantIntent,
-  ReplyContext,
-  StoredMessage
-} from '../domain/models.js';
-import type { LookupContext, LookupSource } from '../lookup/types.js';
+import type { AssistantIntent, ReplyContext } from '../domain/models.js';
+import type { LookupContext } from '../lookup/types.js';
 import { loadPrompt } from './prompt-files.js';
-
-export type PromptMessage = Pick<
-  StoredMessage,
-  'messageId' | 'userId' | 'senderDisplayName' | 'text' | 'createdAt' | 'isBot'
->;
-
-export type DescribeMediaContext = {
-  sourceCaption: string | null;
-  visionDescription: string | null;
-  ocrTextRu: string | null;
-  ocrTextDefault: string | null;
-  visionRaw: string | null;
-  visionInterpretation: string | null;
-  audioTranscript: {
-    transcript: string;
-    language: string | null;
-    sourceDurationSeconds: number | null;
-  } | null;
-};
-
-export function formatConversationForLlm(messages: PromptMessage[]): string {
-  return messages
-    .map((message) => {
-      const actor = message.isBot
-        ? `bot ${sanitizePromptText(message.senderDisplayName)}`
-        : `user#${message.userId ?? 'unknown'} ${sanitizePromptText(message.senderDisplayName)}`;
-
-      return `[${message.createdAt}] actor=${actor} content="${sanitizePromptText(message.text)}"`;
-    })
-    .join('\n');
-}
+import { getIntentDataSections } from './prompts/data-sections.js';
+import { formatLookupContext } from './prompts/lookup.js';
+import { renderPromptTemplate } from './prompts/render.js';
+import { sanitizePromptText } from './prompts/sanitize.js';
+export { formatConversationForLlm } from './prompts/transcript.js';
+export type { DescribeMediaContext, PromptMessage } from './prompts/types.js';
 
 export function buildIntentPrompt(input: {
   assistantInstructions: string;
@@ -43,7 +14,7 @@ export function buildIntentPrompt(input: {
   intent: AssistantIntent;
   replyContext: ReplyContext;
   lookupContext?: LookupContext | null;
-  mediaContext?: DescribeMediaContext | null;
+  mediaContext?: import('./prompts/types.js').DescribeMediaContext | null;
 }): string {
   const dataSections = getIntentDataSections(input);
   const lookupSections =
@@ -79,197 +50,4 @@ function getIntentPrompt(intent: AssistantIntent): string {
     case 'answer':
       return loadPrompt('answer');
   }
-}
-
-function getIntentDataSections(input: {
-  intent: AssistantIntent;
-  replyContext: ReplyContext;
-  mediaContext?: DescribeMediaContext | null;
-}): string {
-  if (input.intent === 'explain' || input.intent === 'answer') {
-    return renderPromptTemplate(
-      loadPrompt(input.intent === 'answer' ? 'systemAnswer' : 'systemExplain'),
-      {
-        targetMessage: formatSingleMessage(
-          input.replyContext.replyAnchorMessage
-        ),
-        targetMediaCaption: sanitizePromptText(
-          input.mediaContext?.sourceCaption ?? 'No caption.'
-        ),
-        targetMediaOcrTextRu: sanitizePromptText(
-          input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
-        ),
-        targetMediaOcrTextDefault: sanitizePromptText(
-          input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
-        ),
-        targetMediaVisionDescription: sanitizePromptText(
-          input.mediaContext?.visionDescription ?? 'No vision description.'
-        ),
-        targetMediaRaw: sanitizePromptText(
-          input.mediaContext?.visionRaw ?? 'No media raw context.'
-        ),
-        targetMediaInterpretation: sanitizePromptText(
-          input.mediaContext?.visionInterpretation ??
-            'No media interpretation context.'
-        ),
-        nearbyChatContext: formatReplyContextMessages(
-          input.replyContext.priorContextMessages
-        ),
-        currentCommandMessage: formatCommandMessage(
-          input.replyContext.triggerMessage
-        ),
-        targetLabel:
-          input.intent === 'answer'
-            ? 'TARGET_MESSAGE_TO_ANSWER'
-            : 'TARGET_MESSAGE_TO_EXPLAIN',
-        commandName: input.intent
-      }
-    );
-  }
-
-  if (input.intent === 'read') {
-    return renderPromptTemplate(loadPrompt('systemRead'), {
-      currentCommandMessage: formatCommandMessage(
-        input.replyContext.triggerMessage
-      ),
-      caption: sanitizePromptText(
-        input.mediaContext?.sourceCaption ?? 'No caption.'
-      ),
-      ocrTextRu: sanitizePromptText(
-        input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
-      ),
-      ocrTextDefault: sanitizePromptText(
-        input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
-      ),
-      visionDescription: sanitizePromptText(
-        input.mediaContext?.visionDescription ?? 'No vision description.'
-      ),
-      visionRaw: sanitizePromptText(
-        input.mediaContext?.visionRaw ?? 'No vision raw context.'
-      ),
-      visionInterpretation: sanitizePromptText(
-        input.mediaContext?.visionInterpretation ??
-          'No vision interpretation context.'
-      ),
-      audioTranscript: formatJsonForPrompt(
-        input.mediaContext?.audioTranscript ?? null
-      ),
-      chatContext: formatReplyContextMessages(
-        input.replyContext.priorContextMessages
-      ),
-      commandName: input.intent
-    });
-  }
-
-  return renderPromptTemplate(loadPrompt('systemGeneric'), {
-    currentCommandMessage: formatCommandMessage(
-      input.replyContext.triggerMessage
-    ),
-    chatContext: formatReplyContextMessages(
-      input.replyContext.priorContextMessages
-    )
-  });
-}
-
-function formatSingleMessage(message: PromptMessage | null): string {
-  if (!message) {
-    return 'No message available.';
-  }
-
-  return formatConversationForLlm([message]);
-}
-
-function formatCommandMessage(message: PromptMessage | null): string {
-  if (!message) {
-    return 'No message available.';
-  }
-
-  return formatConversationForLlm([
-    {
-      ...message,
-      text: extractCommandText(message.text)
-    }
-  ]);
-}
-
-function formatReplyContextMessages(messages: PromptMessage[]): string {
-  return renderPromptTemplate(loadPrompt('systemTranscript'), {
-    transcript: formatConversationForLlm(messages)
-  });
-}
-
-function formatLookupContext(context: LookupContext): string {
-  return [
-    loadPrompt('lookupContext'),
-    `status=${sanitizePromptText(context.status)}`,
-    `provider=${context.provider ? sanitizePromptText(context.provider) : 'null'}`,
-    `purpose=${sanitizePromptText(context.decision.purpose)}`,
-    `confidence=${sanitizePromptText(context.decision.confidence)}`,
-    `reason="${sanitizePromptText(context.decision.reason)}"`,
-    `query=${context.query ? `"${sanitizePromptText(context.query)}"` : 'null'}`,
-    `responseTimeMs=${context.responseTimeMs ?? 'null'}`,
-    `usageCredits=${context.usageCredits ?? 'null'}`,
-    `error=${context.errorMessage ? `"${sanitizePromptText(context.errorMessage)}"` : 'null'}`,
-    'BEGIN LOOKUP SOURCES',
-    ...context.sources.map((source, index) =>
-      formatLookupSource(source, index)
-    ),
-    'END LOOKUP SOURCES'
-  ].join('\n');
-}
-
-function formatLookupSource(source: LookupSource, index: number): string {
-  return [
-    `source#${index + 1}`,
-    `title="${sanitizePromptText(source.title)}"`,
-    `url="${sanitizePromptText(source.url)}"`,
-    `score=${source.score ?? 'null'}`,
-    `content="${sanitizePromptText(source.content)}"`
-  ].join(' ');
-}
-
-function formatJsonForPrompt(value: unknown): string {
-  return JSON.stringify(value, null, 2)
-    .replace(/```/g, '[triple-backticks]')
-    .replace(
-      /\b(BEGIN|END) (CHAT TRANSCRIPT|LOOKUP SOURCES)\b/gi,
-      (match) => `[quoted-${match.toUpperCase()}]`
-    )
-    .replace(
-      /\b(system|assistant|developer|user)\s*:/gi,
-      (_match, role: string) => `[quoted-${role.toLowerCase()}-marker]`
-    );
-}
-
-function sanitizePromptText(value: string): string {
-  return value
-    .replace(/```/g, '[triple-backticks]')
-    .replace(/\r?\n+/g, ' \\n ')
-    .replace(
-      /\b(BEGIN|END) (CHAT TRANSCRIPT|LOOKUP SOURCES)\b/gi,
-      (match) => `[quoted-${match.toUpperCase()}]`
-    )
-    .replace(
-      /\b(system|assistant|developer|user)\s*:/gi,
-      (_match, role: string) => `[quoted-${role.toLowerCase()}-marker]`
-    )
-    .replace(/"/g, '\\"')
-    .trim();
-}
-
-function extractCommandText(text: string): string {
-  return text.trim().split(/\s+/, 1)[0] ?? '';
-}
-
-function renderPromptTemplate(
-  template: string,
-  values: Record<string, string>
-): string {
-  return Object.entries(values)
-    .reduce(
-      (rendered, [key, value]) =>
-        rendered.replaceAll(`{{${key}}}`, () => value),
-      template
-    )
-    .trim();
 }
