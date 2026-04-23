@@ -1,4 +1,5 @@
 import type { AppEnv } from '../../config/env/index.js';
+import type { DatabaseClient } from '../../database/index.js';
 import type {
   AssistantIntent,
   MediaMessageSnapshot,
@@ -17,7 +18,6 @@ import type {
   SpeechToTextProvider,
   VisionProvider
 } from '../../media/types.js';
-import type { DatabaseClient } from '../../database/index.js';
 
 export type BotIdentity = {
   userId: number;

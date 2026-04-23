@@ -3,11 +3,7 @@ import {
   buildLookupPlannerPrompt,
   parseLookupDecisionResult
 } from '../lookup-planner.js';
-import {
-  estimateTokens,
-  logLlmText,
-  toSingleLinePreview
-} from './logging.js';
+import { estimateTokens, logLlmText, toSingleLinePreview } from './logging.js';
 import { withRetry } from './retry.js';
 import type {
   ChatCompletionsCreate,

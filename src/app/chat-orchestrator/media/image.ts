@@ -1,15 +1,15 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
-import { serializeError, type AppLogger } from '../../../logging/logger.js';
+import { type AppLogger, serializeError } from '../../../logging/logger.js';
 import {
   IMAGE_DESCRIPTION_ARTIFACT_KIND,
   IMAGE_DESCRIPTION_PROVIDER,
   IMAGE_INTERPRETATION_ARTIFACT_KIND,
   IMAGE_INTERPRETATION_PROVIDER,
+  isEmptyOcrResultMarker,
   OCR_PROVIDER,
   OCR_TEXT_DEFAULT_ARTIFACT_KIND,
-  OCR_TEXT_RU_ARTIFACT_KIND,
-  isEmptyOcrResultMarker
+  OCR_TEXT_RU_ARTIFACT_KIND
 } from '../helpers.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { getCachedImageArtifact, getLatestImageArtifact } from './cache.js';

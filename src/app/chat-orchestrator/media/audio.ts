@@ -1,8 +1,8 @@
+import type { MediaMessageSnapshot } from '../../../domain/models.js';
+import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import type { AppLogger } from '../../../logging/logger.js';
 import { serializeError } from '../../../logging/logger.js';
 import { downloadTelegramFileToTemp } from '../../../media/telegram-media.js';
-import type { MediaMessageSnapshot } from '../../../domain/models.js';
-import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import type { NormalizedMediaArtifact } from '../../../media/types.js';
 import {
   addDaysIso,

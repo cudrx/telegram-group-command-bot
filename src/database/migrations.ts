@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
 export function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, 'messages', 'media_kind', 'TEXT');

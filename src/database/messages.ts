@@ -1,9 +1,12 @@
-import Database from 'better-sqlite3';
+import type Database from 'better-sqlite3';
 
 import type { ChatState } from '../domain/models.js';
-import type { NormalizedMessage, StoredMessage } from './types.js';
-import type { StoredMessageRow } from './types.js';
 import { toStoredMessage } from './rows.js';
+import type {
+  NormalizedMessage,
+  StoredMessage,
+  StoredMessageRow
+} from './types.js';
 
 type SaveBotMessageInput = {
   chatId: number;

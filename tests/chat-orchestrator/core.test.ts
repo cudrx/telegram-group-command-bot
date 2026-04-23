@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-
-import { loadPrompt } from '../../src/llm/prompt-files.js';
 import type { NormalizedMessage } from '../../src/domain/models.js';
+import { loadPrompt } from '../../src/llm/prompt-files.js';
 import {
   createIncomingMessage,
   createLogger,

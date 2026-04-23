@@ -2,9 +2,6 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 
 import Database from 'better-sqlite3';
-
-import type { ChatState, NormalizedMessage, StoredMessage } from './types.js';
-import type { SaveMediaArtifactInput, StoredMediaArtifact } from './types.js';
 import {
   cleanupExpiredData,
   getLatestMediaArtifact,
@@ -13,7 +10,6 @@ import {
   saveMediaArtifact
 } from './artifacts.js';
 import { normalizeDatabaseOpenError } from './errors.js';
-import { migrateExistingSchema } from './migrations.js';
 import {
   getChatState,
   getMessageByTelegramMessageId,
@@ -22,7 +18,15 @@ import {
   saveBotMessage,
   saveIncomingMessage
 } from './messages.js';
+import { migrateExistingSchema } from './migrations.js';
 import { schema } from './schema.js';
+import type {
+  ChatState,
+  NormalizedMessage,
+  SaveMediaArtifactInput,
+  StoredMediaArtifact,
+  StoredMessage
+} from './types.js';
 
 export type {
   MediaArtifactStatus,

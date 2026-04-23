@@ -12,8 +12,8 @@ import { buildReplyContext } from '../reply-context-builder.js';
 import { formatTelegramHtmlReply } from '../telegram-html.js';
 import {
   ANSWER_USAGE_PLACEHOLDER,
-  EXPLAIN_USAGE_PLACEHOLDER,
   createLocalReplyResult,
+  EXPLAIN_USAGE_PLACEHOLDER,
   getContextLimitForIntent,
   runWithReplyTyping,
   withReplySnapshotFallback

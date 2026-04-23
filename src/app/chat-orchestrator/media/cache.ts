@@ -1,19 +1,19 @@
+import type { StoredMediaArtifact } from '../../../database/index.js';
 import type {
   MediaMessageSnapshot,
   ReplyContext
 } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
-import type { StoredMediaArtifact } from '../../../database/index.js';
 import {
+  artifactFromStoredMediaArtifact,
+  buildTranscriptMediaContext,
   IMAGE_DESCRIPTION_ARTIFACT_KIND,
   IMAGE_DESCRIPTION_PROVIDER,
   IMAGE_INTERPRETATION_ARTIFACT_KIND,
   IMAGE_INTERPRETATION_PROVIDER,
   OCR_PROVIDER,
   OCR_TEXT_DEFAULT_ARTIFACT_KIND,
-  OCR_TEXT_RU_ARTIFACT_KIND,
-  artifactFromStoredMediaArtifact,
-  buildTranscriptMediaContext
+  OCR_TEXT_RU_ARTIFACT_KIND
 } from '../helpers.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 

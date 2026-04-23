@@ -22,7 +22,9 @@ describe('ChatOrchestrator media image healing', () => {
       language: 'rus'
     });
 
-    const generateReply = createReplyResultStub('Интерпретация из partial cache');
+    const generateReply = createReplyResultStub(
+      'Интерпретация из partial cache'
+    );
     const replyDispatcher = createReplyDispatcher();
     const orchestrator = createOrchestrator({
       db,

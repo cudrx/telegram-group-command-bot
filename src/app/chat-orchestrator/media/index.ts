@@ -1,20 +1,20 @@
-import { loadPrompt } from '../../../llm/prompt-files.js';
-import type { DescribeMediaContext } from '../../../llm/prompts.js';
-import type { AppLogger } from '../../../logging/logger.js';
 import type {
   MediaMessageSnapshot,
   ReplyContext,
   StoredMessage
 } from '../../../domain/models.js';
 import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
+import { loadPrompt } from '../../../llm/prompt-files.js';
+import type { DescribeMediaContext } from '../../../llm/prompts.js';
+import type { AppLogger } from '../../../logging/logger.js';
 import { buildReplyContext } from '../../reply-context-builder.js';
 import {
+  appendMediaSummaryToMessageText,
+  createLocalReplyResult,
   NEARBY_MEDIA_SCAN_LIMIT,
   READ_DISABLED_PLACEHOLDER,
   READ_FAILED_PLACEHOLDER,
   READ_USAGE_PLACEHOLDER,
-  appendMediaSummaryToMessageText,
-  createLocalReplyResult,
   runWithReplyTyping
 } from '../helpers.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';

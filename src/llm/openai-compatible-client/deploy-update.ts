@@ -1,9 +1,5 @@
 import { buildDeployUpdatePrompt } from '../deploy-update-prompt.js';
-import {
-  estimateTokens,
-  logLlmText,
-  toSingleLinePreview
-} from './logging.js';
+import { estimateTokens, logLlmText, toSingleLinePreview } from './logging.js';
 import { withRetry } from './retry.js';
 import type {
   ChatCompletionsCreate,

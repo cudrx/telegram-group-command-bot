@@ -1,13 +1,14 @@
 import type { AssistantIntent, ReplyContext } from '../../domain/models.js';
+import type { LookupPlanResult } from '../../llm/openai-compatible-client/index.js';
 import type { AppLogger } from '../../logging/logger.js';
 import { serializeError } from '../../logging/logger.js';
 import type { LookupContext, LookupIntent } from '../../lookup/types.js';
-import type { ChatOrchestratorDeps } from './types.js';
 import {
   createFailedLookupDecision,
   createLookupContext,
   isTimeoutError
 } from './helpers.js';
+import type { ChatOrchestratorDeps } from './types.js';
 
 export async function buildLookupContext(
   deps: Pick<ChatOrchestratorDeps, 'env' | 'lookupProvider' | 'qwen'>,
@@ -27,7 +28,7 @@ export async function buildLookupContext(
     return null;
   }
 
-  let plan;
+  let plan: LookupPlanResult;
 
   try {
     plan = await deps.qwen.planLookup({

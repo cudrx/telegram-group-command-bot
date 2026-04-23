@@ -5,9 +5,9 @@ import type { AppEnv } from '../../../src/config/env/index.js';
 import type { AppLogger } from '../../../src/logging/logger.js';
 import type { LookupProvider } from '../../../src/lookup/types.js';
 import { createEnv } from './env.js';
-import { FakeDatabaseClient } from './fake-database.js';
+import type { FakeDatabaseClient } from './fake-database.js';
+import { createLookupPlanResult, type createReplyResult } from './llm.js';
 import { createLogger } from './logger.js';
-import { createLookupPlanResult, createReplyResult } from './llm.js';
 
 export function createOrchestrator(input: {
   db: FakeDatabaseClient;

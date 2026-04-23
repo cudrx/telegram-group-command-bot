@@ -1,4 +1,5 @@
 import type { AppEnv } from '../../config/env/index.js';
+import type { StoredMediaArtifact } from '../../database/index.js';
 import type {
   AssistantIntent,
   MediaMessageSnapshot,
@@ -13,9 +14,8 @@ import type {
   LookupIntent
 } from '../../lookup/types.js';
 import type { NormalizedMediaArtifact } from '../../media/types.js';
-import type { StoredMediaArtifact } from '../../database/index.js';
-import type { ChatOrchestratorDeps } from './types.js';
 import { withTypingIndicator } from '../typing-indicator.js';
+import type { ChatOrchestratorDeps } from './types.js';
 
 export const EXPLAIN_USAGE_PLACEHOLDER =
   'Сделай reply на сообщение с вопросом и отправь /explain.';

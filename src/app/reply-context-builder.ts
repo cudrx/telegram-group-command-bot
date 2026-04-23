@@ -1,9 +1,9 @@
+import type { DatabaseClient } from '../database/index.js';
 import type {
   AssistantIntent,
   ReplyContext,
   StoredMessage
 } from '../domain/models.js';
-import type { DatabaseClient } from '../database/index.js';
 
 type ReplyContextDb = Pick<
   DatabaseClient,

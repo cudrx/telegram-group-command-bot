@@ -1,7 +1,4 @@
-import type {
-  AssistantIntent,
-  ReplyContext
-} from '../../src/domain/models.js';
+import type { AssistantIntent, ReplyContext } from '../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../src/llm/prompts.js';
 
 export type IntentEvalRubric = {

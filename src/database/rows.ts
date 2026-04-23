@@ -1,7 +1,4 @@
-import type {
-  MediaMessageSnapshot,
-  StoredMessage
-} from '../domain/models.js';
+import type { MediaMessageSnapshot, StoredMessage } from '../domain/models.js';
 import type {
   MediaArtifactStatus,
   StoredMediaArtifact,

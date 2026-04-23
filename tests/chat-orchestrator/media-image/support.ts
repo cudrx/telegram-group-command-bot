@@ -4,7 +4,7 @@ import type { SaveMediaArtifactInput } from '../../../src/database/index.js';
 import {
   createIncomingMessage,
   createReplyResult,
-  FakeDatabaseClient
+  type FakeDatabaseClient
 } from '../support.js';
 
 export function createReadImageMessage() {
@@ -137,7 +137,9 @@ export function createSuccessfulDownloadDeps() {
     },
     fetch: vi
       .fn()
-      .mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))) as typeof fetch
+      .mockResolvedValue(
+        new Response(new Uint8Array([1, 2, 3]))
+      ) as typeof fetch
   };
 }
 
@@ -152,9 +154,7 @@ export function createVisionProvider(rawText: string) {
   };
 }
 
-export function createOcrProvider(
-  getText: (language: 'rus' | null) => string
-) {
+export function createOcrProvider(getText: (language: 'rus' | null) => string) {
   return {
     extractText: vi.fn().mockImplementation(async (input) => ({
       provider: 'ocr_space',

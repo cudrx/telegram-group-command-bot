@@ -1,6 +1,9 @@
 import { readFileSync } from 'node:fs';
 
-import type { AssistantIntent, StoredMessage } from '../../src/domain/models.js';
+import type {
+  AssistantIntent,
+  StoredMessage
+} from '../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../src/llm/prompts.js';
 import type { IntentEvalFixture } from './types.js';
 

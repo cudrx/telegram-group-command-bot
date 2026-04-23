@@ -1,11 +1,10 @@
-import Database from 'better-sqlite3';
-
+import type Database from 'better-sqlite3';
+import { stringifyJson, toStoredMediaArtifact } from './rows.js';
 import type {
   SaveMediaArtifactInput,
   StoredMediaArtifact,
   StoredMediaArtifactRow
 } from './types.js';
-import { stringifyJson, toStoredMediaArtifact } from './rows.js';
 
 export function saveMediaArtifact(
   db: Database.Database,
