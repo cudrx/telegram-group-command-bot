@@ -6,8 +6,105 @@ import {
   createReplyResult,
   FakeDatabaseClient
 } from '../support.js';
+import {
+  createOcrProvider,
+  createReplyDispatcher,
+  createSuccessfulDownloadDeps
+} from '../media-image/support.js';
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+
+  return { promise, resolve, reject };
+}
 
 describe('ChatOrchestrator media context target media', () => {
+  test('starts reply typing before target media analysis completes for answer', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: 'это что на картинке?',
+        createdAt: '2026-04-03T12:00:00.000Z',
+        mediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+
+    const visionDeferred = createDeferred<{
+      provider: 'cloudflare';
+      providerModel: string;
+      rawText: string;
+      rawResponse: unknown;
+    }>();
+    const generateReply = vi.fn().mockResolvedValue(createReplyResult('держи'));
+    const replyDispatcher = createReplyDispatcher();
+    const sendTyping = vi.fn().mockResolvedValue(undefined);
+    const downloadDeps = createSuccessfulDownloadDeps();
+    const visionProvider = {
+      describe: vi.fn().mockReturnValue(visionDeferred.promise)
+    };
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      sendTyping,
+      env: { mediaAnalysisEnabled: true },
+      ...downloadDeps,
+      visionProvider,
+      ocrProvider: createOcrProvider(() => '')
+    });
+
+    const handling = orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        replyToMessageId: 1,
+        replyToMediaSnapshot: {
+          messageId: 1,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: 'image/jpeg',
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+
+    try {
+      await vi.waitFor(() => {
+        expect(visionProvider.describe).toHaveBeenCalled();
+      });
+
+      expect(sendTyping).toHaveBeenCalledWith(1);
+    } finally {
+      visionDeferred.resolve({
+        provider: 'cloudflare',
+        providerModel: '@cf/meta/llama-3.2-11b-vision-instruct',
+        rawText: 'описание картинки',
+        rawResponse: { response: 'описание картинки' }
+      });
+      await handling;
+    }
+  });
+
   test('does not download target media for /answer when media analysis is disabled', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(

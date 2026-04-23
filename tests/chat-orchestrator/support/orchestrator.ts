@@ -58,6 +58,7 @@ export function createOrchestrator(input: {
   fetch?: typeof fetch | undefined;
   env?: Partial<AppEnv>;
   logger?: AppLogger;
+  sendTyping?: (chatId: number) => Promise<void>;
 }): ChatOrchestrator {
   return new ChatOrchestrator({
     db: input.db as never,
@@ -88,7 +89,7 @@ export function createOrchestrator(input: {
       displayName: 'Fun Bot'
     },
     replyDispatcher: input.replyDispatcher,
-    sendTyping: vi.fn().mockResolvedValue(undefined),
+    sendTyping: input.sendTyping ?? vi.fn().mockResolvedValue(undefined),
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),
     random: () => 0,

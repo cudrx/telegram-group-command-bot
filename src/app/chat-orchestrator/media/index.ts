@@ -14,8 +14,7 @@ import {
   NEARBY_MEDIA_SCAN_LIMIT,
   READ_DISABLED_PLACEHOLDER,
   READ_FAILED_PLACEHOLDER,
-  READ_USAGE_PLACEHOLDER,
-  runWithReplyTyping
+  READ_USAGE_PLACEHOLDER
 } from '../helpers.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { ensureAudioMediaContext } from './audio.js';
@@ -77,16 +76,14 @@ export class ChatOrchestratorMediaSupport {
       botUserId: this.deps.bot.userId
     });
 
-    return runWithReplyTyping(this.deps, request.chatId, async () =>
-      this.deps.qwen.generateReply({
-        assistantInstructions: loadPrompt('base'),
-        targetDisplayName: request.fromDisplayName,
-        intent: request.intent,
-        replyContext,
-        lookupContext: null,
-        mediaContext
-      })
-    );
+    return this.deps.qwen.generateReply({
+      assistantInstructions: loadPrompt('base'),
+      targetDisplayName: request.fromDisplayName,
+      intent: request.intent,
+      replyContext,
+      lookupContext: null,
+      mediaContext
+    });
   }
 
   async buildTargetMediaContext(

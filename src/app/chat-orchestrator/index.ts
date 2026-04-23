@@ -104,7 +104,11 @@ export class ChatOrchestrator {
         replyToMessageId: request.triggerMessageId
       });
 
-      const result = await this.executeReplyGeneration(request, logger);
+      const result = await runWithReplyTyping(
+        this.deps,
+        request.chatId,
+        async () => this.executeReplyGeneration(request, logger)
+      );
 
       if (!result) {
         logger.debug('reply_job_skipped', {
@@ -204,22 +208,20 @@ export class ChatOrchestrator {
       logger
     );
 
-    return runWithReplyTyping(this.deps, request.chatId, async () => {
-      const assistantInstructions = loadPrompt('base');
-      const lookupContext = await buildLookupContext(this.deps, {
-        intent: request.intent,
-        replyContext,
-        logger
-      });
+    const assistantInstructions = loadPrompt('base');
+    const lookupContext = await buildLookupContext(this.deps, {
+      intent: request.intent,
+      replyContext,
+      logger
+    });
 
-      return this.deps.qwen.generateReply({
-        assistantInstructions,
-        targetDisplayName: request.fromDisplayName,
-        intent: request.intent,
-        replyContext,
-        lookupContext,
-        mediaContext: targetMediaContext
-      });
+    return this.deps.qwen.generateReply({
+      assistantInstructions,
+      targetDisplayName: request.fromDisplayName,
+      intent: request.intent,
+      replyContext,
+      lookupContext,
+      mediaContext: targetMediaContext
     });
   }
 }
