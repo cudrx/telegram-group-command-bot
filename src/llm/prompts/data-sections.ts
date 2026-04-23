@@ -1,0 +1,100 @@
+import type { AssistantIntent, ReplyContext } from '../../domain/models.js';
+import { loadPrompt } from '../prompt-files.js';
+import { renderPromptTemplate } from './render.js';
+import { formatJsonForPrompt, sanitizePromptText } from './sanitize.js';
+import {
+  formatCommandMessage,
+  formatReplyContextMessages,
+  formatSingleMessage
+} from './transcript.js';
+import type { DescribeMediaContext } from './types.js';
+
+export function getIntentDataSections(input: {
+  intent: AssistantIntent;
+  replyContext: ReplyContext;
+  mediaContext?: DescribeMediaContext | null;
+}): string {
+  if (input.intent === 'explain' || input.intent === 'answer') {
+    return renderPromptTemplate(
+      loadPrompt(input.intent === 'answer' ? 'systemAnswer' : 'systemExplain'),
+      {
+        targetMessage: formatSingleMessage(
+          input.replyContext.replyAnchorMessage
+        ),
+        targetMediaCaption: sanitizePromptText(
+          input.mediaContext?.sourceCaption ?? 'No caption.'
+        ),
+        targetMediaOcrTextRu: sanitizePromptText(
+          input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
+        ),
+        targetMediaOcrTextDefault: sanitizePromptText(
+          input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
+        ),
+        targetMediaVisionDescription: sanitizePromptText(
+          input.mediaContext?.visionDescription ?? 'No vision description.'
+        ),
+        targetMediaRaw: sanitizePromptText(
+          input.mediaContext?.visionRaw ?? 'No media raw context.'
+        ),
+        targetMediaInterpretation: sanitizePromptText(
+          input.mediaContext?.visionInterpretation ??
+            'No media interpretation context.'
+        ),
+        nearbyChatContext: formatReplyContextMessages(
+          input.replyContext.priorContextMessages
+        ),
+        currentCommandMessage: formatCommandMessage(
+          input.replyContext.triggerMessage
+        ),
+        targetLabel:
+          input.intent === 'answer'
+            ? 'TARGET_MESSAGE_TO_ANSWER'
+            : 'TARGET_MESSAGE_TO_EXPLAIN',
+        commandName: input.intent
+      }
+    );
+  }
+
+  if (input.intent === 'read') {
+    return renderPromptTemplate(loadPrompt('systemRead'), {
+      currentCommandMessage: formatCommandMessage(
+        input.replyContext.triggerMessage
+      ),
+      caption: sanitizePromptText(
+        input.mediaContext?.sourceCaption ?? 'No caption.'
+      ),
+      ocrTextRu: sanitizePromptText(
+        input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
+      ),
+      ocrTextDefault: sanitizePromptText(
+        input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
+      ),
+      visionDescription: sanitizePromptText(
+        input.mediaContext?.visionDescription ?? 'No vision description.'
+      ),
+      visionRaw: sanitizePromptText(
+        input.mediaContext?.visionRaw ?? 'No vision raw context.'
+      ),
+      visionInterpretation: sanitizePromptText(
+        input.mediaContext?.visionInterpretation ??
+          'No vision interpretation context.'
+      ),
+      audioTranscript: formatJsonForPrompt(
+        input.mediaContext?.audioTranscript ?? null
+      ),
+      chatContext: formatReplyContextMessages(
+        input.replyContext.priorContextMessages
+      ),
+      commandName: input.intent
+    });
+  }
+
+  return renderPromptTemplate(loadPrompt('systemGeneric'), {
+    currentCommandMessage: formatCommandMessage(
+      input.replyContext.triggerMessage
+    ),
+    chatContext: formatReplyContextMessages(
+      input.replyContext.priorContextMessages
+    )
+  });
+}

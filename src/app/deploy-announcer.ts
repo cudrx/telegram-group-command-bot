@@ -1,4 +1,4 @@
-import type { LlmReplyResult } from '../llm/openai-compatible-llm-client.js';
+import type { LlmReplyResult } from '../llm/openai-compatible-client/index.js';
 import { type AppLogger, serializeError } from '../logging/logger.js';
 import {
   type DeployMetadataLoadResult,

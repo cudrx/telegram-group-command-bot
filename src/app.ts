@@ -1,14 +1,14 @@
 import { Bot } from 'grammy';
-import { ChatOrchestrator } from './app/chat-orchestrator.js';
+import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
-import type { AppEnv } from './config/env.js';
-import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-llm-client.js';
+import type { AppEnv } from './config/env/index.js';
+import { DatabaseClient } from './database/index.js';
+import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-client/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
 import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js';
 import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
 import { OcrSpaceProvider } from './media/ocr-space-provider.js';
-import { DatabaseClient } from './storage/database.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
 
 export type Application = {
