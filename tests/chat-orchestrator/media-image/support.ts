@@ -9,11 +9,9 @@ import {
 
 export function createReadImageMessage() {
   return createIncomingMessage({
-    messageId: 2,
-    text: '/read',
-    entities: [{ type: 'bot_command', offset: 0, length: 5 }],
-    replyToMessageId: 90,
-    replyToMediaSnapshot: {
+    messageId: 90,
+    text: '',
+    mediaSnapshot: {
       messageId: 90,
       mediaKind: 'photo',
       fileId: 'photo-file',

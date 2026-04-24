@@ -18,6 +18,7 @@ import {
 } from '../helpers.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { ensureAudioMediaContext } from './audio.js';
+import { MediaAutoReadCoordinator } from './auto-read.js';
 import {
   getCachedMediaContext,
   getPreferredMediaSummary,
@@ -26,7 +27,24 @@ import {
 import { ensureImageMediaContext } from './image.js';
 
 export class ChatOrchestratorMediaSupport {
-  constructor(private readonly deps: ChatOrchestratorDeps) {}
+  private readonly autoRead: MediaAutoReadCoordinator;
+
+  constructor(private readonly deps: ChatOrchestratorDeps) {
+    this.autoRead = new MediaAutoReadCoordinator(this.deps, (input) =>
+      this.ensureMediaContext(input)
+    );
+  }
+
+  startAutoReadForIncomingMessage(
+    message: StoredMessage,
+    logger: AppLogger
+  ): void {
+    if (!this.deps.env.mediaAnalysisEnabled) {
+      return;
+    }
+
+    this.autoRead.startForIncomingMessage(message, logger);
+  }
 
   async executeReadGeneration(
     request: ReplyRequest,
@@ -111,9 +129,13 @@ export class ChatOrchestratorMediaSupport {
   async enrichReplyContextWithNearbyMedia(
     request: ReplyRequest,
     replyContext: ReplyContext,
-    logger: AppLogger
+    _logger: AppLogger
   ): Promise<ReplyContext> {
-    if (request.intent !== 'decide' && request.intent !== 'answer') {
+    if (
+      request.intent !== 'decide' &&
+      request.intent !== 'answer' &&
+      request.intent !== 'summarize'
+    ) {
       return replyContext;
     }
 
@@ -125,8 +147,6 @@ export class ChatOrchestratorMediaSupport {
     const nearbyMediaMessages = nearbyWindow.filter(
       (message) => message.mediaSnapshot
     );
-
-    await this.warmNewestNearbyMedia(request, nearbyMediaMessages, logger);
 
     const cachedArtifacts = this.deps.db.getSuccessfulMediaArtifactsForMessages(
       {
@@ -171,36 +191,74 @@ export class ChatOrchestratorMediaSupport {
     };
   }
 
-  private async warmNewestNearbyMedia(
+  async waitForRequiredMedia(
     request: ReplyRequest,
-    nearbyMediaMessages: Array<
-      StoredMessage & { mediaSnapshot?: MediaMessageSnapshot | null }
-    >,
+    replyContext: ReplyContext,
+    logger: AppLogger
+  ): Promise<{ ok: true } | { ok: false }> {
+    if (!this.deps.env.mediaAnalysisEnabled) {
+      return { ok: true };
+    }
+
+    const media = this.getRequiredMediaForIntent(request, replyContext);
+
+    for (const item of media) {
+      const result = await this.autoRead.ensureComplete({
+        request,
+        media: item,
+        logger,
+        startIfMissing: true
+      });
+
+      if (result?.status === 'failed') {
+        return { ok: false };
+      }
+    }
+
+    return { ok: true };
+  }
+
+  async waitForOptionalInFlightMedia(
+    request: ReplyRequest,
+    replyContext: ReplyContext,
     logger: AppLogger
   ): Promise<void> {
-    const newestMediaMessage =
-      nearbyMediaMessages[nearbyMediaMessages.length - 1] ?? null;
-
-    if (!newestMediaMessage?.mediaSnapshot) {
+    if (request.intent !== 'summarize') {
       return;
     }
 
-    const hasCached = getPreferredMediaSummary(
-      this.deps.db.getSuccessfulMediaArtifactsForMessages({
-        chatId: request.chatId,
-        messageIds: [newestMediaMessage.messageId]
-      }),
-      newestMediaMessage.messageId,
-      newestMediaMessage.mediaSnapshot.mediaKind
-    );
+    const mediaItems = replyContext.priorContextMessages
+      .map((message) => message.mediaSnapshot ?? null)
+      .filter((media): media is MediaMessageSnapshot => Boolean(media));
 
-    if (!hasCached && this.deps.env.mediaAnalysisEnabled) {
-      await this.ensureMediaContext({
-        request,
-        media: newestMediaMessage.mediaSnapshot,
-        logger
-      });
+    await Promise.all(
+      mediaItems.map((media) =>
+        this.autoRead.ensureComplete({
+          request,
+          media,
+          logger,
+          startIfMissing: false
+        })
+      )
+    );
+  }
+
+  private getRequiredMediaForIntent(
+    request: ReplyRequest,
+    replyContext: ReplyContext
+  ): MediaMessageSnapshot[] {
+    if (request.intent === 'answer') {
+      const target = getTargetMediaSnapshot(request, replyContext);
+      return target ? [target] : [];
     }
+
+    if (request.intent === 'decide') {
+      return replyContext.priorContextMessages
+        .map((message) => message.mediaSnapshot ?? null)
+        .filter((media): media is MediaMessageSnapshot => Boolean(media));
+    }
+
+    return [];
   }
 
   private ensureMediaContext(input: {

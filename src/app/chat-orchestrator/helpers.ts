@@ -34,6 +34,11 @@ export const OCR_TEXT_DEFAULT_ARTIFACT_KIND = 'ocr_text_default';
 export const IMAGE_INTERPRETATION_PROVIDER = 'deepseek';
 export const IMAGE_INTERPRETATION_ARTIFACT_KIND = 'vision_interpretation';
 export const EMPTY_OCR_RESULT_MARKER = 'empty_result';
+export const AUTO_READ_MAX_ATTEMPTS = 2;
+export const AUTO_READ_FAILED_PROVIDER = 'auto_read';
+export const AUTO_READ_FAILED_MODEL = 'auto_read';
+export const AUTO_READ_FAILED_ARTIFACT_KIND = 'auto_read';
+export const AUTO_READ_FAILED_ERROR_TEXT_MAX_LENGTH = 500;
 
 export function withReplySnapshotFallback(
   context: ReplyContext,
@@ -172,6 +177,10 @@ export function addDaysIso(value: string, days: number): string {
   return new Date(
     new Date(value).getTime() + days * 24 * 60 * 60 * 1000
   ).toISOString();
+}
+
+export function toShortErrorText(error: Error): string {
+  return error.message.slice(0, AUTO_READ_FAILED_ERROR_TEXT_MAX_LENGTH);
 }
 
 export function isEmptyOcrResultMarker(

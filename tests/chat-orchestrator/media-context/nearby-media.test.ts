@@ -1,6 +1,12 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+  createOcrProvider,
+  createReplyDispatcher,
+  createSuccessfulDownloadDeps,
+  createVisionProvider
+} from '../media-image/support.js';
+import {
   createIncomingMessage,
   createOrchestrator,
   createReplyResult,
@@ -89,6 +95,105 @@ describe('ChatOrchestrator media context nearby media', () => {
             expect.objectContaining({
               messageId: 1,
               text: '[media] привет из прошлого войса'
+            })
+          ])
+        })
+      })
+    );
+  });
+
+  test('summarize does not start missing media read', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        text: '',
+        mediaSnapshot: {
+          messageId: 10,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: null,
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('summary'));
+    const telegramFileApi = { getFile: vi.fn() };
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher: createReplyDispatcher(),
+      env: { mediaAnalysisEnabled: true, summarizeContextLimit: 8 },
+      telegramFileApi
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 11,
+        text: '/summarize',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
+      })
+    );
+
+    expect(telegramFileApi.getFile).not.toHaveBeenCalled();
+    expect(generateReply).toHaveBeenCalled();
+  });
+
+  test('summarize waits for in-flight media and includes successful summaries', async () => {
+    const db = new FakeDatabaseClient();
+    const { telegramFileApi, fetch } = createSuccessfulDownloadDeps();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('summary'));
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher: createReplyDispatcher(),
+      env: { mediaAnalysisEnabled: true, summarizeContextLimit: 8 },
+      visionProvider: createVisionProvider('новая картинка'),
+      ocrProvider: createOcrProvider(() => ''),
+      telegramFileApi,
+      fetch
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        text: '',
+        mediaSnapshot: {
+          messageId: 10,
+          mediaKind: 'photo',
+          fileId: 'photo-file',
+          fileUniqueId: 'photo-unique',
+          mimeType: null,
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 11,
+        text: '/summarize',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyContext: expect.objectContaining({
+          priorContextMessages: expect.arrayContaining([
+            expect.objectContaining({
+              messageId: 10,
+              text: '[media] summary'
             })
           ])
         })

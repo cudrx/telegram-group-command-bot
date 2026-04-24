@@ -48,12 +48,10 @@ describe('ChatOrchestrator media image cache', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(generateReply).toHaveBeenCalledTimes(1);
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Кэшированная интерпретация'
+    await vi.waitFor(() => {
+      expect(generateReply).toHaveBeenCalledTimes(1);
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
   test('prefers OCR over vision description when image interpretation is missing', async () => {
@@ -77,18 +75,16 @@ describe('ChatOrchestrator media image cache', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mediaContext: expect.objectContaining({
-          visionDescription: 'Visual description',
-          ocrTextRu: 'ГОРЖУСЬ'
+    await vi.waitFor(() => {
+      expect(generateReply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mediaContext: expect.objectContaining({
+            visionDescription: 'Visual description',
+            ocrTextRu: 'ГОРЖУСЬ'
+          })
         })
-      })
-    );
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'неважно'
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 });

@@ -29,16 +29,20 @@ describe('ChatOrchestrator media image analysis', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(
-      db.savedMediaArtifacts.some(
-        (artifact) => artifact.artifactStatus === 'partial'
-      )
-    ).toBe(true);
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Описание картинки'
+    await vi.waitFor(() => {
+      expect(
+        db.savedMediaArtifacts.some(
+          (artifact) => artifact.artifactStatus === 'partial'
+        )
+      ).toBe(true);
+      expect(db.savedMediaArtifacts).toContainEqual(
+        expect.objectContaining({
+          artifactKind: 'vision_interpretation',
+          artifactText: 'Описание картинки'
+        })
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
   test('continues when Cloudflare fails but OCR succeeds', async () => {
@@ -62,10 +66,14 @@ describe('ChatOrchestrator media image analysis', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Текст с картинки'
+    await vi.waitFor(() => {
+      expect(db.savedMediaArtifacts).toContainEqual(
+        expect.objectContaining({
+          artifactKind: 'vision_interpretation',
+          artifactText: 'Текст с картинки'
+        })
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 });
