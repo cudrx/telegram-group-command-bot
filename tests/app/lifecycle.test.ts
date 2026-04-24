@@ -74,6 +74,30 @@ describe('createApplication lifecycle', () => {
     });
   });
 
+  test('uses an admin-notifying logger for downstream components', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv({ telegramAdminId: 42 }));
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          logger?: {
+            warn(event: string): void;
+          };
+        }
+      | undefined;
+
+    orchestratorDeps?.logger?.warn('downstream_warning');
+    await Promise.resolve();
+
+    expect(botSendMessage).toHaveBeenCalledWith(
+      42,
+      'WARN: downstream_warning',
+      {
+        parse_mode: 'HTML'
+      }
+    );
+  });
+
   test('stops bot and closes database without summary timers', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(createEnv());
