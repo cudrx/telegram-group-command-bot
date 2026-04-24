@@ -23,6 +23,7 @@ export type NormalizedMessage = {
   authorizedMode?: AuthorizedMode;
   chatTitle: string | null;
   messageId: number;
+  mediaGroupId?: string | null;
   text: string;
   createdAt: string;
   fromUserId: number | null;
@@ -53,6 +54,7 @@ export type MediaMessageSnapshot = {
 export type StoredMessage = {
   chatId: number;
   messageId: number;
+  mediaGroupId?: string | null;
   userId: number | null;
   senderDisplayName: string;
   text: string;

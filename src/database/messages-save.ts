@@ -47,13 +47,14 @@ export function saveIncomingMessage(
             media_file_size,
             media_duration_seconds,
             media_caption,
+            media_group_id,
             from_user_id,
             from_username,
             from_first_name,
             from_last_name,
             from_display_name
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -72,6 +73,7 @@ export function saveIncomingMessage(
         incoming.mediaSnapshot?.fileSize ?? null,
         incoming.mediaSnapshot?.durationSeconds ?? null,
         incoming.mediaSnapshot?.caption ?? null,
+        incoming.mediaGroupId ?? null,
         incoming.fromUserId,
         incoming.fromUsername,
         incoming.fromFirstName,
@@ -124,13 +126,14 @@ export function saveBotMessage(
             media_file_size,
             media_duration_seconds,
             media_caption,
+            media_group_id,
             from_user_id,
             from_username,
             from_first_name,
             from_last_name,
             from_display_name
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -142,6 +145,7 @@ export function saveBotMessage(
         outgoing.createdAt,
         1,
         outgoing.replyToMessageId ?? null,
+        null,
         null,
         null,
         null,

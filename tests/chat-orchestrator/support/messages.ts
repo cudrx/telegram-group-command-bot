@@ -8,6 +8,7 @@ export function createIncomingMessage(
     chatType: 'group',
     chatTitle: 'Friends',
     messageId: 1,
+    mediaGroupId: null,
     text: 'обычное сообщение',
     createdAt: '2026-04-03T12:00:00.000Z',
     fromUserId: 42,
