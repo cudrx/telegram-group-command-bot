@@ -69,15 +69,14 @@ export class FakeDatabaseClient {
     displayName: string;
     replyToMessageId?: number | null;
   }): void {
-    const chat = this.getOrCreateChat({
+    const chat: ChatState = {
       chatId: input.chatId,
       chatType: input.chatType as NormalizedMessage['chatType'],
-      chatTitle: input.chatTitle,
-      createdAt: input.createdAt
-    });
+      title: input.chatTitle,
+      lastMessageAt: input.createdAt,
+      lastBotMessageAt: input.createdAt
+    };
 
-    chat.lastMessageAt = input.createdAt;
-    chat.lastBotMessageAt = input.createdAt;
     this.chats.set(input.chatId, chat);
     this.insertMessage({
       chatId: input.chatId,
@@ -107,6 +106,21 @@ export class FakeDatabaseClient {
     return (this.messages.get(chatId) ?? [])
       .filter((message) => message.messageId < beforeMessageId)
       .slice(-limit)
+      .map((message) => ({ ...message }));
+  }
+
+  getMessagesInRange(input: {
+    chatId: number;
+    fromInclusive: string;
+    toExclusive: string;
+  }): StoredMessage[] {
+    return (this.messages.get(input.chatId) ?? [])
+      .filter((message) => {
+        return (
+          message.createdAt >= input.fromInclusive &&
+          message.createdAt < input.toExclusive
+        );
+      })
       .map((message) => ({ ...message }));
   }
 
