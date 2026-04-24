@@ -23,6 +23,7 @@ import type {
 } from '../chat-orchestrator/types.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const WEEKLY_EVENT_EXCERPT_LIMIT = 12;
 
 export type WeeklyServiceDeps = {
   db: DatabaseClient;
@@ -145,13 +146,90 @@ export function buildWeeklyDataset(input: {
     },
     stats: buildWeeklyStats(input.messages),
     participantStats: buildWeeklyParticipantStats(input.messages),
-    selectedEvents: input.selectedEvents.map((event) => ({
-      ...event,
-      messages: event.messageIds
+    selectedEvents: input.selectedEvents.map((event) => {
+      const messages = event.messageIds
         .map((messageId) => messagesById.get(messageId))
-        .filter((message): message is WeeklyMessage => message !== undefined)
-    }))
+        .filter((message): message is WeeklyMessage => message !== undefined);
+      const excerptMessages = selectWeeklyEventExcerpts(messages);
+
+      return {
+        ...event,
+        messages,
+        excerptMessages,
+        omittedMessageCount: Math.max(0, messages.length - excerptMessages.length)
+      };
+    })
   };
+}
+
+function selectWeeklyEventExcerpts(messages: WeeklyMessage[]): WeeklyMessage[] {
+  const ordered = [...messages].sort(compareWeeklyMessages);
+
+  if (ordered.length <= WEEKLY_EVENT_EXCERPT_LIMIT) {
+    return ordered;
+  }
+
+  const selected = new Map<number, WeeklyMessage>();
+  const add = (message: WeeklyMessage | undefined) => {
+    if (message) {
+      selected.set(message.messageId, message);
+    }
+  };
+
+  add(ordered[0]);
+  add(ordered[1]);
+  add(ordered.at(-2));
+  add(ordered.at(-1));
+
+  for (const message of [...ordered].sort(compareExcerptPriority)) {
+    add(message);
+
+    if (selected.size >= WEEKLY_EVENT_EXCERPT_LIMIT) {
+      break;
+    }
+  }
+
+  return [...selected.values()].sort(compareWeeklyMessages);
+}
+
+function compareExcerptPriority(
+  left: WeeklyMessage,
+  right: WeeklyMessage
+): number {
+  return (
+    scoreExcerptMessage(right) - scoreExcerptMessage(left) ||
+    left.createdAt.localeCompare(right.createdAt) ||
+    left.messageId - right.messageId
+  );
+}
+
+function scoreExcerptMessage(message: WeeklyMessage): number {
+  let score = 0;
+
+  if (message.mediaSummary) {
+    score += 5;
+  }
+
+  if (message.mediaSnapshot) {
+    score += 2;
+  }
+
+  if (message.replyToMessageId !== null) {
+    score += 3;
+  }
+
+  if (message.text.trim().length > 0) {
+    score += 1;
+  }
+
+  return score;
+}
+
+function compareWeeklyMessages(left: WeeklyMessage, right: WeeklyMessage): number {
+  return (
+    left.createdAt.localeCompare(right.createdAt) ||
+    left.messageId - right.messageId
+  );
 }
 
 function buildWeeklyParticipantStats(

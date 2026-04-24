@@ -76,10 +76,12 @@ function formatEvent(event: WeeklyDatasetEvent, index: number): string {
     `   messageIds=${event.messageIds.join(',')}`,
     `   participantIds=${event.participantIds.join(',')}`,
     `   reasons=${event.reasons.map(sanitizePromptText).join('; ') || 'none'}`,
-    '   messages:'
+    `   messageCount=${event.messages.length}`,
+    `   omittedMessages=${event.omittedMessageCount}`,
+    '   evidence:'
   ];
 
-  for (const message of [...event.messages].sort(
+  for (const message of [...event.excerptMessages].sort(
     (left, right) =>
       left.createdAt.localeCompare(right.createdAt) ||
       left.messageId - right.messageId

@@ -43,6 +43,8 @@ export type WeeklyParticipantStats = {
 
 export type WeeklyDatasetEvent = WeeklyEventCandidate & {
   messages: WeeklyMessage[];
+  excerptMessages: WeeklyMessage[];
+  omittedMessageCount: number;
 };
 
 export type WeeklyDataset = {
