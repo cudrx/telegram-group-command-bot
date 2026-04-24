@@ -3,7 +3,6 @@ import OpenAI from 'openai';
 import { formatDeployUpdate } from './deploy-update.js';
 import { planLookup } from './lookup.js';
 import { generateReply } from './reply.js';
-import { generateWeekly } from './weekly.js';
 import type {
   ChatCompletionsCreate,
   GenerateReplyInput,
@@ -14,6 +13,7 @@ import type {
   LookupPlanResult,
   PlanLookupInput
 } from './types.js';
+import { generateWeekly } from './weekly.js';
 
 export type {
   GenerateReplyInput,

@@ -96,7 +96,9 @@ function detectBursts(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
   return candidates;
 }
 
-function detectReplyHotspots(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
+function detectReplyHotspots(
+  messages: WeeklyMessage[]
+): WeeklyEventCandidate[] {
   const byMessageId = new Map(
     messages.map((message, index) => [message.messageId, { message, index }])
   );
@@ -129,7 +131,9 @@ function detectReplyHotspots(messages: WeeklyMessage[]): WeeklyEventCandidate[] 
         idPrefix: `reply-hotspot-${anchorId}`,
         kinds: ['reply_hotspot'],
         messages: candidateMessages,
-        reasons: [`message ${anchorId} received ${replies.length} direct replies`]
+        reasons: [
+          `message ${anchorId} received ${replies.length} direct replies`
+        ]
       })
     );
   }
@@ -146,7 +150,10 @@ function detectReplyChains(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
   }
 
   for (const message of messages) {
-    if (message.replyToMessageId !== null && ids.has(message.replyToMessageId)) {
+    if (
+      message.replyToMessageId !== null &&
+      ids.has(message.replyToMessageId)
+    ) {
       union(parent, message.messageId, message.replyToMessageId);
     }
   }
@@ -179,7 +186,9 @@ function detectReplyChains(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
 
 function detectMediaMoments(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
   const repliesByAnchor = groupDirectReplies(messages);
-  const byMessageId = new Map(messages.map((message) => [message.messageId, message]));
+  const byMessageId = new Map(
+    messages.map((message) => [message.messageId, message])
+  );
   const clusters: Array<{ messages: WeeklyMessage[]; reasons: string[] }> = [];
 
   for (const message of messages) {
@@ -233,7 +242,9 @@ function mergeMediaMomentCluster(
   nextCluster: { messages: WeeklyMessage[]; reasons: string[] }
 ): void {
   const overlappingIndexes: number[] = [];
-  const nextIds = new Set(nextCluster.messages.map((message) => message.messageId));
+  const nextIds = new Set(
+    nextCluster.messages.map((message) => message.messageId)
+  );
 
   for (const [index, cluster] of clusters.entries()) {
     if (cluster.messages.some((message) => nextIds.has(message.messageId))) {
@@ -261,7 +272,9 @@ function mergeMediaMomentCluster(
     };
   }
 
-  for (const index of [...overlappingIndexes].sort((left, right) => right - left)) {
+  for (const index of [...overlappingIndexes].sort(
+    (left, right) => right - left
+  )) {
     clusters.splice(index, 1);
   }
 
@@ -300,8 +313,9 @@ function createCandidate(input: {
       participantCount: participantIds.length,
       replyCount: countReplies(messages),
       maxRepliesToOneMessage: countMaxRepliesToOneMessage(messages),
-      mediaSummaryCount: messages.filter((message) => message.mediaSummary?.trim())
-        .length
+      mediaSummaryCount: messages.filter((message) =>
+        message.mediaSummary?.trim()
+      ).length
     }),
     reasons: [...input.reasons].sort()
   };
@@ -394,7 +408,10 @@ function countMaxRepliesToOneMessage(messages: WeeklyMessage[]): number {
   const counts = new Map<number, number>();
 
   for (const message of messages) {
-    if (message.replyToMessageId === null || !ids.has(message.replyToMessageId)) {
+    if (
+      message.replyToMessageId === null ||
+      !ids.has(message.replyToMessageId)
+    ) {
       continue;
     }
 

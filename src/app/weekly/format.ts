@@ -126,7 +126,5 @@ function formatTopActiveDays(days: Array<[string, number]>): string {
     return 'none';
   }
 
-  return days
-    .map(([day]) => sanitizePromptText(day))
-    .join(',');
+  return days.map(([day]) => sanitizePromptText(day)).join(',');
 }

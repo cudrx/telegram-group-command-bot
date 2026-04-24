@@ -1,11 +1,10 @@
 import { describe, expect, test } from 'vitest';
-
-import type { StoredMediaArtifact } from '../../src/database/index.js';
-import type { WeeklyMessage } from '../../src/app/weekly/types.js';
 import {
   formatWeeklyMessageLine,
   getWeeklyPreferredMediaSummary
 } from '../../src/app/weekly/media.js';
+import type { WeeklyMessage } from '../../src/app/weekly/types.js';
+import type { StoredMediaArtifact } from '../../src/database/index.js';
 
 function createArtifact(
   overrides: Partial<StoredMediaArtifact> = {}

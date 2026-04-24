@@ -1,6 +1,11 @@
 import type { DatabaseClient } from '../../database/index.js';
 import { loadPrompt } from '../../llm/prompt-files.js';
-import { serializeError, type AppLogger } from '../../logging/logger.js';
+import { type AppLogger, serializeError } from '../../logging/logger.js';
+import type {
+  BotIdentity,
+  LlmClient,
+  WeeklyDispatcher
+} from '../chat-orchestrator/types.js';
 import { formatTelegramHtmlReply } from '../telegram-html.js';
 import { buildWeeklyCandidates } from './events.js';
 import { formatWeeklyDataset } from './format.js';
@@ -16,11 +21,6 @@ import type {
   WeeklyMessage,
   WeeklyParticipantStats
 } from './types.js';
-import type {
-  BotIdentity,
-  LlmClient,
-  WeeklyDispatcher
-} from '../chat-orchestrator/types.js';
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const WEEKLY_EVENT_EXCERPT_LIMIT = 12;
@@ -156,7 +156,10 @@ export function buildWeeklyDataset(input: {
         ...event,
         messages,
         excerptMessages,
-        omittedMessageCount: Math.max(0, messages.length - excerptMessages.length)
+        omittedMessageCount: Math.max(
+          0,
+          messages.length - excerptMessages.length
+        )
       };
     })
   };
@@ -225,7 +228,10 @@ function scoreExcerptMessage(message: WeeklyMessage): number {
   return score;
 }
 
-function compareWeeklyMessages(left: WeeklyMessage, right: WeeklyMessage): number {
+function compareWeeklyMessages(
+  left: WeeklyMessage,
+  right: WeeklyMessage
+): number {
   return (
     left.createdAt.localeCompare(right.createdAt) ||
     left.messageId - right.messageId
@@ -242,12 +248,17 @@ function buildWeeklyParticipantStats(
 
   for (const message of messages) {
     const key =
-      message.userId === null ? `unknown:${message.senderDisplayName}` : `${message.userId}`;
+      message.userId === null
+        ? `unknown:${message.senderDisplayName}`
+        : `${message.userId}`;
     const existing = byUser.get(key);
 
     if (existing) {
       existing.messageCount += 1;
-      existing.firstMessageId = Math.min(existing.firstMessageId, message.messageId);
+      existing.firstMessageId = Math.min(
+        existing.firstMessageId,
+        message.messageId
+      );
       continue;
     }
 

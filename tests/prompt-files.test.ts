@@ -72,7 +72,9 @@ describe('prompt file registry', () => {
     expect(prompt).toContain(
       'WEEK_STATS и PARTICIPANT_STATS используй только как фон'
     );
-    expect(prompt).toContain('темы, моменты и роли должны опираться на evidence');
+    expect(prompt).toContain(
+      'темы, моменты и роли должны опираться на evidence'
+    );
   });
 
   test('reloads prompt file content on every read', () => {

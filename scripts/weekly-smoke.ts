@@ -1,5 +1,5 @@
-import { DatabaseClient } from '../src/database/index.js';
 import { buildWeeklyPreview } from '../src/app/weekly/index.js';
+import { DatabaseClient } from '../src/database/index.js';
 
 function readChatId(): number {
   const value = process.env.TELEGRAM_CHAT_ID;

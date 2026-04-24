@@ -1,12 +1,11 @@
 import { describe, expect, test } from 'vitest';
-
+import { loadWeeklyMessages } from '../../src/app/weekly/messages.js';
 import { FakeDatabaseClient } from '../chat-orchestrator/support/fake-database.js';
 import {
   canUseBetterSqlite,
   createDatabase,
   createIncomingMessage
 } from '../database/support.js';
-import { loadWeeklyMessages } from '../../src/app/weekly/messages.js';
 
 const describeWithSqlite = canUseBetterSqlite() ? describe : describe.skip;
 

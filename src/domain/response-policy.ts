@@ -1,8 +1,8 @@
 import type {
   AssistantIntent,
   AuthorizedMode,
-  DirectTriggerIntent,
-  DirectTrigger
+  DirectTrigger,
+  DirectTriggerIntent
 } from './models.js';
 
 export type DetectDirectTriggerInput = {

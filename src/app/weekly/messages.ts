@@ -102,7 +102,9 @@ export function buildWeeklyStats(messages: WeeklyMessage[]): WeeklyStats {
     mediaMessages,
     mediaMessagesWithSuccessfulSummaries,
     topActiveDays: [...byDay.entries()]
-      .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+      .sort(
+        (left, right) => right[1] - left[1] || left[0].localeCompare(right[0])
+      )
       .slice(0, 3)
   };
 }

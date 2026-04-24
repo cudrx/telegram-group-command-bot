@@ -1,10 +1,6 @@
 import { loadPrompt } from '../prompt-files.js';
 import { renderPromptTemplate } from '../prompts/render.js';
-import {
-  estimateTokens,
-  logLlmText,
-  toSingleLinePreview
-} from './logging.js';
+import { estimateTokens, logLlmText, toSingleLinePreview } from './logging.js';
 import { withRetry } from './retry.js';
 import type {
   ChatCompletionsCreate,

@@ -31,3 +31,8 @@ otherwise.
   changes, context-building changes, and new assistant modes.
 - For new intent-based modes, add focused eval coverage alongside the
   implementation so behavior can be tracked over time.
+
+## Verification
+
+- After code or test fixes, run `npm run lint` before reporting completion.
+- When behavior or types changed, also run the relevant tests and typecheck.

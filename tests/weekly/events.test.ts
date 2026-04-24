@@ -43,7 +43,9 @@ function createWeeklyMessagesForBurst(input: {
   );
 }
 
-function createMediaSnapshot(messageId: number): NonNullable<WeeklyMessage['mediaSnapshot']> {
+function createMediaSnapshot(
+  messageId: number
+): NonNullable<WeeklyMessage['mediaSnapshot']> {
   return {
     messageId,
     mediaKind: 'photo',

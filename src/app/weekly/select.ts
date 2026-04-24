@@ -118,7 +118,9 @@ function mergePair(
   };
 }
 
-function normalizeCandidate(candidate: WeeklyEventCandidate): WeeklyEventCandidate {
+function normalizeCandidate(
+  candidate: WeeklyEventCandidate
+): WeeklyEventCandidate {
   const kinds = uniqueStrings(candidate.kinds);
   const messageIds = uniqueNumbers(candidate.messageIds);
   const participantIds = uniqueNumbers(candidate.participantIds);
@@ -139,8 +141,10 @@ function timeWindowsOverlap(
   left: WeeklyEventCandidate,
   right: WeeklyEventCandidate
 ): boolean {
-  return Date.parse(left.startAt) <= Date.parse(right.endAt) &&
-    Date.parse(right.startAt) <= Date.parse(left.endAt);
+  return (
+    Date.parse(left.startAt) <= Date.parse(right.endAt) &&
+    Date.parse(right.startAt) <= Date.parse(left.endAt)
+  );
 }
 
 function gapMs(
@@ -156,7 +160,10 @@ function gapMs(
   const rightEnd = Date.parse(right.endAt);
   const leftStart = Date.parse(left.startAt);
 
-  return Math.min(Math.abs(rightStart - leftEnd), Math.abs(leftStart - rightEnd));
+  return Math.min(
+    Math.abs(rightStart - leftEnd),
+    Math.abs(leftStart - rightEnd)
+  );
 }
 
 function hasOverlap(left: number[], right: number[]): boolean {

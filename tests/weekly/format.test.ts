@@ -139,7 +139,9 @@ describe('weekly dataset formatting', () => {
           event({
             messageIds: messages.map((candidate) => candidate.messageId),
             messages,
-            excerptMessages: [messages[0]!, messages[12]!, messages[24]!],
+            excerptMessages: [messages[0], messages[12], messages[24]].filter(
+              (candidate): candidate is WeeklyMessage => candidate !== undefined
+            ),
             omittedMessageCount: 22
           })
         ]
