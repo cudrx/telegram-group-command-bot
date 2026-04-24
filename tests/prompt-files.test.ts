@@ -65,6 +65,15 @@ describe('prompt file registry', () => {
     expect(instructions).not.toContain('если данных не хватает, лучше уточни');
   });
 
+  test('weekly prompt forbids unsupported numeric comparisons', () => {
+    const prompt = loadPrompt('weekly');
+
+    expect(prompt).toContain('Не достраивай числовые отношения');
+    expect(prompt).toContain('Не выводи производные числовые сравнения');
+    expect(prompt).toContain('Не округляй отношения между числами самостоятельно');
+    expect(prompt).toContain('Хачик — 416 сообщений, Артём — 385');
+  });
+
   test('reloads prompt file content on every read', () => {
     const promptFile = createPromptFixture('first version');
 
