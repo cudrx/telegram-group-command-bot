@@ -51,7 +51,7 @@ cp .env.example .env
 
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 Lookup уже включен кодовым дефолтом; для него нужен `TAVILY_API_KEY`, а если интернет-заземление в локальном запуске не нужно, задайте `LOOKUP_ENABLED=false`.
-Для локальной проверки `/read` включите `MEDIA_ANALYSIS_ENABLED=true` и задайте `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`. Без этого команда отвечает локальной фразой, что распознавание медиа выключено.
+Для локальной проверки автоматического распознавания медиа включите `MEDIA_ANALYSIS_ENABLED=true` и задайте `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`. Без этого media provider calls не запускаются.
 Для image media analysis дополнительно нужен `OCR_SPACE_API_KEY`. В локальных OCR.space smoke tests используйте `OCREngine=2`: default engine возвращал пустой текст для `data/test-medal-ru.jpg`.
 Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
@@ -160,7 +160,7 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
 - проверить, что `TELEGRAM_CHAT_ID` совпадает с тестовой группой, а `TELEGRAM_ADMIN_ID` совпадает с вашим личным user id;
-- проверять сначала только явные `/answer`, `/summarize` и `/decide`; для `/answer` использовать reply на сообщение с вопросом;
+- проверять сначала только явные `/answer`, `/summarize` и `/decide`; для `/answer` использовать reply на сообщение с вопросом или поддержанным медиа;
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
 - по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
 - после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
@@ -246,7 +246,7 @@ TELEGRAM_CHAT_ID=-1002155313986
 TELEGRAM_ADMIN_ID=84626969
 ```
 
-Если в production нужен `/read`, дополнительно включите:
+Если в production нужно автоматическое распознавание медиа, дополнительно включите:
 
 ```dotenv
 MEDIA_ANALYSIS_ENABLED=true
@@ -256,7 +256,7 @@ CLOUDFLARE_ACCOUNT_ID=...
 OCR_SPACE_API_KEY=...
 ```
 
-Без `MEDIA_ANALYSIS_ENABLED=true` бот стартует нормально, но на `/read` отвечает локальной фразой, что распознавание медиа выключено.
+Без `MEDIA_ANALYSIS_ENABLED=true` бот стартует нормально, но auto-read provider calls не запускаются.
 
 Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
 

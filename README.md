@@ -8,7 +8,7 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы только для `/summarize`, `/decide`, `/read` и `/answer`
+- командные режимы только для `/summarize`, `/decide` и `/answer`
 - бот принимает сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`
 - обычный `@mention`, обычный private text и все команды в `private_admin` сейчас не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
@@ -27,8 +27,9 @@
 
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
-- `/read` - лениво распознать replied-to медиа без интерпретации. В v1 поддержаны `photo`, image `document`, `voice`, `audio` и Telegram `video_note`: картинки идут через Cloudflare Workers AI для визуального описания и OCR.space для двух OCR-слоёв (`rus` и default), аудио и кружочки через Gladia, а финальный ответ форматирует `LLM_REPLY_MODEL`.
 - `/answer` - напрямую ответить на replied-to сообщение; при включенном lookup бот может заземлять внешние сущности, факты, свежесть или ссылки через Tavily.
+
+Поддержанные входящие медиа (`photo`, image `document`, `voice`, `audio`, Telegram `video_note`) обрабатываются автоматически в авторизованных чатах, если включен `MEDIA_ANALYSIS_ENABLED=true`. Артефакты сохраняются в SQLite и переиспользуются в `/answer`, `/decide` и `/summarize`.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -56,7 +57,7 @@ cp .env.example .env
 
 `.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 Lookup включен по умолчанию и использует Tavily; для старта задайте `TAVILY_API_KEY` или явно отключите lookup через `LOOKUP_ENABLED=false`.
-`/read` по умолчанию выключен: для распознавания медиа нужно явно включить `MEDIA_ANALYSIS_ENABLED=true` и задать `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
+Автоматическое распознавание медиа по умолчанию выключено: включите `MEDIA_ANALYSIS_ENABLED=true` и задайте `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -197,4 +198,4 @@ docker compose down
 
 ## Следующие версии
 
-Lookup-backed `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. `/read` реализует lazy media intake только по explicit reply command, кэширует распознанные artifacts в SQLite и удаляет временные файлы после provider call. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
+Lookup-backed `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. Автоматический media intake кэширует распознанные artifacts в SQLite, удаляет временные файлы после provider call и добавляет успешные summaries в relevant reply context. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
