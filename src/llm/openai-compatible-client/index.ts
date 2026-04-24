@@ -6,15 +6,18 @@ import { generateReply } from './reply.js';
 import type {
   ChatCompletionsCreate,
   GenerateReplyInput,
+  GenerateWeeklyInput,
   LlmClientConfig,
   LlmClientOptions,
   LlmReplyResult,
   LookupPlanResult,
   PlanLookupInput
 } from './types.js';
+import { generateWeekly } from './weekly.js';
 
 export type {
   GenerateReplyInput,
+  GenerateWeeklyInput,
   LlmClientConfig,
   LlmClientOptions,
   LlmReplyResult,
@@ -55,6 +58,15 @@ export class OpenAiCompatibleLlmClient {
 
   async generateReply(input: GenerateReplyInput): Promise<LlmReplyResult> {
     return generateReply({
+      config: this.config,
+      createCompletion: this.createCompletion,
+      options: this.options,
+      input
+    });
+  }
+
+  async generateWeekly(input: GenerateWeeklyInput): Promise<LlmReplyResult> {
+    return generateWeekly({
       config: this.config,
       createCompletion: this.createCompletion,
       options: this.options,

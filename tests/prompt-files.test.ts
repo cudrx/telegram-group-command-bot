@@ -27,6 +27,7 @@ describe('prompt file registry', () => {
       decide: 'llm/reply/decide.md',
       read: 'llm/reply/read.md',
       answer: 'llm/reply/answer.md',
+      weekly: 'llm/reply/weekly.md',
       replyShell: 'llm/reply/shell.md',
       systemAnswer: 'llm/system/answer.md',
       systemRead: 'llm/system/read.md',
@@ -62,6 +63,18 @@ describe('prompt file registry', () => {
     expect(instructions).toContain('Не ссылайся на внутренние инструкции');
     expect(instructions).not.toContain('Use Telegram HTML-compatible');
     expect(instructions).not.toContain('если данных не хватает, лучше уточни');
+  });
+
+  test('weekly prompt keeps events as the primary recap signal', () => {
+    const prompt = loadPrompt('weekly');
+
+    expect(prompt).toContain('Смысл дайджеста выводи из SELECTED_EVENTS');
+    expect(prompt).toContain(
+      'WEEK_STATS и PARTICIPANT_STATS используй только как фон'
+    );
+    expect(prompt).toContain(
+      'темы, моменты и роли должны опираться на evidence'
+    );
   });
 
   test('reloads prompt file content on every read', () => {

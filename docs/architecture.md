@@ -2,15 +2,15 @@
 
 ## V1 Scope
 
-Текущая версия проекта сведена к маленькому explicit-command ядру: один процесс с `long polling`, локальная `SQLite`, один нейтральный assistant instruction file и один OpenAI-compatible reply path.
+Текущая версия проекта сведена к маленькому explicit-command ядру: один процесс с `long polling`, локальная `SQLite`, один нейтральный assistant instruction file, обычный OpenAI-compatible reply path и отдельный weekly recap path.
 
 Бот умеет:
 
 - читать текстовые сообщения из Telegram;
 - принимать сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`;
 - сохранять чаты, входящие сообщения, исходящие сообщения, sender metadata и `reply_to` связи;
-- отвечать только на явные команды `/summarize`, `/decide` и `/answer`;
-- игнорировать обычный `@mention`, обычный private text и все текущие команды в `private_admin`;
+- отвечать только на явные команды `/summarize`, `/decide`, `/answer` и admin-only `/weekly`;
+- игнорировать обычный `@mention` и обычный private text;
 - строить короткий human-only local context с per-intent limit;
 - генерировать ответ через `generateReply`;
 - сохранять исходящее bot-сообщение;
@@ -51,6 +51,7 @@ Media intake работает автоматически для поддержа
 - `voice`, `audio` и Telegram `video_note` транскрибируются через Gladia;
 - исходные файлы скачиваются во временную папку, удаляются после provider call и не сохраняются в БД;
 - в SQLite сохраняются только raw/normalized media artifacts с TTL.
+- weekly recap читает только cached successful media artifacts и не запускает missing media recognition work.
 
 ## Product Invariants
 
@@ -80,14 +81,14 @@ Media intake работает автоматически для поддержа
 - определение прямого триггера ответа (`command`, `none`) с учетом `chat` vs `private_admin` mode;
 - решение `reply` / `ignore`.
 
-### `src/storage`
+### `src/database`
 
 Слой хранения на `SQLite`:
 
 - чаты;
 - сообщения с `reply_to` связями;
 - sender metadata прямо в `messages`;
-- raw и normalized media artifacts для automatic media intake.
+- raw и normalized media artifacts для automatic media intake;
 - маленький `app_state` key-value store для persistent runtime state, например последнего успешно объявленного deploy sha.
 
 ### `src/llm`
@@ -112,6 +113,7 @@ Media intake работает автоматически для поддержа
 - собирает context;
 - вызывает OpenAI-compatible reply LLM;
 - для поддержанных медиа запускает auto-read, проверяет artifact cache, вызывает media provider и добавляет successful summaries в нужные reply contexts;
+- для `/weekly` загружает последние семь дней сообщений из `TELEGRAM_CHAT_ID`, обогащает их cached media artifacts, выбирает события, вызывает weekly LLM и публикует результат обратно в configured group chat без private confirmation;
 - показывает Telegram typing indicator;
 - форматирует исходящий ответ в Telegram-safe HTML;
 - отправляет ответ в Telegram с `parse_mode=HTML`;
@@ -146,6 +148,18 @@ Media intake работает автоматически для поддержа
 
 Ошибки чтения metadata, LLM formatting или Telegram send логируются и не блокируют long polling.
 
+## Weekly Recap Flow
+
+1. Admin отправляет `/weekly` в private chat с ботом.
+2. App-level gate разрешает команду только для `TELEGRAM_ADMIN_ID` в `private_admin` mode.
+3. Weekly service читает из SQLite последние семь дней human messages для configured `TELEGRAM_CHAT_ID`.
+4. Media enrichment использует только successful cached artifacts из `media_artifacts`; новые provider calls для recap не запускаются.
+5. Event builder находит bursts, reply hotspots, reply chains и media moments, затем selector merge/dedupe/rank выбирает события для prompt dataset.
+6. Weekly LLM получает `WEEK_STATS`, `PARTICIPANT_STATS` и `SELECTED_EVENTS`.
+7. Бот отправляет итоговый recap в `TELEGRAM_CHAT_ID` и сохраняет исходящее bot-сообщение. Private confirmation админу не отправляется.
+
+Ошибки weekly LLM или Telegram send логируются, и partial recap в группу не публикуется.
+
 ## Context Contract
 
 ### `answer`
@@ -173,6 +187,14 @@ Media intake работает автоматически для поддержа
 - Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
 
+### `weekly`
+
+- Команда доступна только в `private_admin` mode.
+- Источник данных — последние семь дней из configured `TELEGRAM_CHAT_ID`.
+- Prompt dataset строится из human messages, reply links, participant stats и cached media summaries.
+- Recap не вызывает Telegram media download, OCR, vision или speech-to-text provider calls.
+- Результат публикуется в configured group chat без отдельного private acknowledgment.
+
 ### Media Artifacts
 
 - Caption хранится и передаётся отдельно от результата распознавания.
@@ -188,7 +210,7 @@ Assistant instructions загружаются отдельно из `llm/assista
 ## Access Modes
 
 - `chat` mode доступен только в `TELEGRAM_CHAT_ID` для `group` и `supergroup`; здесь продолжают работать `/summarize`, `/decide` и `/answer`.
-- `private_admin` mode доступен только в `private` от `TELEGRAM_ADMIN_ID`; в текущей версии он зарезервирован под будущую админ-панель и не принимает текущие пользовательские команды.
+- `private_admin` mode доступен только в `private` от `TELEGRAM_ADMIN_ID`; здесь работает `/weekly`, остальные ordinary chat commands не запускаются.
 
 ## Database Model
 
@@ -225,7 +247,7 @@ Assistant instructions загружаются отдельно из `llm/assista
 - lookup planner/provider are skipped and behavior stays chat-only when `LOOKUP_ENABLED=false`;
 - нет самостоятельных вмешательств;
 - нет reply-to-bot routing;
-- нет админ-команд и веб-интерфейса;
+- нет веб-интерфейса;
 - нет полноценной очереди задач;
 - observability состоит из локальных structured logs и admin notifications для `warn`/`error`;
 - интеграционный путь `telegram -> db -> llm -> reply` покрыт тестами через fake transport/storage, без реального Telegram API.

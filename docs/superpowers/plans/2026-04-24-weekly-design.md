@@ -1,148 +1,516 @@
-# Weekly Recap Design
+# Weekly Recap Implementation Plan
 
-## Context
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-The bot is locked to one configured Telegram group chat and one admin private
-chat:
+**Goal:** Add an admin-only `/weekly` flow that builds a seven-day recap for the configured Telegram group, ranks important events before the LLM call, and posts the final report back to the group chat.
 
-- group chat: `TELEGRAM_CHAT_ID`
-- admin private chat: `TELEGRAM_ADMIN_ID`
+**Architecture:** Keep `/weekly` separate from ordinary reply-context commands. The command is detected in `private_admin`, then a dedicated weekly service loads a seven-day slice from the configured group chat, enriches candidate messages with cached media summaries, merges and selects notable events, formats a `WeeklyDataset`, and sends the generated report to `TELEGRAM_CHAT_ID`. Reuse existing prompt loading, prompt sanitization, Telegram HTML formatting, database message storage, and notifying logger patterns rather than threading weekly data through `ReplyContext`.
 
-Current chat commands operate on nearby reply context. `/weekly` is different:
-it is an admin-triggered publication that summarizes the last seven days of the
-configured group chat as a social recap.
+**Tech Stack:** TypeScript, Node.js, better-sqlite3, grammy, Vitest, existing OpenAI-compatible client and prompt registry.
 
-Automatic media reading is already implemented. Supported incoming media can
-produce durable `media_artifacts`, and existing reply flows can reuse successful
-media summaries. `/weekly` should use those cached summaries when available, but
-must not start new media recognition work.
+---
 
-The production smoke database in `data/prod-smoke.sqlite` shows that the weekly
-input is too large for a raw transcript prompt: about one thousand human
-messages, many reply links, and multiple dense activity windows. The feature
-therefore needs code-driven event selection before the LLM call.
+## File Map
 
-## Goals
+**Create:**
+- `src/app/weekly/index.ts` - weekly orchestration entrypoint
+- `src/app/weekly/messages.ts` - seven-day loading, filtering, stats helpers
+- `src/app/weekly/media.ts` - cached media artifact lookup and message enrichment
+- `src/app/weekly/events.ts` - burst, reply hotspot, reply chain, and media-moment candidate generation
+- `src/app/weekly/select.ts` - merge, scoring, day balancing, and final selection
+- `src/app/weekly/format.ts` - `WeeklyDataset` prompt formatting
+- `src/app/weekly/types.ts` - weekly-specific types
+- `src/llm/openai-compatible-client/weekly.ts` - weekly LLM call
+- `llm/reply/weekly.md` - weekly output contract
+- `tests/weekly/messages.test.ts`
+- `tests/weekly/media.test.ts`
+- `tests/weekly/events.test.ts`
+- `tests/weekly/select.test.ts`
+- `tests/weekly/format.test.ts`
+- `tests/chat-orchestrator/weekly/command.test.ts`
+- `tests/chat-orchestrator/weekly/orchestration.test.ts`
+- `tests/openai-compatible-client/weekly.test.ts`
+- `scripts/weekly-smoke.ts`
 
-- Add an admin-only `/weekly` command.
-- Allow `/weekly` only from `private_admin`.
-- Always build the report for the single configured group chat,
-  `TELEGRAM_CHAT_ID`.
-- Send the final weekly report to `TELEGRAM_CHAT_ID`.
-- Do not send a confirmation message to the admin private chat.
-- Build the report from the last seven days relative to runtime `now()`.
-- Generate a report even when the week has few messages.
-- Find important message groups as event candidates before calling the LLM.
-- Include cached successful media summaries in event evidence.
-- Ignore missing or failed media artifacts as blocking conditions.
-- Keep the weekly flow separate from ordinary nearby-context reply flows.
+**Modify:**
+- `src/domain/models.ts` - add weekly intent/trigger and weekly dataset types only where shared types are needed
+- `src/domain/response-policy.ts` - recognize `/weekly` only for `private_admin`
+- `src/app/chat-orchestrator/index.ts` - branch weekly jobs away from ordinary reply jobs
+- `src/app/chat-orchestrator/types.ts` - extend LLM and dispatcher contracts for weekly mode
+- `src/database/messages-read.ts` - add `getMessagesInRange`
+- `src/database/messages.ts` - export `getMessagesInRange`
+- `src/database/index.ts` - expose `getMessagesInRange`
+- `src/llm/prompt-files.ts` - register `weekly`
+- `src/llm/openai-compatible-client/index.ts` - expose `generateWeekly`
+- `tests/response-policy.test.ts` - add `/weekly` policy coverage
+- `tests/prompt-files.test.ts` - add prompt registry coverage
+- `tests/chat-orchestrator/support/fake-database.ts` - support range reads and weekly artifacts
+- `tests/chat-orchestrator/support/orchestrator.ts` - support weekly-capable LLM/reply dispatcher
+- `README.md`
+- `docs/architecture.md`
+- `docs/development.md`
 
-## Non-Goals
+**Approval Gate Before Implementation:**
+- This feature changes bot command behavior and adds a new prompt. Before Task 1 code changes, get explicit user approval required by `agent/modules/bot-behavior.md`.
 
-- Do not support choosing another chat.
-- Do not make `/weekly` work in the group chat.
-- Do not add scheduling or automatic weekly posting.
-- Do not start or retry media recognition from `/weekly`.
-- Do not introduce durable jobs or a queue for weekly generation.
-- Do not add participant memory or permanent participant profiles.
-- Do not use internet lookup.
+### Task 1: Lock The Contract And Command Routing
 
-## Runtime Behavior
+**Files:**
+- Modify: `src/domain/models.ts`
+- Modify: `src/domain/response-policy.ts`
+- Modify: `tests/response-policy.test.ts`
 
-The command flow is:
+- [ ] **Step 1: Write the failing policy tests for `/weekly`**
 
-```text
-private_admin /weekly
-  -> save incoming admin message
-  -> detect weekly admin command
-  -> read last 7 days from TELEGRAM_CHAT_ID
-  -> build weekly stats
-  -> generate event candidates
-  -> attach cached successful media summaries
-  -> merge, score, and select events
-  -> format WeeklyDataset
-  -> call weekly LLM prompt
-  -> send recap to TELEGRAM_CHAT_ID
-  -> save sent bot message as a group chat bot message
+```ts
+test('returns weekly command intent in private admin mode', () => {
+  const trigger = detectDirectTrigger({
+    botUserId: 77,
+    botUsername: 'fun_bot',
+    message: {
+      authorizedMode: 'private_admin',
+      text: '/weekly',
+      entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+      replyToUserId: null
+    }
+  });
+
+  expect(trigger).toEqual({
+    kind: 'command',
+    intent: 'weekly',
+    commandText: '/weekly'
+  });
+});
+
+test('returns none for /weekly in chat mode', () => {
+  const trigger = detectDirectTrigger({
+    botUserId: 77,
+    botUsername: 'fun_bot',
+    message: {
+      authorizedMode: 'chat',
+      text: '/weekly',
+      entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+      replyToUserId: null
+    }
+  });
+
+  expect(trigger).toEqual({ kind: 'none' });
+});
 ```
 
-If the LLM call or Telegram send fails, the bot logs the error and sends no
-group message. The existing notifying logger can surface warnings and errors to
-the admin.
+- [ ] **Step 2: Run the policy tests to verify they fail**
 
-The admin private command itself receives no success confirmation.
+Run: `npm test -- tests/response-policy.test.ts`
+Expected: FAIL because `'weekly'` is not part of `AssistantIntent` and `/weekly` is not recognized.
 
-## Why A Separate Weekly Flow
+- [ ] **Step 3: Extend shared trigger types for weekly mode**
 
-Existing `AssistantIntent` commands use `ReplyContext`: trigger message, optional
-reply anchor, and nearby prior messages. That model represents a current local
-conversation around a command.
+```ts
+export type AssistantIntent =
+  | 'summarize'
+  | 'decide'
+  | 'read'
+  | 'answer'
+  | 'weekly';
+```
 
-`/weekly` builds a historical dataset from the configured group chat while the
-trigger is in the admin private chat. It needs weekly stats, selected event
-candidates, participant stats, and media summaries. Treating that as
-`ReplyContext` would make the type misleading and would force weekly-specific
-data through unrelated reply code.
+```ts
+type DecideReplyActionResult =
+  | {
+      shouldReply: true;
+      reason: 'command';
+      intent: AssistantIntent;
+    }
+  | {
+      shouldReply: false;
+      reason: 'ignore';
+    };
+```
 
-Use a separate `WeeklyDataset` and weekly generation path instead.
+- [ ] **Step 4: Teach `response-policy` the admin-only `/weekly` rule**
 
-## Data Input
+```ts
+const CHAT_COMMAND_INTENTS: Record<string, Exclude<AssistantIntent, 'weekly'>> = {
+  summarize: 'summarize',
+  decide: 'decide',
+  answer: 'answer'
+};
 
-Add a database read method for the configured group chat:
+function detectCommandTrigger(
+  input: DetectDirectTriggerInput
+): DirectTrigger | null {
+  // existing entity parsing...
+
+  const commandName = parsed.commandName.toLowerCase();
+
+  if (commandName === 'weekly') {
+    if (input.message.authorizedMode !== 'private_admin') {
+      return null;
+    }
+
+    return {
+      kind: 'command',
+      intent: 'weekly',
+      commandText
+    };
+  }
+
+  if (!allowsCommands(input.message.authorizedMode)) {
+    return null;
+  }
+
+  const intent = CHAT_COMMAND_INTENTS[commandName];
+  // existing return path...
+}
+```
+
+- [ ] **Step 5: Run the policy tests to verify they pass**
+
+Run: `npm test -- tests/response-policy.test.ts`
+Expected: PASS with `/weekly` accepted only in `private_admin` and ignored in group chat.
+
+### Task 2: Add Database Range Reads For Weekly Input
+
+**Files:**
+- Modify: `src/database/messages-read.ts`
+- Modify: `src/database/messages.ts`
+- Modify: `src/database/index.ts`
+- Create: `tests/weekly/messages.test.ts`
+- Modify: `tests/chat-orchestrator/support/fake-database.ts`
+
+- [ ] **Step 1: Write the failing range-read tests**
+
+```ts
+test('loads messages in created_at range ordered by telegram message id', () => {
+  const db = DatabaseClient.open(':memory:');
+
+  seedMessages(db, [
+    { messageId: 10, createdAt: '2026-04-16T09:00:00.000Z' },
+    { messageId: 11, createdAt: '2026-04-17T09:00:00.000Z' },
+    { messageId: 12, createdAt: '2026-04-24T08:59:59.000Z' },
+    { messageId: 13, createdAt: '2026-04-24T09:00:00.000Z' }
+  ]);
+
+  expect(
+    db.getMessagesInRange({
+      chatId: 1,
+      fromInclusive: '2026-04-17T00:00:00.000Z',
+      toExclusive: '2026-04-24T09:00:00.000Z'
+    }).map((message) => message.messageId)
+  ).toEqual([11, 12]);
+});
+
+test('fake database supports weekly range reads', () => {
+  const db = new FakeDatabaseClient();
+  seedFakeMessages(db, [
+    createIncomingMessage({ messageId: 1, createdAt: '2026-04-20T10:00:00.000Z' }),
+    createIncomingMessage({ messageId: 2, createdAt: '2026-04-21T10:00:00.000Z' })
+  ]);
+
+  expect(
+    db.getMessagesInRange({
+      chatId: 1,
+      fromInclusive: '2026-04-21T00:00:00.000Z',
+      toExclusive: '2026-04-22T00:00:00.000Z'
+    })
+  ).toHaveLength(1);
+});
+```
+
+- [ ] **Step 2: Run the weekly message tests to verify they fail**
+
+Run: `npm test -- tests/weekly/messages.test.ts`
+Expected: FAIL because `getMessagesInRange` does not exist yet.
+
+- [ ] **Step 3: Implement `getMessagesInRange` in the SQLite reader**
+
+```ts
+export function getMessagesInRange(
+  db: Database.Database,
+  input: {
+    chatId: number;
+    fromInclusive: string;
+    toExclusive: string;
+  }
+): StoredMessage[] {
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          chat_id AS chatId,
+          telegram_message_id AS messageId,
+          user_id AS userId,
+          sender_display_name AS senderDisplayName,
+          text,
+          created_at AS createdAt,
+          is_bot AS isBot,
+          reply_to_telegram_message_id AS replyToMessageId,
+          media_kind AS mediaKind,
+          media_file_id AS mediaFileId,
+          media_file_unique_id AS mediaFileUniqueId,
+          media_mime_type AS mediaMimeType,
+          media_file_size AS mediaFileSize,
+          media_duration_seconds AS mediaDurationSeconds,
+          media_caption AS mediaCaption,
+          media_group_id AS mediaGroupId
+        FROM messages
+        WHERE chat_id = ?
+          AND created_at >= ?
+          AND created_at < ?
+        ORDER BY telegram_message_id ASC
+      `
+    )
+    .all(input.chatId, input.fromInclusive, input.toExclusive) as StoredMessageRow[];
+
+  return rows.map(toStoredMessage);
+}
+```
+
+- [ ] **Step 4: Export the range reader through the database facade and fake DB**
+
+```ts
+export {
+  getMessageByTelegramMessageId,
+  getMessagesBefore,
+  getMessagesInRange,
+  getRecentMessages
+} from './messages-read.js';
+```
 
 ```ts
 getMessagesInRange(input: {
   chatId: number;
   fromInclusive: string;
   toExclusive: string;
-}): StoredMessage[]
+}): StoredMessage[] {
+  return (this.messages.get(input.chatId) ?? [])
+    .filter((message) => {
+      return (
+        message.createdAt >= input.fromInclusive &&
+        message.createdAt < input.toExclusive
+      );
+    })
+    .map((message) => ({ ...message }));
+}
 ```
 
-The query should:
+- [ ] **Step 5: Run the weekly message tests to verify they pass**
 
-- filter by `chat_id`;
-- filter by `created_at >= fromInclusive` and `created_at < toExclusive`;
-- order by `telegram_message_id ASC`;
-- return media snapshot fields and `mediaGroupId`;
-- allow the caller to filter out bot messages.
+Run: `npm test -- tests/weekly/messages.test.ts`
+Expected: PASS with deterministic ordering and correct range boundaries.
 
-The weekly builder excludes bot messages from stats and events. This prevents
-previous bot reports, deploy announcements, and assistant replies from becoming
-weekly evidence.
+### Task 3: Build Weekly Message Loading And Media Enrichment
 
-## Media Enrichment
+**Files:**
+- Create: `src/app/weekly/types.ts`
+- Create: `src/app/weekly/messages.ts`
+- Create: `src/app/weekly/media.ts`
+- Create: `tests/weekly/media.test.ts`
+- Modify: `src/app/chat-orchestrator/media/cache.ts`
 
-For selected or candidate messages with media, use cached successful artifacts
-only:
-
-- image preference:
-  `vision_interpretation`, `ocr_text_ru`, `ocr_text_default`,
-  `vision_description`, `vision_raw`
-- audio preference:
-  `transcript`
-
-The existing preferred-summary logic in
-`src/app/chat-orchestrator/media/cache.ts` should be reused or moved into a
-shared module if needed.
-
-Message rendering rules:
-
-- if a successful summary exists, append `[media] <summary>`;
-- if no summary exists but caption exists, render media kind and caption;
-- if no summary or caption exists, render media kind only;
-- failed artifacts do not block the report.
-
-Weekly does not wait for in-flight auto-read tasks and does not start missing
-reads. It uses the durable state already available at command time.
-
-## Weekly Event Candidate Model
-
-Use an internal candidate shape similar to:
+- [ ] **Step 1: Write the failing enrichment tests**
 
 ```ts
-type WeeklyEventCandidate = {
+test('prefers cached image summaries in the existing order', () => {
+  const summary = getWeeklyPreferredMediaSummary(
+    [
+      createArtifact({ telegramMessageId: 21, artifactKind: 'vision_raw', artifactText: 'raw' }),
+      createArtifact({ telegramMessageId: 21, artifactKind: 'ocr_text_ru', artifactText: 'текст' }),
+      createArtifact({ telegramMessageId: 21, artifactKind: 'vision_interpretation', artifactText: 'мем про дедлайн' })
+    ],
+    {
+      messageId: 21,
+      mediaSnapshot: { mediaKind: 'photo' } as never,
+      text: '',
+      isBot: false
+    }
+  );
+
+  expect(summary).toBe('мем про дедлайн');
+});
+
+test('renders media kind and caption when no artifact exists', () => {
+  expect(
+    formatWeeklyMessageLine({
+      createdAt: '2026-04-24T18:12:00.000Z',
+      senderDisplayName: 'Tom',
+      text: '',
+      mediaSnapshot: { mediaKind: 'voice', caption: 'срочно послушайте' } as never
+    } as never)
+  ).toContain('[voice] срочно послушайте');
+});
+```
+
+- [ ] **Step 2: Run the media tests to verify they fail**
+
+Run: `npm test -- tests/weekly/media.test.ts`
+Expected: FAIL because weekly media helpers do not exist yet.
+
+- [ ] **Step 3: Extract or wrap the existing preferred media summary logic for weekly reuse**
+
+```ts
+export function getPreferredMediaSummary(
+  artifacts: StoredMediaArtifact[],
+  messageId: number,
+  mediaKind: MediaMessageSnapshot['mediaKind']
+): string | null {
+  // existing ordered selection logic stays shared here
+}
+
+export function getWeeklyPreferredMediaSummary(
+  artifacts: StoredMediaArtifact[],
+  message: Pick<StoredMessage, 'messageId' | 'mediaSnapshot'>
+): string | null {
+  if (!message.mediaSnapshot) {
+    return null;
+  }
+
+  return getPreferredMediaSummary(
+    artifacts,
+    message.messageId,
+    message.mediaSnapshot.mediaKind
+  );
+}
+```
+
+- [ ] **Step 4: Implement weekly message loading, filtering, and enrichment**
+
+```ts
+export type WeeklyMessage = StoredMessage & {
+  mediaSummary: string | null;
+};
+
+export function loadWeeklyMessages(input: {
+  db: Pick<DatabaseClient, 'getMessagesInRange'>;
+  chatId: number;
+  now: string;
+}): WeeklyMessage[] {
+  const toExclusive = input.now;
+  const fromInclusive = new Date(
+    Date.parse(input.now) - 7 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  return input.db
+    .getMessagesInRange({
+      chatId: input.chatId,
+      fromInclusive,
+      toExclusive
+    })
+    .filter((message) => !message.isBot)
+    .map((message) => ({
+      ...message,
+      mediaSummary: null
+    }));
+}
+```
+
+```ts
+export function enrichWeeklyMessagesWithMedia(input: {
+  db: Pick<DatabaseClient, 'getSuccessfulMediaArtifactsForMessages'>;
+  messages: WeeklyMessage[];
+}): WeeklyMessage[] {
+  const messageIds = input.messages.map((message) => message.messageId);
+  const chatId = input.messages[0]?.chatId;
+
+  if (!chatId || messageIds.length === 0) {
+    return input.messages;
+  }
+
+  const artifacts = input.db.getSuccessfulMediaArtifactsForMessages({
+    chatId,
+    messageIds
+  });
+
+  return input.messages.map((message) => ({
+    ...message,
+    mediaSummary: getWeeklyPreferredMediaSummary(artifacts, message)
+  }));
+}
+```
+
+- [ ] **Step 5: Add compact weekly stats helpers**
+
+```ts
+export function buildWeeklyStats(messages: WeeklyMessage[]) {
+  const byDay = new Map<string, number>();
+
+  for (const message of messages) {
+    const day = message.createdAt.slice(0, 10);
+    byDay.set(day, (byDay.get(day) ?? 0) + 1);
+  }
+
+  return {
+    totalHumanMessages: messages.length,
+    participants: new Set(messages.map((message) => message.userId).filter(Boolean)).size,
+    replyMessages: messages.filter((message) => message.replyToMessageId !== null).length,
+    mediaMessages: messages.filter((message) => message.mediaSnapshot).length,
+    mediaMessagesWithSuccessfulSummaries: messages.filter((message) => message.mediaSummary).length,
+    topActiveDays: [...byDay.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
+  };
+}
+```
+
+- [ ] **Step 6: Run the message and media tests to verify they pass**
+
+Run: `npm test -- tests/weekly/messages.test.ts tests/weekly/media.test.ts`
+Expected: PASS with bot messages filtered out and cached media summaries preferred over fallback captions.
+
+### Task 4: Implement Candidate Detection
+
+**Files:**
+- Create: `src/app/weekly/events.ts`
+- Modify: `src/app/weekly/types.ts`
+- Create: `tests/weekly/events.test.ts`
+
+- [ ] **Step 1: Write the failing event-detection tests**
+
+```ts
+test('detects burst windows and expands to natural boundaries', () => {
+  const candidates = buildWeeklyCandidates(
+    createWeeklyMessagesForBurst({
+      startAt: '2026-04-22T18:10:00.000Z',
+      count: 12,
+      spacingMinutes: 0.5,
+      participants: [10, 11, 12]
+    })
+  );
+
+  expect(candidates).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        kinds: expect.arrayContaining(['burst']),
+        messageIds: expect.arrayContaining([101, 112])
+      })
+    ])
+  );
+});
+
+test('detects reply hotspots, reply chains, and media moments', () => {
+  const candidates = buildWeeklyCandidates(createMixedWeeklyMessages());
+
+  expect(candidates.some((candidate) => candidate.kinds.includes('reply_hotspot'))).toBe(true);
+  expect(candidates.some((candidate) => candidate.kinds.includes('reply_chain'))).toBe(true);
+  expect(candidates.some((candidate) => candidate.kinds.includes('media_moment'))).toBe(true);
+});
+```
+
+- [ ] **Step 2: Run the event tests to verify they fail**
+
+Run: `npm test -- tests/weekly/events.test.ts`
+Expected: FAIL because `buildWeeklyCandidates` and weekly event types do not exist yet.
+
+- [ ] **Step 3: Define the weekly candidate types**
+
+```ts
+export type WeeklyEventKind =
+  | 'burst'
+  | 'reply_hotspot'
+  | 'reply_chain'
+  | 'media_moment';
+
+export type WeeklyEventCandidate = {
   id: string;
-  kinds: Array<'burst' | 'reply_hotspot' | 'reply_chain' | 'media_moment'>;
+  kinds: WeeklyEventKind[];
   startAt: string;
   endAt: string;
   messageIds: number[];
@@ -152,280 +520,506 @@ type WeeklyEventCandidate = {
 };
 ```
 
-The name in code can be `WeeklyEventCandidate` or similar. The important
-property is that the unit represents a possible event of the week, not just an
-arbitrary transcript slice.
-
-## Candidate Generation
-
-### Bursts
-
-Detect dense activity windows:
-
-- window size: 10 minutes;
-- threshold: at least 12 human messages;
-- threshold: at least 2 participants.
-
-After creating a burst candidate, expand to natural boundaries while the gap
-between neighboring messages is at most 5 minutes. Cap large bursts when
-formatting evidence rather than at candidate creation.
-
-### Reply Hotspots
-
-Detect messages that received multiple direct replies:
-
-- threshold: at least 3 direct human replies.
-
-Candidate evidence should include:
-
-- the anchor message;
-- direct replies;
-- a small neighbor context around the anchor and replies, about five messages on
-  each side where available.
-
-This catches questions, prompts, jokes, and arguments that caused discussion.
-
-### Reply Chains
-
-Build a graph from `telegram_message_id` to `reply_to_telegram_message_id`.
-
-Create a candidate for connected reply components when:
-
-- component size is at least 4 human messages;
-- participant count is at least 2.
-
-This catches dialogue-like events that may be spread out and therefore missed by
-burst detection.
-
-### Media Moments
-
-Create media candidates for media messages when:
-
-- a successful cached media summary exists;
-- and either the media received replies or nearby activity was dense.
-
-This catches memes, screenshots, voice notes, and other media-centered moments.
-
-## Merge And Dedupe
-
-Candidates should merge when:
-
-- their message id sets overlap;
-- or their time windows overlap;
-- or the time gap is under 5 minutes and they share at least one participant.
-
-Merged candidates keep all distinct `kinds` and `reasons`, union their message
-ids, extend the time range, and recompute score.
-
-This prevents a single busy moment from appearing as separate burst, reply
-hotspot, and media events.
-
-## Scoring
-
-Use scoring only to rank candidates, not as a claim of objective importance.
-
-Initial score:
+- [ ] **Step 4: Implement the four candidate detectors**
 
 ```ts
-score =
-  messageCount
-  + participantCount * 3
-  + replyCount * 2
-  + maxRepliesToOneMessage * 4
-  + mediaSummaryCount * 3
+export function buildWeeklyCandidates(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
+  return [
+    ...detectBursts(messages),
+    ...detectReplyHotspots(messages),
+    ...detectReplyChains(messages),
+    ...detectMediaMoments(messages)
+  ];
+}
 ```
 
-Tiny messages may be left in evidence, but the selector can avoid giving too
-much weight to events that are mostly very short acknowledgements.
+```ts
+function detectBursts(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
+  // sliding 10 minute window, minimum 12 messages, minimum 2 participants,
+  // then expand while neighbor gap <= 5 minutes
+}
 
-## Selection
+function detectReplyHotspots(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
+  // anchor + direct replies + ~5 nearby messages on each side
+}
 
-Select 6 to 10 events:
+function detectReplyChains(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
+  // connected components over reply_to_telegram_message_id
+}
 
-- sort merged candidates by score descending;
-- select with a soft limit of at most 2 events per calendar day;
-- if fewer than 6 events remain, fill by score without the day limit;
-- if the week is very quiet, still select whatever exists and generate a report.
-
-Calendar days can use UTC for consistency with stored ISO timestamps. If later
-reports need local chat time, add an explicit config rather than guessing.
-
-## Evidence Formatting
-
-Each selected event should be formatted compactly for the LLM:
-
-```text
-[EVENT 1]
-kinds: burst, reply_hotspot
-time: 2026-04-22T18:10:00.000Z..2026-04-22T18:42:00.000Z
-score: 58
-why_selected:
-- high message density
-- many replies to one message
-participants:
-- Name A
-- Name B
-messages:
-- [18:12] Name A: ...
-- [18:13] Name B: [media] ...
+function detectMediaMoments(messages: WeeklyMessage[]): WeeklyEventCandidate[] {
+  // require mediaSummary and either replies or dense nearby activity
+}
 ```
 
-Large events should be trimmed to about 20 to 30 message lines. Prefer:
+- [ ] **Step 5: Add deterministic scoring inputs on each candidate**
 
-- anchor or hotspot messages;
-- direct replies;
-- messages with media summaries;
-- first and last few messages;
-- a mix of participants.
-
-The formatter must sanitize user text using the existing prompt sanitization
-helpers before inserting it into an LLM prompt.
-
-## Weekly Dataset
-
-The LLM input should include:
-
-```text
-WEEK_STATS
-- period
-- total human messages
-- participants
-- reply messages
-- media messages
-- media messages with successful summaries
-- top active days
-
-PARTICIPANT_STATS
-- messages
-- replies sent
-- replies received
-- media sent
-
-SELECTED_EVENTS
-- event metadata
-- compact evidence messages
+```ts
+function scoreCandidate(input: {
+  messageCount: number;
+  participantCount: number;
+  replyCount: number;
+  maxRepliesToOneMessage: number;
+  mediaSummaryCount: number;
+}): number {
+  return (
+    input.messageCount +
+    input.participantCount * 3 +
+    input.replyCount * 2 +
+    input.maxRepliesToOneMessage * 4 +
+    input.mediaSummaryCount * 3
+  );
+}
 ```
 
-Stats support observations but selected events are the primary evidence.
+- [ ] **Step 6: Run the event tests to verify they pass**
 
-## Prompt Contract
+Run: `npm test -- tests/weekly/events.test.ts`
+Expected: PASS with explicit coverage for bursts, reply hotspots, reply chains, and media moments.
 
-Add `llm/reply/weekly.md` with a strict weekly mode prompt.
+### Task 5: Merge, Balance, And Format Weekly Evidence
 
-The prompt should require:
+**Files:**
+- Create: `src/app/weekly/select.ts`
+- Create: `src/app/weekly/format.ts`
+- Create: `tests/weekly/select.test.ts`
+- Create: `tests/weekly/format.test.ts`
+- Modify: `src/llm/prompts.ts`
+- Modify: `src/llm/prompt-files.ts`
 
-- Russian output;
-- Telegram-safe HTML only;
-- no unsupported invention;
-- no permanent participant profiles;
-- no diagnoses or psychological labels;
-- roles based only on the selected week;
-- mild humor allowed, cruelty avoided;
-- compact sections.
+- [ ] **Step 1: Write the failing selection and formatting tests**
 
-Required output shape:
+```ts
+test('merges overlapping candidates and keeps all kinds', () => {
+  const merged = mergeWeeklyCandidates([
+    createCandidate({ id: 'a', kinds: ['burst'], messageIds: [1, 2, 3], participantIds: [10, 11] }),
+    createCandidate({ id: 'b', kinds: ['reply_hotspot'], messageIds: [3, 4], participantIds: [11, 12] })
+  ]);
 
-```html
+  expect(merged).toEqual([
+    expect.objectContaining({
+      kinds: expect.arrayContaining(['burst', 'reply_hotspot']),
+      messageIds: [1, 2, 3, 4]
+    })
+  ]);
+});
+
+test('selects 6 to 10 events with a soft two-per-day cap', () => {
+  const selected = selectWeeklyEvents(createRankedCandidatesAcrossDays());
+
+  expect(selected.length).toBeGreaterThanOrEqual(6);
+  expect(selected.length).toBeLessThanOrEqual(10);
+  expect(maxEventsPerDay(selected)).toBeLessThanOrEqual(2);
+});
+
+test('formats prompt-safe weekly dataset with sanitized message lines', () => {
+  const dataset = formatWeeklyDataset(createWeeklyDatasetFixture());
+
+  expect(dataset).toContain('WEEK_STATS');
+  expect(dataset).toContain('SELECTED_EVENTS');
+  expect(dataset).toContain('&quot;');
+});
+```
+
+- [ ] **Step 2: Run the select and format tests to verify they fail**
+
+Run: `npm test -- tests/weekly/select.test.ts tests/weekly/format.test.ts`
+Expected: FAIL because merge/selection/formatting helpers do not exist yet.
+
+- [ ] **Step 3: Implement merge and day-balanced selection**
+
+```ts
+export function mergeWeeklyCandidates(
+  candidates: WeeklyEventCandidate[]
+): WeeklyEventCandidate[] {
+  // merge when message ids overlap, time windows overlap,
+  // or gap < 5 minutes with shared participants
+}
+
+export function selectWeeklyEvents(
+  candidates: WeeklyEventCandidate[]
+): WeeklyEventCandidate[] {
+  const merged = mergeWeeklyCandidates(candidates).sort(
+    (left, right) => right.score - left.score
+  );
+
+  const selected: WeeklyEventCandidate[] = [];
+  const perDay = new Map<string, number>();
+
+  for (const candidate of merged) {
+    const day = candidate.startAt.slice(0, 10);
+    if ((perDay.get(day) ?? 0) >= 2) {
+      continue;
+    }
+
+    selected.push(candidate);
+    perDay.set(day, (perDay.get(day) ?? 0) + 1);
+
+    if (selected.length === 10) {
+      break;
+    }
+  }
+
+  if (selected.length < 6) {
+    for (const candidate of merged) {
+      if (selected.some((existing) => existing.id === candidate.id)) {
+        continue;
+      }
+
+      selected.push(candidate);
+
+      if (selected.length === 6 || selected.length === 10) {
+        break;
+      }
+    }
+  }
+
+  return selected;
+}
+```
+
+- [ ] **Step 4: Implement prompt-safe weekly dataset formatting**
+
+```ts
+import { sanitizePromptText } from '../../llm/prompts/sanitize.js';
+
+export function formatWeeklyDataset(input: WeeklyDataset): string {
+  return [
+    'WEEK_STATS',
+    `- period: ${input.period.fromInclusive}..${input.period.toExclusive}`,
+    `- total human messages: ${input.stats.totalHumanMessages}`,
+    '',
+    'PARTICIPANT_STATS',
+    ...input.participants.map((participant) =>
+      `- ${sanitizePromptText(participant.displayName)}: messages=${participant.messageCount}, replies_sent=${participant.repliesSent}, replies_received=${participant.repliesReceived}, media_sent=${participant.mediaSent}`
+    ),
+    '',
+    'SELECTED_EVENTS',
+    ...input.events.map(formatWeeklyEvent)
+  ].join('\n');
+}
+```
+
+```ts
+function formatWeeklyEvent(event: WeeklyDatasetEvent): string {
+  return [
+    `[EVENT ${event.index}]`,
+    `kinds: ${event.kinds.join(', ')}`,
+    `time: ${event.startAt}..${event.endAt}`,
+    `score: ${event.score}`,
+    'messages:',
+    ...event.messages.map((message) => `- ${sanitizePromptText(message)}`),
+    ''
+  ].join('\n');
+}
+```
+
+- [ ] **Step 5: Register the weekly prompt file**
+
+```ts
+export const PROMPT_FILE_PATHS = {
+  base: 'llm/assistant/base.md',
+  global: 'llm/reply/global.md',
+  replyShell: 'llm/reply/shell.md',
+  summarize: 'llm/reply/summarize.md',
+  decide: 'llm/reply/decide.md',
+  read: 'llm/reply/read.md',
+  answer: 'llm/reply/answer.md',
+  weekly: 'llm/reply/weekly.md',
+  // existing entries...
+} as const;
+```
+
+- [ ] **Step 6: Run the selection, formatting, and prompt registry tests**
+
+Run: `npm test -- tests/weekly/select.test.ts tests/weekly/format.test.ts tests/prompt-files.test.ts`
+Expected: PASS with weekly prompt registered and weekly dataset formatted with sanitized text.
+
+### Task 6: Add Weekly LLM Generation And Orchestrator Branching
+
+**Files:**
+- Create: `src/llm/openai-compatible-client/weekly.ts`
+- Modify: `src/llm/openai-compatible-client/index.ts`
+- Create: `llm/reply/weekly.md`
+- Create: `tests/openai-compatible-client/weekly.test.ts`
+- Modify: `src/app/chat-orchestrator/types.ts`
+- Modify: `src/app/chat-orchestrator/index.ts`
+- Create: `src/app/weekly/index.ts`
+- Create: `tests/chat-orchestrator/weekly/command.test.ts`
+- Create: `tests/chat-orchestrator/weekly/orchestration.test.ts`
+- Modify: `tests/chat-orchestrator/support/orchestrator.ts`
+
+- [ ] **Step 1: Write the failing weekly LLM and orchestration tests**
+
+```ts
+test('uses the reply model and weekly prompt contract for weekly reports', async () => {
+  const client = new OpenAiCompatibleLlmClient(createClientConfig(), createOpenAiStub('<b>Неделя в чате</b>'));
+
+  await client.generateWeekly({
+    assistantInstructions: loadPrompt('base'),
+    weeklyDataset: 'WEEK_STATS\n- total human messages: 42'
+  });
+
+  expect(lastRequestBody?.model).toBe('reply-model');
+  expect(JSON.stringify(lastRequestBody)).toContain('Неделя в чате');
+  expect(JSON.stringify(lastRequestBody)).toContain('SELECTED_EVENTS');
+});
+```
+
+```ts
+test('runs /weekly from private admin without sending a private confirmation', async () => {
+  const db = new FakeDatabaseClient();
+  seedGroupWeek(db);
+  const generateWeekly = vi.fn().mockResolvedValue(createReplyResult('<b>Неделя в чате</b>\n• живо'));
+  const replyDispatcher = vi.fn();
+  const weeklyDispatcher = vi.fn().mockResolvedValue({
+    messageId: 1001,
+    createdAt: '2026-04-24T09:00:30.000Z'
+  });
+  const orchestrator = createOrchestrator({
+    db,
+    qwen: { generateReply: vi.fn(), generateWeekly },
+    replyDispatcher,
+    weeklyDispatcher
+  });
+
+  await orchestrator.handleIncomingMessage(
+    createIncomingMessage({
+      chatId: 99,
+      chatType: 'private',
+      authorizedMode: 'private_admin',
+      text: '/weekly',
+      entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+    })
+  );
+
+  expect(generateWeekly).toHaveBeenCalled();
+  expect(replyDispatcher).not.toHaveBeenCalled();
+  expect(weeklyDispatcher).toHaveBeenCalledWith({
+    chatId: 1,
+    text: '<b>Неделя в чате</b>\n• живо'
+  });
+});
+```
+
+- [ ] **Step 2: Run the weekly LLM and orchestrator tests to verify they fail**
+
+Run: `npm test -- tests/openai-compatible-client/weekly.test.ts tests/chat-orchestrator/weekly/command.test.ts tests/chat-orchestrator/weekly/orchestration.test.ts`
+Expected: FAIL because `generateWeekly`, `weeklyDispatcher`, and weekly orchestration do not exist yet.
+
+- [ ] **Step 3: Add the weekly LLM path**
+
+```ts
+export async function generateWeekly(params: {
+  config: LlmClientConfig;
+  createCompletion: ChatCompletionsCreate;
+  options: LlmClientOptions;
+  input: {
+    assistantInstructions: string;
+    weeklyDataset: string;
+  };
+}): Promise<LlmReplyResult> {
+  const prompt = renderPromptTemplate(loadPrompt('replyShell'), {
+    assistantInstructions: params.input.assistantInstructions,
+    globalPrompt: loadPrompt('global'),
+    targetDisplayName: 'weekly-report',
+    intent: 'weekly',
+    intentPrompt: loadPrompt('weekly'),
+    dataSections: params.input.weeklyDataset,
+    lookupSections: ''
+  });
+
+  // same completion/retry/logging pattern as generateReply
+}
+```
+
+```ts
+async generateWeekly(input: {
+  assistantInstructions: string;
+  weeklyDataset: string;
+}): Promise<LlmReplyResult> {
+  return generateWeekly({
+    config: this.config,
+    createCompletion: this.createCompletion,
+    options: this.options,
+    input
+  });
+}
+```
+
+- [ ] **Step 4: Add weekly-specific orchestrator dependencies and service orchestration**
+
+```ts
+export type WeeklyDispatcher = (input: {
+  chatId: number;
+  text: string;
+}) => Promise<SentBotMessage>;
+```
+
+```ts
+if (decision.intent === 'weekly') {
+  await this.runWeeklyJob(
+    {
+      triggerChatId: message.chatId,
+      triggerMessageId: message.messageId
+    },
+    logger
+  );
+  return;
+}
+```
+
+```ts
+export class WeeklyService {
+  async generateAndSend(): Promise<void> {
+    const messages = loadWeeklyMessages({
+      db: this.deps.db,
+      chatId: this.deps.env.telegramChatId,
+      now: this.deps.now()
+    });
+    const enriched = enrichWeeklyMessagesWithMedia({
+      db: this.deps.db,
+      messages
+    });
+    const candidates = buildWeeklyCandidates(enriched);
+    const selected = selectWeeklyEvents(candidates);
+    const weeklyDataset = formatWeeklyDataset(
+      buildWeeklyDataset({
+        now: this.deps.now(),
+        messages: enriched,
+        selected
+      })
+    );
+    const result = await this.deps.qwen.generateWeekly({
+      assistantInstructions: loadPrompt('base'),
+      weeklyDataset
+    });
+    const sent = await this.deps.weeklyDispatcher({
+      chatId: this.deps.env.telegramChatId,
+      text: formatTelegramHtmlReply(result.text)
+    });
+    this.deps.db.saveBotMessage({
+      chatId: this.deps.env.telegramChatId,
+      chatType: 'group',
+      chatTitle: null,
+      messageId: sent.messageId,
+      text: formatTelegramHtmlReply(result.text),
+      createdAt: sent.createdAt,
+      userId: this.deps.bot.userId,
+      username: this.deps.bot.username,
+      displayName: this.deps.bot.displayName
+    });
+  }
+}
+```
+
+- [ ] **Step 5: Write the weekly prompt contract**
+
+```md
 <b>Неделя в чате</b>
 
-• ...
+• 2-3 bullets with the main arc of the week.
 
 <b>Темы</b>
 
-• ...
+• Use only themes supported by SELECTED_EVENTS.
 
 <b>Моменты</b>
 
-• ...
+• Highlight concrete moments, not generic mood summaries.
 
 <b>Роли недели</b>
 
-• ...
+• Describe only roles visible this week.
 
 <b>Факты</b>
 
-• ...
+• Mention concrete evidence-backed facts.
 
 <b>Итог</b>
-...
+One short closing paragraph.
 ```
 
-The prompt should tell the model to rely primarily on `SELECTED_EVENTS` and use
-stats only as supporting evidence.
+- [ ] **Step 6: Run the weekly LLM and orchestration tests to verify they pass**
 
-## Component Design
+Run: `npm test -- tests/openai-compatible-client/weekly.test.ts tests/chat-orchestrator/weekly/command.test.ts tests/chat-orchestrator/weekly/orchestration.test.ts`
+Expected: PASS with `/weekly` handled only in private admin, no private confirmation sent, and the recap posted to the configured group chat.
 
-Suggested modules:
+### Task 7: Add Smoke Tooling And Finish Documentation
 
-- `src/app/weekly/messages.ts`
-  Range loading and human-message filtering.
-- `src/app/weekly/media.ts`
-  Cached media summary lookup and message enrichment.
-- `src/app/weekly/events.ts`
-  Candidate generation for bursts, reply hotspots, reply chains, and media
-  moments.
-- `src/app/weekly/select.ts`
-  Candidate merge, scoring, day balancing, and selection.
-- `src/app/weekly/format.ts`
-  Weekly dataset prompt formatting.
-- `src/app/weekly/index.ts`
-  Weekly service orchestration.
-- `src/llm/openai-compatible-client/weekly.ts`
-  Weekly-specific LLM call.
+**Files:**
+- Create: `scripts/weekly-smoke.ts`
+- Modify: `README.md`
+- Modify: `docs/architecture.md`
+- Modify: `docs/development.md`
 
-The exact file split can be adjusted during implementation, but keep event
-detection and prompt formatting testable without Telegram.
+- [ ] **Step 1: Write the failing smoke-path test or dry-run assertion**
 
-## Affected Existing Areas
+```ts
+test('weekly smoke path builds stats and events without Telegram network calls', async () => {
+  const output = await runWeeklySmoke({
+    sqlitePath: 'data/prod-smoke.sqlite',
+    now: '2026-04-24T09:00:00.000Z'
+  });
 
-Expected touched areas:
+  expect(output).toContain('WEEK_STATS');
+  expect(output).toContain('SELECTED_EVENTS');
+});
+```
 
-- `src/domain/models.ts`
-- `src/domain/response-policy.ts`
-- `src/app.ts`
-- `src/app/chat-orchestrator/index.ts`
-- `src/app/chat-orchestrator/types.ts`
-- `src/database/messages-read.ts`
-- `src/database/index.ts`
-- `src/llm/openai-compatible-client/*`
-- `src/llm/prompt-files.ts`
-- `llm/reply/weekly.md`
-- `README.md`
-- `docs/architecture.md`
-- `docs/development.md`
+- [ ] **Step 2: Implement the local smoke script**
 
-Because this changes bot behavior and prompt behavior, apply the repository
-bot-behavior approval gate before implementation.
+```ts
+const db = DatabaseClient.open(process.env.SQLITE_PATH ?? 'data/prod-smoke.sqlite');
+const service = createWeeklyPreviewService({
+  db,
+  chatId: Number(process.env.TELEGRAM_CHAT_ID),
+  now: process.env.WEEKLY_NOW ?? new Date().toISOString()
+});
 
-## Testing
+const preview = service.buildPreview();
+console.log(preview.dataset);
+```
 
-Add focused tests for:
+- [ ] **Step 3: Document the command and architecture changes**
 
-- `/weekly` is recognized only in `private_admin`.
-- `/weekly` in the group chat is ignored.
-- range message loading by `created_at`.
-- burst candidate detection.
-- reply hotspot detection.
-- reply chain detection.
-- media moment detection from cached artifacts.
-- merge and dedupe behavior.
-- day-balanced selection.
-- formatter includes cached media summaries and tolerates missing artifacts.
-- weekly orchestration calls the LLM and sends the result to `TELEGRAM_CHAT_ID`.
-- weekly orchestration does not send a private admin confirmation.
-- LLM failure does not send a group message.
+```md
+- `/weekly` works only in the admin private chat.
+- It reads the last seven days from `TELEGRAM_CHAT_ID`.
+- It never triggers new media recognition work.
+- It posts the final recap into the configured group chat.
+```
 
-Add a smoke path for `data/prod-smoke.sqlite` that builds the weekly dataset and
-prints stats/events without sending Telegram messages. This can be a script or a
-test utility, but it should not depend on network access.
+- [ ] **Step 4: Run focused verification and then the full suite**
 
-## Documentation Updates After Implementation
+Run: `npm test -- tests/weekly/messages.test.ts tests/weekly/media.test.ts tests/weekly/events.test.ts tests/weekly/select.test.ts tests/weekly/format.test.ts tests/chat-orchestrator/weekly/command.test.ts tests/chat-orchestrator/weekly/orchestration.test.ts tests/openai-compatible-client/weekly.test.ts tests/response-policy.test.ts tests/prompt-files.test.ts`
+Expected: PASS for all weekly-focused coverage.
 
-After implementation, update:
+Run: `npm test`
+Expected: PASS for the full Vitest suite.
 
-- `README.md` command list and behavior notes;
-- `docs/architecture.md` runtime flow and context contract;
-- `docs/development.md` local smoke workflow if a script is added.
+Run: `npm run typecheck`
+Expected: PASS with weekly intent and new service types accepted across the project.
 
-Also remove or update stale planning details if this plan becomes durable
-architecture.
+## Notes For The Implementer
+
+- Keep weekly data flow out of `ReplyContext`; use weekly-specific types end-to-end.
+- Reuse the existing preferred media artifact ordering from `src/app/chat-orchestrator/media/cache.ts`.
+- Sanitize all user-originated text before adding it to an LLM prompt.
+- Use UTC calendar days exactly as specified in the design.
+- Do not send any success acknowledgment to the admin private chat.
+- On LLM failure or Telegram send failure, log and exit without posting a group message.
+
+## Self-Review
+
+- Spec coverage: command policy, range loading, cached media summaries, event detection, merge/dedupe, day-balanced selection, prompt contract, orchestration, smoke tooling, and docs are all mapped to explicit tasks.
+- Placeholder scan: removed vague “handle later” language; every task points to exact files, commands, and concrete code shapes.
+- Type consistency: `weekly` is introduced once as an intent, weekly data stays in `Weekly*` types, and the LLM contract uses `generateWeekly` consistently.
+
+Plan complete and saved to `docs/superpowers/plans/2026-04-24-weekly-design.md`. Two execution options:
+
+**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
+
+**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
+
+**Which approach?**

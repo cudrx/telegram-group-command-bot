@@ -14,6 +14,7 @@ import {
   getChatState,
   getMessageByTelegramMessageId,
   getMessagesBefore,
+  getMessagesInRange,
   getRecentMessages,
   saveBotMessage,
   saveIncomingMessage
@@ -93,6 +94,14 @@ export class DatabaseClient {
     limit: number
   ): StoredMessage[] {
     return getMessagesBefore(this.db, chatId, beforeMessageId, limit);
+  }
+
+  getMessagesInRange(input: {
+    chatId: number;
+    fromInclusive: string;
+    toExclusive: string;
+  }): StoredMessage[] {
+    return getMessagesInRange(this.db, input);
   }
 
   getMessageByTelegramMessageId(

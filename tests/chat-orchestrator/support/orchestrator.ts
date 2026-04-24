@@ -6,7 +6,7 @@ import type { AppLogger } from '../../../src/logging/logger.js';
 import type { LookupProvider } from '../../../src/lookup/types.js';
 import { createEnv } from './env.js';
 import type { FakeDatabaseClient } from './fake-database.js';
-import { createLookupPlanResult, type createReplyResult } from './llm.js';
+import { createLookupPlanResult, createReplyResult } from './llm.js';
 import { createLogger } from './logger.js';
 
 export function createOrchestrator(input: {
@@ -20,6 +20,10 @@ export function createOrchestrator(input: {
       lookupContext?: unknown;
       mediaContext?: unknown;
     }) => Promise<ReturnType<typeof createReplyResult>>;
+    generateWeekly?: (input: {
+      assistantInstructions: string;
+      weeklyDataset: string;
+    }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
       intent: 'decide' | 'answer';
       replyContext: unknown;
@@ -28,6 +32,10 @@ export function createOrchestrator(input: {
   replyDispatcher: (input: {
     chatId: number;
     replyToMessageId: number;
+    text: string;
+  }) => Promise<{ messageId: number; createdAt: string }>;
+  weeklyDispatcher?: (input: {
+    chatId: number;
     text: string;
   }) => Promise<{ messageId: number; createdAt: string }>;
   lookupProvider?: LookupProvider | null;
@@ -64,6 +72,9 @@ export function createOrchestrator(input: {
     db: input.db as never,
     qwen: {
       ...input.qwen,
+      generateWeekly:
+        input.qwen.generateWeekly ??
+        vi.fn().mockResolvedValue(createReplyResult('<b>Неделя в чате</b>')),
       planLookup:
         input.qwen.planLookup ??
         vi.fn().mockResolvedValue(
@@ -89,6 +100,12 @@ export function createOrchestrator(input: {
       displayName: 'Fun Bot'
     },
     replyDispatcher: input.replyDispatcher,
+    weeklyDispatcher:
+      input.weeklyDispatcher ??
+      vi.fn().mockResolvedValue({
+        messageId: 1000,
+        createdAt: '2026-04-13T09:00:30.000Z'
+      }),
     sendTyping: input.sendTyping ?? vi.fn().mockResolvedValue(undefined),
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),

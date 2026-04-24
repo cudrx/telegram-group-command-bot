@@ -1,7 +1,8 @@
 import type {
   AssistantIntent,
   AuthorizedMode,
-  DirectTrigger
+  DirectTrigger,
+  DirectTriggerIntent
 } from './models.js';
 
 export type DetectDirectTriggerInput = {
@@ -25,7 +26,7 @@ type DecideReplyActionResult = {
   intent?: AssistantIntent;
 };
 
-const COMMAND_INTENTS: Record<string, AssistantIntent> = {
+const CHAT_COMMAND_INTENTS: Record<string, AssistantIntent> = {
   summarize: 'summarize',
   decide: 'decide',
   answer: 'answer'
@@ -40,7 +41,10 @@ export function detectDirectTrigger(
 export function decideReplyAction(
   input: DecideReplyActionInput
 ): DecideReplyActionResult {
-  if (input.directTrigger.kind === 'command') {
+  if (
+    input.directTrigger.kind === 'command' &&
+    isAssistantIntent(input.directTrigger.intent)
+  ) {
     return {
       shouldReply: true,
       reason: 'command',
@@ -54,13 +58,15 @@ export function decideReplyAction(
   };
 }
 
+function isAssistantIntent(
+  intent: DirectTriggerIntent
+): intent is AssistantIntent {
+  return intent !== 'weekly';
+}
+
 function detectCommandTrigger(
   input: DetectDirectTriggerInput
 ): DirectTrigger | null {
-  if (!allowsCommands(input.message.authorizedMode)) {
-    return null;
-  }
-
   const commandEntity = input.message.entities?.find(
     (entity) => entity.type === 'bot_command' && entity.offset === 0
   );
@@ -87,7 +93,25 @@ function detectCommandTrigger(
     return null;
   }
 
-  const intent = COMMAND_INTENTS[parsed.commandName.toLowerCase()];
+  const commandName = parsed.commandName.toLowerCase();
+
+  if (commandName === 'weekly') {
+    if (input.message.authorizedMode !== 'private_admin') {
+      return null;
+    }
+
+    return {
+      kind: 'command',
+      intent: 'weekly',
+      commandText
+    };
+  }
+
+  if (!allowsCommands(input.message.authorizedMode)) {
+    return null;
+  }
+
+  const intent = CHAT_COMMAND_INTENTS[commandName];
 
   if (!intent) {
     return null;
