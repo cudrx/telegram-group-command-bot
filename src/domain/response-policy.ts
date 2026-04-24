@@ -28,7 +28,6 @@ type DecideReplyActionResult = {
 const COMMAND_INTENTS: Record<string, AssistantIntent> = {
   summarize: 'summarize',
   decide: 'decide',
-  read: 'read',
   answer: 'answer'
 };
 
