@@ -76,9 +76,17 @@ describe('weekly dataset formatting', () => {
     expect(formatted).toContain('WEEK_STATS');
     expect(formatted).toContain('PARTICIPANT_STATS');
     expect(formatted).toContain('SELECTED_EVENTS');
+    expect(formatted).toContain('totalHumanMessages=2');
+    expect(formatted).toContain('topActiveDays=2026-04-20');
+    expect(formatted).toContain('displayName="Alice" activityTier=high');
     expect(formatted).toContain('kinds=burst');
-    expect(formatted).toContain('score=42');
     expect(formatted).toContain('evidence:');
+    expect(formatted).not.toContain('userId=');
+    expect(formatted).not.toContain('messageCount=');
+    expect(formatted).not.toContain('score=');
+    expect(formatted).not.toContain('messageIds=');
+    expect(formatted).not.toContain('participantIds=');
+    expect(formatted).not.toContain('topActiveDays=2026-04-20:2');
   });
 
   test('sanitizes user-originated display names and message lines', () => {
@@ -138,11 +146,11 @@ describe('weekly dataset formatting', () => {
       })
     );
 
-    expect(formatted).toContain('omittedMessages=22');
     expect(formatted).toContain('evidence:');
     expect(formatted).toContain('message 1');
     expect(formatted).toContain('message 13');
     expect(formatted).toContain('message 25');
+    expect(formatted).not.toContain('omittedMessages=');
     const evidenceLines = formatted
       .split('\n')
       .filter((line) => line.startsWith('   - '));

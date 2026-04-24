@@ -2,6 +2,8 @@ import { sanitizePromptText } from '../../llm/prompts/sanitize.js';
 import { formatWeeklyMessageLine } from './media.js';
 import type { WeeklyDataset, WeeklyDatasetEvent } from './types.js';
 
+type ActivityTier = 'high' | 'medium' | 'low';
+
 export function formatWeeklyDataset(input: WeeklyDataset): string {
   return [
     'WEEK_STATS',
@@ -32,23 +34,56 @@ function formatParticipantStats(input: WeeklyDataset): string {
     return 'none';
   }
 
-  return [...input.participantStats]
+  const maxMessageCount = Math.max(
+    ...input.participantStats.map((participant) => participant.messageCount)
+  );
+
+  return input.participantStats
+    .map((participant) => ({
+      displayName: sanitizePromptText(participant.displayName),
+      activityTier: getActivityTier(participant.messageCount, maxMessageCount)
+    }))
     .sort(
       (left, right) =>
-        right.messageCount - left.messageCount ||
-        sanitizePromptText(left.displayName).localeCompare(
-          sanitizePromptText(right.displayName)
-        ) ||
-        (left.userId ?? Number.MAX_SAFE_INTEGER) -
-          (right.userId ?? Number.MAX_SAFE_INTEGER)
+        compareActivityTier(left.activityTier, right.activityTier) ||
+        left.displayName.localeCompare(right.displayName)
     )
     .map(
       (participant) =>
-        `- userId=${participant.userId ?? 'unknown'} displayName="${sanitizePromptText(
-          participant.displayName
-        )}" messageCount=${participant.messageCount}`
+        `- displayName="${participant.displayName}" activityTier=${participant.activityTier}`
     )
     .join('\n');
+}
+
+function getActivityTier(
+  messageCount: number,
+  maxMessageCount: number
+): ActivityTier {
+  if (maxMessageCount <= 0) {
+    return 'low';
+  }
+
+  const ratio = messageCount / maxMessageCount;
+
+  if (ratio >= 0.6) {
+    return 'high';
+  }
+
+  if (ratio >= 0.25) {
+    return 'medium';
+  }
+
+  return 'low';
+}
+
+function compareActivityTier(left: ActivityTier, right: ActivityTier): number {
+  const rank: Record<ActivityTier, number> = {
+    high: 0,
+    medium: 1,
+    low: 2
+  };
+
+  return rank[left] - rank[right];
 }
 
 function formatSelectedEvents(events: WeeklyDatasetEvent[]): string {
@@ -69,15 +104,9 @@ function formatSelectedEvents(events: WeeklyDatasetEvent[]): string {
 
 function formatEvent(event: WeeklyDatasetEvent, index: number): string {
   const lines = [
-    `${index + 1}. id=${event.id}`,
+    `${index + 1}. event`,
     `   kinds=${event.kinds.join(',')}`,
     `   time=${event.startAt}..${event.endAt}`,
-    `   score=${event.score}`,
-    `   messageIds=${event.messageIds.join(',')}`,
-    `   participantIds=${event.participantIds.join(',')}`,
-    `   reasons=${event.reasons.map(sanitizePromptText).join('; ') || 'none'}`,
-    `   messageCount=${event.messages.length}`,
-    `   omittedMessages=${event.omittedMessageCount}`,
     '   evidence:'
   ];
 
@@ -98,6 +127,6 @@ function formatTopActiveDays(days: Array<[string, number]>): string {
   }
 
   return days
-    .map(([day, count]) => `${sanitizePromptText(day)}:${count}`)
+    .map(([day]) => sanitizePromptText(day))
     .join(',');
 }

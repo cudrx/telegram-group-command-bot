@@ -42,6 +42,10 @@ describeWithSqlite('weekly smoke preview', () => {
 
     expect(preview.dataset).toContain('WEEK_STATS');
     expect(preview.dataset).toContain('totalHumanMessages=12');
+    expect(preview.dataset).toContain('activityTier=high');
+    expect(preview.dataset).not.toContain('messageCount=');
+    expect(preview.dataset).not.toContain('userId=');
+    expect(preview.dataset).not.toContain('score=');
     expect(preview.dataset).toContain('SELECTED_EVENTS');
     expect(preview.dataset).toContain('kinds=burst');
   });

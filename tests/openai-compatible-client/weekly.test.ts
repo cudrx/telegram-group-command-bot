@@ -39,5 +39,11 @@ describe('OpenAiCompatibleLlmClient weekly', () => {
     expect(JSON.stringify(requestBody)).toContain(
       'WEEK_STATS\\n- total human messages: 42'
     );
+    expect(JSON.stringify(requestBody)).toContain(
+      'Смысл дайджеста выводи из SELECTED_EVENTS'
+    );
+    expect(JSON.stringify(requestBody)).toContain(
+      'WEEK_STATS и PARTICIPANT_STATS используй только как фон'
+    );
   });
 });

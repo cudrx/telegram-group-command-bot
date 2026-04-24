@@ -65,13 +65,14 @@ describe('prompt file registry', () => {
     expect(instructions).not.toContain('если данных не хватает, лучше уточни');
   });
 
-  test('weekly prompt forbids unsupported numeric comparisons', () => {
+  test('weekly prompt keeps events as the primary recap signal', () => {
     const prompt = loadPrompt('weekly');
 
-    expect(prompt).toContain('Не достраивай числовые отношения');
-    expect(prompt).toContain('Не выводи производные числовые сравнения');
-    expect(prompt).toContain('Не округляй отношения между числами самостоятельно');
-    expect(prompt).toContain('Хачик — 416 сообщений, Артём — 385');
+    expect(prompt).toContain('Смысл дайджеста выводи из SELECTED_EVENTS');
+    expect(prompt).toContain(
+      'WEEK_STATS и PARTICIPANT_STATS используй только как фон'
+    );
+    expect(prompt).toContain('темы, моменты и роли должны опираться на evidence');
   });
 
   test('reloads prompt file content on every read', () => {
