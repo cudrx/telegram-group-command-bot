@@ -56,6 +56,15 @@ export class ChatOrchestrator {
       return;
     }
 
+    const storedMessage = this.deps.db.getMessageByTelegramMessageId(
+      message.chatId,
+      message.messageId
+    );
+
+    if (storedMessage) {
+      this.mediaSupport.startAutoReadForIncomingMessage(storedMessage, logger);
+    }
+
     const directTrigger = detectDirectTrigger({
       botUserId: this.deps.bot.userId,
       botUsername: this.deps.bot.username,
@@ -190,6 +199,25 @@ export class ChatOrchestrator {
 
       return createLocalReplyResult(ANSWER_USAGE_PLACEHOLDER);
     }
+
+    const mediaGate = await this.mediaSupport.waitForRequiredMedia(
+      request,
+      replyContext,
+      logger
+    );
+
+    if (!mediaGate.ok) {
+      logger.warn('reply_job_skipped_required_media_failed', {
+        intent: request.intent
+      });
+      return null;
+    }
+
+    await this.mediaSupport.waitForOptionalInFlightMedia(
+      request,
+      replyContext,
+      logger
+    );
 
     replyContext = await this.mediaSupport.enrichReplyContextWithNearbyMedia(
       request,

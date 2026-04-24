@@ -1,4 +1,8 @@
 import { Bot } from 'grammy';
+import {
+  createAdminNotifier,
+  createNotifyingLogger
+} from './app/admin-notifier.js';
 import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
 import type { AppEnv } from './config/env/index.js';
@@ -42,7 +46,7 @@ function resolveAuthorizedMode(input: {
 
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
-  const logger = createLogger(
+  const baseLogger = createLogger(
     {
       service: 'telegram-assistant-bot',
       nodeEnv: env.nodeEnv
@@ -52,6 +56,21 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       color: env.logColor
     }
   );
+  const bot = new Bot(env.telegramBotToken);
+  const botInfo = await bot.api.getMe();
+  baseLogger.info('bot_initialized', {
+    botUserId: botInfo.id,
+    botUsername: botInfo.username ?? null
+  });
+  const adminNotifier = createAdminNotifier({
+    adminChatId: env.telegramAdminId,
+    sendMessage: async ({ chatId, text }) => {
+      await bot.api.sendMessage(chatId, text, {
+        parse_mode: 'HTML'
+      });
+    }
+  });
+  const logger = createNotifyingLogger(baseLogger, adminNotifier);
   const qwen = new OpenAiCompatibleLlmClient(
     {
       apiKey: env.llmApiKey,
@@ -94,12 +113,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     env.mediaAnalysisEnabled && env.ocrSpaceApiKey
       ? new OcrSpaceProvider({ apiKey: env.ocrSpaceApiKey })
       : null;
-  const bot = new Bot(env.telegramBotToken);
-  const botInfo = await bot.api.getMe();
-  logger.info('bot_initialized', {
-    botUserId: botInfo.id,
-    botUsername: botInfo.username ?? null
-  });
   const orchestrator = new ChatOrchestrator({
     db,
     qwen,

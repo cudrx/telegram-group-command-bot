@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS messages (
   media_file_size INTEGER,
   media_duration_seconds REAL,
   media_caption TEXT,
+  media_group_id TEXT,
   from_user_id INTEGER,
   from_username TEXT,
   from_first_name TEXT,

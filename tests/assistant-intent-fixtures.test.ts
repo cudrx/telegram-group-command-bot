@@ -10,13 +10,8 @@ describe('intent eval fixtures', () => {
       intentEvalFixtures.map((fixture) => fixture.intent)
     );
 
-    expect(coveredIntents).toEqual(
-      new Set(['answer', 'decide', 'read', 'summarize'])
-    );
+    expect(coveredIntents).toEqual(new Set(['answer', 'decide', 'summarize']));
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
-      'read-vision-meme',
-      'read-ocr-image-receipt',
-      'read-audio-transcript',
       'answer-factual-question',
       'summarize-basic-discussion',
       'decide-basic-dispute'

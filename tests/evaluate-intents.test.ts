@@ -9,7 +9,7 @@ import {
 import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
 
 describe('evaluate-intents helpers', () => {
-  test('treats read regressions as rubric failures', () => {
+  test('treats rubric regressions as failures', () => {
     const rubric = {
       mustIncludeAny: [['через десять']],
       mustIncludeAll: [],
@@ -58,16 +58,16 @@ describe('evaluate-intents helpers', () => {
   test('filters eval fixtures by id and intent', () => {
     expect(
       filterFixtures(intentEvalFixtures, {
-        ids: new Set(['read-audio-transcript']),
+        ids: new Set(['summarize-basic-discussion']),
         intents: new Set()
       }).map((fixture) => fixture.id)
-    ).toEqual(['read-audio-transcript']);
+    ).toEqual(['summarize-basic-discussion']);
 
     expect(
       filterFixtures(intentEvalFixtures, {
         ids: new Set(),
-        intents: new Set(['read'])
+        intents: new Set(['summarize'])
       }).map((fixture) => fixture.intent)
-    ).toEqual(['read', 'read', 'read']);
+    ).toEqual(['summarize']);
   });
 });

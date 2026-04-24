@@ -135,6 +135,7 @@ describeWithSqlite('DatabaseClient core', () => {
       'media_file_size',
       'media_duration_seconds',
       'media_caption',
+      'media_group_id',
       'from_user_id',
       'from_username',
       'from_first_name',
@@ -212,6 +213,40 @@ describeWithSqlite('DatabaseClient core', () => {
         fileId: 'photo-file',
         fileUniqueId: 'photo-unique'
       })
+    });
+
+    db.close();
+  });
+
+  test('stores media group id for incoming messages and null for bot messages', () => {
+    const db = DatabaseClient.open(':memory:');
+
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 10,
+        mediaGroupId: 'album-1'
+      })
+    );
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: 'group',
+      chatTitle: 'Friends',
+      messageId: 11,
+      text: 'бот ответил',
+      createdAt: '2026-04-10T12:00:20.000Z',
+      userId: 77,
+      username: 'fun_bot',
+      displayName: 'Fun Bot',
+      replyToMessageId: 10
+    });
+
+    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
+      messageId: 10,
+      mediaGroupId: 'album-1'
+    });
+    expect(db.getMessageByTelegramMessageId(1, 11)).toMatchObject({
+      messageId: 11,
+      mediaGroupId: null
     });
 
     db.close();

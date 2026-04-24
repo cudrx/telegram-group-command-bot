@@ -29,11 +29,16 @@ describe('ChatOrchestrator media image download failures', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Не удалось распознать медиа. Попробуй позже или с другим файлом.'
+    await vi.waitFor(() => {
+      expect(db.savedMediaArtifacts).toContainEqual(
+        expect.objectContaining({
+          artifactKind: 'auto_read',
+          artifactStatus: 'failed',
+          errorText: 'Media recognition returned no context.'
+        })
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
   test('uses legacy vision_raw when download fails and no new image artifacts exist', async () => {
@@ -62,10 +67,20 @@ describe('ChatOrchestrator media image download failures', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Legacy raw image description'
+    await vi.waitFor(() => {
+      expect(db.savedMediaArtifacts).toContainEqual(
+        expect.objectContaining({
+          artifactKind: 'vision_raw',
+          artifactStatus: 'success',
+          artifactText: 'Legacy raw image description'
+        })
+      );
     });
+    expect(
+      db.savedMediaArtifacts.some(
+        (artifact) => artifact.artifactStatus === 'failed'
+      )
+    ).toBe(false);
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 });

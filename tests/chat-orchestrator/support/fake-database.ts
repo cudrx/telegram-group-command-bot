@@ -46,6 +46,7 @@ export class FakeDatabaseClient {
     return this.insertMessage({
       chatId: message.chatId,
       messageId: message.messageId,
+      mediaGroupId: message.mediaGroupId ?? null,
       userId: message.fromUserId,
       senderDisplayName: message.fromDisplayName,
       text: message.text,
@@ -81,6 +82,7 @@ export class FakeDatabaseClient {
     this.insertMessage({
       chatId: input.chatId,
       messageId: input.messageId,
+      mediaGroupId: null,
       userId: input.userId,
       senderDisplayName: input.displayName,
       text: input.text,

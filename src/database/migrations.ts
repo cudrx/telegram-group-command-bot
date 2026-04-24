@@ -8,6 +8,7 @@ export function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, 'messages', 'media_file_size', 'INTEGER');
   ensureColumn(db, 'messages', 'media_duration_seconds', 'REAL');
   ensureColumn(db, 'messages', 'media_caption', 'TEXT');
+  ensureColumn(db, 'messages', 'media_group_id', 'TEXT');
   ensureColumn(db, 'messages', 'from_user_id', 'INTEGER');
   ensureColumn(db, 'messages', 'from_username', 'TEXT');
   ensureColumn(db, 'messages', 'from_first_name', 'TEXT');

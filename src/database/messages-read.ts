@@ -26,7 +26,8 @@ export function getRecentMessages(
           media_mime_type AS mediaMimeType,
           media_file_size AS mediaFileSize,
           media_duration_seconds AS mediaDurationSeconds,
-          media_caption AS mediaCaption
+          media_caption AS mediaCaption,
+          media_group_id AS mediaGroupId
         FROM messages
         WHERE chat_id = ?
         ORDER BY telegram_message_id DESC
@@ -62,7 +63,8 @@ export function getMessagesBefore(
           media_mime_type AS mediaMimeType,
           media_file_size AS mediaFileSize,
           media_duration_seconds AS mediaDurationSeconds,
-          media_caption AS mediaCaption
+          media_caption AS mediaCaption,
+          media_group_id AS mediaGroupId
         FROM messages
         WHERE chat_id = ? AND telegram_message_id < ?
         ORDER BY telegram_message_id DESC
@@ -97,7 +99,8 @@ export function getMessageByTelegramMessageId(
           media_mime_type AS mediaMimeType,
           media_file_size AS mediaFileSize,
           media_duration_seconds AS mediaDurationSeconds,
-          media_caption AS mediaCaption
+          media_caption AS mediaCaption,
+          media_group_id AS mediaGroupId
         FROM messages
         WHERE chat_id = ? AND telegram_message_id = ?
       `

@@ -40,20 +40,18 @@ describe('ChatOrchestrator media image healing', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mediaContext: expect.objectContaining({
-          visionDescription: 'A gold medal with a person at a computer.',
-          ocrTextRu: 'ГОРЖУСЬ',
-          ocrTextDefault: 'TEXT DEFAULT'
+    await vi.waitFor(() => {
+      expect(generateReply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mediaContext: expect.objectContaining({
+            visionDescription: 'A gold medal with a person at a computer.',
+            ocrTextRu: 'ГОРЖУСЬ',
+            ocrTextDefault: 'TEXT DEFAULT'
+          })
         })
-      })
-    );
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Интерпретация из partial cache'
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
   test('heals missing vision description when interpretation is cached and does not rerun OCR', async () => {
@@ -88,11 +86,15 @@ describe('ChatOrchestrator media image healing', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Cached interpretation text'
+    await vi.waitFor(() => {
+      expect(db.savedMediaArtifacts).toContainEqual(
+        expect.objectContaining({
+          artifactKind: 'vision_description',
+          artifactText: 'Healed description'
+        })
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
   test('heals vision description from legacy vision_raw and reuses empty OCR markers', async () => {
@@ -115,18 +117,16 @@ describe('ChatOrchestrator media image healing', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        mediaContext: expect.objectContaining({
-          visionDescription: 'Legacy raw image description'
+    await vi.waitFor(() => {
+      expect(generateReply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mediaContext: expect.objectContaining({
+            visionDescription: 'Legacy raw image description'
+          })
         })
-      })
-    );
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Legacy raw image description'
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
   test('reads replied image from cached interpretation and heals missing image passes', async () => {
@@ -150,10 +150,14 @@ describe('ChatOrchestrator media image healing', () => {
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());
 
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'Cached interpretation text'
+    await vi.waitFor(() => {
+      expect(db.savedMediaArtifacts).toContainEqual(
+        expect.objectContaining({
+          artifactKind: 'vision_description',
+          artifactText: 'Healed description'
+        })
+      );
     });
+    expect(replyDispatcher).not.toHaveBeenCalled();
   });
 });

@@ -9,7 +9,7 @@
 - читать текстовые сообщения из Telegram;
 - принимать сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`;
 - сохранять чаты, входящие сообщения, исходящие сообщения, sender metadata и `reply_to` связи;
-- отвечать только на явные команды `/summarize`, `/decide`, `/read` и `/answer`;
+- отвечать только на явные команды `/summarize`, `/decide` и `/answer`;
 - игнорировать обычный `@mention`, обычный private text и все текущие команды в `private_admin`;
 - строить короткий human-only local context с per-intent limit;
 - генерировать ответ через `generateReply`;
@@ -36,9 +36,14 @@
 - when `LOOKUP_ENABLED=false`, planner/provider are skipped and behavior stays chat-only;
 - `EXTERNAL_LOOKUP_CONTEXT` is appended to the prompt as untrusted evidence, not instructions.
 
-Media intake реализован только как lazy explicit command:
+Media intake работает автоматически для поддержанных входящих медиа в авторизованных чатах:
 
-- `/read` работает только когда команда отправлена reply на поддержанное медиа;
+- поддерживаются `photo`, image `document`, `voice`, `audio` и Telegram `video_note`;
+- после сохранения сообщения запускается in-process auto-read coordinator;
+- durable results сохраняются в `media_artifacts`, а in-memory map используется только для дедупликации текущих provider calls;
+- `/answer` ждёт target media и пропускает ответ, если required media failed;
+- `/decide` ждёт media из своего context window и пропускает ответ, если required media failed;
+- `/summarize` ждёт только уже in-flight media из context window и не стартует missing reads;
 - изображения проходят через Cloudflare Workers AI для `vision_description`, который дает только визуальное описание, а не OCR;
 - OCR.space сохраняет отдельные текстовые артефакты `ocr_text_ru` для `language=rus` и `OCREngine=2`, а также `ocr_text_default` без `language` и с `OCREngine=2`;
 - пустые OCR-результаты не сохраняются;
@@ -82,7 +87,7 @@ Media intake реализован только как lazy explicit command:
 - чаты;
 - сообщения с `reply_to` связями;
 - sender metadata прямо в `messages`;
-- raw и normalized media artifacts для `/read`.
+- raw и normalized media artifacts для automatic media intake.
 - маленький `app_state` key-value store для persistent runtime state, например последнего успешно объявленного deploy sha.
 
 ### `src/llm`
@@ -106,7 +111,7 @@ Media intake реализован только как lazy explicit command:
 - решает, должен ли бот отвечать;
 - собирает context;
 - вызывает OpenAI-compatible reply LLM;
-- для `/read` лениво скачивает replied-to media, проверяет artifact cache, вызывает media provider и передаёт в LLM только нормализованный artifact;
+- для поддержанных медиа запускает auto-read, проверяет artifact cache, вызывает media provider и добавляет successful summaries в нужные reply contexts;
 - показывает Telegram typing indicator;
 - форматирует исходящий ответ в Telegram-safe HTML;
 - отправляет ответ в Telegram с `parse_mode=HTML`;
@@ -168,17 +173,13 @@ Media intake реализован только как lazy explicit command:
 - Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
 
-### `read`
+### Media Artifacts
 
-- Команда считывает только replied-to media: `photo`, image `document`, `voice`, `audio`, `video_note`.
-- Если команда не является reply на поддержанное медиа, бот отвечает локальной usage-фразой без LLM/provider call.
 - Caption хранится и передаётся отдельно от результата распознавания.
-- Cloudflare Vision возвращает structured visual artifact с разделением `visibleText`, `namesMentionedInText` и `visuallyPresentPeopleOrCharacters`.
-- Gladia возвращает transcript artifact; возможные ошибки STT учитываются в финальном prompt.
-- Final prompt получает отдельные блоки `CAPTION`, `VISIBLE_TEXT`, `VISUAL_DETAILS`, `AUDIO_TRANSCRIPT`, `CHAT_CONTEXT`.
-- Lookup для `/read` не запускается; `LOOKUP_CONTEXT` отсутствует.
-- Context limit: `READ_CONTEXT_LIMIT=10`.
-- Prior messages from this bot в context не попадают.
+- Cloudflare Vision возвращает visual artifact; OCR.space добавляет OCR artifacts; Gladia возвращает transcript artifact.
+- Failed auto-read сохраняет failed artifact с коротким `errorText`, чтобы required reply flows могли не продолжать генерацию на неполном context.
+- Для media albums обрабатывается только первое изображение в `chatId + mediaGroupId`; album video и следующие изображения пропускаются.
+- Внутренний media prompt сохраняется для нормализации artifacts, но пользовательской команды `/read` больше нет.
 
 Static prompt text lives under `llm/`; `src/llm/prompt-files.ts` is the single source of truth for prompt asset paths and reads prompt files when prompt builders run. TypeScript code in `src/llm/` keeps ownership of prompt assembly, sanitization, transcript labels, lookup source formatting, and runtime data insertion.
 
@@ -186,7 +187,7 @@ Assistant instructions загружаются отдельно из `llm/assista
 
 ## Access Modes
 
-- `chat` mode доступен только в `TELEGRAM_CHAT_ID` для `group` и `supergroup`; здесь продолжают работать `/summarize`, `/decide`, `/read` и `/answer`.
+- `chat` mode доступен только в `TELEGRAM_CHAT_ID` для `group` и `supergroup`; здесь продолжают работать `/summarize`, `/decide` и `/answer`.
 - `private_admin` mode доступен только в `private` от `TELEGRAM_ADMIN_ID`; в текущей версии он зарезервирован под будущую админ-панель и не принимает текущие пользовательские команды.
 
 ## Database Model
@@ -220,19 +221,19 @@ Assistant instructions загружаются отдельно из `llm/assista
 
 - один процесс и один `SQLite`-файл;
 - один нейтральный assistant instruction file;
-- нет dispute persistence, objective event memory, reply-dialogues и media-aware flows;
+- нет dispute persistence, objective event memory и reply-dialogues;
 - lookup planner/provider are skipped and behavior stays chat-only when `LOOKUP_ENABLED=false`;
 - нет самостоятельных вмешательств;
 - нет reply-to-bot routing;
 - нет админ-команд и веб-интерфейса;
 - нет полноценной очереди задач;
-- observability пока ограничена локальными structured logs;
+- observability состоит из локальных structured logs и admin notifications для `warn`/`error`;
 - интеграционный путь `telegram -> db -> llm -> reply` покрыт тестами через fake transport/storage, без реального Telegram API.
 
 ## Known Risks To Revisit
 
-- понять, нужен ли minimal pending queue для нескольких одновременных explicit triggers, особенно когда media calls станут медленнее обычного reply path;
+- понять, нужен ли durable pending queue для нескольких одновременных explicit triggers, особенно когда media calls станут медленнее обычного reply path;
 - отделить fast lookup от optional deep research, чтобы обычные команды не превращались в долгие фоновые jobs без явного режима;
-- спроектировать media intake так, чтобы распознанные изображения, audio и video notes попадали в event log как проверяемые derived artifacts, а не как неявная memory;
+- уточнить, должны ли распознанные изображения, audio и video notes дополнительно отражаться в event log или достаточно `media_artifacts`;
 - выносить dispute persistence, objective memory и reply-dialogues только после стабильного v1;
 - future memory layers должны хранить только объективные события, а не free-form personality profiling.

@@ -10,6 +10,7 @@ export function toStoredMessage(row: StoredMessageRow): StoredMessage {
   return {
     chatId: row.chatId,
     messageId: row.messageId,
+    mediaGroupId: row.mediaGroupId ?? null,
     userId: row.userId,
     senderDisplayName: row.senderDisplayName,
     text: row.text,

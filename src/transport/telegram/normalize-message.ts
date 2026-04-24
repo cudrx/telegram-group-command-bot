@@ -39,6 +39,9 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     chatType: normalizeChatType(message.chat.type),
     chatTitle,
     messageId: message.message_id,
+    mediaGroupId: normalizeMediaGroupId(
+      'media_group_id' in message ? message.media_group_id : null
+    ),
     text: textPayload.text,
     createdAt: new Date(message.date * 1000).toISOString(),
     fromUserId: message.from?.id ?? null,
@@ -78,6 +81,9 @@ function normalizeReplyToMessageSnapshot(
   return {
     chatId: message.chat.id,
     messageId: reply.message_id,
+    mediaGroupId: normalizeMediaGroupId(
+      'media_group_id' in reply ? reply.media_group_id : null
+    ),
     userId: reply.from?.id ?? null,
     senderDisplayName: formatSenderDisplayName({
       firstName: reply.from?.first_name ?? null,
@@ -187,4 +193,10 @@ function normalizeChatType(type: string): ChatType {
     default:
       return 'unknown';
   }
+}
+
+function normalizeMediaGroupId(value: unknown): string | null {
+  return typeof value === 'string' && value.trim().length > 0
+    ? value.trim()
+    : null;
 }

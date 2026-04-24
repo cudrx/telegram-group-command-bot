@@ -144,6 +144,46 @@ describe('createApplication message forwarding', () => {
     );
   });
 
+  test('normalizes telegram media_group_id', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createAllowedAppEnv());
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 16,
+        date: 1_744_000_060,
+        media_group_id: 'album-1',
+        photo: [
+          {
+            file_id: 'photo-file',
+            file_unique_id: 'photo-unique',
+            file_size: 100
+          }
+        ],
+        from: {
+          id: 123,
+          is_bot: false,
+          username: 'artyom',
+          first_name: 'Artyom'
+        },
+        chat: {
+          id: -1001,
+          type: 'supergroup',
+          title: 'Test chat'
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mediaGroupId: 'album-1',
+        mediaSnapshot: expect.objectContaining({
+          mediaKind: 'photo'
+        })
+      })
+    );
+  });
+
   test('forwards replied-to media captions for answer fallback anchors', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(createAllowedAppEnv());
