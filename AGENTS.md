@@ -13,8 +13,8 @@ Core contract:
 - Prefer the current workspace and regular git branches; do not create worktrees
   unless the user asks.
 - Do not create commits unless the user explicitly asks.
-- If files were changed during the task, include a ready-to-use commit message
-  in the final response.
+- If files were changed or created during the task, include a ready-to-use
+  commit message in the final response.
 - Commit messages MUST follow the format: "<type>: <short description>".
 - Keep planning documents in `docs/superpowers/plans/`.
 - Do not silently change bot behavior, prompts, context-building, memory, loop
