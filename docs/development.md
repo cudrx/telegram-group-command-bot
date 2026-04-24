@@ -12,9 +12,6 @@
 - [`README.md`](../README.md) — быстрый старт
 - [`docs/README.md`](./README.md) — каноническая структура Markdown-документов
 - [`docs/architecture.md`](./architecture.md) — устройство проекта
-- [`docs/backlog/ideas.md`](./backlog/ideas.md) — идеи следующих версий
-- [`docs/backlog/big-features.md`](./backlog/big-features.md) — крупные future-stage подсистемы
-- [`docs/backlog/small-fixes.md`](./backlog/small-fixes.md) — небольшие reliability, safety и operations задачи
 - [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
 - [`llm/assistant/base.md`](../llm/assistant/base.md) — базовые assistant instructions
 - [`llm/`](../llm/) — статические prompt-файлы; `src/llm/prompt-files.ts` хранит registry путей, а `src/llm/` оставляет за собой безопасную сборку prompt context и LLM-вызовы
@@ -32,7 +29,7 @@
 Lookup включен по умолчанию и использует Tavily. Если интернет-заземление в
 локальном запуске не нужно, задайте `LOOKUP_ENABLED=false`. Остальные
 операционные твики имеют кодовые дефолты в
-[`../src/config/env.ts`](../src/config/env.ts), а в
+[`../src/config/env/`](../src/config/env/), а в
 [`../.env.example`](../.env.example) лежит только основной локальный шаблон.
 
 ## Local Workflow
@@ -85,6 +82,7 @@ npm run dev
 - `npm run eval:intents` — прогоняет все intent fixtures и пишет отчёты в gitignored `.eval-runs/`
 - `npm run eval:intents -- --id=decide-laptop-value-dispute` — прогоняет один fixture
 - `npm run eval:intents -- --intent=summarize` — прогоняет fixtures одного intent
+- `SQLITE_PATH=... TELEGRAM_CHAT_ID=... npm exec tsx scripts/weekly-smoke.ts` — печатает weekly dataset из SQLite без Telegram и LLM calls
 - `npm start` — запуск собранного `dist/src/index.js`
 
 ## Local Docker Workflow
@@ -164,6 +162,17 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
 - по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
 - после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
+- `/weekly` проверять из private chat администратора: команда читает последние семь дней из `TELEGRAM_CHAT_ID`, публикует recap в эту группу и не отправляет private confirmation.
+
+### Weekly Smoke Preview
+
+Для локальной проверки weekly dataset без Telegram network calls и без LLM calls используйте существующую SQLite-базу:
+
+```bash
+SQLITE_PATH=data/prod-smoke.sqlite TELEGRAM_CHAT_ID=-1001234567890 npm exec tsx scripts/weekly-smoke.ts
+```
+
+`SQLITE_PATH` по умолчанию равен `data/prod-smoke.sqlite`, `WEEKLY_NOW` можно задать ISO-временем для repeatable preview. Скрипт открывает SQLite, строит тот же preview path, что production `/weekly`, печатает `WEEK_STATS`, `PARTICIPANT_STATS` и `SELECTED_EVENTS`, затем закрывает БД. Weekly preview использует только cached media artifacts и не запускает новое распознавание медиа.
 
 ### Lookup Smoke Tests
 
@@ -207,8 +216,6 @@ curl -sS --fail-with-body "$LLM_BASE_URL/chat/completions" \
 - [`../README.md`](../README.md) — если изменились возможности, запуск, переменные окружения или деплой;
 - [`./architecture.md`](./architecture.md) — если изменились инварианты, компоненты, потоки данных или модель БД;
 - [`./development.md`](./development.md) — если изменились workflow, проверки, CI/CD, деплой, repair steps или maintenance-правила;
-- [`./backlog/ideas.md`](./backlog/ideas.md) — если идея уже реализована, устарела или стала точнее после работы;
-- [`./backlog/small-fixes.md`](./backlog/small-fixes.md) — если малая рабочая заметка уже реализована, переехала в план или должна быть переформулирована;
 - [`./superpowers/plans/`](./superpowers/plans/) — если план уже реализован и его устойчивые решения нужно перенести в основные документы.
 
 `docs/superpowers/plans/` не является архивом всех завершённых работ. Держите там не больше 5 планов: когда появляются новые планы, удаляйте самые старые уже реализованные, а устойчивые решения переносите в основные документы.

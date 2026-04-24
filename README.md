@@ -8,9 +8,9 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы только для `/summarize`, `/decide` и `/answer`
+- командные режимы для `/summarize`, `/decide`, `/answer` и admin-only `/weekly`
 - бот принимает сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`
-- обычный `@mention`, обычный private text и все команды в `private_admin` сейчас не запускают LLM
+- обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
 - сообщения других ботов сохраняются и могут быть reply-якорем для `/answer`
@@ -28,8 +28,9 @@
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
 - `/answer` - напрямую ответить на replied-to сообщение; при включенном lookup бот может заземлять внешние сущности, факты, свежесть или ссылки через Tavily.
+- `/weekly` - работает только в private chat от `TELEGRAM_ADMIN_ID`; читает последние семь дней из `TELEGRAM_CHAT_ID`, использует только уже сохраненные media artifacts, генерирует recap и публикует его прямо в configured group chat без private confirmation.
 
-Поддержанные входящие медиа (`photo`, image `document`, `voice`, `audio`, Telegram `video_note`) обрабатываются автоматически в авторизованных чатах, если включен `MEDIA_ANALYSIS_ENABLED=true`. Артефакты сохраняются в SQLite и переиспользуются в `/answer`, `/decide` и `/summarize`.
+Поддержанные входящие медиа (`photo`, image `document`, `voice`, `audio`, Telegram `video_note`) обрабатываются автоматически в авторизованных чатах, если включен `MEDIA_ANALYSIS_ENABLED=true`. Артефакты сохраняются в SQLite и переиспользуются в `/answer`, `/decide`, `/summarize` и `/weekly`. Weekly recap никогда не запускает новое распознавание медиа: если cached artifact отсутствует, recap строится по тексту и metadata.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -94,7 +95,7 @@ npm run dev
 - `TELEGRAM_ADMIN_ID`
 - `SQLITE_PATH`
 
-Шумные runtime-твики вроде LLM timeout/retries, typing delay, log level/color, lookup limits, media providers, file-size limit и retention имеют кодовые дефолты в [`src/config/env.ts`](./src/config/env.ts). Их можно переопределить через окружение точечно, если они остались в схеме, но в `.env.example` они намеренно не лежат.
+Шумные runtime-твики вроде LLM timeout/retries, typing delay, log level/color, lookup limits, media providers, file-size limit и retention имеют кодовые дефолты в [`src/config/env/`](./src/config/env/). Их можно переопределить через окружение точечно, если они остались в схеме, но в `.env.example` они намеренно не лежат.
 
 ## Логи
 
@@ -129,11 +130,13 @@ docker compose logs bot --tail=200 -f
 - `npm run eval:intents` - прогон всего intent-eval fixture набора; результаты пишутся в gitignored `.eval-runs/`
 - `npm run eval:intents -- --id=decide-laptop-value-dispute` - прогон одного fixture
 - `npm run eval:intents -- --intent=summarize` - прогон всех fixtures одного intent
+- `SQLITE_PATH=... TELEGRAM_CHAT_ID=... npm exec tsx scripts/weekly-smoke.ts` - локально напечатать weekly dataset без Telegram и LLM calls
 
 ## Структура
 
 - `src/domain` — правила ответа
-- `src/storage` — `SQLite`, чаты, сообщения и media artifact cache
+- `src/database` — `SQLite`, чаты, сообщения и media artifact cache
+- `src/app/weekly` — загрузка семидневного среза, cached media enrichment, event selection и weekly dataset formatting
 - `llm` — статические prompt-файлы для assistant, reply modes, planner и deploy announcements
 - `src/llm` — сборка prompt context, LLM-клиент и reply generation
 - `src/media` — Gladia STT, Cloudflare Vision, Telegram media metadata/download helpers
@@ -141,8 +144,7 @@ docker compose logs bot --tail=200 -f
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
 - `docs/development.md` — локальная разработка и CI
-- `docs/backlog/ideas.md` — идеи на следующие версии
-- `docs/backlog/big-features.md` — крупные future-stage подсистемы
+- `docs/superpowers/plans/` — свежие design docs и implementation plans
 
 ## Docker Deployment
 
@@ -198,4 +200,4 @@ docker compose down
 
 ## Следующие версии
 
-Lookup-backed `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. Автоматический media intake кэширует распознанные artifacts в SQLite, удаляет временные файлы после provider call и добавляет успешные summaries в relevant reply context. Следующие улучшения вынесены в [`docs/backlog/ideas.md`](./docs/backlog/ideas.md).
+Lookup-backed `/decide` и `/answer` уже подведены к current contract через planner/lookup scaffolding. Автоматический media intake кэширует распознанные artifacts в SQLite, удаляет временные файлы после provider call и добавляет успешные summaries в relevant reply context. Свежие design docs и implementation plans лежат в [`docs/superpowers/plans/`](./docs/superpowers/plans/).
