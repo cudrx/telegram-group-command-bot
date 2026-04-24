@@ -141,6 +141,16 @@ export async function createApplication(env: AppEnv): Promise<Application> {
         createdAt: new Date(sent.date * 1000).toISOString()
       };
     },
+    weeklyDispatcher: async ({ chatId, text }) => {
+      const sent = await bot.api.sendMessage(chatId, text, {
+        parse_mode: 'HTML'
+      });
+
+      return {
+        messageId: sent.message_id,
+        createdAt: new Date(sent.date * 1000).toISOString()
+      };
+    },
     sendTyping: async (chatId) => {
       await bot.api.sendChatAction(chatId, 'typing');
     },

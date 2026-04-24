@@ -36,6 +36,11 @@ export type ReplyDispatcher = (input: {
   text: string;
 }) => Promise<SentBotMessage>;
 
+export type WeeklyDispatcher = (input: {
+  chatId: number;
+  text: string;
+}) => Promise<SentBotMessage>;
+
 export type LlmClient = {
   generateReply(input: {
     assistantInstructions: string;
@@ -44,6 +49,10 @@ export type LlmClient = {
     replyContext: ReplyContext;
     lookupContext?: import('../../lookup/types.js').LookupContext | null;
     mediaContext?: DescribeMediaContext | null;
+  }): Promise<LlmReplyResult>;
+  generateWeekly(input: {
+    assistantInstructions: string;
+    weeklyDataset: string;
   }): Promise<LlmReplyResult>;
   planLookup(input: {
     intent: LookupIntent;
@@ -77,6 +86,7 @@ export type ChatOrchestratorDeps = {
   fetch?: typeof fetch | undefined;
   bot: BotIdentity;
   replyDispatcher: ReplyDispatcher;
+  weeklyDispatcher: WeeklyDispatcher;
   sendTyping: (chatId: number) => Promise<void>;
   delay: (ms: number) => Promise<void>;
   logger: AppLogger;

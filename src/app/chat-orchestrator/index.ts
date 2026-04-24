@@ -10,6 +10,7 @@ import { loadPrompt } from '../../llm/prompt-files.js';
 import { serializeError } from '../../logging/logger.js';
 import { buildReplyContext } from '../reply-context-builder.js';
 import { formatTelegramHtmlReply } from '../telegram-html.js';
+import { runWeeklyJob } from '../weekly/index.js';
 import {
   ANSWER_USAGE_PLACEHOLDER,
   createLocalReplyResult,
@@ -25,7 +26,8 @@ export type {
   BotIdentity,
   LlmClient,
   ReplyDispatcher,
-  SentBotMessage
+  SentBotMessage,
+  WeeklyDispatcher
 } from './types.js';
 
 export class ChatOrchestrator {
@@ -84,6 +86,19 @@ export class ChatOrchestrator {
       decision: decision.reason,
       intent: decision.intent
     });
+
+    if (directTrigger.kind === 'command' && directTrigger.intent === 'weekly') {
+      await runWeeklyJob({
+        db: this.deps.db,
+        qwen: this.deps.qwen,
+        env: this.deps.env,
+        bot: this.deps.bot,
+        weeklyDispatcher: this.deps.weeklyDispatcher,
+        logger,
+        now: this.deps.now
+      });
+      return;
+    }
 
     if (!decision.shouldReply || !decision.intent) {
       return;

@@ -54,6 +54,11 @@ export type GenerateReplyInput = {
   mediaContext?: DescribeMediaContext | null;
 };
 
+export type GenerateWeeklyInput = {
+  assistantInstructions: string;
+  weeklyDataset: string;
+};
+
 export type PlanLookupInput = {
   intent: LookupIntent;
   replyContext: ReplyContext;

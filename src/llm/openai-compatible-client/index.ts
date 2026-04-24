@@ -3,9 +3,11 @@ import OpenAI from 'openai';
 import { formatDeployUpdate } from './deploy-update.js';
 import { planLookup } from './lookup.js';
 import { generateReply } from './reply.js';
+import { generateWeekly } from './weekly.js';
 import type {
   ChatCompletionsCreate,
   GenerateReplyInput,
+  GenerateWeeklyInput,
   LlmClientConfig,
   LlmClientOptions,
   LlmReplyResult,
@@ -15,6 +17,7 @@ import type {
 
 export type {
   GenerateReplyInput,
+  GenerateWeeklyInput,
   LlmClientConfig,
   LlmClientOptions,
   LlmReplyResult,
@@ -55,6 +58,15 @@ export class OpenAiCompatibleLlmClient {
 
   async generateReply(input: GenerateReplyInput): Promise<LlmReplyResult> {
     return generateReply({
+      config: this.config,
+      createCompletion: this.createCompletion,
+      options: this.options,
+      input
+    });
+  }
+
+  async generateWeekly(input: GenerateWeeklyInput): Promise<LlmReplyResult> {
+    return generateWeekly({
       config: this.config,
       createCompletion: this.createCompletion,
       options: this.options,
