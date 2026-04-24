@@ -14,7 +14,8 @@ Core contract:
   unless the user asks.
 - Do not create commits unless the user explicitly asks.
 - If files were changed during the task, include a ready-to-use commit message
-  in the final response in the format: "<type>: <short description>".
+  in the final response.
+- Commit messages MUST follow the format: "<type>: <short description>".
 - Keep planning documents in `docs/superpowers/plans/`.
 - Do not silently change bot behavior, prompts, context-building, memory, loop
   guards, or reply policy; apply `agent/modules/bot-behavior.md` and wait for
