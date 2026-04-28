@@ -15,4 +15,4 @@ echo "${SERVER_GHCR_TOKEN}" | docker login ghcr.io -u "${SERVER_GHCR_USERNAME}" 
 IMAGE_TAG="${IMAGE_TAG}" docker compose --env-file .env -f compose.yml pull bot
 IMAGE_TAG="${IMAGE_TAG}" docker compose --env-file .env -f compose.yml up -d bot
 
-docker image prune -f
+docker image prune -a -f
