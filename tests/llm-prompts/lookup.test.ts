@@ -74,7 +74,10 @@ describe('buildIntentPrompt lookup context', () => {
     );
     expect(prompt).toContain('If status is "weak":');
     expect(prompt).toContain(
-      'Do not claim that lookup found reliable supporting data.'
+      'Do not suggest that external data was found or used.'
+    );
+    expect(prompt).toContain(
+      'If needed, you may express mild uncertainty, but without referring to external data.'
     );
     expect(prompt).toContain(
       'If status is "failed", "timed_out", "skipped", or "disabled":'
