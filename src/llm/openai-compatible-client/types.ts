@@ -31,7 +31,6 @@ export type LlmClientConfig = {
   baseUrl: string;
   replyModel: string;
   replyTemperature: number;
-  replyEnableThinking?: boolean;
   plannerModel?: string;
   lookupMaxQueries?: number;
   timeoutMs: number;

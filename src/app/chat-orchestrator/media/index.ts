@@ -39,7 +39,10 @@ export class ChatOrchestratorMediaSupport {
     message: StoredMessage,
     logger: AppLogger
   ): void {
-    if (!this.deps.env.mediaAnalysisEnabled) {
+    if (
+      !message.mediaSnapshot ||
+      !this.hasRecognitionProviderFor(message.mediaSnapshot)
+    ) {
       return;
     }
 
@@ -50,10 +53,6 @@ export class ChatOrchestratorMediaSupport {
     request: ReplyRequest,
     logger: AppLogger
   ): Promise<LlmReplyResult> {
-    if (!this.deps.env.mediaAnalysisEnabled) {
-      return createLocalReplyResult(READ_DISABLED_PLACEHOLDER);
-    }
-
     const media = request.replyToMediaSnapshot;
 
     if (!media) {
@@ -67,7 +66,11 @@ export class ChatOrchestratorMediaSupport {
     });
 
     if (!mediaContext) {
-      return createLocalReplyResult(READ_FAILED_PLACEHOLDER);
+      return createLocalReplyResult(
+        this.hasRecognitionProviderFor(media)
+          ? READ_FAILED_PLACEHOLDER
+          : READ_DISABLED_PLACEHOLDER
+      );
     }
 
     if (media.mediaKind === 'photo' || media.mediaKind === 'document_image') {
@@ -119,7 +122,7 @@ export class ChatOrchestratorMediaSupport {
       return null;
     }
 
-    if (!this.deps.env.mediaAnalysisEnabled) {
+    if (!this.hasRecognitionProviderFor(targetMedia)) {
       return getCachedMediaContext(this.deps, { request, media: targetMedia });
     }
 
@@ -196,13 +199,13 @@ export class ChatOrchestratorMediaSupport {
     replyContext: ReplyContext,
     logger: AppLogger
   ): Promise<{ ok: true } | { ok: false }> {
-    if (!this.deps.env.mediaAnalysisEnabled) {
-      return { ok: true };
-    }
-
     const media = this.getRequiredMediaForIntent(request, replyContext);
 
     for (const item of media) {
+      if (!this.hasRecognitionProviderFor(item)) {
+        continue;
+      }
+
       const result = await this.autoRead.ensureComplete({
         request,
         media: item,
@@ -259,6 +262,22 @@ export class ChatOrchestratorMediaSupport {
     }
 
     return [];
+  }
+
+  private hasRecognitionProviderFor(media: MediaMessageSnapshot): boolean {
+    if (media.mediaKind === 'photo' || media.mediaKind === 'document_image') {
+      return Boolean(this.deps.visionProvider || this.deps.ocrProvider);
+    }
+
+    if (
+      media.mediaKind === 'voice' ||
+      media.mediaKind === 'audio' ||
+      media.mediaKind === 'video_note'
+    ) {
+      return Boolean(this.deps.speechToTextProvider);
+    }
+
+    return false;
   }
 
   private ensureMediaContext(input: {

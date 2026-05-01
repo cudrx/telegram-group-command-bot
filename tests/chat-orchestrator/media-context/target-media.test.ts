@@ -63,7 +63,6 @@ describe('ChatOrchestrator media context target media', () => {
       qwen: { generateReply },
       replyDispatcher,
       sendTyping,
-      env: { mediaAnalysisEnabled: true },
       ...downloadDeps,
       visionProvider,
       ocrProvider: createOcrProvider(() => '')
@@ -134,19 +133,12 @@ describe('ChatOrchestrator media context target media', () => {
       db,
       qwen: { generateReply },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: false },
       telegramFileApi: {
         getFile: vi.fn().mockRejectedValue(new Error('should not call'))
       },
       fetch: vi
         .fn()
-        .mockRejectedValue(new Error('should not call')) as typeof fetch,
-      visionProvider: {
-        describe: vi.fn().mockRejectedValue(new Error('should not call'))
-      },
-      ocrProvider: {
-        extractText: vi.fn().mockRejectedValue(new Error('should not call'))
-      }
+        .mockRejectedValue(new Error('should not call')) as typeof fetch
     });
 
     await orchestrator.handleIncomingMessage(
@@ -247,8 +239,7 @@ describe('ChatOrchestrator media context target media', () => {
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
-      replyDispatcher,
-      env: { mediaAnalysisEnabled: true }
+      replyDispatcher
     });
 
     await orchestrator.handleIncomingMessage(

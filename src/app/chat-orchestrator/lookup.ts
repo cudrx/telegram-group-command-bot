@@ -24,7 +24,7 @@ export async function buildLookupContext(
 
   const lookupIntent: LookupIntent = input.intent;
 
-  if (!deps.env.lookupEnabled || !deps.lookupProvider) {
+  if (!deps.lookupProvider) {
     return null;
   }
 

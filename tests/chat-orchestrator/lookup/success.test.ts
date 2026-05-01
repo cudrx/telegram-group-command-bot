@@ -58,7 +58,6 @@ describe('ChatOrchestrator lookup success', () => {
       replyDispatcher,
       lookupProvider,
       env: {
-        lookupEnabled: true,
         lookupMaxResults: 3,
         lookupTimeoutMs: 7000
       }

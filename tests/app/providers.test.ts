@@ -15,12 +15,11 @@ import {
 describe('createApplication providers', () => {
   installAppTestHooks();
 
-  test('wires planner model and Tavily lookup provider when enabled', async () => {
+  test('wires planner model and Tavily lookup provider when a key is configured', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
       createEnv({
         llmPlannerModel: 'planner-model',
-        lookupEnabled: true,
         lookupProvider: 'tavily',
         tavilyApiKey: 'tvly-key',
         lookupTimeoutMs: 7000,
@@ -35,7 +34,6 @@ describe('createApplication providers', () => {
         baseUrl: 'https://example.com',
         replyModel: 'reply-model',
         replyTemperature: 0.6,
-        replyEnableThinking: false,
         plannerModel: 'planner-model',
         lookupMaxQueries: 1,
         timeoutMs: 20_000,
@@ -54,11 +52,10 @@ describe('createApplication providers', () => {
     );
   });
 
-  test('wires media providers when media analysis is enabled', async () => {
+  test('wires media providers when provider keys are configured', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
       createEnv({
-        mediaAnalysisEnabled: true,
         ocrSpaceApiKey: 'ocr-key',
         gladiaApiKey: 'gladia-key',
         cloudflareAiApiKey: 'cf-key',

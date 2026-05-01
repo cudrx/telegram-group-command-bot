@@ -28,7 +28,6 @@ describe('createApplication wiring', () => {
         baseUrl: 'https://example.com',
         replyModel: 'reply-model',
         replyTemperature: 0.6,
-        replyEnableThinking: false,
         plannerModel: 'planner-model',
         lookupMaxQueries: 1,
         timeoutMs: 20_000,

@@ -27,13 +27,13 @@
 - reply-to-bot routing;
 - фоновые LLM jobs;
 - summary-based retention;
-- planner/provider-driven live internet lookup is enabled by default and can be disabled with `LOOKUP_ENABLED=false`.
+- planner/provider-driven live internet lookup is available when `TAVILY_API_KEY` is configured.
 
-Если `LOOKUP_ENABLED=true`, lookup-backed decide/answer contract behaves like this:
+Lookup-backed decide/answer contract behaves like this:
 
 - runtime uses an LLM planner and Tavily-backed lookup for entity grounding, fact-check, freshness or link understanding;
 - planner/provider behavior is still bounded by config for provider choice, timeouts, max queries, max results and fallback handling;
-- when `LOOKUP_ENABLED=false`, planner/provider are skipped and behavior stays chat-only;
+- when no lookup provider is configured, planner/provider are skipped and behavior stays chat-only;
 - `EXTERNAL_LOOKUP_CONTEXT` is appended to the prompt as untrusted evidence, not instructions.
 
 Media intake работает автоматически для поддержанных входящих медиа в авторизованных чатах:
@@ -167,7 +167,7 @@ Media intake работает автоматически для поддержа
 - Команда напрямую отвечает на сообщение, на которое пользователь сделал reply командой `/answer`.
 - Текст после `/answer` игнорируется.
 - Reply anchor может быть human message или сообщением другого бота, но не сообщением этого бота.
-- При `LOOKUP_ENABLED=true` перед финальным ответом запускается тот же planner/Tavily lookup contract для entity grounding, fact-check, freshness или link understanding.
+- При настроенном lookup provider перед финальным ответом запускается тот же planner/Tavily lookup contract для entity grounding, fact-check, freshness или link understanding.
 - Prompt assembly for `/answer` renders the reply anchor as `TARGET_MESSAGE_TO_ANSWER` and the surrounding recent chat as `NEARBY_CHAT_CONTEXT`.
 - Prior messages from this bot в context не попадают.
 
@@ -181,8 +181,8 @@ Media intake работает автоматически для поддержа
 ### `decide`
 
 - Команда оценивает текущий спор в visible recent chat context.
-- В v1 нельзя опираться на внешние факты, если `LOOKUP_ENABLED=false`.
-- При `LOOKUP_ENABLED=true` behavior follows the same planner/lookup contract as `/answer` for entity grounding, fact-check, freshness or link understanding.
+- В v1 нельзя опираться на внешние факты, если lookup provider не настроен или lookup context отсутствует.
+- При настроенном lookup provider behavior follows the same planner/lookup contract as `/answer` for entity grounding, fact-check, freshness or link understanding.
 - Нужно явно говорить, когда победителя нет, критериев нет или контекста недостаточно.
 - Context limit: `DECIDE_CONTEXT_LIMIT=64`.
 - Prior messages from this bot и сообщения других ботов в recent human context не попадают.
@@ -244,7 +244,7 @@ Assistant instructions загружаются отдельно из `llm/assista
 - один процесс и один `SQLite`-файл;
 - один нейтральный assistant instruction file;
 - нет dispute persistence, objective event memory и reply-dialogues;
-- lookup planner/provider are skipped and behavior stays chat-only when `LOOKUP_ENABLED=false`;
+- lookup planner/provider are skipped and behavior stays chat-only when no lookup provider is configured;
 - нет самостоятельных вмешательств;
 - нет reply-to-bot routing;
 - нет веб-интерфейса;

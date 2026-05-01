@@ -19,7 +19,6 @@ describe('ChatOrchestrator media image analysis', () => {
       db,
       qwen: { generateReply },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       ...createSuccessfulDownloadDeps(),
       visionProvider: createVisionProvider(
         'A gold medal with a person at a computer.'
@@ -54,7 +53,6 @@ describe('ChatOrchestrator media image analysis', () => {
         generateReply: createReplyResultStub('Текст с картинки')
       },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       ...createSuccessfulDownloadDeps(),
       visionProvider: {
         describe: vi.fn().mockRejectedValue(new Error('vision down'))

@@ -16,7 +16,6 @@ describe('ChatOrchestrator media image download failures', () => {
       db,
       qwen: { generateReply } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       telegramFileApi: {
         getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
       },
@@ -50,7 +49,6 @@ describe('ChatOrchestrator media image download failures', () => {
       db,
       qwen: { generateReply: vi.fn() } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       telegramFileApi: {
         getFile: vi.fn().mockResolvedValue({ file_path: 'photo/file.jpg' })
       },

@@ -24,10 +24,10 @@
 - `TELEGRAM_CHAT_ID`
 - `TELEGRAM_ADMIN_ID`
 - `LLM_API_KEY`
-- `TAVILY_API_KEY`, если lookup остается включенным (`LOOKUP_ENABLED=true`)
+- `TAVILY_API_KEY`, если live lookup должен быть доступен
 
-Lookup включен по умолчанию и использует Tavily. Если интернет-заземление в
-локальном запуске не нужно, задайте `LOOKUP_ENABLED=false`. Остальные
+Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа lookup provider
+не создается. Остальные
 операционные твики имеют кодовые дефолты в
 [`../src/config/env/`](../src/config/env/), а в
 [`../.env.example`](../.env.example) лежит только основной локальный шаблон.
@@ -47,8 +47,8 @@ cp .env.example .env
 ```
 
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
-Lookup уже включен кодовым дефолтом; для него нужен `TAVILY_API_KEY`, а если интернет-заземление в локальном запуске не нужно, задайте `LOOKUP_ENABLED=false`.
-Для локальной проверки автоматического распознавания медиа включите `MEDIA_ANALYSIS_ENABLED=true` и задайте `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`. Без этого media provider calls не запускаются.
+Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа интернет-заземление не запускается.
+Для локальной проверки автоматического распознавания медиа задайте нужные provider keys: `GLADIA_API_KEY` для аудио, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` для vision и `OCR_SPACE_API_KEY` для OCR. Без соответствующих ключей provider calls не запускаются.
 Для image media analysis дополнительно нужен `OCR_SPACE_API_KEY`. В локальных OCR.space smoke tests используйте `OCREngine=2`: default engine возвращал пустой текст для `data/test-medal-ru.jpg`.
 Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
@@ -253,17 +253,16 @@ TELEGRAM_CHAT_ID=-1002155313986
 TELEGRAM_ADMIN_ID=84626969
 ```
 
-Если в production нужно автоматическое распознавание медиа, дополнительно включите:
+Если в production нужно автоматическое распознавание медиа, добавьте нужные provider keys:
 
 ```dotenv
-MEDIA_ANALYSIS_ENABLED=true
 GLADIA_API_KEY=...
 CLOUDFLARE_AI_API_KEY=...
 CLOUDFLARE_ACCOUNT_ID=...
 OCR_SPACE_API_KEY=...
 ```
 
-Без `MEDIA_ANALYSIS_ENABLED=true` бот стартует нормально, но auto-read provider calls не запускаются.
+Без provider keys бот стартует нормально, но соответствующие auto-read provider calls не запускаются.
 
 Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
 

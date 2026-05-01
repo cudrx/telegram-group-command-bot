@@ -1,4 +1,4 @@
-import { LOOKUP_PROVIDER, STT_PROVIDER, VISION_PROVIDER } from './constants.js';
+import { STT_PROVIDER, VISION_PROVIDER } from './constants.js';
 import type { ParsedRawEnv } from './schema.js';
 
 export function validateParsedEnv(parsed: ParsedRawEnv): void {
@@ -8,21 +8,9 @@ export function validateParsedEnv(parsed: ParsedRawEnv): void {
     );
   }
 
-  if (
-    parsed.LOOKUP_ENABLED &&
-    LOOKUP_PROVIDER === 'tavily' &&
-    !parsed.TAVILY_API_KEY
-  ) {
-    throw new Error('TAVILY_API_KEY is required when LOOKUP_ENABLED=true.');
-  }
-
-  if (
-    parsed.LOOKUP_ENABLED &&
-    parsed.TAVILY_API_KEY &&
-    looksLikePlaceholder(parsed.TAVILY_API_KEY)
-  ) {
+  if (parsed.TAVILY_API_KEY && looksLikePlaceholder(parsed.TAVILY_API_KEY)) {
     throw new Error(
-      'TAVILY_API_KEY contains a placeholder value. Replace it with a real Tavily API key before enabling lookup.'
+      'TAVILY_API_KEY contains a placeholder value. Replace it with a real Tavily API key before starting the bot.'
     );
   }
 
@@ -45,59 +33,54 @@ function assertNoPlaceholderSecrets(parsed: ParsedRawEnv): void {
 }
 
 function validateMediaAnalysisConfig(parsed: ParsedRawEnv): void {
-  if (!parsed.MEDIA_ANALYSIS_ENABLED) {
-    return;
-  }
-
-  if (STT_PROVIDER === 'gladia') {
-    if (!parsed.GLADIA_API_KEY) {
-      throw new Error(
-        'GLADIA_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.'
-      );
-    }
-
-    if (looksLikePlaceholder(parsed.GLADIA_API_KEY)) {
-      throw new Error(
-        'GLADIA_API_KEY contains a placeholder value. Replace it with a real Gladia API key before enabling media analysis.'
-      );
-    }
-  }
-
-  if (VISION_PROVIDER === 'cloudflare') {
-    if (!parsed.CLOUDFLARE_AI_API_KEY) {
-      throw new Error(
-        'CLOUDFLARE_AI_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.'
-      );
-    }
-
-    if (looksLikePlaceholder(parsed.CLOUDFLARE_AI_API_KEY)) {
-      throw new Error(
-        'CLOUDFLARE_AI_API_KEY contains a placeholder value. Replace it with a real Cloudflare AI API key before enabling media analysis.'
-      );
-    }
-
-    if (!parsed.CLOUDFLARE_ACCOUNT_ID) {
-      throw new Error(
-        'CLOUDFLARE_ACCOUNT_ID is required when MEDIA_ANALYSIS_ENABLED=true.'
-      );
-    }
-
-    if (looksLikePlaceholder(parsed.CLOUDFLARE_ACCOUNT_ID)) {
-      throw new Error(
-        'CLOUDFLARE_ACCOUNT_ID contains a placeholder value. Replace it with a real Cloudflare account ID before enabling media analysis.'
-      );
-    }
-  }
-
-  if (!parsed.OCR_SPACE_API_KEY) {
+  if (
+    STT_PROVIDER === 'gladia' &&
+    parsed.GLADIA_API_KEY &&
+    looksLikePlaceholder(parsed.GLADIA_API_KEY)
+  ) {
     throw new Error(
-      'OCR_SPACE_API_KEY is required when MEDIA_ANALYSIS_ENABLED=true.'
+      'GLADIA_API_KEY contains a placeholder value. Replace it with a real Gladia API key before starting the bot.'
     );
   }
 
-  if (looksLikePlaceholder(parsed.OCR_SPACE_API_KEY)) {
+  if (VISION_PROVIDER === 'cloudflare') {
+    if (parsed.CLOUDFLARE_AI_API_KEY && !parsed.CLOUDFLARE_ACCOUNT_ID) {
+      throw new Error(
+        'CLOUDFLARE_ACCOUNT_ID is required when CLOUDFLARE_AI_API_KEY is set.'
+      );
+    }
+
+    if (parsed.CLOUDFLARE_ACCOUNT_ID && !parsed.CLOUDFLARE_AI_API_KEY) {
+      throw new Error(
+        'CLOUDFLARE_AI_API_KEY is required when CLOUDFLARE_ACCOUNT_ID is set.'
+      );
+    }
+
+    if (
+      parsed.CLOUDFLARE_AI_API_KEY &&
+      looksLikePlaceholder(parsed.CLOUDFLARE_AI_API_KEY)
+    ) {
+      throw new Error(
+        'CLOUDFLARE_AI_API_KEY contains a placeholder value. Replace it with a real Cloudflare AI API key before starting the bot.'
+      );
+    }
+
+    if (
+      parsed.CLOUDFLARE_ACCOUNT_ID &&
+      looksLikePlaceholder(parsed.CLOUDFLARE_ACCOUNT_ID)
+    ) {
+      throw new Error(
+        'CLOUDFLARE_ACCOUNT_ID contains a placeholder value. Replace it with a real Cloudflare account ID before starting the bot.'
+      );
+    }
+  }
+
+  if (
+    parsed.OCR_SPACE_API_KEY &&
+    looksLikePlaceholder(parsed.OCR_SPACE_API_KEY)
+  ) {
     throw new Error(
-      'OCR_SPACE_API_KEY contains a placeholder value. Replace it with a real OCR.space API key before enabling media analysis.'
+      'OCR_SPACE_API_KEY contains a placeholder value. Replace it with a real OCR.space API key before starting the bot.'
     );
   }
 }

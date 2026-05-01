@@ -98,9 +98,13 @@ export async function ensureImageMediaContext(
   );
 
   const missing = {
-    visionDescription: !visionDescription,
-    ocrTextRu: !ocrTextRu && !hasEmptyOcrTextRuMarker,
-    ocrTextDefault: !ocrTextDefault && !hasEmptyOcrTextDefaultMarker
+    visionDescription: !visionDescription && Boolean(deps.visionProvider),
+    ocrTextRu:
+      !ocrTextRu && !hasEmptyOcrTextRuMarker && Boolean(deps.ocrProvider),
+    ocrTextDefault:
+      !ocrTextDefault &&
+      !hasEmptyOcrTextDefaultMarker &&
+      Boolean(deps.ocrProvider)
   };
 
   if (

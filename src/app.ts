@@ -77,7 +77,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       baseUrl: env.llmBaseUrl,
       replyModel: env.llmReplyModel,
       replyTemperature: env.llmReplyTemperature,
-      replyEnableThinking: env.llmReplyEnableThinking,
       plannerModel: env.llmPlannerModel,
       lookupMaxQueries: env.lookupMaxQueries,
       timeoutMs: env.llmTimeoutMs,
@@ -92,15 +91,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     }
   );
   const lookupProvider =
-    env.lookupEnabled && env.lookupProvider === 'tavily' && env.tavilyApiKey
+    env.lookupProvider === 'tavily' && env.tavilyApiKey
       ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
       : null;
   const speechToTextProvider =
-    env.mediaAnalysisEnabled && env.sttProvider === 'gladia' && env.gladiaApiKey
+    env.sttProvider === 'gladia' && env.gladiaApiKey
       ? new GladiaTranscriptionProvider({ apiKey: env.gladiaApiKey })
       : null;
   const visionProvider =
-    env.mediaAnalysisEnabled &&
     env.visionProvider === 'cloudflare' &&
     env.cloudflareAiApiKey &&
     env.cloudflareAccountId
@@ -109,10 +107,9 @@ export async function createApplication(env: AppEnv): Promise<Application> {
           apiKey: env.cloudflareAiApiKey
         })
       : null;
-  const ocrProvider =
-    env.mediaAnalysisEnabled && env.ocrSpaceApiKey
-      ? new OcrSpaceProvider({ apiKey: env.ocrSpaceApiKey })
-      : null;
+  const ocrProvider = env.ocrSpaceApiKey
+    ? new OcrSpaceProvider({ apiKey: env.ocrSpaceApiKey })
+    : null;
   const orchestrator = new ChatOrchestrator({
     db,
     qwen,

@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { parseEnv } from './support.js';
 
 describe('parseEnv lookup settings', () => {
-  test('defaults planner model to reply model and keeps lookup enabled', () => {
+  test('defaults planner model to reply model and reads lookup defaults', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
@@ -12,9 +12,6 @@ describe('parseEnv lookup settings', () => {
     });
 
     expect(env.llmPlannerModel).toBe('reply-model');
-    expect(Object.hasOwn(env, 'llmFastReplyModel')).toBe(false);
-    expect(env.llmReplyEnableThinking).toBe(false);
-    expect(env.lookupEnabled).toBe(true);
     expect(env.lookupProvider).toBe('tavily');
     expect(env.tavilyApiKey).toBe('tvly-key');
     expect(env.lookupTimeoutMs).toBe(7000);
@@ -39,8 +36,6 @@ describe('parseEnv lookup settings', () => {
       LLM_API_KEY: 'llm-key',
       LLM_REPLY_MODEL: 'reply-model',
       LLM_PLANNER_MODEL: 'planner-model',
-      LLM_REPLY_ENABLE_THINKING: 'true',
-      LOOKUP_ENABLED: 'true',
       TAVILY_API_KEY: 'tvly-key',
       LOOKUP_TIMEOUT_MS: '5000',
       LOOKUP_MAX_QUERIES: '2',
@@ -48,9 +43,6 @@ describe('parseEnv lookup settings', () => {
     });
 
     expect(env.llmPlannerModel).toBe('planner-model');
-    expect(Object.hasOwn(env, 'llmFastReplyModel')).toBe(false);
-    expect(env.llmReplyEnableThinking).toBe(true);
-    expect(env.lookupEnabled).toBe(true);
     expect(env.lookupProvider).toBe('tavily');
     expect(env.tavilyApiKey).toBe('tvly-key');
     expect(env.lookupTimeoutMs).toBe(5000);
@@ -58,23 +50,11 @@ describe('parseEnv lookup settings', () => {
     expect(env.lookupMaxResults).toBe(4);
   });
 
-  test('requires tavily api key when lookup is enabled', () => {
+  test('rejects placeholder tavily api key when it is configured', () => {
     expect(() =>
       parseEnv({
         TELEGRAM_BOT_TOKEN: 'telegram-token',
         LLM_API_KEY: 'llm-key',
-        LOOKUP_ENABLED: 'true',
-        TAVILY_API_KEY: undefined
-      })
-    ).toThrow(/TAVILY_API_KEY is required when LOOKUP_ENABLED=true/i);
-  });
-
-  test('rejects placeholder tavily api key when lookup is enabled', () => {
-    expect(() =>
-      parseEnv({
-        TELEGRAM_BOT_TOKEN: 'telegram-token',
-        LLM_API_KEY: 'llm-key',
-        LOOKUP_ENABLED: 'true',
         TAVILY_API_KEY: 'your-tavily-api-key'
       })
     ).toThrow(/TAVILY_API_KEY contains a placeholder value/i);

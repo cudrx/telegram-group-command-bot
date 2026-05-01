@@ -75,8 +75,7 @@ describe('ChatOrchestrator media context nearby media', () => {
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
-      replyDispatcher,
-      env: { mediaAnalysisEnabled: true }
+      replyDispatcher
     });
 
     await orchestrator.handleIncomingMessage(
@@ -129,7 +128,7 @@ describe('ChatOrchestrator media context nearby media', () => {
       db,
       qwen: { generateReply },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: true, summarizeContextLimit: 8 },
+      env: { summarizeContextLimit: 8 },
       telegramFileApi
     });
 
@@ -155,7 +154,7 @@ describe('ChatOrchestrator media context nearby media', () => {
       db,
       qwen: { generateReply },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: true, summarizeContextLimit: 8 },
+      env: { summarizeContextLimit: 8 },
       visionProvider: createVisionProvider('новая картинка'),
       ocrProvider: createOcrProvider(() => ''),
       telegramFileApi,

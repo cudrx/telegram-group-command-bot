@@ -30,7 +30,7 @@
 - `/answer` - напрямую ответить на replied-to сообщение; при включенном lookup бот может заземлять внешние сущности, факты, свежесть или ссылки через Tavily.
 - `/weekly` - работает только в private chat от `TELEGRAM_ADMIN_ID`; читает последние семь дней из `TELEGRAM_CHAT_ID`, использует только уже сохраненные media artifacts, генерирует recap и публикует его прямо в configured group chat без private confirmation.
 
-Поддержанные входящие медиа (`photo`, image `document`, `voice`, `audio`, Telegram `video_note`) обрабатываются автоматически в авторизованных чатах, если включен `MEDIA_ANALYSIS_ENABLED=true`. Артефакты сохраняются в SQLite и переиспользуются в `/answer`, `/decide`, `/summarize` и `/weekly`. Weekly recap никогда не запускает новое распознавание медиа: если cached artifact отсутствует, recap строится по тексту и metadata.
+Поддержанные входящие медиа (`photo`, image `document`, `voice`, `audio`, Telegram `video_note`) обрабатываются автоматически в авторизованных чатах, когда настроены соответствующие provider keys. Артефакты сохраняются в SQLite и переиспользуются в `/answer`, `/decide`, `/summarize` и `/weekly`. Weekly recap никогда не запускает новое распознавание медиа: если cached artifact отсутствует, recap строится по тексту и metadata.
 
 В v1 намеренно нет idle summary, participant memory, aliases, social-QA, самостоятельных interjections, per-chat overrides и фоновых LLM jobs.
 
@@ -40,7 +40,7 @@
 - npm `11+`
 - Telegram bot token
 - LLM API key
-- Tavily API key, if lookup stays enabled (`LOOKUP_ENABLED=true`); otherwise set `LOOKUP_ENABLED=false`
+- Tavily API key, if live lookup should be available
 
 ## Локальный запуск
 
@@ -57,8 +57,8 @@ cp .env.example .env
 ```
 
 `.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
-Lookup включен по умолчанию и использует Tavily; для старта задайте `TAVILY_API_KEY` или явно отключите lookup через `LOOKUP_ENABLED=false`.
-Автоматическое распознавание медиа по умолчанию выключено: включите `MEDIA_ANALYSIS_ENABLED=true` и задайте `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
+Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа lookup provider не создается.
+Автоматическое распознавание медиа запускается по наличию provider keys: `GLADIA_API_KEY` для аудио, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` для vision и `OCR_SPACE_API_KEY` для OCR.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -82,7 +82,6 @@ npm run dev
 - `LLM_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
 - `TAVILY_API_KEY`
-- `MEDIA_ANALYSIS_ENABLED`
 - `READ_CONTEXT_LIMIT`
 - `GLADIA_API_KEY`
 - `CLOUDFLARE_AI_API_KEY`
@@ -155,7 +154,7 @@ docker compose logs bot --tail=200 -f
 - после этого workflow по `SSH` обновляет deploy-артефакты на VPS и делает `docker compose pull && docker compose up -d`
 
 `SQLite` не хранится внутри контейнера. Файл базы лежит на VPS в bind mount-папке `./data`, которая на сервере должна находиться рядом с `compose.yml`, например в `/opt/test-chatbot/data/bot.sqlite`.
-`deploy/.env.server.example` уже включает `MEDIA_ANALYSIS_ENABLED=true`; после копирования проверьте реальные значения секретов, `TELEGRAM_CHAT_ID` и `TELEGRAM_ADMIN_ID`.
+После копирования `deploy/.env.server.example` проверьте реальные значения секретов, `TELEGRAM_CHAT_ID` и `TELEGRAM_ADMIN_ID`.
 
 Deploy metadata хранится рядом с базой в `/opt/test-chatbot/data/deploy-metadata.json` и видна контейнеру как `/app/data/deploy-metadata.json`. На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite; если sha новый, `LLM_REPLY_MODEL` форматирует короткое русское Telegram HTML-оповещение, бот отправляет его в `TELEGRAM_CHAT_ID`, и только после успешной отправки сохраняет sha.
 

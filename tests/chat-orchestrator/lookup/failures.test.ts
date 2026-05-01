@@ -42,8 +42,7 @@ describe('ChatOrchestrator lookup failure paths', () => {
       db,
       qwen: { generateReply, planLookup },
       replyDispatcher,
-      lookupProvider,
-      env: { lookupEnabled: true }
+      lookupProvider
     });
 
     await orchestrator.handleIncomingMessage(
@@ -81,8 +80,7 @@ describe('ChatOrchestrator lookup failure paths', () => {
       db,
       qwen: { generateReply, planLookup },
       replyDispatcher,
-      lookupProvider,
-      env: { lookupEnabled: true }
+      lookupProvider
     });
 
     await orchestrator.handleIncomingMessage(
@@ -141,8 +139,7 @@ describe('ChatOrchestrator lookup failure paths', () => {
       db,
       qwen: { generateReply, planLookup },
       replyDispatcher,
-      lookupProvider,
-      env: { lookupEnabled: true }
+      lookupProvider
     });
 
     await orchestrator.handleIncomingMessage(

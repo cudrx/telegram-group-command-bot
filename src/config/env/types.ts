@@ -6,7 +6,6 @@ export type ParsedEnv = {
   llmReplyModel: string;
   llmPlannerModel: string;
   llmReplyTemperature: number;
-  llmReplyEnableThinking: boolean;
   llmTimeoutMs: number;
   llmMaxRetries: number;
   logLlmText: boolean;
@@ -19,13 +18,11 @@ export type ParsedEnv = {
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
-  lookupEnabled: boolean;
   lookupProvider: 'tavily';
   tavilyApiKey: string | null;
   lookupTimeoutMs: number;
   lookupMaxQueries: number;
   lookupMaxResults: number;
-  mediaAnalysisEnabled: boolean;
   ocrSpaceApiKey: string | null;
   readContextLimit: number;
   sttProvider: 'gladia';

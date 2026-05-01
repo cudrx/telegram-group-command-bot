@@ -30,7 +30,6 @@ describe('ChatOrchestrator media image healing', () => {
       db,
       qwen: { generateReply } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       ...createSuccessfulDownloadDeps(),
       visionProvider: createVisionProvider(
         'A gold medal with a person at a computer.'
@@ -76,7 +75,6 @@ describe('ChatOrchestrator media image healing', () => {
         generateReply: vi.fn().mockRejectedValue(new Error('should not call'))
       } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       ...createSuccessfulDownloadDeps(),
       visionProvider: createVisionProvider('Healed description'),
       ocrProvider: {
@@ -107,7 +105,6 @@ describe('ChatOrchestrator media image healing', () => {
       db,
       qwen: { generateReply } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       ...createSuccessfulDownloadDeps(),
       visionProvider: createVisionProvider('Legacy raw image description'),
       ocrProvider: {
@@ -140,7 +137,6 @@ describe('ChatOrchestrator media image healing', () => {
         generateReply: vi.fn().mockRejectedValue(new Error('should not call'))
       } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       ...createSuccessfulDownloadDeps(),
       visionProvider: createVisionProvider('Healed description'),
       ocrProvider: {

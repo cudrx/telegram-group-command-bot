@@ -88,8 +88,7 @@ describe('ChatOrchestrator media context preference', () => {
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
-      replyDispatcher,
-      env: { mediaAnalysisEnabled: true }
+      replyDispatcher
     });
 
     await orchestrator.handleIncomingMessage(

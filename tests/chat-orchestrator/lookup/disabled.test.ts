@@ -40,8 +40,7 @@ describe('ChatOrchestrator lookup disabled paths', () => {
       db,
       qwen: { generateReply, planLookup },
       replyDispatcher,
-      lookupProvider,
-      env: { lookupEnabled: true }
+      lookupProvider
     });
 
     await orchestrator.handleIncomingMessage(
@@ -62,15 +61,12 @@ describe('ChatOrchestrator lookup disabled paths', () => {
     );
   });
 
-  test('does not plan lookup when lookup is disabled', async () => {
+  test('does not plan lookup when lookup provider is unavailable', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
       .mockResolvedValue(createReplyResult('вердикт'));
     const planLookup = vi.fn();
-    const lookupProvider = {
-      search: vi.fn()
-    };
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
       createdAt: '2026-04-03T12:00:30.000Z'
@@ -79,8 +75,7 @@ describe('ChatOrchestrator lookup disabled paths', () => {
       db,
       qwen: { generateReply, planLookup },
       replyDispatcher,
-      lookupProvider,
-      env: { lookupEnabled: false }
+      lookupProvider: null
     });
 
     await orchestrator.handleIncomingMessage(
@@ -92,7 +87,6 @@ describe('ChatOrchestrator lookup disabled paths', () => {
     );
 
     expect(planLookup).not.toHaveBeenCalled();
-    expect(lookupProvider.search).not.toHaveBeenCalled();
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         intent: 'decide',

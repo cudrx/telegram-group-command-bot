@@ -31,7 +31,10 @@ describe('auto-read media intake', () => {
         generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
       },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: true, mediaArtifactRetentionDays: 7 },
+      speechToTextProvider: {
+        transcribe: vi.fn().mockRejectedValue(new Error('should not call'))
+      },
+      env: { mediaArtifactRetentionDays: 7 },
       telegramFileApi
     });
 
@@ -130,7 +133,6 @@ describe('auto-read media intake', () => {
         generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
       },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: true },
       telegramFileApi,
       fetch,
       speechToTextProvider
@@ -182,7 +184,9 @@ describe('auto-read media intake', () => {
       db,
       qwen: { generateReply },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
+      speechToTextProvider: {
+        transcribe: vi.fn().mockRejectedValue(new Error('should not call'))
+      },
       telegramFileApi: {
         getFile: vi.fn().mockRejectedValue(new Error('download failed'))
       }
@@ -234,7 +238,10 @@ describe('auto-read media intake', () => {
       db,
       qwen: { generateReply },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true, decideContextLimit: 8 },
+      speechToTextProvider: {
+        transcribe: vi.fn().mockRejectedValue(new Error('should not call'))
+      },
+      env: { decideContextLimit: 8 },
       telegramFileApi: {
         getFile: vi.fn().mockRejectedValue(new Error('download failed'))
       }
@@ -284,7 +291,6 @@ describe('auto-read media intake', () => {
         generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
       },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       visionProvider: createVisionProvider('a photo'),
       ocrProvider: createOcrProvider(() => ''),
       telegramFileApi,
@@ -320,7 +326,7 @@ describe('auto-read media intake', () => {
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
 
-  test('does not start auto-read when media analysis is disabled', async () => {
+  test('does not start auto-read when no image provider is configured', async () => {
     const db = new FakeDatabaseClient();
     const { telegramFileApi, fetch } = createSuccessfulDownloadDeps();
     const orchestrator = createOrchestrator({
@@ -329,9 +335,6 @@ describe('auto-read media intake', () => {
         generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
       },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: false },
-      visionProvider: createVisionProvider('a photo'),
-      ocrProvider: createOcrProvider(() => ''),
       telegramFileApi,
       fetch
     });
@@ -366,7 +369,6 @@ describe('auto-read media intake', () => {
         generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
       },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: true },
       visionProvider: createVisionProvider('a photo'),
       ocrProvider: createOcrProvider(() => ''),
       telegramFileApi,
@@ -424,7 +426,6 @@ describe('auto-read media intake', () => {
         generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
       },
       replyDispatcher: createReplyDispatcher(),
-      env: { mediaAnalysisEnabled: true },
       visionProvider: createVisionProvider('first photo'),
       ocrProvider: createOcrProvider(() => ''),
       telegramFileApi,

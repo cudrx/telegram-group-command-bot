@@ -31,7 +31,6 @@ describe('ChatOrchestrator media image cache', () => {
       db,
       qwen: { generateReply } as never,
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true },
       telegramFileApi: {
         getFile: vi.fn().mockRejectedValue(new Error('should not call'))
       },
@@ -70,7 +69,18 @@ describe('ChatOrchestrator media image cache', () => {
       db,
       qwen: { generateReply },
       replyDispatcher,
-      env: { mediaAnalysisEnabled: true }
+      telegramFileApi: {
+        getFile: vi.fn().mockRejectedValue(new Error('should not call'))
+      },
+      fetch: vi
+        .fn()
+        .mockRejectedValue(new Error('should not call')) as typeof fetch,
+      visionProvider: {
+        describe: vi.fn().mockRejectedValue(new Error('should not call'))
+      },
+      ocrProvider: {
+        extractText: vi.fn().mockRejectedValue(new Error('should not call'))
+      }
     });
 
     await orchestrator.handleIncomingMessage(createReadImageMessage());

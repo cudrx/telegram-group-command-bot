@@ -17,8 +17,6 @@ describe('parseEnv legacy aliases', () => {
     expect(env.llmApiKey).toBe('legacy-qwen-key');
     expect(env.llmBaseUrl).toBe('https://legacy.example.com/v1');
     expect(env.llmReplyModel).toBe('legacy-reply');
-    expect(Object.hasOwn(env, 'llmFastReplyModel')).toBe(false);
-    expect(env.llmReplyEnableThinking).toBe(false);
     expect(env.llmTimeoutMs).toBe(30_000);
     expect(env.llmMaxRetries).toBe(3);
   });
