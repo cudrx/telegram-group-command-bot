@@ -42,9 +42,10 @@ describe('OpenAiCompatibleLlmClient deploy update', () => {
         model: 'reply-model',
         temperature: 0.4,
         max_tokens: 500,
-        enable_thinking: false
+        thinking: { type: 'disabled' }
       })
     );
+    expect(requestBody).not.toHaveProperty('enable_thinking');
     expect(
       (
         requestBody?.messages as

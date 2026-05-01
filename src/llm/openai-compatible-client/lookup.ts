@@ -40,7 +40,7 @@ export async function planLookup(params: {
         model: plannerModel,
         temperature: 0,
         max_tokens: 500,
-        enable_thinking: false,
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'system',

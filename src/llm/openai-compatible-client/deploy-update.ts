@@ -37,7 +37,7 @@ export async function formatDeployUpdate(params: {
         model,
         temperature: 0.4,
         max_tokens: 500,
-        enable_thinking: false,
+        thinking: { type: 'disabled' },
         messages: [
           {
             role: 'system',

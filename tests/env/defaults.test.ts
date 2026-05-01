@@ -11,7 +11,7 @@ describe('parseEnv defaults', () => {
 
     expect(env.llmApiKey).toBe('llm-key');
     expect(env.llmBaseUrl).toBe('https://api.deepseek.com');
-    expect(env.llmReplyModel).toBe('deepseek-chat');
+    expect(env.llmReplyModel).toBe('deepseek-v4-flash');
     expect(env.llmReplyTemperature).toBe(0.6);
     expect(env.llmTimeoutMs).toBe(45_000);
     expect(env.llmMaxRetries).toBe(1);

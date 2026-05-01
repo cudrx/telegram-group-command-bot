@@ -43,7 +43,9 @@ export async function generateWeekly(params: {
       createCompletion({
         model: replyModel,
         temperature: config.replyTemperature,
-        enable_thinking: config.replyEnableThinking ?? false,
+        thinking: {
+          type: config.replyEnableThinking ? 'enabled' : 'disabled'
+        },
         messages: [
           {
             role: 'system',

@@ -12,7 +12,7 @@ export const envSchema = z.object({
     .string()
     .url('LLM_BASE_URL must be a valid URL')
     .default('https://api.deepseek.com'),
-  LLM_REPLY_MODEL: z.string().min(1).default('deepseek-chat'),
+  LLM_REPLY_MODEL: z.string().min(1).default('deepseek-v4-flash'),
   LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
   LLM_REPLY_ENABLE_THINKING: stringBooleanSchema.default(false),

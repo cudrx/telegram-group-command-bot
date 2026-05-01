@@ -55,7 +55,8 @@ describe('OpenAiCompatibleLlmClient lookup', () => {
     expect(requestBody?.model).toBe('planner-model');
     expect(requestBody?.temperature).toBe(0);
     expect(requestBody?.max_tokens).toBe(500);
-    expect(requestBody?.enable_thinking).toBe(false);
+    expect(requestBody?.thinking).toEqual({ type: 'disabled' });
+    expect(requestBody).not.toHaveProperty('enable_thinking');
   });
 
   test('marks planner result as failed when planner returns empty content', async () => {

@@ -126,7 +126,8 @@ describe('OpenAiCompatibleLlmClient reply', () => {
 
     expect(requestBody?.model).toBe('reply-model');
     expect(requestBody?.temperature).toBe(0.6);
-    expect(requestBody?.enable_thinking).toBe(false);
+    expect(requestBody?.thinking).toEqual({ type: 'disabled' });
+    expect(requestBody).not.toHaveProperty('enable_thinking');
     const messages = requestBody?.messages as
       | Array<{ role: string; content: string }>
       | undefined;
