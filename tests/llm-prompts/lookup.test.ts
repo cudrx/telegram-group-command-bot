@@ -67,6 +67,18 @@ describe('buildIntentPrompt lookup context', () => {
     expect(prompt).toContain(
       'Use source titles as canonical names when they identify the central entities.'
     );
+    expect(prompt).toContain('Lookup usage visibility');
+    expect(prompt).toContain('If status is "used":');
+    expect(prompt).toContain(
+      'Subtly reflect that the answer is based on retrieved data.'
+    );
+    expect(prompt).toContain('If status is "weak":');
+    expect(prompt).toContain(
+      'Do not claim that lookup found reliable supporting data.'
+    );
+    expect(prompt).toContain(
+      'If status is "failed", "timed_out", "skipped", or "disabled":'
+    );
     expect(prompt).toContain('purpose=entity_grounding');
     expect(prompt).toContain('query="Дора Мэйби Бэйби певицы кто такие"');
     expect(prompt).toContain('title="Дора (певица)"');
