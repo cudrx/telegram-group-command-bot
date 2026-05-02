@@ -25,6 +25,7 @@
 - `TELEGRAM_ADMIN_ID`
 - `LLM_API_KEY`
 - `TAVILY_API_KEY`, если live lookup должен быть доступен
+- `YANDEX_SPEECHKIT_API_KEY`, если outbound TTS должен быть доступен
 
 Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа lookup provider
 не создается. Остальные
@@ -49,6 +50,7 @@ cp .env.example .env
 Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа интернет-заземление не запускается.
 Для локальной проверки автоматического распознавания медиа задайте нужные provider keys: `GLADIA_API_KEY` для аудио, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` для vision и `OCR_SPACE_API_KEY` для OCR. Без соответствующих ключей provider calls не запускаются.
+Для локальной проверки исходящего TTS задайте `YANDEX_SPEECHKIT_API_KEY`: `/read` будет озвучивать replied-to text, а короткие eligible `/answer` иногда будут уходить voice-сообщением вместо text.
 Для image media analysis дополнительно нужен `OCR_SPACE_API_KEY`. В локальных OCR.space smoke tests используйте `OCREngine=2`: default engine возвращал пустой текст для `data/test-medal-ru.jpg`.
 Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
 
@@ -158,7 +160,7 @@ Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.y
 - завести отдельный тестовый Telegram bot token;
 - отключить лишние чаты и использовать приватную тестовую группу;
 - проверить, что `TELEGRAM_CHAT_ID` совпадает с тестовой группой, а `TELEGRAM_ADMIN_ID` совпадает с вашим личным user id;
-- проверять сначала только явные `/answer`, `/summarize` и `/decide`; для `/answer` использовать reply на сообщение с вопросом или поддержанным медиа;
+- проверять сначала только явные `/answer`, `/summarize`, `/decide` и `/read`; для `/answer` использовать reply на сообщение с вопросом или поддержанным медиа, для `/read` — reply на короткое текстовое сообщение;
 - держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
 - по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
 - после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
@@ -263,6 +265,14 @@ OCR_SPACE_API_KEY=...
 ```
 
 Без provider keys бот стартует нормально, но соответствующие auto-read provider calls не запускаются.
+
+Если в production нужен outbound TTS, добавьте Yandex SpeechKit credentials:
+
+```dotenv
+YANDEX_SPEECHKIT_API_KEY=...
+```
+
+Без этих ключей бот стартует нормально: `/read` отправляет fallback, а opportunistic `/answer` voice не запускается.
 
 Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
 

@@ -8,13 +8,14 @@
 - локальная `SQLite`-база для чатов и сообщений
 - event log сообщений с sender metadata и `reply_to`
 - нейтральные assistant instructions из [`llm/assistant/base.md`](./llm/assistant/base.md)
-- командные режимы для `/summarize`, `/decide`, `/answer` и admin-only `/weekly`
+- командные режимы для `/summarize`, `/decide`, `/answer`, `/read` и admin-only `/weekly`
 - бот принимает сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`
 - обычный `@mention` и обычный private text не запускают LLM
 - короткий local-context window с отдельными лимитами под каждый intent
 - свои bot messages хранятся для audit/logging, но не попадают в prompt context
 - сообщения других ботов сохраняются и могут быть reply-якорем для `/answer`
-- Telegram typing indicators и короткая bounded задержка ответа
+- Telegram typing/voice-recording indicators и короткая bounded задержка ответа
+- исходящий TTS через Yandex SpeechKit для коротких `/answer` и reply-based `/read`
 - Telegram HTML formatting для структурированных ответов с safe allowlist постобработкой
 - prompt hardening для transcript и structured logs
 - один OpenAI-compatible LLM-клиент для генерации реплик
@@ -28,6 +29,7 @@
 - `/summarize` - кратко суммировать только recent human chat messages; без внешних фактов, оценок и интернета.
 - `/decide` - оценить текущий спор в чате; при включенном lookup бот сначала планирует, нужен ли интернет для entity grounding, fact-check, freshness или link understanding, но вкусовой спор не превращает в объективный факт.
 - `/answer` - напрямую ответить на replied-to сообщение; при включенном lookup бот может заземлять внешние сущности, факты, свежесть или ссылки через Tavily.
+- `/read` - озвучить replied-to текстовое сообщение через Yandex SpeechKit; работает с текстом от людей, Пруфика и других ботов, но не принимает текст после команды.
 - `/weekly` - работает только в private chat от `TELEGRAM_ADMIN_ID`; читает последние семь дней из `TELEGRAM_CHAT_ID`, использует только уже сохраненные media artifacts, генерирует recap и публикует его прямо в configured group chat без private confirmation.
 
 Поддержанные входящие медиа (`photo`, image `document`, `voice`, `audio`, Telegram `video_note`) обрабатываются автоматически в авторизованных чатах, когда настроены соответствующие provider keys. Артефакты сохраняются в SQLite и переиспользуются в `/answer`, `/decide`, `/summarize` и `/weekly`. Weekly recap никогда не запускает новое распознавание медиа: если cached artifact отсутствует, recap строится по тексту и metadata.
@@ -59,6 +61,7 @@ cp .env.example .env
 `.env.example` настроен под DeepSeek через OpenAI-compatible API. Если вы хотите использовать другого провайдера или модель, после копирования файла переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
 Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа lookup provider не создается.
 Автоматическое распознавание медиа запускается по наличию provider keys: `GLADIA_API_KEY` для аудио, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` для vision и `OCR_SPACE_API_KEY` для OCR.
+Исходящий TTS запускается, когда задан `YANDEX_SPEECHKIT_API_KEY`; без него `/read` отвечает fallback-текстом, а `/answer` всегда остается текстовым.
 
 3. Проверьте или отредактируйте базовые assistant instructions в [`llm/assistant/base.md`](./llm/assistant/base.md).
 
@@ -82,11 +85,11 @@ npm run dev
 - `LLM_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
 - `TAVILY_API_KEY`
-- `READ_CONTEXT_LIMIT`
 - `GLADIA_API_KEY`
 - `CLOUDFLARE_AI_API_KEY`
 - `CLOUDFLARE_ACCOUNT_ID`
 - `OCR_SPACE_API_KEY`
+- `YANDEX_SPEECHKIT_API_KEY`
 - `LOG_LLM_TEXT`
 - `SUMMARIZE_CONTEXT_LIMIT`
 - `DECIDE_CONTEXT_LIMIT`
@@ -139,6 +142,7 @@ docker compose logs bot --tail=200 -f
 - `llm` — статические prompt-файлы для assistant, reply modes, planner и deploy announcements
 - `src/llm` — сборка prompt context, LLM-клиент и reply generation
 - `src/media` — Gladia STT, Cloudflare Vision, Telegram media metadata/download helpers
+- `src/tts` — speech cleanup, outbound TTS policy и Yandex SpeechKit provider
 - `src/app/telegram-html.ts` — Telegram-safe HTML formatting для исходящих ответов
 - `src/transport` — нормализация входящих сообщений Telegram
 - `docs/architecture.md` — архитектура и потоки данных
