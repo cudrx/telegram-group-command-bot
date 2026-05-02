@@ -35,7 +35,8 @@ describe('YandexSpeechKitTtsProvider', () => {
     expect(body.has('folderId')).toBe(false);
     expect(body.get('text')).toBe('Привет');
     expect(body.get('lang')).toBe('ru-RU');
-    expect(body.get('voice')).toBe('ermil');
+    expect(body.get('voice')).toBe('zahar');
+    expect(body.get('emotion')).toBe('good');
     expect(body.get('speed')).toBe('1.1');
     expect(body.get('format')).toBe('oggopus');
     expect(result.audioBytes).toEqual(bytes);

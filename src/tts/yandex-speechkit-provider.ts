@@ -3,7 +3,8 @@ import type { TextToSpeechProvider } from './types.js';
 export const YANDEX_TTS_PROVIDER = 'yandex_speechkit';
 export const YANDEX_TTS_PROVIDER_MODEL = 'speechkit-v1';
 export const YANDEX_TTS_FORMAT = 'oggopus';
-export const YANDEX_TTS_VOICE = 'ermil';
+export const YANDEX_TTS_VOICE = 'zahar';
+export const YANDEX_TTS_EMOTION = 'good';
 export const YANDEX_TTS_SPEED = '1.1';
 
 const YANDEX_SPEECHKIT_TTS_URL =
@@ -30,6 +31,7 @@ export class YandexSpeechKitTtsProvider implements TextToSpeechProvider {
       text: input.text,
       lang: 'ru-RU',
       voice: YANDEX_TTS_VOICE,
+      emotion: YANDEX_TTS_EMOTION,
       speed: YANDEX_TTS_SPEED,
       format: YANDEX_TTS_FORMAT
     });
