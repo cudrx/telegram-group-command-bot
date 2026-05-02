@@ -1,4 +1,5 @@
 import type {
+  BotOutputMode,
   ChatState,
   MediaMessageSnapshot,
   NormalizedMessage,
@@ -56,6 +57,7 @@ export type StoredMediaArtifact = {
 
 export type StoredMessageRow = Omit<StoredMessage, 'isBot'> & {
   isBot: number;
+  outputMode?: string | null;
   mediaKind?: string | null;
   mediaFileId?: string | null;
   mediaFileUniqueId?: string | null;
@@ -64,6 +66,14 @@ export type StoredMessageRow = Omit<StoredMessage, 'isBot'> & {
   mediaDurationSeconds?: number | null;
   mediaCaption?: string | null;
   mediaGroupId?: string | null;
+};
+
+export type UpdateChatTtsStateInput = {
+  chatId: number;
+  answerLastOutputMode?: BotOutputMode | null;
+  answerEligibleTextSinceVoice?: number;
+  answerEligibleTextStreak?: number;
+  readLastVoiceAt?: string | null;
 };
 
 export type StoredMediaArtifactRow = {
@@ -91,6 +101,7 @@ export type StoredMediaArtifactRow = {
 };
 
 export type {
+  BotOutputMode,
   ChatState,
   MediaMessageSnapshot,
   NormalizedMessage,

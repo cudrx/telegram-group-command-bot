@@ -4,7 +4,11 @@ CREATE TABLE IF NOT EXISTS chats (
   chat_type TEXT NOT NULL,
   title TEXT,
   last_message_at TEXT,
-  last_bot_message_at TEXT
+  last_bot_message_at TEXT,
+  answer_last_output_mode TEXT,
+  answer_eligible_text_since_voice INTEGER NOT NULL DEFAULT 3,
+  answer_eligible_text_streak INTEGER NOT NULL DEFAULT 0,
+  read_last_voice_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -30,6 +34,7 @@ CREATE TABLE IF NOT EXISTS messages (
   from_first_name TEXT,
   from_last_name TEXT,
   from_display_name TEXT,
+  output_mode TEXT NOT NULL DEFAULT 'text',
   FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
   UNIQUE (chat_id, telegram_message_id)
 );
