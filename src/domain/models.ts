@@ -11,6 +11,8 @@ export type AssistantIntent = 'summarize' | 'decide' | 'read' | 'answer';
 
 export type DirectTriggerIntent = AssistantIntent | 'weekly';
 
+export type BotOutputMode = 'text' | 'voice';
+
 export type DirectTrigger =
   | {
       kind: 'command';
@@ -62,6 +64,7 @@ export type StoredMessage = {
   text: string;
   createdAt: string;
   isBot: boolean;
+  outputMode?: BotOutputMode;
   replyToMessageId: number | null;
   mediaSnapshot?: MediaMessageSnapshot | null;
 };
@@ -78,4 +81,8 @@ export type ChatState = {
   title: string | null;
   lastMessageAt: string | null;
   lastBotMessageAt: string | null;
+  answerLastOutputMode: BotOutputMode | null;
+  answerEligibleTextSinceVoice: number;
+  answerEligibleTextStreak: number;
+  readLastVoiceAt: string | null;
 };

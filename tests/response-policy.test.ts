@@ -9,6 +9,7 @@ describe('detectDirectTrigger', () => {
   test.each([
     ['/summarize', 'summarize'],
     ['/decide', 'decide'],
+    ['/read', 'read'],
     ['/answer', 'answer']
   ] as const)('returns %s command intent in chat mode', (commandText, intent) => {
     const trigger = detectDirectTrigger({
@@ -34,6 +35,7 @@ describe('detectDirectTrigger', () => {
   test.each([
     ['/summarize@fun_bot', 'summarize'],
     ['/decide@fun_bot', 'decide'],
+    ['/read@fun_bot', 'read'],
     ['/answer@fun_bot', 'answer']
   ] as const)('returns %s bot-suffixed command intent in chat mode', (commandText, intent) => {
     const trigger = detectDirectTrigger({
@@ -57,8 +59,6 @@ describe('detectDirectTrigger', () => {
   });
 
   test.each([
-    '/read',
-    '/read@fun_bot',
     '/explain',
     '/explain@fun_bot'
   ] as const)('returns none for removed %s command', (commandText) => {

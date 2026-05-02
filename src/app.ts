@@ -1,4 +1,4 @@
-import { Bot } from 'grammy';
+import { Bot, InputFile } from 'grammy';
 import {
   createAdminNotifier,
   createNotifyingLogger
@@ -15,6 +15,7 @@ import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js'
 import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
 import { OcrSpaceProvider } from './media/ocr-space-provider.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
+import { YandexSpeechKitTtsProvider } from './tts/yandex-speechkit-provider.js';
 
 type Application = {
   start(): Promise<void>;
@@ -110,12 +111,18 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   const ocrProvider = env.ocrSpaceApiKey
     ? new OcrSpaceProvider({ apiKey: env.ocrSpaceApiKey })
     : null;
+  const textToSpeechProvider = env.yandexSpeechKitApiKey
+    ? new YandexSpeechKitTtsProvider({
+        apiKey: env.yandexSpeechKitApiKey
+      })
+    : null;
   const orchestrator = new ChatOrchestrator({
     db,
     qwen,
     env,
     lookupProvider,
     speechToTextProvider,
+    textToSpeechProvider,
     ocrProvider,
     visionProvider,
     telegramFileApi: bot.api,
@@ -138,6 +145,27 @@ export async function createApplication(env: AppEnv): Promise<Application> {
         createdAt: new Date(sent.date * 1000).toISOString()
       };
     },
+    voiceDispatcher: async ({
+      chatId,
+      replyToMessageId,
+      audioBytes,
+      filename
+    }) => {
+      const sent = await bot.api.sendVoice(
+        chatId,
+        new InputFile(audioBytes, filename),
+        {
+          reply_parameters: {
+            message_id: replyToMessageId
+          }
+        }
+      );
+
+      return {
+        messageId: sent.message_id,
+        createdAt: new Date(sent.date * 1000).toISOString()
+      };
+    },
     weeklyDispatcher: async ({ chatId, text }) => {
       const sent = await bot.api.sendMessage(chatId, text, {
         parse_mode: 'HTML'
@@ -148,8 +176,8 @@ export async function createApplication(env: AppEnv): Promise<Application> {
         createdAt: new Date(sent.date * 1000).toISOString()
       };
     },
-    sendTyping: async (chatId) => {
-      await bot.api.sendChatAction(chatId, 'typing');
+    sendChatAction: async (chatId, action) => {
+      await bot.api.sendChatAction(chatId, action);
     },
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     logger,

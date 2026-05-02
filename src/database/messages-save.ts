@@ -1,6 +1,6 @@
 import type Database from 'better-sqlite3';
 import { upsertChat } from './messages-chat.js';
-import type { NormalizedMessage } from './types.js';
+import type { BotOutputMode, NormalizedMessage } from './types.js';
 
 type SaveBotMessageInput = {
   chatId: number;
@@ -13,6 +13,7 @@ type SaveBotMessageInput = {
   username: string | null;
   displayName: string;
   replyToMessageId?: number | null;
+  outputMode?: BotOutputMode;
 };
 
 export function saveIncomingMessage(
@@ -52,9 +53,10 @@ export function saveIncomingMessage(
             from_username,
             from_first_name,
             from_last_name,
-            from_display_name
+            from_display_name,
+            output_mode
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -78,7 +80,8 @@ export function saveIncomingMessage(
         incoming.fromUsername,
         incoming.fromFirstName,
         incoming.fromLastName,
-        incoming.fromDisplayName
+        incoming.fromDisplayName,
+        'text'
       );
 
     if (result.changes > 0) {
@@ -131,9 +134,10 @@ export function saveBotMessage(
             from_username,
             from_first_name,
             from_last_name,
-            from_display_name
+            from_display_name,
+            output_mode
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -157,7 +161,8 @@ export function saveBotMessage(
         outgoing.username,
         null,
         null,
-        outgoing.displayName
+        outgoing.displayName,
+        outgoing.outputMode ?? 'text'
       );
 
     if (result.changes > 0) {

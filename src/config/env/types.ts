@@ -24,9 +24,9 @@ export type ParsedEnv = {
   lookupMaxQueries: number;
   lookupMaxResults: number;
   ocrSpaceApiKey: string | null;
-  readContextLimit: number;
   sttProvider: 'gladia';
   gladiaApiKey: string | null;
+  yandexSpeechKitApiKey: string | null;
   visionProvider: 'cloudflare';
   cloudflareAiApiKey: string | null;
   cloudflareAccountId: string | null;

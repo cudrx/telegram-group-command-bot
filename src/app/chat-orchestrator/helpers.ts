@@ -14,17 +14,11 @@ import type {
   LookupIntent
 } from '../../lookup/types.js';
 import type { NormalizedMediaArtifact } from '../../media/types.js';
-import { withTypingIndicator } from '../typing-indicator.js';
+import { withChatActionIndicator } from '../typing-indicator.js';
 import type { ChatOrchestratorDeps } from './types.js';
 
 export const ANSWER_USAGE_PLACEHOLDER =
   'Сделай reply на сообщение с вопросом и отправь /answer.';
-export const READ_USAGE_PLACEHOLDER =
-  'Сделай reply на голосовое, кружочек или картинку и отправь /read.';
-export const READ_DISABLED_PLACEHOLDER =
-  'Распознавание медиа сейчас выключено.';
-export const READ_FAILED_PLACEHOLDER =
-  'Не удалось распознать медиа. Попробуй позже или с другим файлом.';
 export const NEARBY_MEDIA_SCAN_LIMIT = 10;
 export const IMAGE_DESCRIPTION_PROVIDER = 'cloudflare';
 export const IMAGE_DESCRIPTION_ARTIFACT_KIND = 'vision_description';
@@ -73,7 +67,7 @@ export function getContextLimitForIntent(
     case 'decide':
       return env.decideContextLimit;
     case 'read':
-      return env.readContextLimit;
+      return 0;
     case 'answer':
       return env.answerContextLimit;
   }
@@ -245,19 +239,46 @@ export function isTimeoutError(error: unknown): boolean {
 }
 
 export function runWithReplyTyping<T>(
-  deps: Pick<ChatOrchestratorDeps, 'delay' | 'env' | 'random' | 'sendTyping'>,
+  deps: Pick<
+    ChatOrchestratorDeps,
+    'delay' | 'env' | 'random' | 'sendChatAction'
+  >,
   chatId: number,
   operation: () => Promise<T>
 ): Promise<T> {
-  return withTypingIndicator(
+  return withChatActionIndicator(
     {
       chatId,
-      minTypingMs: deps.env.replyMinTypingMs,
-      maxTypingMs: deps.env.replyMaxTypingMs,
+      action: 'typing',
+      minVisibleMs: deps.env.replyMinTypingMs,
+      maxVisibleMs: deps.env.replyMaxTypingMs,
       refreshMs: deps.env.replyTypingRefreshMs,
       random: deps.random,
       delay: deps.delay,
-      sendTyping: deps.sendTyping
+      sendChatAction: deps.sendChatAction
+    },
+    operation
+  );
+}
+
+export function runWithReplyVoiceRecording<T>(
+  deps: Pick<
+    ChatOrchestratorDeps,
+    'delay' | 'env' | 'random' | 'sendChatAction'
+  >,
+  chatId: number,
+  operation: () => Promise<T>
+): Promise<T> {
+  return withChatActionIndicator(
+    {
+      chatId,
+      action: 'record_voice',
+      minVisibleMs: deps.env.replyMinTypingMs,
+      maxVisibleMs: deps.env.replyMaxTypingMs,
+      refreshMs: deps.env.replyTypingRefreshMs,
+      random: deps.random,
+      delay: deps.delay,
+      sendChatAction: deps.sendChatAction
     },
     operation
   );

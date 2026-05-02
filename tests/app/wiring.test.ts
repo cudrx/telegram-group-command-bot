@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   botGetMe,
   botSendChatAction,
+  botSendVoice,
   botStart,
   botState,
   chatOrchestratorConstructor,
@@ -10,7 +11,8 @@ import {
   handleIncomingMessage,
   importCreateApplication,
   installAppTestHooks,
-  llmConstructor
+  llmConstructor,
+  yandexSpeechKitConstructor
 } from './support.js';
 
 describe('createApplication wiring', () => {
@@ -39,12 +41,15 @@ describe('createApplication wiring', () => {
 
     const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
       | {
-          sendTyping?: (chatId: number) => Promise<void>;
+          sendChatAction?: (
+            chatId: number,
+            action: 'typing' | 'record_voice'
+          ) => Promise<void>;
         }
       | undefined;
 
-    await orchestratorDeps?.sendTyping?.(-1001);
-    expect(botSendChatAction).toHaveBeenCalledWith(-1001, 'typing');
+    await orchestratorDeps?.sendChatAction?.(-1001, 'record_voice');
+    expect(botSendChatAction).toHaveBeenCalledWith(-1001, 'record_voice');
 
     await app.start();
 
@@ -78,6 +83,56 @@ describe('createApplication wiring', () => {
         messageId: 11,
         text: '@hrupa_bot привет',
         authorizedMode: 'chat'
+      })
+    );
+  });
+
+  test('wires outbound tts provider and voice dispatcher when yandex env is present', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(
+      createEnv({
+        telegramChatId: -1001,
+        telegramAdminId: 84626969,
+        yandexSpeechKitApiKey: 'yandex-key'
+      })
+    );
+
+    expect(yandexSpeechKitConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        apiKey: 'yandex-key'
+      })
+    );
+
+    const deps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          voiceDispatcher?: (input: {
+            chatId: number;
+            replyToMessageId: number;
+            audioBytes: Uint8Array;
+            filename: string;
+            mimeType: 'audio/ogg';
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    botSendVoice.mockResolvedValue({
+      message_id: 99,
+      date: 1_744_000_100
+    });
+
+    await deps?.voiceDispatcher?.({
+      chatId: -1001,
+      replyToMessageId: 11,
+      audioBytes: new Uint8Array([1, 2, 3]),
+      filename: 'reply.ogg',
+      mimeType: 'audio/ogg'
+    });
+
+    expect(botSendVoice).toHaveBeenCalledWith(
+      -1001,
+      expect.anything(),
+      expect.objectContaining({
+        reply_parameters: { message_id: 11 }
       })
     );
   });

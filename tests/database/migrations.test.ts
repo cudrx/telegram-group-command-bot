@@ -180,4 +180,60 @@ describeWithSqlite('DatabaseClient migrations', () => {
     });
     db.close();
   });
+
+  test('adds outbound tts columns when opening a legacy database', () => {
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'chatbot-tts-db-'));
+    const dbPath = path.join(directory, 'bot.sqlite');
+    trackTempDirectory(directory);
+
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY,
+        chat_type TEXT NOT NULL,
+        title TEXT,
+        last_message_at TEXT,
+        last_bot_message_at TEXT
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        reply_to_telegram_message_id INTEGER,
+        UNIQUE (chat_id, telegram_message_id)
+      );
+    `);
+    legacyDb.close();
+
+    const db = DatabaseClient.open(dbPath);
+
+    expect(db.getSchemaColumns('messages')).toContain('output_mode');
+    expect(db.getSchemaColumns('chats')).toContain('answer_last_output_mode');
+    expect(db.getSchemaColumns('chats')).toContain(
+      'answer_eligible_text_since_voice'
+    );
+    expect(db.getSchemaColumns('chats')).toContain(
+      'answer_eligible_text_streak'
+    );
+    expect(db.getSchemaColumns('chats')).toContain('read_last_voice_at');
+
+    db.saveIncomingMessage(createIncomingMessage({ messageId: 20 }));
+    expect(db.getMessageByTelegramMessageId(1, 20)).toMatchObject({
+      outputMode: 'text'
+    });
+    expect(db.getChatState(1)).toMatchObject({
+      answerLastOutputMode: null,
+      answerEligibleTextSinceVoice: 3,
+      answerEligibleTextStreak: 0,
+      readLastVoiceAt: null
+    });
+
+    db.close();
+  });
 });

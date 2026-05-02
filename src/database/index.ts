@@ -17,7 +17,8 @@ import {
   getMessagesInRange,
   getRecentMessages,
   saveBotMessage,
-  saveIncomingMessage
+  saveIncomingMessage,
+  updateChatTtsState
 } from './messages.js';
 import { migrateExistingSchema } from './migrations.js';
 import { schema } from './schema.js';
@@ -26,13 +27,16 @@ import type {
   NormalizedMessage,
   SaveMediaArtifactInput,
   StoredMediaArtifact,
-  StoredMessage
+  StoredMessage,
+  UpdateChatTtsStateInput
 } from './types.js';
 
 export type {
+  BotOutputMode,
   MediaArtifactStatus,
   SaveMediaArtifactInput,
-  StoredMediaArtifact
+  StoredMediaArtifact,
+  UpdateChatTtsStateInput
 } from './types.js';
 
 export class DatabaseClient {
@@ -76,8 +80,13 @@ export class DatabaseClient {
     username: string | null;
     displayName: string;
     replyToMessageId?: number | null;
+    outputMode?: 'text' | 'voice';
   }): void {
     saveBotMessage(this.db, input);
+  }
+
+  updateChatTtsState(input: UpdateChatTtsStateInput): void {
+    updateChatTtsState(this.db, input);
   }
 
   getChatState(chatId: number): ChatState | null {

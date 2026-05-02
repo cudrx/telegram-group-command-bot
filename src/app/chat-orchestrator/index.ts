@@ -20,6 +20,8 @@ import {
 } from './helpers.js';
 import { buildLookupContext } from './lookup.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
+import { dispatchGeneratedReply } from './outbound-voice.js';
+import { runReadTtsJob } from './read-command.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export type {
@@ -129,6 +131,21 @@ export class ChatOrchestrator {
         replyToMessageId: request.triggerMessageId
       });
 
+      if (request.intent === 'read') {
+        const delivery = await runReadTtsJob({
+          deps: this.deps,
+          request,
+          logger
+        });
+
+        logger.debug('reply_job_completed', {
+          intent: request.intent,
+          replyToMessageId: request.triggerMessageId,
+          outputMode: delivery.outputMode
+        });
+        return;
+      }
+
       const result = await runWithReplyTyping(
         this.deps,
         request.chatId,
@@ -147,23 +164,13 @@ export class ChatOrchestrator {
         intent: request.intent
       });
 
-      const sent = await this.deps.replyDispatcher({
-        chatId: request.chatId,
-        replyToMessageId: request.triggerMessageId,
-        text: replyText
-      });
-
-      this.deps.db.saveBotMessage({
-        chatId: request.chatId,
-        chatType: request.chatType,
-        chatTitle: request.chatTitle,
-        messageId: sent.messageId,
-        text: replyText,
-        createdAt: sent.createdAt,
-        userId: this.deps.bot.userId,
-        username: this.deps.bot.username,
-        displayName: this.deps.bot.displayName,
-        replyToMessageId: request.triggerMessageId
+      const delivery = await dispatchGeneratedReply({
+        deps: this.deps,
+        request,
+        logger,
+        generatedText: result.text,
+        formattedText: replyText,
+        llmResult: result
       });
 
       logger.debug('reply_job_completed', {
@@ -172,7 +179,8 @@ export class ChatOrchestrator {
         llmLatencyMs: result.latencyMs,
         llmAttempts: result.attemptCount,
         llmModel: result.model,
-        promptTokensEstimate: result.promptTokensEstimate
+        promptTokensEstimate: result.promptTokensEstimate,
+        outputMode: delivery.outputMode
       });
     } catch (error) {
       logger.error('reply_job_failed', {
@@ -186,10 +194,6 @@ export class ChatOrchestrator {
     request: ReplyRequest,
     logger: ChatOrchestratorDeps['logger']
   ): Promise<LlmReplyResult | null> {
-    if (request.intent === 'read') {
-      return this.mediaSupport.executeReadGeneration(request, logger);
-    }
-
     let replyContext = withReplySnapshotFallback(
       buildReplyContext({
         db: this.deps.db,

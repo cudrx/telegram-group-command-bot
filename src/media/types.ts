@@ -46,3 +46,5 @@ export type OcrProvider = {
     rawResponse: unknown;
   }>;
 };
+
+export type { TextToSpeechProvider } from '../tts/types.js';

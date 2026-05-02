@@ -55,7 +55,6 @@ export function parseEnv(
     lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
     ocrSpaceApiKey: parsed.OCR_SPACE_API_KEY ?? null,
-    readContextLimit: parsed.READ_CONTEXT_LIMIT,
     sttProvider: STT_PROVIDER,
     gladiaApiKey: parsed.GLADIA_API_KEY ?? null,
     visionProvider: VISION_PROVIDER,
@@ -65,6 +64,7 @@ export function parseEnv(
     mediaArtifactRetentionDays: MEDIA_ARTIFACT_RETENTION_DAYS,
     messageRetentionDays: MESSAGE_RETENTION_DAYS,
     databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
+    yandexSpeechKitApiKey: parsed.YANDEX_SPEECHKIT_API_KEY ?? null,
     telegramChatId: parsed.TELEGRAM_CHAT_ID,
     telegramAdminId: parsed.TELEGRAM_ADMIN_ID
   };

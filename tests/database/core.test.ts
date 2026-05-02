@@ -51,6 +51,70 @@ describeWithSqlite('DatabaseClient core', () => {
     db.close();
   });
 
+  test('stores bot output mode and defaults incoming messages to text', () => {
+    const db = DatabaseClient.open(':memory:');
+
+    db.saveIncomingMessage(createIncomingMessage({ messageId: 10 }));
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: 'group',
+      chatTitle: 'Friends',
+      messageId: 11,
+      text: 'бот сказал голосом',
+      createdAt: '2026-04-10T12:00:20.000Z',
+      userId: 77,
+      username: 'fun_bot',
+      displayName: 'Fun Bot',
+      replyToMessageId: 10,
+      outputMode: 'voice'
+    });
+
+    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
+      outputMode: 'text'
+    });
+    expect(db.getMessageByTelegramMessageId(1, 11)).toMatchObject({
+      text: 'бот сказал голосом',
+      outputMode: 'voice'
+    });
+
+    db.close();
+  });
+
+  test('stores per-chat outbound tts state', () => {
+    const db = DatabaseClient.open(':memory:');
+
+    db.saveIncomingMessage(createIncomingMessage({ messageId: 10 }));
+    db.updateChatTtsState({
+      chatId: 1,
+      answerLastOutputMode: 'voice',
+      answerEligibleTextSinceVoice: 0,
+      answerEligibleTextStreak: 0,
+      readLastVoiceAt: '2026-04-10T12:00:20.000Z'
+    });
+
+    expect(db.getChatState(1)).toMatchObject({
+      answerLastOutputMode: 'voice',
+      answerEligibleTextSinceVoice: 0,
+      answerEligibleTextStreak: 0,
+      readLastVoiceAt: '2026-04-10T12:00:20.000Z'
+    });
+
+    db.updateChatTtsState({
+      chatId: 1,
+      answerLastOutputMode: null,
+      readLastVoiceAt: null
+    });
+
+    expect(db.getChatState(1)).toMatchObject({
+      answerLastOutputMode: null,
+      answerEligibleTextSinceVoice: 0,
+      answerEligibleTextStreak: 0,
+      readLastVoiceAt: null
+    });
+
+    db.close();
+  });
+
   test('normalizes explicit reply links from Telegram messages', () => {
     const ctx = {
       message: {
@@ -114,7 +178,11 @@ describeWithSqlite('DatabaseClient core', () => {
       'chat_type',
       'title',
       'last_message_at',
-      'last_bot_message_at'
+      'last_bot_message_at',
+      'answer_last_output_mode',
+      'answer_eligible_text_since_voice',
+      'answer_eligible_text_streak',
+      'read_last_voice_at'
     ]);
     expect(db.getSchemaColumns('participants')).toEqual([]);
     expect(db.getSchemaColumns('chat_participants')).toEqual([]);
@@ -140,7 +208,8 @@ describeWithSqlite('DatabaseClient core', () => {
       'from_username',
       'from_first_name',
       'from_last_name',
-      'from_display_name'
+      'from_display_name',
+      'output_mode'
     ]);
 
     db.close();

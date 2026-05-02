@@ -14,6 +14,21 @@ export function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, 'messages', 'from_first_name', 'TEXT');
   ensureColumn(db, 'messages', 'from_last_name', 'TEXT');
   ensureColumn(db, 'messages', 'from_display_name', 'TEXT');
+  ensureColumn(db, 'messages', 'output_mode', "TEXT NOT NULL DEFAULT 'text'");
+  ensureColumn(db, 'chats', 'answer_last_output_mode', 'TEXT');
+  ensureColumn(
+    db,
+    'chats',
+    'answer_eligible_text_since_voice',
+    'INTEGER NOT NULL DEFAULT 3'
+  );
+  ensureColumn(
+    db,
+    'chats',
+    'answer_eligible_text_streak',
+    'INTEGER NOT NULL DEFAULT 0'
+  );
+  ensureColumn(db, 'chats', 'read_last_voice_at', 'TEXT');
 }
 
 function ensureColumn(

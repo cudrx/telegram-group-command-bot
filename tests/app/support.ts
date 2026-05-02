@@ -20,12 +20,14 @@ export const botOn = vi.fn();
 export const botCatch = vi.fn();
 export const botUse = vi.fn();
 export const botSendMessage = vi.fn();
+export const botSendVoice = vi.fn();
 export const botSendChatAction = vi.fn();
 export const chatOrchestratorConstructor = vi.fn();
 export const tavilyConstructor = vi.fn();
 export const gladiaConstructor = vi.fn();
 export const cloudflareVisionConstructor = vi.fn();
 export const ocrSpaceConstructor = vi.fn();
+export const yandexSpeechKitConstructor = vi.fn();
 export const maybeAnnounceDeployUpdate = vi.fn();
 export const dbCleanupExpiredData = vi.fn();
 
@@ -48,6 +50,7 @@ vi.mock('grammy', () => {
       getMe: botGetMe,
       getFile: botGetFile,
       sendMessage: botSendMessage,
+      sendVoice: botSendVoice,
       sendChatAction: botSendChatAction
     };
 
@@ -81,7 +84,14 @@ vi.mock('grammy', () => {
     }
   }
 
-  return { Bot };
+  class InputFile {
+    constructor(
+      public readonly source: unknown,
+      public readonly filename?: string
+    ) {}
+  }
+
+  return { Bot, InputFile };
 });
 
 vi.mock('../../src/database/index.js', () => ({
@@ -148,6 +158,15 @@ vi.mock('../../src/media/ocr-space-provider.js', () => ({
     ocrSpaceConstructor(...args);
     return { extractText: vi.fn() };
   })
+}));
+
+vi.mock('../../src/tts/yandex-speechkit-provider.js', () => ({
+  YandexSpeechKitTtsProvider: vi
+    .fn()
+    .mockImplementation((...args: unknown[]) => {
+      yandexSpeechKitConstructor(...args);
+      return { synthesize: vi.fn() };
+    })
 }));
 
 export function installAppTestHooks(): void {
@@ -225,9 +244,9 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     lookupMaxQueries: 1,
     lookupMaxResults: 3,
     ocrSpaceApiKey: null,
-    readContextLimit: 10,
     sttProvider: 'gladia',
     gladiaApiKey: null,
+    yandexSpeechKitApiKey: null,
     visionProvider: 'cloudflare',
     cloudflareAiApiKey: null,
     cloudflareAccountId: null,

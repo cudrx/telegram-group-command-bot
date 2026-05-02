@@ -9,12 +9,12 @@
 - читать текстовые сообщения из Telegram;
 - принимать сообщения только из `TELEGRAM_CHAT_ID` и только от `TELEGRAM_ADMIN_ID` в `private`;
 - сохранять чаты, входящие сообщения, исходящие сообщения, sender metadata и `reply_to` связи;
-- отвечать только на явные команды `/summarize`, `/decide`, `/answer` и admin-only `/weekly`;
+- отвечать только на явные команды `/summarize`, `/decide`, `/answer`, `/read` и admin-only `/weekly`;
 - игнорировать обычный `@mention` и обычный private text;
 - строить короткий human-only local context с per-intent limit;
 - генерировать ответ через `generateReply`;
-- сохранять исходящее bot-сообщение;
-- показывать Telegram typing indicator во время подготовки ответа.
+- сохранять исходящее bot-сообщение с `output_mode`;
+- показывать Telegram `typing` во время LLM-ответа и `record_voice` во время TTS.
 
 В v1 намеренно отсутствуют:
 
@@ -63,6 +63,7 @@ Media intake работает автоматически для поддержа
 - сообщения других ботов сохраняются в event log и могут быть `/answer` reply anchor, но не попадают в recent human context;
 - assistant instructions управляют тоном, а не фактами;
 - Telegram typing indicator является app/transport поведением и не запускает model calls.
+- TTS не решает, что сказать: `/answer` сначала генерирует обычный текст, затем локальная policy решает, можно ли отправить его voice-сообщением.
 
 ## Component Map
 
@@ -112,12 +113,13 @@ Media intake работает автоматически для поддержа
 - решает, должен ли бот отвечать;
 - собирает context;
 - вызывает OpenAI-compatible reply LLM;
+- для `/read` озвучивает replied-to text через Yandex SpeechKit без LLM;
 - для поддержанных медиа запускает auto-read, проверяет artifact cache, вызывает media provider и добавляет successful summaries в нужные reply contexts;
 - для `/weekly` загружает последние семь дней сообщений из `TELEGRAM_CHAT_ID`, обогащает их cached media artifacts, выбирает события, вызывает weekly LLM и публикует результат обратно в configured group chat без private confirmation;
-- показывает Telegram typing indicator;
+- показывает Telegram `typing` для LLM-фазы и `record_voice` для TTS-фазы;
 - форматирует исходящий ответ в Telegram-safe HTML;
-- отправляет ответ в Telegram с `parse_mode=HTML`;
-- сохраняет исходящее bot-сообщение в том же отформатированном виде.
+- отправляет обычный текст в Telegram с `parse_mode=HTML` или voice через `sendVoice`;
+- сохраняет исходящее bot-сообщение с текстовой версией ответа и `output_mode = text | voice`.
 - на старте читает deploy metadata, дедупит deploy announcement по SQLite и отправляет одно Telegram-оповещение о новой версии после успешного форматирования.
 
 ## Main Flow
@@ -134,7 +136,9 @@ Media intake работает автоматически для поддержа
    - вызывается reply LLM;
    - Telegram получает best-effort `typing` action и bounded delay;
    - ответ нормализуется в Telegram-safe HTML;
-   - ответ отправляется в Telegram с `parse_mode=HTML` и сохраняется в БД.
+   - для `/answer` короткий чистый ответ может пройти локальную TTS policy; тогда Telegram получает `record_voice`, SpeechKit синтезирует `oggopus`, и бот отправляет voice вместо text;
+   - если TTS не подходит или падает, ответ отправляется в Telegram с `parse_mode=HTML`;
+   - БД всегда сохраняет текстовую версию ответа и фактический `output_mode`.
 
 ## Deploy Announcement Flow
 
@@ -170,6 +174,15 @@ Media intake работает автоматически для поддержа
 - При настроенном lookup provider перед финальным ответом запускается тот же planner/Tavily lookup contract для entity grounding, fact-check, freshness или link understanding.
 - Prompt assembly for `/answer` renders the reply anchor as `TARGET_MESSAGE_TO_ANSWER` and the surrounding recent chat as `NEARBY_CHAT_CONTEXT`.
 - Prior messages from this bot в context не попадают.
+- Короткий сгенерированный `/answer` может быть отправлен как voice, если локальная speech-cleanup/cadence policy считает его пригодным для озвучки.
+
+### `read`
+
+- Команда работает только как reply на текстовое сообщение.
+- Автор replied-to сообщения не важен: это может быть human, этот бот или другой бот.
+- Команда не вызывает LLM, media recognition, transcription или OCR.
+- Текст чистится локально для речи, ограничен 500 символами и защищен cooldown 1 час per chat.
+- При отсутствии provider keys, слишком длинном/неподходящем тексте, active cooldown или provider failure бот отправляет текстовый fallback.
 
 ### `summarize`
 
@@ -201,7 +214,7 @@ Media intake работает автоматически для поддержа
 - Cloudflare Vision возвращает visual artifact; OCR.space добавляет OCR artifacts; Gladia возвращает transcript artifact.
 - Failed auto-read сохраняет failed artifact с коротким `errorText`, чтобы required reply flows могли не продолжать генерацию на неполном context.
 - Для media albums обрабатывается только первое изображение в `chatId + mediaGroupId`; album video и следующие изображения пропускаются.
-- Внутренний media prompt сохраняется для нормализации artifacts, но пользовательской команды `/read` больше нет.
+- Внутренний media prompt сохраняется для нормализации artifacts; пользовательская `/read` теперь относится только к outbound TTS для replied-to text.
 
 Static prompt text lives under `llm/`; `src/llm/prompt-files.ts` is the single source of truth for prompt asset paths and reads prompt files when prompt builders run. TypeScript code in `src/llm/` keeps ownership of prompt assembly, sanitization, transcript labels, lookup source formatting, and runtime data insertion.
 
@@ -209,7 +222,7 @@ Assistant instructions загружаются отдельно из `llm/assista
 
 ## Access Modes
 
-- `chat` mode доступен только в `TELEGRAM_CHAT_ID` для `group` и `supergroup`; здесь продолжают работать `/summarize`, `/decide` и `/answer`.
+- `chat` mode доступен только в `TELEGRAM_CHAT_ID` для `group` и `supergroup`; здесь продолжают работать `/summarize`, `/decide`, `/answer` и `/read`.
 - `private_admin` mode доступен только в `private` от `TELEGRAM_ADMIN_ID`; здесь работает `/weekly`, остальные ordinary chat commands не запускаются.
 
 ## Database Model
@@ -222,12 +235,14 @@ Assistant instructions загружаются отдельно из `llm/assista
 - title;
 - время последнего сообщения;
 - время последнего ответа бота.
+- состояние outbound TTS: последний `/answer` output mode, счетчики cadence и последний успешный `/read` voice timestamp.
 
 ### `messages`
 
 Хранит:
 
 - текстовые сообщения и ответы бота;
+- `output_mode` для bot replies (`text` или `voice`);
 - `reply_to_telegram_message_id`, когда сообщение является ответом;
 - sender metadata: `user_id`, username, first name, last name, display name и bot flag.
 

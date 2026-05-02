@@ -1,4 +1,4 @@
-export { getChatState } from './messages-chat.js';
+export { getChatState, updateChatTtsState } from './messages-chat.js';
 export {
   getMessageByTelegramMessageId,
   getMessagesBefore,
