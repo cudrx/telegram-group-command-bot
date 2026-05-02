@@ -1,3 +1,5 @@
+export type TelegramChatAction = 'typing' | 'record_voice';
+
 type TypingIndicatorOptions = {
   chatId: number;
   minTypingMs: number;
@@ -8,23 +10,61 @@ type TypingIndicatorOptions = {
   sendTyping: (chatId: number) => Promise<void>;
 };
 
-export async function withTypingIndicator<T>(
+type ChatActionIndicatorOptions = {
+  chatId: number;
+  action: TelegramChatAction;
+  minVisibleMs: number;
+  maxVisibleMs: number;
+  refreshMs: number;
+  random: () => number;
+  delay: (ms: number) => Promise<void>;
+  sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
+};
+
+export function withTypingIndicator<T>(
   options: TypingIndicatorOptions,
   operation: () => Promise<T>
 ): Promise<T> {
+  return withChatActionIndicator(
+    {
+      chatId: options.chatId,
+      action: 'typing',
+      minVisibleMs: options.minTypingMs,
+      maxVisibleMs: options.maxTypingMs,
+      refreshMs: options.refreshMs,
+      random: options.random,
+      delay: options.delay,
+      sendChatAction: (chatId) => options.sendTyping(chatId)
+    },
+    operation
+  );
+}
+
+export async function withChatActionIndicator<T>(
+  options: ChatActionIndicatorOptions,
+  operation: () => Promise<T>
+): Promise<T> {
   const startedAt = Date.now();
-  const visibleTypingMs = pickVisibleTypingMs(
-    options.minTypingMs,
-    options.maxTypingMs,
+  const visibleMs = pickVisibleMs(
+    options.minVisibleMs,
+    options.maxVisibleMs,
     options.random
   );
 
-  void safeSendTyping(options.sendTyping, options.chatId);
+  void safeSendChatAction(
+    options.sendChatAction,
+    options.chatId,
+    options.action
+  );
 
   const interval =
     options.refreshMs > 0
       ? setInterval(() => {
-          void safeSendTyping(options.sendTyping, options.chatId);
+          void safeSendChatAction(
+            options.sendChatAction,
+            options.chatId,
+            options.action
+          );
         }, options.refreshMs)
       : null;
 
@@ -41,7 +81,7 @@ export async function withTypingIndicator<T>(
   }
 
   const elapsedMs = Date.now() - startedAt;
-  const remainingMs = Math.max(visibleTypingMs - elapsedMs, 0);
+  const remainingMs = Math.max(visibleMs - elapsedMs, 0);
 
   if (remainingMs > 0) {
     await options.delay(remainingMs);
@@ -50,7 +90,7 @@ export async function withTypingIndicator<T>(
   return result;
 }
 
-function pickVisibleTypingMs(
+function pickVisibleMs(
   minMs: number,
   maxMs: number,
   random: () => number
@@ -62,13 +102,14 @@ function pickVisibleTypingMs(
   return Math.round(minMs + random() * (maxMs - minMs));
 }
 
-async function safeSendTyping(
-  sendTyping: (chatId: number) => Promise<void>,
-  chatId: number
+async function safeSendChatAction(
+  sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>,
+  chatId: number,
+  action: TelegramChatAction
 ): Promise<void> {
   try {
-    await sendTyping(chatId);
+    await sendChatAction(chatId, action);
   } catch {
-    // Typing is best-effort and must never block the reply.
+    // Chat actions are best-effort and must never block the reply.
   }
 }

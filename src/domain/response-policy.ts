@@ -29,6 +29,7 @@ type DecideReplyActionResult = {
 const CHAT_COMMAND_INTENTS: Record<string, AssistantIntent> = {
   summarize: 'summarize',
   decide: 'decide',
+  read: 'read',
   answer: 'answer'
 };
 

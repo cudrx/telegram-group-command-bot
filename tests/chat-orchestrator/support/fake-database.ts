@@ -1,6 +1,8 @@
 import type {
+  BotOutputMode,
   SaveMediaArtifactInput,
-  StoredMediaArtifact
+  StoredMediaArtifact,
+  UpdateChatTtsStateInput
 } from '../../../src/database/index.js';
 import type {
   ChatState,
@@ -37,6 +39,16 @@ export class FakeDatabaseClient {
   private readonly chats = new Map<number, ChatState>();
   readonly savedMediaArtifacts: SaveMediaArtifactInput[] = [];
 
+  constructor(input?: { chats?: ChatState[]; messages?: StoredMessage[] }) {
+    for (const chat of input?.chats ?? []) {
+      this.chats.set(chat.chatId, { ...chat });
+    }
+
+    for (const message of input?.messages ?? []) {
+      this.insertMessage(message);
+    }
+  }
+
   saveIncomingMessage(message: NormalizedMessage): boolean {
     const chat = this.getOrCreateChat(message);
 
@@ -52,6 +64,7 @@ export class FakeDatabaseClient {
       text: message.text,
       createdAt: message.createdAt,
       isBot: message.isBot,
+      outputMode: 'text',
       replyToMessageId: message.replyToMessageId,
       mediaSnapshot: message.mediaSnapshot
     });
@@ -68,13 +81,20 @@ export class FakeDatabaseClient {
     username?: string | null;
     displayName: string;
     replyToMessageId?: number | null;
+    outputMode?: BotOutputMode;
   }): void {
+    const existingChat = this.chats.get(input.chatId);
     const chat: ChatState = {
       chatId: input.chatId,
       chatType: input.chatType as NormalizedMessage['chatType'],
       title: input.chatTitle,
       lastMessageAt: input.createdAt,
-      lastBotMessageAt: input.createdAt
+      lastBotMessageAt: input.createdAt,
+      answerLastOutputMode: existingChat?.answerLastOutputMode ?? null,
+      answerEligibleTextSinceVoice:
+        existingChat?.answerEligibleTextSinceVoice ?? 3,
+      answerEligibleTextStreak: existingChat?.answerEligibleTextStreak ?? 0,
+      readLastVoiceAt: existingChat?.readLastVoiceAt ?? null
     };
 
     this.chats.set(input.chatId, chat);
@@ -87,8 +107,33 @@ export class FakeDatabaseClient {
       text: input.text,
       createdAt: input.createdAt,
       isBot: true,
+      outputMode: input.outputMode ?? 'text',
       replyToMessageId: input.replyToMessageId ?? null,
       mediaSnapshot: null
+    });
+  }
+
+  updateChatTtsState(input: UpdateChatTtsStateInput): void {
+    const chat = this.chats.get(input.chatId);
+
+    if (!chat) {
+      return;
+    }
+
+    this.chats.set(input.chatId, {
+      ...chat,
+      ...(Object.hasOwn(input, 'answerLastOutputMode')
+        ? { answerLastOutputMode: input.answerLastOutputMode ?? null }
+        : {}),
+      ...(Object.hasOwn(input, 'answerEligibleTextSinceVoice')
+        ? { answerEligibleTextSinceVoice: input.answerEligibleTextSinceVoice }
+        : {}),
+      ...(Object.hasOwn(input, 'answerEligibleTextStreak')
+        ? { answerEligibleTextStreak: input.answerEligibleTextStreak }
+        : {}),
+      ...(Object.hasOwn(input, 'readLastVoiceAt')
+        ? { readLastVoiceAt: input.readLastVoiceAt ?? null }
+        : {})
     });
   }
 
@@ -242,7 +287,11 @@ export class FakeDatabaseClient {
         chatType: input.chatType,
         title: input.chatTitle,
         lastMessageAt: input.createdAt,
-        lastBotMessageAt: null
+        lastBotMessageAt: null,
+        answerLastOutputMode: null,
+        answerEligibleTextSinceVoice: 3,
+        answerEligibleTextStreak: 0,
+        readLastVoiceAt: null
       }
     );
   }

@@ -1,7 +1,9 @@
 import { vi } from 'vitest';
 
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
+import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
+import type { ChatState } from '../../../src/domain/models.js';
 import type { AppLogger } from '../../../src/logging/logger.js';
 import type { LookupProvider } from '../../../src/lookup/types.js';
 import { createEnv } from './env.js';
@@ -66,8 +68,46 @@ export function createOrchestrator(input: {
   fetch?: typeof fetch | undefined;
   env?: Partial<AppEnv>;
   logger?: AppLogger;
+  textToSpeechProvider?: {
+    synthesize: (input: {
+      text: string;
+      timeoutMs: number;
+    }) => Promise<unknown>;
+  } | null;
+  voiceDispatcher?: (input: {
+    chatId: number;
+    replyToMessageId: number;
+    audioBytes: Uint8Array;
+    filename: string;
+    mimeType: 'audio/ogg';
+  }) => Promise<{ messageId: number; createdAt: string }>;
   sendTyping?: (chatId: number) => Promise<void>;
+  sendChatAction?: (
+    chatId: number,
+    action: TelegramChatAction
+  ) => Promise<void>;
+  random?: () => number;
+  initialChatTtsState?: Pick<
+    ChatState,
+    | 'answerLastOutputMode'
+    | 'answerEligibleTextSinceVoice'
+    | 'answerEligibleTextStreak'
+    | 'readLastVoiceAt'
+  >;
 }): ChatOrchestrator {
+  const sendChatAction =
+    input.sendChatAction ??
+    (input.sendTyping
+      ? (chatId: number) => input.sendTyping?.(chatId) ?? Promise.resolve()
+      : vi.fn().mockResolvedValue(undefined));
+
+  if (input.initialChatTtsState) {
+    input.db.updateChatTtsState({
+      chatId: 1,
+      ...input.initialChatTtsState
+    });
+  }
+
   return new ChatOrchestrator({
     db: input.db as never,
     qwen: {
@@ -89,6 +129,7 @@ export function createOrchestrator(input: {
     },
     lookupProvider: input.lookupProvider ?? null,
     speechToTextProvider: input.speechToTextProvider as never,
+    textToSpeechProvider: input.textToSpeechProvider as never,
     ocrProvider: input.ocrProvider as never,
     visionProvider: input.visionProvider as never,
     telegramFileApi: input.telegramFileApi ?? null,
@@ -100,16 +141,22 @@ export function createOrchestrator(input: {
       displayName: 'Fun Bot'
     },
     replyDispatcher: input.replyDispatcher,
+    voiceDispatcher:
+      input.voiceDispatcher ??
+      vi.fn().mockResolvedValue({
+        messageId: 2000,
+        createdAt: '2026-04-13T09:00:30.000Z'
+      }),
     weeklyDispatcher:
       input.weeklyDispatcher ??
       vi.fn().mockResolvedValue({
         messageId: 1000,
         createdAt: '2026-04-13T09:00:30.000Z'
       }),
-    sendTyping: input.sendTyping ?? vi.fn().mockResolvedValue(undefined),
+    sendChatAction,
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),
-    random: () => 0,
+    random: input.random ?? (() => 0),
     now: () => '2026-04-13T09:00:10.000Z'
   });
 }

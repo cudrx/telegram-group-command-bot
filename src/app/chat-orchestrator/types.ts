@@ -16,8 +16,10 @@ import type { LookupIntent, LookupProvider } from '../../lookup/types.js';
 import type {
   OcrProvider,
   SpeechToTextProvider,
+  TextToSpeechProvider,
   VisionProvider
 } from '../../media/types.js';
+import type { TelegramChatAction } from '../typing-indicator.js';
 
 export type BotIdentity = {
   userId: number;
@@ -34,6 +36,14 @@ export type ReplyDispatcher = (input: {
   chatId: number;
   replyToMessageId: number;
   text: string;
+}) => Promise<SentBotMessage>;
+
+export type VoiceDispatcher = (input: {
+  chatId: number;
+  replyToMessageId: number;
+  audioBytes: Uint8Array;
+  filename: string;
+  mimeType: 'audio/ogg';
 }) => Promise<SentBotMessage>;
 
 export type WeeklyDispatcher = (input: {
@@ -78,6 +88,7 @@ export type ChatOrchestratorDeps = {
   env: AppEnv;
   lookupProvider: LookupProvider | null;
   speechToTextProvider?: SpeechToTextProvider | null;
+  textToSpeechProvider?: TextToSpeechProvider | null;
   ocrProvider?: OcrProvider | null;
   visionProvider?: VisionProvider | null;
   telegramFileApi?: {
@@ -86,8 +97,9 @@ export type ChatOrchestratorDeps = {
   fetch?: typeof fetch | undefined;
   bot: BotIdentity;
   replyDispatcher: ReplyDispatcher;
+  voiceDispatcher: VoiceDispatcher;
   weeklyDispatcher: WeeklyDispatcher;
-  sendTyping: (chatId: number) => Promise<void>;
+  sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   delay: (ms: number) => Promise<void>;
   logger: AppLogger;
   now: () => string;

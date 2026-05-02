@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { withTypingIndicator } from '../src/app/typing-indicator.js';
+import {
+  withChatActionIndicator,
+  withTypingIndicator
+} from '../src/app/typing-indicator.js';
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -166,5 +169,36 @@ describe('withTypingIndicator', () => {
 
     await vi.advanceTimersByTimeAsync(500);
     expect(sendTyping).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('withChatActionIndicator', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  test('sends the configured chat action immediately', async () => {
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
+
+    await withChatActionIndicator(
+      {
+        chatId: 42,
+        action: 'record_voice',
+        minVisibleMs: 0,
+        maxVisibleMs: 0,
+        refreshMs: 4000,
+        random: () => 0,
+        delay: vi.fn().mockResolvedValue(undefined),
+        sendChatAction
+      },
+      async () => 'ok'
+    );
+
+    expect(sendChatAction).toHaveBeenCalledWith(42, 'record_voice');
   });
 });

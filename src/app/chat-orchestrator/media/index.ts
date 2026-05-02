@@ -3,18 +3,11 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../../../domain/models.js';
-import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
-import { loadPrompt } from '../../../llm/prompt-files.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import type { AppLogger } from '../../../logging/logger.js';
-import { buildReplyContext } from '../../reply-context-builder.js';
 import {
   appendMediaSummaryToMessageText,
-  createLocalReplyResult,
-  NEARBY_MEDIA_SCAN_LIMIT,
-  READ_DISABLED_PLACEHOLDER,
-  READ_FAILED_PLACEHOLDER,
-  READ_USAGE_PLACEHOLDER
+  NEARBY_MEDIA_SCAN_LIMIT
 } from '../helpers.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { ensureAudioMediaContext } from './audio.js';
@@ -47,64 +40,6 @@ export class ChatOrchestratorMediaSupport {
     }
 
     this.autoRead.startForIncomingMessage(message, logger);
-  }
-
-  async executeReadGeneration(
-    request: ReplyRequest,
-    logger: AppLogger
-  ): Promise<LlmReplyResult> {
-    const media = request.replyToMediaSnapshot;
-
-    if (!media) {
-      return createLocalReplyResult(READ_USAGE_PLACEHOLDER);
-    }
-
-    const mediaContext = await this.ensureMediaContext({
-      request,
-      media,
-      logger
-    });
-
-    if (!mediaContext) {
-      return createLocalReplyResult(
-        this.hasRecognitionProviderFor(media)
-          ? READ_FAILED_PLACEHOLDER
-          : READ_DISABLED_PLACEHOLDER
-      );
-    }
-
-    if (media.mediaKind === 'photo' || media.mediaKind === 'document_image') {
-      const interpreted =
-        mediaContext.visionInterpretation ??
-        mediaContext.ocrTextRu ??
-        mediaContext.ocrTextDefault ??
-        mediaContext.visionDescription ??
-        mediaContext.visionRaw;
-
-      if (!interpreted) {
-        return createLocalReplyResult(READ_FAILED_PLACEHOLDER);
-      }
-
-      return createLocalReplyResult(interpreted);
-    }
-
-    const replyContext = buildReplyContext({
-      db: this.deps.db,
-      chatId: request.chatId,
-      triggerMessageId: request.triggerMessageId,
-      contextLimit: this.deps.env.readContextLimit,
-      intent: request.intent,
-      botUserId: this.deps.bot.userId
-    });
-
-    return this.deps.qwen.generateReply({
-      assistantInstructions: loadPrompt('base'),
-      targetDisplayName: request.fromDisplayName,
-      intent: request.intent,
-      replyContext,
-      lookupContext: null,
-      mediaContext
-    });
   }
 
   async buildTargetMediaContext(
