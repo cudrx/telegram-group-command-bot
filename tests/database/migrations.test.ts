@@ -222,6 +222,7 @@ describeWithSqlite('DatabaseClient migrations', () => {
       'answer_eligible_text_streak'
     );
     expect(db.getSchemaColumns('chats')).toContain('read_last_voice_at');
+    expect(db.getSchemaColumns('chats')).toContain('read_tts_voice_count');
 
     db.saveIncomingMessage(createIncomingMessage({ messageId: 20 }));
     expect(db.getMessageByTelegramMessageId(1, 20)).toMatchObject({
@@ -231,7 +232,8 @@ describeWithSqlite('DatabaseClient migrations', () => {
       answerLastOutputMode: null,
       answerEligibleTextSinceVoice: 3,
       answerEligibleTextStreak: 0,
-      readLastVoiceAt: null
+      readLastVoiceAt: null,
+      readTtsVoiceCount: 0
     });
 
     db.close();

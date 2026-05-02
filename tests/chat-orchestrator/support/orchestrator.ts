@@ -87,12 +87,15 @@ export function createOrchestrator(input: {
     action: TelegramChatAction
   ) => Promise<void>;
   random?: () => number;
-  initialChatTtsState?: Pick<
-    ChatState,
-    | 'answerLastOutputMode'
-    | 'answerEligibleTextSinceVoice'
-    | 'answerEligibleTextStreak'
-    | 'readLastVoiceAt'
+  initialChatTtsState?: Partial<
+    Pick<
+      ChatState,
+      | 'answerLastOutputMode'
+      | 'answerEligibleTextSinceVoice'
+      | 'answerEligibleTextStreak'
+      | 'readLastVoiceAt'
+      | 'readTtsVoiceCount'
+    >
   >;
 }): ChatOrchestrator {
   const sendChatAction =

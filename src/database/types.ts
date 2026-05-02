@@ -74,6 +74,7 @@ export type UpdateChatTtsStateInput = {
   answerEligibleTextSinceVoice?: number;
   answerEligibleTextStreak?: number;
   readLastVoiceAt?: string | null;
+  readTtsVoiceCount?: number;
 };
 
 export type StoredMediaArtifactRow = {

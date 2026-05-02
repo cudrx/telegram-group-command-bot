@@ -60,12 +60,66 @@ describe('ChatOrchestrator /read TTS command', () => {
     );
     expect(replyDispatcher).not.toHaveBeenCalled();
     expect(db.getChatState(1)).toMatchObject({
-      readLastVoiceAt: '2026-04-13T09:00:10.000Z'
+      readLastVoiceAt: null,
+      readTtsVoiceCount: 1
     });
     expect(db.getMessageByTelegramMessageId(1, 1001)).toMatchObject({
       text: 'прочитай меня',
       outputMode: 'voice',
       isBot: true
+    });
+  });
+
+  test('allows three successful /read voices per chat before the hourly cooldown', async () => {
+    const db = new FakeDatabaseClient();
+    const synthesize = vi.fn().mockResolvedValue({
+      provider: 'yandex_speechkit',
+      providerModel: 'speechkit-v1',
+      audioBytes: new Uint8Array([1, 2, 3]),
+      mimeType: 'audio/ogg'
+    });
+    const voiceDispatcher = vi.fn().mockImplementation(async () => ({
+      messageId: 1000 + voiceDispatcher.mock.calls.length,
+      createdAt: '2026-04-13T09:00:30.000Z'
+    }));
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1004,
+      createdAt: '2026-04-13T09:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply: vi.fn() },
+      replyDispatcher,
+      textToSpeechProvider: { synthesize },
+      voiceDispatcher
+    });
+
+    for (let index = 0; index < 4; index += 1) {
+      const messageId = index * 2 + 1;
+      db.saveIncomingMessage(
+        createIncomingMessage({
+          messageId,
+          text: `прочитай меня ${index + 1}`
+        })
+      );
+
+      await orchestrator.handleIncomingMessage(
+        createIncomingMessage({
+          messageId: messageId + 1,
+          text: '/read',
+          entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+          replyToMessageId: messageId,
+          replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, messageId)
+        })
+      );
+    }
+
+    expect(synthesize).toHaveBeenCalledTimes(3);
+    expect(voiceDispatcher).toHaveBeenCalledTimes(3);
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 8,
+      text: 'Я уже прочитал 3 сообщения за час в этом чате. Попробуй через 60 мин.'
     });
   });
 
@@ -140,7 +194,8 @@ describe('ChatOrchestrator /read TTS command', () => {
     );
     db.updateChatTtsState({
       chatId: 1,
-      readLastVoiceAt: '2026-04-13T08:30:10.000Z'
+      readLastVoiceAt: '2026-04-13T08:30:10.000Z',
+      readTtsVoiceCount: 3
     });
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1004,
@@ -166,7 +221,7 @@ describe('ChatOrchestrator /read TTS command', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Я уже читал сообщение в этом чате недавно. Попробуй через 30 мин.'
+      text: 'Я уже прочитал 3 сообщения за час в этом чате. Попробуй через 30 мин.'
     });
   });
 

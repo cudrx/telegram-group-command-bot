@@ -9,11 +9,13 @@ type ChatStateRow = Omit<
   | 'answerEligibleTextSinceVoice'
   | 'answerEligibleTextStreak'
   | 'readLastVoiceAt'
+  | 'readTtsVoiceCount'
 > & {
   answerLastOutputMode?: string | null;
   answerEligibleTextSinceVoice?: number | null;
   answerEligibleTextStreak?: number | null;
   readLastVoiceAt?: string | null;
+  readTtsVoiceCount?: number | null;
 };
 
 export function getChatState(
@@ -32,7 +34,8 @@ export function getChatState(
           answer_last_output_mode AS answerLastOutputMode,
           answer_eligible_text_since_voice AS answerEligibleTextSinceVoice,
           answer_eligible_text_streak AS answerEligibleTextStreak,
-          read_last_voice_at AS readLastVoiceAt
+          read_last_voice_at AS readLastVoiceAt,
+          read_tts_voice_count AS readTtsVoiceCount
         FROM chats
         WHERE chat_id = ?
       `
@@ -106,6 +109,13 @@ export function updateChatTtsState(
     assignments,
     values
   );
+  addAssignment(
+    input,
+    'readTtsVoiceCount',
+    'read_tts_voice_count',
+    assignments,
+    values
+  );
 
   if (assignments.length === 0) {
     return;
@@ -141,7 +151,8 @@ function toChatState(row: ChatStateRow): ChatState {
     answerLastOutputMode: toBotOutputMode(row.answerLastOutputMode),
     answerEligibleTextSinceVoice: row.answerEligibleTextSinceVoice ?? 3,
     answerEligibleTextStreak: row.answerEligibleTextStreak ?? 0,
-    readLastVoiceAt: row.readLastVoiceAt ?? null
+    readLastVoiceAt: row.readLastVoiceAt ?? null,
+    readTtsVoiceCount: row.readTtsVoiceCount ?? 0
   };
 }
 

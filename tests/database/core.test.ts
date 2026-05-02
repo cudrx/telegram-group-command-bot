@@ -89,27 +89,31 @@ describeWithSqlite('DatabaseClient core', () => {
       answerLastOutputMode: 'voice',
       answerEligibleTextSinceVoice: 0,
       answerEligibleTextStreak: 0,
-      readLastVoiceAt: '2026-04-10T12:00:20.000Z'
+      readLastVoiceAt: '2026-04-10T12:00:20.000Z',
+      readTtsVoiceCount: 2
     });
 
     expect(db.getChatState(1)).toMatchObject({
       answerLastOutputMode: 'voice',
       answerEligibleTextSinceVoice: 0,
       answerEligibleTextStreak: 0,
-      readLastVoiceAt: '2026-04-10T12:00:20.000Z'
+      readLastVoiceAt: '2026-04-10T12:00:20.000Z',
+      readTtsVoiceCount: 2
     });
 
     db.updateChatTtsState({
       chatId: 1,
       answerLastOutputMode: null,
-      readLastVoiceAt: null
+      readLastVoiceAt: null,
+      readTtsVoiceCount: 0
     });
 
     expect(db.getChatState(1)).toMatchObject({
       answerLastOutputMode: null,
       answerEligibleTextSinceVoice: 0,
       answerEligibleTextStreak: 0,
-      readLastVoiceAt: null
+      readLastVoiceAt: null,
+      readTtsVoiceCount: 0
     });
 
     db.close();
@@ -182,7 +186,8 @@ describeWithSqlite('DatabaseClient core', () => {
       'answer_last_output_mode',
       'answer_eligible_text_since_voice',
       'answer_eligible_text_streak',
-      'read_last_voice_at'
+      'read_last_voice_at',
+      'read_tts_voice_count'
     ]);
     expect(db.getSchemaColumns('participants')).toEqual([]);
     expect(db.getSchemaColumns('chat_participants')).toEqual([]);

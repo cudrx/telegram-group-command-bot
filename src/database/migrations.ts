@@ -29,6 +29,12 @@ export function migrateExistingSchema(db: Database.Database): void {
     'INTEGER NOT NULL DEFAULT 0'
   );
   ensureColumn(db, 'chats', 'read_last_voice_at', 'TEXT');
+  ensureColumn(
+    db,
+    'chats',
+    'read_tts_voice_count',
+    'INTEGER NOT NULL DEFAULT 0'
+  );
 }
 
 function ensureColumn(

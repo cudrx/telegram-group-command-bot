@@ -94,7 +94,8 @@ export class FakeDatabaseClient {
       answerEligibleTextSinceVoice:
         existingChat?.answerEligibleTextSinceVoice ?? 3,
       answerEligibleTextStreak: existingChat?.answerEligibleTextStreak ?? 0,
-      readLastVoiceAt: existingChat?.readLastVoiceAt ?? null
+      readLastVoiceAt: existingChat?.readLastVoiceAt ?? null,
+      readTtsVoiceCount: existingChat?.readTtsVoiceCount ?? 0
     };
 
     this.chats.set(input.chatId, chat);
@@ -133,6 +134,9 @@ export class FakeDatabaseClient {
         : {}),
       ...(Object.hasOwn(input, 'readLastVoiceAt')
         ? { readLastVoiceAt: input.readLastVoiceAt ?? null }
+        : {}),
+      ...(Object.hasOwn(input, 'readTtsVoiceCount')
+        ? { readTtsVoiceCount: input.readTtsVoiceCount }
         : {})
     });
   }
@@ -291,7 +295,8 @@ export class FakeDatabaseClient {
         answerLastOutputMode: null,
         answerEligibleTextSinceVoice: 3,
         answerEligibleTextStreak: 0,
-        readLastVoiceAt: null
+        readLastVoiceAt: null,
+        readTtsVoiceCount: 0
       }
     );
   }

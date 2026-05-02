@@ -85,4 +85,5 @@ export type ChatState = {
   answerEligibleTextSinceVoice: number;
   answerEligibleTextStreak: number;
   readLastVoiceAt: string | null;
+  readTtsVoiceCount: number;
 };
