@@ -10,7 +10,6 @@ describe('parseEnv media settings', () => {
     });
 
     expect(env.ocrSpaceApiKey).toBe(null);
-    expect(env.readContextLimit).toBe(10);
     expect(env.sttProvider).toBe('gladia');
     expect(env.gladiaApiKey).toBe(null);
     expect(env.visionProvider).toBe('cloudflare');
@@ -27,7 +26,6 @@ describe('parseEnv media settings', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       OCR_SPACE_API_KEY: 'ocr-key',
-      READ_CONTEXT_LIMIT: '12',
       STT_PROVIDER: 'unsupported',
       GLADIA_API_KEY: 'gladia-key',
       VISION_PROVIDER: 'unsupported',
@@ -40,7 +38,6 @@ describe('parseEnv media settings', () => {
     });
 
     expect(env.ocrSpaceApiKey).toBe('ocr-key');
-    expect(env.readContextLimit).toBe(12);
     expect(env.sttProvider).toBe('gladia');
     expect(env.gladiaApiKey).toBe('gladia-key');
     expect(env.visionProvider).toBe('cloudflare');
