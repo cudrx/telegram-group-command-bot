@@ -1,9 +1,10 @@
+.agents/skills/
 .codex
-.worktrees/
-node_modules/
-dist/
 .env
-coverage/
 .eval-runs/
+.worktrees/
 /data/
+coverage/
+dist/
 docs/superpowers/
+node_modules/
