@@ -195,7 +195,10 @@ describe('downloadTelegramFileToTemp', () => {
 
     expect(api.getFile).toHaveBeenCalledWith('file-id');
     expect(fetchStub).toHaveBeenCalledWith(
-      'https://api.telegram.org/file/bottoken/voice/file.ogg'
+      'https://api.telegram.org/file/bottoken/voice/file.ogg',
+      expect.objectContaining({
+        signal: expect.any(AbortSignal)
+      })
     );
     expect(downloaded.filePath).toContain('file.ogg');
     expect(downloaded.bytes).toBe(3);
@@ -244,6 +247,61 @@ describe('downloadTelegramFileToTemp', () => {
         fetch: fetchStub
       })
     ).rejects.toThrow('Media file is too large: 3 bytes.');
+  });
+
+  test('cancels streaming download as soon as it exceeds the configured limit', async () => {
+    const api = {
+      getFile: vi.fn().mockResolvedValue({ file_path: 'voice/file.ogg' })
+    };
+    const cancel = vi.fn();
+    let pulls = 0;
+    const response = new Response(
+      new ReadableStream<Uint8Array>({
+        pull(controller) {
+          pulls += 1;
+
+          if (pulls === 1) {
+            controller.enqueue(new Uint8Array([1, 2]));
+            return;
+          }
+
+          controller.enqueue(new Uint8Array([3]));
+        },
+        cancel
+      })
+    );
+
+    await expect(
+      downloadTelegramFileToTemp({
+        api,
+        botToken: 'token',
+        fileId: 'file-id',
+        filename: 'file.ogg',
+        maxBytes: 2,
+        fetch: vi.fn().mockResolvedValue(response)
+      })
+    ).rejects.toThrow('Media file is too large: 3 bytes.');
+    expect(cancel).toHaveBeenCalled();
+  });
+
+  test('passes an abort signal to the Telegram file download request', async () => {
+    const api = {
+      getFile: vi.fn().mockResolvedValue({ file_path: 'voice/file.ogg' })
+    };
+    const fetchStub = vi.fn().mockImplementation((_url, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      return Promise.resolve(new Response(new Uint8Array([1, 2, 3])));
+    });
+
+    await downloadTelegramFileToTemp({
+      api,
+      botToken: 'token',
+      fileId: 'file-id',
+      filename: 'file.ogg',
+      maxBytes: 10,
+      fetch: fetchStub,
+      timeoutMs: 1000
+    });
   });
 
   test('throws when Telegram getFile has no file path', async () => {

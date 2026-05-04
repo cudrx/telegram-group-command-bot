@@ -111,5 +111,13 @@ describe('parseEnv media settings', () => {
         CLOUDFLARE_ACCOUNT_ID: 'your-cloudflare-account-id'
       })
     ).toThrow(/CLOUDFLARE_ACCOUNT_ID contains a placeholder value/i);
+
+    expect(() =>
+      parseEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        YANDEX_SPEECHKIT_API_KEY: 'your-yandex-speechkit-api-key'
+      })
+    ).toThrow(/YANDEX_SPEECHKIT_API_KEY contains a placeholder value/i);
   });
 });

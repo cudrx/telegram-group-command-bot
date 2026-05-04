@@ -2,6 +2,7 @@ import { pathToFileURL } from 'node:url';
 
 import { main } from './evaluate-intents/runner.js';
 
+export { parseEvalEnv } from './evaluate-intents/env.js';
 export {
   filterFixtures,
   parseEvalFilters

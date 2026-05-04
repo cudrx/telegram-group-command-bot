@@ -122,6 +122,7 @@ export async function downloadTelegramFileToTemp(input: {
   fileSize?: number | null;
   fetch?: typeof fetch | undefined;
   tempDir?: string;
+  timeoutMs?: number;
 }): Promise<{
   filePath: string;
   bytes: number;
@@ -139,9 +140,17 @@ export async function downloadTelegramFileToTemp(input: {
   }
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
-  const response = await fetchImpl(
-    `https://api.telegram.org/file/bot${input.botToken}/${filePath}`
-  );
+  const { signal, clear } = createTimeoutSignal(input.timeoutMs ?? 30_000);
+  let response: Response;
+
+  try {
+    response = await fetchImpl(
+      `https://api.telegram.org/file/bot${input.botToken}/${filePath}`,
+      { signal }
+    );
+  } finally {
+    clear();
+  }
 
   if (!response.ok) {
     throw new Error(
@@ -149,7 +158,7 @@ export async function downloadTelegramFileToTemp(input: {
     );
   }
 
-  const bytes = new Uint8Array(await response.arrayBuffer());
+  const bytes = await readResponseBytesWithLimit(response, input.maxBytes);
   assertMaxBytes(bytes.byteLength, input.maxBytes);
 
   const tempDirectory = await mkdtemp(
@@ -254,6 +263,71 @@ function assertMaxBytes(bytes: number, maxBytes: number): void {
   if (bytes > maxBytes) {
     throw new Error(`Media file is too large: ${bytes} bytes.`);
   }
+}
+
+async function readResponseBytesWithLimit(
+  response: Response,
+  maxBytes: number
+): Promise<Uint8Array> {
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    assertMaxBytes(bytes.byteLength, maxBytes);
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const result = await reader.read();
+
+      if (result.done) {
+        break;
+      }
+
+      chunks.push(result.value);
+      totalBytes += result.value.byteLength;
+
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+        assertMaxBytes(totalBytes, maxBytes);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  return bytes;
+}
+
+function createTimeoutSignal(timeoutMs: number): {
+  signal: AbortSignal;
+  clear: () => void;
+} {
+  if (typeof AbortSignal.timeout === 'function') {
+    return {
+      signal: AbortSignal.timeout(timeoutMs),
+      clear: () => undefined
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timer)
+  };
 }
 
 function readString(value: unknown): string | null {

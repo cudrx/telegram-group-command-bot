@@ -473,4 +473,67 @@ describe('auto-read media intake', () => {
     });
     expect(telegramFileApi.getFile).toHaveBeenCalledWith('first-photo-file');
   });
+
+  test('forgets album image keys after the dedupe ttl', async () => {
+    const db = new FakeDatabaseClient();
+    const { telegramFileApi, fetch } = createSuccessfulDownloadDeps();
+    let nowMs = Date.parse('2026-04-13T09:00:00.000Z');
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply: vi.fn().mockResolvedValue(createReplyResult('ok'))
+      },
+      replyDispatcher: createReplyDispatcher(),
+      visionProvider: createVisionProvider('photo'),
+      ocrProvider: createOcrProvider(() => ''),
+      telegramFileApi,
+      fetch,
+      now: () => new Date(nowMs).toISOString()
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 11,
+        text: '',
+        mediaGroupId: 'album-1',
+        mediaSnapshot: {
+          messageId: 11,
+          mediaKind: 'photo',
+          fileId: 'first-photo-file',
+          fileUniqueId: 'first-photo-unique',
+          mimeType: null,
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+
+    nowMs += 25 * 60 * 60 * 1000;
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 12,
+        text: '',
+        mediaGroupId: 'album-1',
+        mediaSnapshot: {
+          messageId: 12,
+          mediaKind: 'photo',
+          fileId: 'next-day-photo-file',
+          fileUniqueId: 'next-day-photo-unique',
+          mimeType: null,
+          fileSize: 3,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(telegramFileApi.getFile).toHaveBeenCalledTimes(2);
+    });
+    expect(telegramFileApi.getFile).toHaveBeenLastCalledWith(
+      'next-day-photo-file'
+    );
+  });
 });

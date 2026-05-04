@@ -87,6 +87,7 @@ export function createOrchestrator(input: {
     action: TelegramChatAction
   ) => Promise<void>;
   random?: () => number;
+  now?: () => string;
   initialChatTtsState?: Partial<
     Pick<
       ChatState,
@@ -160,6 +161,6 @@ export function createOrchestrator(input: {
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),
     random: input.random ?? (() => 0),
-    now: () => '2026-04-13T09:00:10.000Z'
+    now: input.now ?? (() => '2026-04-13T09:00:10.000Z')
   });
 }

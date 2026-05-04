@@ -4,7 +4,8 @@ import {
   createEvalLookupContext,
   evaluateRubric,
   filterFixtures,
-  hasRubricFailures
+  hasRubricFailures,
+  parseEvalEnv
 } from '../scripts/evaluate-intents.js';
 import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
 
@@ -69,5 +70,21 @@ describe('evaluate-intents helpers', () => {
         intents: new Set(['summarize'])
       }).map((fixture) => fixture.intent)
     ).toEqual(['summarize']);
+  });
+
+  test('parses only LLM settings for eval runs', () => {
+    const env = parseEvalEnv({
+      LLM_API_KEY: 'llm-key',
+      LLM_BASE_URL: 'https://llm.example/v1',
+      LLM_REPLY_MODEL: 'reply-model',
+      LLM_REPLY_TEMPERATURE: '0.2'
+    });
+
+    expect(env).toEqual({
+      llmApiKey: 'llm-key',
+      llmBaseUrl: 'https://llm.example/v1',
+      llmReplyModel: 'reply-model',
+      llmReplyTemperature: 0.2
+    });
   });
 });

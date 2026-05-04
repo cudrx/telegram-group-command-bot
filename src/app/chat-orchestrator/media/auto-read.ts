@@ -17,9 +17,11 @@ export type AutoReadResult =
   | { status: 'success' }
   | { status: 'failed'; error: Error };
 
+const ALBUM_IMAGE_DEDUPE_TTL_MS = 24 * 60 * 60 * 1000;
+
 export class MediaAutoReadCoordinator {
   private readonly inFlight = new Map<string, Promise<AutoReadResult>>();
-  private readonly albumImageKeys = new Set<string>();
+  private readonly albumImageKeys = new Map<string, number>();
 
   constructor(
     private readonly deps: Pick<ChatOrchestratorDeps, 'db' | 'env' | 'now'>,
@@ -185,6 +187,8 @@ export class MediaAutoReadCoordinator {
     message: StoredMessage,
     media: MediaMessageSnapshot
   ): boolean {
+    this.pruneExpiredAlbumImageKeys();
+
     if (!message.mediaGroupId) {
       return true;
     }
@@ -195,12 +199,27 @@ export class MediaAutoReadCoordinator {
 
     const albumKey = `${message.chatId}:${message.mediaGroupId}`;
 
-    if (this.albumImageKeys.has(albumKey)) {
+    if (
+      (this.albumImageKeys.get(albumKey) ?? 0) > Date.parse(this.deps.now())
+    ) {
       return false;
     }
 
-    this.albumImageKeys.add(albumKey);
+    this.albumImageKeys.set(
+      albumKey,
+      Date.parse(this.deps.now()) + ALBUM_IMAGE_DEDUPE_TTL_MS
+    );
     return true;
+  }
+
+  private pruneExpiredAlbumImageKeys(): void {
+    const nowMs = Date.parse(this.deps.now());
+
+    for (const [albumKey, expiresAtMs] of this.albumImageKeys.entries()) {
+      if (expiresAtMs <= nowMs) {
+        this.albumImageKeys.delete(albumKey);
+      }
+    }
   }
 }
 

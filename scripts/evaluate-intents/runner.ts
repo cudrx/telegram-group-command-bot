@@ -3,9 +3,9 @@ import path from 'node:path';
 
 import OpenAI from 'openai';
 
-import { parseEnv } from '../../src/config/env/index.js';
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
 import { intentEvalFixtures } from '../intent-eval-fixtures.js';
+import { parseEvalEnv } from './env.js';
 import { filterFixtures, parseEvalFilters } from './filters.js';
 import { createEvalLookupContext } from './lookup-context.js';
 import { formatMarkdown, printResult } from './reporting.js';
@@ -13,7 +13,7 @@ import { evaluateRubric, hasRubricFailures } from './scoring.js';
 import type { EvalResult } from './types.js';
 
 export async function main(): Promise<number> {
-  const env = parseEnv(process.env);
+  const env = parseEvalEnv(process.env);
   const client = new OpenAI({
     apiKey: env.llmApiKey,
     baseURL: env.llmBaseUrl

@@ -83,6 +83,15 @@ function validateMediaAnalysisConfig(parsed: ParsedRawEnv): void {
       'OCR_SPACE_API_KEY contains a placeholder value. Replace it with a real OCR.space API key before starting the bot.'
     );
   }
+
+  if (
+    parsed.YANDEX_SPEECHKIT_API_KEY &&
+    looksLikePlaceholder(parsed.YANDEX_SPEECHKIT_API_KEY)
+  ) {
+    throw new Error(
+      'YANDEX_SPEECHKIT_API_KEY contains a placeholder value. Replace it with a real Yandex SpeechKit API key before starting the bot.'
+    );
+  }
 }
 
 function looksLikePlaceholder(value: string): boolean {
