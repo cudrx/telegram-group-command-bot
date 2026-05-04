@@ -6,6 +6,30 @@ import type {
   StoredMediaArtifactRow
 } from './types.js';
 
+const MEDIA_ARTIFACT_SELECT_COLUMNS = `
+  id,
+  file_unique_id AS fileUniqueId,
+  chat_id AS chatId,
+  telegram_message_id AS telegramMessageId,
+  media_kind AS mediaKind,
+  provider,
+  provider_model AS providerModel,
+  artifact_kind AS artifactKind,
+  artifact_status AS artifactStatus,
+  artifact_text AS artifactText,
+  artifact_json AS artifactJson,
+  raw_response_json AS rawResponseJson,
+  source_caption AS sourceCaption,
+  source_mime_type AS sourceMimeType,
+  source_file_size AS sourceFileSize,
+  source_duration_seconds AS sourceDurationSeconds,
+  recognition_language AS recognitionLanguage,
+  confidence_json AS confidenceJson,
+  error_text AS errorText,
+  created_at AS createdAt,
+  expires_at AS expiresAt
+`;
+
 export function saveMediaArtifact(
   db: Database.Database,
   input: SaveMediaArtifactInput
@@ -71,39 +95,11 @@ export function getSuccessfulMediaArtifact(
   }
 ): StoredMediaArtifact | null {
   if (input.fileUniqueId) {
-    const byFileUniqueId = getLatestSuccessfulMediaArtifactRow(
+    const byFileUniqueId = getMediaArtifactRow(
       db,
-      `
-        SELECT
-          id,
-          file_unique_id AS fileUniqueId,
-          chat_id AS chatId,
-          telegram_message_id AS telegramMessageId,
-          media_kind AS mediaKind,
-          provider,
-          provider_model AS providerModel,
-          artifact_kind AS artifactKind,
-          artifact_status AS artifactStatus,
-          artifact_text AS artifactText,
-          artifact_json AS artifactJson,
-          raw_response_json AS rawResponseJson,
-          source_caption AS sourceCaption,
-          source_mime_type AS sourceMimeType,
-          source_file_size AS sourceFileSize,
-          source_duration_seconds AS sourceDurationSeconds,
-          recognition_language AS recognitionLanguage,
-          confidence_json AS confidenceJson,
-          error_text AS errorText,
-          created_at AS createdAt,
-          expires_at AS expiresAt
-        FROM media_artifacts
-        WHERE file_unique_id = ?
-          AND provider = ?
-          AND artifact_kind = ?
-          AND artifact_status = 'success'
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
+      buildLatestArtifactByFileUniqueIdQuery({
+        onlySuccessful: true
+      }),
       [input.fileUniqueId, input.provider, input.artifactKind]
     );
 
@@ -112,40 +108,11 @@ export function getSuccessfulMediaArtifact(
     }
   }
 
-  return getLatestSuccessfulMediaArtifactRow(
+  return getMediaArtifactRow(
     db,
-    `
-      SELECT
-        id,
-        file_unique_id AS fileUniqueId,
-        chat_id AS chatId,
-        telegram_message_id AS telegramMessageId,
-        media_kind AS mediaKind,
-        provider,
-        provider_model AS providerModel,
-        artifact_kind AS artifactKind,
-        artifact_status AS artifactStatus,
-        artifact_text AS artifactText,
-        artifact_json AS artifactJson,
-        raw_response_json AS rawResponseJson,
-        source_caption AS sourceCaption,
-        source_mime_type AS sourceMimeType,
-        source_file_size AS sourceFileSize,
-        source_duration_seconds AS sourceDurationSeconds,
-        recognition_language AS recognitionLanguage,
-        confidence_json AS confidenceJson,
-        error_text AS errorText,
-        created_at AS createdAt,
-        expires_at AS expiresAt
-      FROM media_artifacts
-      WHERE chat_id = ?
-        AND telegram_message_id = ?
-        AND provider = ?
-        AND artifact_kind = ?
-        AND artifact_status = 'success'
-      ORDER BY created_at DESC
-      LIMIT 1
-    `,
+    buildLatestArtifactByMessageQuery({
+      onlySuccessful: true
+    }),
     [input.chatId, input.telegramMessageId, input.provider, input.artifactKind]
   );
 }
@@ -161,38 +128,11 @@ export function getLatestMediaArtifact(
   }
 ): StoredMediaArtifact | null {
   if (input.fileUniqueId) {
-    const byFileUniqueId = getLatestMediaArtifactRow(
+    const byFileUniqueId = getMediaArtifactRow(
       db,
-      `
-        SELECT
-          id,
-          file_unique_id AS fileUniqueId,
-          chat_id AS chatId,
-          telegram_message_id AS telegramMessageId,
-          media_kind AS mediaKind,
-          provider,
-          provider_model AS providerModel,
-          artifact_kind AS artifactKind,
-          artifact_status AS artifactStatus,
-          artifact_text AS artifactText,
-          artifact_json AS artifactJson,
-          raw_response_json AS rawResponseJson,
-          source_caption AS sourceCaption,
-          source_mime_type AS sourceMimeType,
-          source_file_size AS sourceFileSize,
-          source_duration_seconds AS sourceDurationSeconds,
-          recognition_language AS recognitionLanguage,
-          confidence_json AS confidenceJson,
-          error_text AS errorText,
-          created_at AS createdAt,
-          expires_at AS expiresAt
-        FROM media_artifacts
-        WHERE file_unique_id = ?
-          AND provider = ?
-          AND artifact_kind = ?
-        ORDER BY created_at DESC
-        LIMIT 1
-      `,
+      buildLatestArtifactByFileUniqueIdQuery({
+        onlySuccessful: false
+      }),
       [input.fileUniqueId, input.provider, input.artifactKind]
     );
 
@@ -201,39 +141,11 @@ export function getLatestMediaArtifact(
     }
   }
 
-  return getLatestMediaArtifactRow(
+  return getMediaArtifactRow(
     db,
-    `
-      SELECT
-        id,
-        file_unique_id AS fileUniqueId,
-        chat_id AS chatId,
-        telegram_message_id AS telegramMessageId,
-        media_kind AS mediaKind,
-        provider,
-        provider_model AS providerModel,
-        artifact_kind AS artifactKind,
-        artifact_status AS artifactStatus,
-        artifact_text AS artifactText,
-        artifact_json AS artifactJson,
-        raw_response_json AS rawResponseJson,
-        source_caption AS sourceCaption,
-        source_mime_type AS sourceMimeType,
-        source_file_size AS sourceFileSize,
-        source_duration_seconds AS sourceDurationSeconds,
-        recognition_language AS recognitionLanguage,
-        confidence_json AS confidenceJson,
-        error_text AS errorText,
-        created_at AS createdAt,
-        expires_at AS expiresAt
-      FROM media_artifacts
-      WHERE chat_id = ?
-        AND telegram_message_id = ?
-        AND provider = ?
-        AND artifact_kind = ?
-      ORDER BY created_at DESC
-      LIMIT 1
-    `,
+    buildLatestArtifactByMessageQuery({
+      onlySuccessful: false
+    }),
     [input.chatId, input.telegramMessageId, input.provider, input.artifactKind]
   );
 }
@@ -254,27 +166,7 @@ export function getSuccessfulMediaArtifactsForMessages(
     .prepare(
       `
         SELECT
-          id,
-          file_unique_id AS fileUniqueId,
-          chat_id AS chatId,
-          telegram_message_id AS telegramMessageId,
-          media_kind AS mediaKind,
-          provider,
-          provider_model AS providerModel,
-          artifact_kind AS artifactKind,
-          artifact_status AS artifactStatus,
-          artifact_text AS artifactText,
-          artifact_json AS artifactJson,
-          raw_response_json AS rawResponseJson,
-          source_caption AS sourceCaption,
-          source_mime_type AS sourceMimeType,
-          source_file_size AS sourceFileSize,
-          source_duration_seconds AS sourceDurationSeconds,
-          recognition_language AS recognitionLanguage,
-          confidence_json AS confidenceJson,
-          error_text AS errorText,
-          created_at AS createdAt,
-          expires_at AS expiresAt
+          ${MEDIA_ARTIFACT_SELECT_COLUMNS}
         FROM media_artifacts
         WHERE chat_id = ?
           AND telegram_message_id IN (${placeholders})
@@ -287,7 +179,7 @@ export function getSuccessfulMediaArtifactsForMessages(
   return rows.map(toStoredMediaArtifact);
 }
 
-function getLatestSuccessfulMediaArtifactRow(
+function getMediaArtifactRow(
   db: Database.Database,
   sql: string,
   params: unknown[]
@@ -298,13 +190,39 @@ function getLatestSuccessfulMediaArtifactRow(
   return row ? toStoredMediaArtifact(row) : null;
 }
 
-function getLatestMediaArtifactRow(
-  db: Database.Database,
-  sql: string,
-  params: unknown[]
-): StoredMediaArtifact | null {
-  const row = db.prepare(sql).get(...params) as
-    | StoredMediaArtifactRow
-    | undefined;
-  return row ? toStoredMediaArtifact(row) : null;
+function buildLatestArtifactByFileUniqueIdQuery(input: {
+  onlySuccessful: boolean;
+}): string {
+  return `
+    SELECT
+      ${MEDIA_ARTIFACT_SELECT_COLUMNS}
+    FROM media_artifacts
+    WHERE file_unique_id = ?
+      AND provider = ?
+      AND artifact_kind = ?
+      ${getArtifactStatusClause(input)}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+}
+
+function buildLatestArtifactByMessageQuery(input: {
+  onlySuccessful: boolean;
+}): string {
+  return `
+    SELECT
+      ${MEDIA_ARTIFACT_SELECT_COLUMNS}
+    FROM media_artifacts
+    WHERE chat_id = ?
+      AND telegram_message_id = ?
+      AND provider = ?
+      AND artifact_kind = ?
+      ${getArtifactStatusClause(input)}
+    ORDER BY created_at DESC
+    LIMIT 1
+  `;
+}
+
+function getArtifactStatusClause(input: { onlySuccessful: boolean }): string {
+  return input.onlySuccessful ? "AND artifact_status = 'success'" : '';
 }
