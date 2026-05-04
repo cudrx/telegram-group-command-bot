@@ -3,7 +3,7 @@ import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js
 import type { AppLogger } from '../../logging/logger.js';
 import { serializeError } from '../../logging/logger.js';
 import { decideAnswerTts } from '../../tts/outbound-policy.js';
-import { runWithReplyVoiceRecording } from './helpers.js';
+import { runWithReplyVoiceRecording } from './helpers/reply.js';
 import type {
   ChatOrchestratorDeps,
   ReplyRequest,

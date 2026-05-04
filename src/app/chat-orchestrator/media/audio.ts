@@ -10,7 +10,7 @@ import {
   artifactToText,
   buildTranscriptMediaContext,
   createMediaFilename
-} from '../helpers.js';
+} from '../helpers/media.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 
 export async function ensureAudioMediaContext(

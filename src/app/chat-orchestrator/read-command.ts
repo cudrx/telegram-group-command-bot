@@ -1,6 +1,6 @@
 import { serializeError } from '../../logging/logger.js';
 import { normalizeSpeechText } from '../../tts/speech-cleanup.js';
-import { runWithReplyVoiceRecording } from './helpers.js';
+import { runWithReplyVoiceRecording } from './helpers/reply.js';
 import { dispatchTextReply } from './outbound-voice.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 

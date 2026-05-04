@@ -4,7 +4,7 @@ import {
   addDaysIso,
   IMAGE_INTERPRETATION_ARTIFACT_KIND,
   IMAGE_INTERPRETATION_PROVIDER
-} from '../helpers.js';
+} from '../helpers/media.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 
 export async function generateAndStoreVisionInterpretation(

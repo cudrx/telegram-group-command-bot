@@ -4,7 +4,7 @@ import {
   AUTO_READ_FAILED_ARTIFACT_KIND,
   AUTO_READ_FAILED_MODEL,
   AUTO_READ_FAILED_PROVIDER
-} from '../../src/app/chat-orchestrator/helpers.js';
+} from '../../src/app/chat-orchestrator/helpers/media.js';
 import {
   createOcrProvider,
   createReplyDispatcher,

@@ -8,7 +8,7 @@ import type { AppLogger } from '../../../logging/logger.js';
 import {
   appendMediaSummaryToMessageText,
   NEARBY_MEDIA_SCAN_LIMIT
-} from '../helpers.js';
+} from '../helpers/media.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { ensureAudioMediaContext } from './audio.js';
 import { MediaAutoReadCoordinator } from './auto-read.js';

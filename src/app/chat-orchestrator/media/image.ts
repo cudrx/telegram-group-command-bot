@@ -10,7 +10,7 @@ import {
   OCR_PROVIDER,
   OCR_TEXT_DEFAULT_ARTIFACT_KIND,
   OCR_TEXT_RU_ARTIFACT_KIND
-} from '../helpers.js';
+} from '../helpers/media.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { getCachedImageArtifact, getLatestImageArtifact } from './cache.js';
 import { generateAndStoreImageAnalysis } from './image-analysis.js';

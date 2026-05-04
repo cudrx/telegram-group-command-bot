@@ -7,7 +7,7 @@ import {
   createFailedLookupDecision,
   createLookupContext,
   isTimeoutError
-} from './helpers.js';
+} from './helpers/lookup.js';
 import type { ChatOrchestratorDeps } from './types.js';
 
 export async function buildLookupContext(

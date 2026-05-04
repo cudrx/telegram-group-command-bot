@@ -1,5 +1,5 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
-import { addDaysIso } from '../helpers.js';
+import { addDaysIso } from '../helpers/media.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 
 export function saveImageTextArtifact(

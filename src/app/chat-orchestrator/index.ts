@@ -17,7 +17,7 @@ import {
   getContextLimitForIntent,
   runWithReplyTyping,
   withReplySnapshotFallback
-} from './helpers.js';
+} from './helpers/reply.js';
 import { buildLookupContext } from './lookup.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
 import { dispatchGeneratedReply } from './outbound-voice.js';
