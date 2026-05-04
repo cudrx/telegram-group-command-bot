@@ -1,49 +1,23 @@
-import { Bot, InputFile } from 'grammy';
+import { Bot } from 'grammy';
+import { resolveAuthorizedMode } from './app/access-policy.js';
 import {
   createAdminNotifier,
   createNotifyingLogger
 } from './app/admin-notifier.js';
 import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
+import { createCleanupScheduler } from './app/database-cleanup.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
+import { createLlmClient, createOptionalProviders } from './app/providers.js';
+import { createTelegramDispatchers } from './app/telegram-dispatchers.js';
 import type { AppEnv } from './config/env/index.js';
 import { DatabaseClient } from './database/index.js';
-import type { AuthorizedMode, ChatType } from './domain/models.js';
-import { OpenAiCompatibleLlmClient } from './llm/openai-compatible-client/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
-import { TavilyLookupProvider } from './lookup/tavily-lookup-provider.js';
-import { CloudflareVisionProvider } from './media/cloudflare-vision-provider.js';
-import { GladiaTranscriptionProvider } from './media/gladia-transcription-provider.js';
-import { OcrSpaceProvider } from './media/ocr-space-provider.js';
 import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
-import { YandexSpeechKitTtsProvider } from './tts/yandex-speechkit-provider.js';
 
 type Application = {
   start(): Promise<void>;
   stop(): Promise<void>;
 };
-
-function resolveAuthorizedMode(input: {
-  env: AppEnv;
-  chatId: number;
-  chatType: ChatType;
-  fromUserId: number | null;
-}): AuthorizedMode | null {
-  if (
-    (input.chatType === 'group' || input.chatType === 'supergroup') &&
-    input.chatId === input.env.telegramChatId
-  ) {
-    return 'chat';
-  }
-
-  if (
-    input.chatType === 'private' &&
-    input.fromUserId === input.env.telegramAdminId
-  ) {
-    return 'private_admin';
-  }
-
-  return null;
-}
 
 export async function createApplication(env: AppEnv): Promise<Application> {
   const db = DatabaseClient.open(env.sqlitePath);
@@ -72,59 +46,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     }
   });
   const logger = createNotifyingLogger(baseLogger, adminNotifier);
-  const qwen = new OpenAiCompatibleLlmClient(
-    {
-      apiKey: env.llmApiKey,
-      baseUrl: env.llmBaseUrl,
-      replyModel: env.llmReplyModel,
-      replyTemperature: env.llmReplyTemperature,
-      plannerModel: env.llmPlannerModel,
-      lookupMaxQueries: env.lookupMaxQueries,
-      timeoutMs: env.llmTimeoutMs,
-      maxRetries: env.llmMaxRetries
-    },
-    undefined,
-    {
-      logger: logger.child({
-        component: 'llm'
-      }),
-      logLlmText: env.logLlmText
-    }
-  );
-  const lookupProvider =
-    env.lookupProvider === 'tavily' && env.tavilyApiKey
-      ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
-      : null;
-  const speechToTextProvider =
-    env.sttProvider === 'gladia' && env.gladiaApiKey
-      ? new GladiaTranscriptionProvider({ apiKey: env.gladiaApiKey })
-      : null;
-  const visionProvider =
-    env.visionProvider === 'cloudflare' &&
-    env.cloudflareAiApiKey &&
-    env.cloudflareAccountId
-      ? new CloudflareVisionProvider({
-          accountId: env.cloudflareAccountId,
-          apiKey: env.cloudflareAiApiKey
-        })
-      : null;
-  const ocrProvider = env.ocrSpaceApiKey
-    ? new OcrSpaceProvider({ apiKey: env.ocrSpaceApiKey })
-    : null;
-  const textToSpeechProvider = env.yandexSpeechKitApiKey
-    ? new YandexSpeechKitTtsProvider({
-        apiKey: env.yandexSpeechKitApiKey
-      })
-    : null;
+  const qwen = createLlmClient({ env, logger });
+  const providers = createOptionalProviders(env);
+  const telegramDispatchers = createTelegramDispatchers(bot.api);
   const orchestrator = new ChatOrchestrator({
     db,
     qwen,
     env,
-    lookupProvider,
-    speechToTextProvider,
-    textToSpeechProvider,
-    ocrProvider,
-    visionProvider,
+    ...providers,
     telegramFileApi: bot.api,
     fetch: globalThis.fetch,
     bot: {
@@ -132,69 +61,21 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       username: botInfo.username ?? null,
       displayName: botInfo.first_name ?? botInfo.username ?? 'Bot'
     },
-    replyDispatcher: async ({ chatId, replyToMessageId, text }) => {
-      const sent = await bot.api.sendMessage(chatId, text, {
-        parse_mode: 'HTML',
-        reply_parameters: {
-          message_id: replyToMessageId
-        }
-      });
-
-      return {
-        messageId: sent.message_id,
-        createdAt: new Date(sent.date * 1000).toISOString()
-      };
-    },
-    voiceDispatcher: async ({
-      chatId,
-      replyToMessageId,
-      audioBytes,
-      filename
-    }) => {
-      const sent = await bot.api.sendVoice(
-        chatId,
-        new InputFile(audioBytes, filename),
-        {
-          reply_parameters: {
-            message_id: replyToMessageId
-          }
-        }
-      );
-
-      return {
-        messageId: sent.message_id,
-        createdAt: new Date(sent.date * 1000).toISOString()
-      };
-    },
-    weeklyDispatcher: async ({ chatId, text }) => {
-      const sent = await bot.api.sendMessage(chatId, text, {
-        parse_mode: 'HTML'
-      });
-
-      return {
-        messageId: sent.message_id,
-        createdAt: new Date(sent.date * 1000).toISOString()
-      };
-    },
-    sendChatAction: async (chatId, action) => {
-      await bot.api.sendChatAction(chatId, action);
-    },
+    replyDispatcher: telegramDispatchers.replyDispatcher,
+    voiceDispatcher: telegramDispatchers.voiceDispatcher,
+    weeklyDispatcher: telegramDispatchers.weeklyDispatcher,
+    sendChatAction: telegramDispatchers.sendChatAction,
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     logger,
     random: Math.random,
     now: () => new Date().toISOString()
   });
-  let cleanupTimer: ReturnType<typeof setInterval> | null = null;
-
-  const runCleanup = () => {
-    const deleted = db.cleanupExpiredData({
-      now: new Date().toISOString(),
-      messageRetentionDays: env.messageRetentionDays,
-      mediaArtifactRetentionDays: env.mediaArtifactRetentionDays
-    });
-
-    logger.debug('database_cleanup_completed', deleted);
-  };
+  const cleanupScheduler = createCleanupScheduler({
+    db,
+    env,
+    logger,
+    now: () => new Date().toISOString()
+  });
   bot.use(async (ctx, next) => {
     const message = ctx.update.message;
 
@@ -260,21 +141,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
   return {
     async start() {
-      runCleanup();
-      cleanupTimer = setInterval(
-        runCleanup,
-        env.databaseCleanupIntervalHours * 60 * 60 * 1000
-      );
-      cleanupTimer.unref?.();
+      cleanupScheduler.start();
 
       await maybeAnnounceDeployUpdate({
         telegramChatId: env.telegramChatId,
         db,
         llm: qwen,
-        sendMessage: async ({ chatId, text }) => {
-          await bot.api.sendMessage(chatId, text, {
-            parse_mode: 'HTML'
-          });
+        sendMessage: async (message) => {
+          await telegramDispatchers.sendHtmlMessage(message);
         },
         logger,
         now: () => new Date().toISOString()
@@ -290,11 +164,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     },
 
     async stop() {
-      if (cleanupTimer) {
-        clearInterval(cleanupTimer);
-        cleanupTimer = null;
-      }
-
+      cleanupScheduler.stop();
       bot.stop();
       db.close();
     }
