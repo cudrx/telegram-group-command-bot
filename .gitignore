@@ -1,11 +1,6 @@
-.agents/skills/
-.codex
+.DS_Store
 .env
 .eval-runs/
-.worktrees/
-.DS_Store
-/data/
-coverage/
+data/
 dist/
-docs/superpowers/
 node_modules/
