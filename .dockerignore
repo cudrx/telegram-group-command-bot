@@ -1,6 +1,5 @@
 .git
 .github
-.codex
 node_modules
 dist
 data

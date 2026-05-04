@@ -49,7 +49,7 @@ describe('generate deploy metadata', () => {
       .mockReturnValue(
         [
           'refactor: delete completed plans',
-          'refactor: simplify Codex instruction routing',
+          'refactor: simplify instruction routing',
           'refactor: tighten standalone prompt wording',
           'fix: captions'
         ].join('\n')
@@ -69,7 +69,7 @@ describe('generate deploy metadata', () => {
     );
     expect(metadata.commits).toEqual([
       'refactor: delete completed plans',
-      'refactor: simplify Codex instruction routing',
+      'refactor: simplify instruction routing',
       'refactor: tighten standalone prompt wording',
       'fix: captions'
     ]);
