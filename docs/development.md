@@ -1,302 +1,206 @@
-# Development Guide
+# Руководство По Разработке
 
-## Requirements
+## Требования
 
-- `Node.js 20` or `22` LTS
-- `npm 11+`
-- Telegram bot token
-- LLM API key
+- Node.js `20` или `22` LTS
+- npm `11+`
+- токен Telegram-бота
+- ключ OpenAI-compatible LLM API
 
-## Project Files
+## Основные Файлы
 
-- [`README.md`](../README.md) — быстрый старт
-- [`docs/README.md`](./README.md) — каноническая структура Markdown-документов
-- [`docs/architecture.md`](./architecture.md) — устройство проекта
-- [`docs/superpowers/plans/`](./superpowers/plans/) — rolling window для свежих design docs, ТЗ и implementation plans
-- [`llm/assistant/base.md`](../llm/assistant/base.md) — базовые assistant instructions
-- [`llm/`](../llm/) — статические prompt-файлы; `src/llm/prompt-files.ts` хранит registry путей, а `src/llm/` оставляет за собой безопасную сборку prompt context и LLM-вызовы
+- `README.md` — обзор и быстрый старт.
+- `docs/README.md` — структура Markdown-документации.
+- `docs/architecture.md` — архитектура и потоки.
+- `docs/development.md` — это руководство.
+- `llm/assistant/base.md` — базовые инструкции ассистента.
+- `llm/` — статические prompt-файлы.
+- `src/config/env/` — схема окружения, значения по умолчанию и проверки.
+- `scripts/` — миграции, eval-скрипты, metadata для деплоя, smoke-проверка weekly.
 
-## Environment
+## Окружение
 
-Минимально нужны:
+Обязательные переменные:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `TELEGRAM_ADMIN_ID`
 - `LLM_API_KEY`
-- `TAVILY_API_KEY`, если live lookup должен быть доступен
-- `YANDEX_SPEECHKIT_API_KEY`, если outbound TTS должен быть доступен
 
-Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа lookup provider
-не создается. Остальные
-операционные твики имеют кодовые дефолты в
-[`../src/config/env/`](../src/config/env/), а в
-[`../.env.example`](../.env.example) лежит только основной локальный шаблон.
+Часто используемые:
 
-## Local Workflow
+- `LLM_BASE_URL`
+- `LLM_REPLY_MODEL`
+- `LLM_PLANNER_MODEL`
+- `LOG_LEVEL`
+- `LOG_COLOR`
+- `LOG_LLM_TEXT`
+- `SQLITE_PATH`
 
-1. Установить зависимости:
+Дополнительные провайдеры:
+
+- `TAVILY_API_KEY` — поиск для `/decide` и `/answer`.
+- `GLADIA_API_KEY` — транскрибация audio/video-note.
+- `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` — описание изображений.
+- `OCR_SPACE_API_KEY` — OCR.
+- `YANDEX_SPEECHKIT_API_KEY` — исходящая озвучка.
+
+`.env.example` содержит плейсхолдеры. Проверка окружения отклоняет `your-*` значения, поэтому ключи дополнительных провайдеров нужно либо заменить, либо удалить/закомментировать.
+
+## Локальный Запуск
 
 ```bash
 npm install
-```
-
-2. Создать локальный `.env`:
-
-```bash
 cp .env.example .env
-```
-
-Если используете другой OpenAI-compatible провайдер или модель, после копирования `.env.example` переопределите как минимум `LLM_BASE_URL`, `LLM_REPLY_MODEL` и при необходимости `LLM_PLANNER_MODEL`.
-Lookup использует Tavily, когда задан `TAVILY_API_KEY`; без ключа интернет-заземление не запускается.
-Для локальной проверки автоматического распознавания медиа задайте нужные provider keys: `GLADIA_API_KEY` для аудио, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` для vision и `OCR_SPACE_API_KEY` для OCR. Без соответствующих ключей provider calls не запускаются.
-Для локальной проверки исходящего TTS задайте `YANDEX_SPEECHKIT_API_KEY`: `/read` будет озвучивать replied-to text, а короткие eligible `/answer` иногда будут уходить voice-сообщением вместо text.
-Для image media analysis дополнительно нужен `OCR_SPACE_API_KEY`. В локальных OCR.space smoke tests используйте `OCREngine=2`: default engine возвращал пустой текст для `data/test-medal-ru.jpg`.
-Для подробной отладки входящих update и reply lifecycle установите `LOG_LEVEL=debug`. Для LLM trace установите `LOG_LLM_TEXT=true`: в логи попадут только компактные метаданные и короткий preview ответа, без полного prompt/response. Цвета включаются через `LOG_COLOR=true` или `FORCE_COLOR=1`; если цвет мешает парсингу, используйте `NO_COLOR=1`.
-
-3. Отредактировать базовые assistant instructions:
-
-```bash
-$EDITOR llm/assistant/base.md
-```
-
-4. Подготовить БД:
-
-```bash
 npm run migrate
-```
-
-Локальную SQLite-базу можно удалить только для локального reset-теста. Production deploy не очищает БД: `deploy/compose.yml` монтирует `./data` в `/app/data`, а `remote-deploy.sh` только подтягивает image и перезапускает контейнер. Если нужна очистка production SQLite, делайте это отдельной осознанной maintenance-операцией.
-
-5. Запустить бота:
-
-```bash
 npm run dev
 ```
 
-## NPM Scripts
+Перед запуском замените обязательные значения в `.env`.
 
-- `npm run dev` — локальный запуск через `tsx watch`
-- `npm run migrate` — создаёт `SQLite`-схему
-- `npm test` — `Vitest`
-- `npm run typecheck` — `TypeScript` без `emit`
-- `npm run build` — сборка в `dist/`
-- `npm run eval:intents` — прогоняет все intent fixtures и пишет отчёты в gitignored `.eval-runs/`
-- `npm run eval:intents -- --id=decide-laptop-value-dispute` — прогоняет один fixture
-- `npm run eval:intents -- --intent=summarize` — прогоняет fixtures одного intent
-- `SQLITE_PATH=... TELEGRAM_CHAT_ID=... npm exec tsx scripts/weekly-smoke.ts` — печатает weekly dataset из SQLite без Telegram и LLM calls
-- `npm start` — запуск собранного `dist/src/index.js`
+Если используете другого OpenAI-compatible провайдера, поменяйте:
 
-## Local Docker Workflow
-
-Для локального smoke-check контейнера используется корневой [`../compose.yml`](../compose.yml). Он запускает `node:20-bookworm-slim` и использует локальные `dist/`, `node_modules/`, `llm/` и `.env` через bind mounts.
-
-1. Подготовить `.env`:
-
-```bash
-cp .env.example .env
+```dotenv
+LLM_BASE_URL=https://api.deepseek.com
+LLM_REPLY_MODEL=deepseek-v4-flash
+LLM_PLANNER_MODEL=deepseek-v4-flash
 ```
 
-2. Собрать `dist/` и проверить итоговый compose-конфиг:
+Для подробной отладки:
+
+```dotenv
+LOG_LEVEL=debug
+LOG_LLM_TEXT=true
+LOG_COLOR=true
+```
+
+`LOG_LLM_TEXT=true` пишет компактный trace и короткий preview, но не полный prompt/response.
+
+## NPM-Скрипты
+
+- `npm run dev` — локальный запуск через `tsx watch`.
+- `npm run migrate` — создает или обновляет схему SQLite.
+- `npm run lint` — `biome check`.
+- `npm run lint:fix` — `biome check --write`.
+- `npm run format` — `biome format --write`.
+- `npm run typecheck` — `tsc --noEmit`.
+- `npm test` — `vitest run`.
+- `npm run build` — сборка в `dist/`.
+- `npm start` — запуск собранного `dist/src/index.js`.
+- `npm run eval:intents` — полный набор intent eval, отчеты в `.eval-runs/`.
+- `npm run eval:intents -- --id=<fixture-id>` — один fixture.
+- `npm run eval:intents -- --intent=<intent>` — fixtures одного intent.
+
+Предпросмотр данных для недельного обзора без обращений к Telegram и LLM:
+
+```bash
+SQLITE_PATH=data/prod-smoke.sqlite TELEGRAM_CHAT_ID=-1001234567890 npm exec tsx scripts/weekly-smoke.ts
+```
+
+## Проверки
+
+Для обычных изменений:
+
+```bash
+npm run lint
+npm run typecheck
+npm test
+```
+
+Для изменений времени выполнения, сборки или деплоя:
+
+```bash
+npm run build
+```
+
+Для изменений маршрутизации intent или prompt-контракта:
+
+```bash
+npm run eval:intents
+```
+
+## Локальный Docker
+
+Корневой `compose.yml` запускает локальный контейнер с bind mounts.
 
 ```bash
 npm run build
 docker compose config
-```
-
-3. Поднять контейнер:
-
-```bash
 docker compose up -d
-```
-
-4. Проверить состояние и логи:
-
-```bash
 docker compose ps
 docker compose logs bot --tail=100 -f
-```
-
-Для полного LLM input/output включите в `.env`:
-
-```dotenv
-LOG_LLM_TEXT=true
-LOG_LEVEL=debug
-LOG_COLOR=true
-```
-
-Затем перезапустите контейнер и смотрите логи:
-
-```bash
-docker compose up -d
-docker compose logs bot --tail=200 -f
-```
-
-5. Остановить контейнер:
-
-```bash
 docker compose down
 ```
 
-`SQLite` при этом сохраняется в локальной папке `./data`, которая монтируется в `/app/data` внутри контейнера.
+SQLite сохраняется в локальной `data/`.
 
-Если Docker отвечает `permission denied while trying to connect to the docker API`, используйте `sudo` для этих команд или добавьте пользователя в группу `docker` и заново войдите в сессию.
+Если Docker отвечает `permission denied`, используйте `sudo` или добавьте пользователя в группу `docker` и заново войдите в сессию.
 
 ## CI
 
-Workflow лежит в [`../.github/workflows/ci.yml`](../.github/workflows/ci.yml).
+Workflow CI: `.github/workflows/ci.yml`.
 
-На `push` и `pull_request` он делает:
+На `push` и `pull_request` выполняются:
 
 1. `npm ci`
 2. `npm run typecheck`
 3. `npm test`
 4. `npm run build`
 
-## Suggested Test Setup
+## Продакшн-Деплой
 
-Для нормального локального теста бота:
+Workflow деплоя: `.github/workflows/deploy.yml`.
 
-- завести отдельный тестовый Telegram bot token;
-- отключить лишние чаты и использовать приватную тестовую группу;
-- проверить, что `TELEGRAM_CHAT_ID` совпадает с тестовой группой, а `TELEGRAM_ADMIN_ID` совпадает с вашим личным user id;
-- проверять сначала только явные `/answer`, `/summarize`, `/decide` и `/read`; для `/answer` использовать reply на сообщение с вопросом или поддержанным медиа, для `/read` — reply на короткое текстовое сообщение;
-- держать `LOG_LLM_TEXT=true` во время коротких ручных сессий, чтобы видеть компактный LLM trace: модель, размеры prompt/response, оценку токенов и короткий response preview; полный prompt и полный response в логи не пишутся;
-- по логам проверять, почему бот ответил и какой lifecycle прошёл; полный prompt проверять через тесты prompt builders или временную локальную instrumentation, а не через production logs;
-- после изменения intent routing запускать `npm run eval:intents` и смотреть console output вместе с файлами в `.eval-runs/`.
-- `/weekly` проверять из private chat администратора: команда читает последние семь дней из `TELEGRAM_CHAT_ID`, публикует recap в эту группу и не отправляет private confirmation.
+GitHub Secrets:
 
-### Weekly Smoke Preview
+- `DEPLOY_HOST`
+- `DEPLOY_PORT`
+- `DEPLOY_USER`
+- `DEPLOY_PATH`
+- `DEPLOY_SSH_KEY`
+- `SERVER_GHCR_USERNAME`
+- `SERVER_GHCR_TOKEN`
+- `TELEGRAM_CHAT_ID`
+- `TELEGRAM_ADMIN_ID`
 
-Для локальной проверки weekly dataset без Telegram network calls и без LLM calls используйте существующую SQLite-базу:
+На сервере рядом с compose-файлом деплоя должны быть `.env` и `data/`.
 
-```bash
-SQLITE_PATH=data/prod-smoke.sqlite TELEGRAM_CHAT_ID=-1001234567890 npm exec tsx scripts/weekly-smoke.ts
-```
-
-`SQLITE_PATH` по умолчанию равен `data/prod-smoke.sqlite`, `WEEKLY_NOW` можно задать ISO-временем для repeatable preview. Скрипт открывает SQLite, строит тот же preview path, что production `/weekly`, печатает `WEEK_STATS`, `PARTICIPANT_STATS` и `SELECTED_EVENTS`, затем закрывает БД. Weekly preview использует только cached media artifacts и не запускает новое распознавание медиа.
-
-### Lookup Smoke Tests
-
-Before enabling lookup in production:
-
-1. Verify Tavily key:
-
-```bash
-set -a
-source .env
-set +a
-curl -sS --fail-with-body https://api.tavily.com/search \
-  -H "Authorization: Bearer $TAVILY_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"query":"Дора Мэйби Бэйби певицы кто такие","search_depth":"basic","max_results":3,"include_answer":false,"include_raw_content":false,"include_usage":true}'
-```
-
-2. Verify planner model with thinking disabled:
-
-```bash
-set -a
-source .env
-set +a
-curl -sS --fail-with-body "$LLM_BASE_URL/chat/completions" \
-  -H "Authorization: Bearer $LLM_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"model":"qwen3.6-flash","messages":[{"role":"user","content":"Return only JSON: {\"ok\":true}"}],"temperature":0,"max_tokens":20,"enable_thinking":false}'
-```
-
-## What Is Not Automated Yet
-
-- миграции с версиями;
-- интеграционные тесты с реальным Telegram API;
-- smoke-тесты с реальным LLM-провайдером.
-- автопроверка gitignored `.eval-runs/` как артефактов остаётся ручной.
-
-## Documentation Maintenance
-
-После реализации каждого плана нужно просмотреть и при необходимости обновить как минимум:
-
-- [`../README.md`](../README.md) — если изменились возможности, запуск, переменные окружения или деплой;
-- [`./architecture.md`](./architecture.md) — если изменились инварианты, компоненты, потоки данных или модель БД;
-- [`./development.md`](./development.md) — если изменились workflow, проверки, CI/CD, деплой, repair steps или maintenance-правила;
-- [`./superpowers/plans/`](./superpowers/plans/) — если план уже реализован и его устойчивые решения нужно перенести в основные документы.
-
-`docs/superpowers/plans/` не является архивом всех завершённых работ. Держите там не больше 5 планов: когда появляются новые планы, удаляйте самые старые уже реализованные, а устойчивые решения переносите в основные документы.
-
-## Production Deploy
-
-Workflow деплоя лежит в [`../.github/workflows/deploy.yml`](../.github/workflows/deploy.yml).
-
-### GitHub Secrets
-
-- `DEPLOY_HOST` — IP или домен VPS
-- `DEPLOY_PORT` — SSH-порт сервера
-- `DEPLOY_USER` — SSH-пользователь
-- `DEPLOY_PATH` — каталог деплоя, например `/opt/test-chatbot`
-- `DEPLOY_SSH_KEY` — приватный ключ, который GitHub Actions использует для входа на сервер
-- `SERVER_GHCR_USERNAME` — GitHub username, у которого есть `read:packages`
-- `SERVER_GHCR_TOKEN` — PAT с правом `read:packages` для `docker login ghcr.io` на VPS
-- `TELEGRAM_CHAT_ID` — единственный рабочий Telegram chat id бота; deploy announcements отправляются туда же
-- `TELEGRAM_ADMIN_ID` — Telegram user id, которому разрешен `private_admin` mode
-
-### One-Time VPS Bootstrap
-
-```bash
-mkdir -p /opt/test-chatbot/data
-cp deploy/.env.server.example /opt/test-chatbot/.env
-```
-
-После копирования замените плейсхолдеры в `/opt/test-chatbot/.env` на реальные значения и установите:
+Минимальные значения на сервере:
 
 ```dotenv
 GHCR_IMAGE=ghcr.io/<github-owner>/test-chatbot
 IMAGE_TAG=latest
 SQLITE_PATH=/app/data/bot.sqlite
-TELEGRAM_CHAT_ID=-1002155313986
-TELEGRAM_ADMIN_ID=84626969
+TELEGRAM_CHAT_ID=-1001234567890
+TELEGRAM_ADMIN_ID=123456789
 ```
 
-Если в production нужно автоматическое распознавание медиа, добавьте нужные provider keys:
+Ключи дополнительных провайдеров добавляются туда же.
 
-```dotenv
-GLADIA_API_KEY=...
-CLOUDFLARE_AI_API_KEY=...
-CLOUDFLARE_ACCOUNT_ID=...
-OCR_SPACE_API_KEY=...
-```
+Metadata деплоя пишется в серверный `data/deploy-metadata.json`; внутри контейнера бот читает его как `/app/data/deploy-metadata.json`. Оповещение отправляется один раз на новый `sha` и дедуплицируется через SQLite `app_state`.
 
-Без provider keys бот стартует нормально, но соответствующие auto-read provider calls не запускаются.
+Откат:
 
-Если в production нужен outbound TTS, добавьте Yandex SpeechKit credentials:
+1. На сервере выставить старый `IMAGE_TAG` в `.env`.
+2. Выполнить `docker compose --env-file .env -f compose.yml pull bot`.
+3. Выполнить `docker compose --env-file .env -f compose.yml up -d bot`.
 
-```dotenv
-YANDEX_SPEECHKIT_API_KEY=...
-```
+## Ручные Smoke-Проверки
 
-Без этих ключей бот стартует нормально: `/read` отправляет fallback, а opportunistic `/answer` voice не запускается.
+- Для Telegram smoke используйте отдельного тестового бота и тестовую группу.
+- Сначала проверяйте явные `/answer`, `/summarize`, `/decide`, `/read`.
+- `/answer` и `/read` требуют reply на целевое сообщение.
+- `/weekly` проверяется из личного чата администратора и публикует результат в `TELEGRAM_CHAT_ID`.
+- Провайдеры медиа запускаются только при наличии соответствующих ключей.
+- Smoke-проверку поиска перед включением в продакшне можно сделать прямым запросом к Tavily API.
 
-Первый деплой создаст или обновит `/opt/test-chatbot/compose.yml`, скачает нужный image tag из `GHCR` и перезапустит контейнер.
+## Поддержка Документации
 
-### Deploy Update Announcements
+После изменений возможностей, архитектуры, рабочих процессов, деплоя или контракта окружения обновляйте:
 
-Workflow деплоя записывает release metadata в `${DEPLOY_PATH}/data/deploy-metadata.json` перед рестартом бота. Внутри контейнера этот файл доступен как `/app/data/deploy-metadata.json`.
+- `README.md`
+- `docs/architecture.md`
+- `docs/development.md`
+- `docs/README.md`, если поменялась структура Markdown-файлов
 
-На старте бот сравнивает metadata `sha` с `app_state.last_announced_deploy_sha` в SQLite. Если sha ещё не объявлялся, бот просит `LLM_REPLY_MODEL` сформатировать короткое русское Telegram HTML-оповещение и отправляет его в `TELEGRAM_CHAT_ID`.
-
-Sha сохраняется только после успешной отправки сообщения в Telegram. Ошибки чтения metadata, LLM или Telegram отправки логируются и не блокируют старт бота.
-
-### Rollback
-
-Чтобы откатиться на предыдущую версию, на VPS временно установите более старый `IMAGE_TAG` в `/opt/test-chatbot/.env` и выполните:
-
-```bash
-cd /opt/test-chatbot
-docker compose --env-file .env -f compose.yml pull bot
-docker compose --env-file .env -f compose.yml up -d bot
-```
-
-## V1 Notes
-
-- База v1 хранит только event log в `chats` и `messages`.
-- Runtime не читает summary/memory/aliases даже если старый production SQLite файл ещё содержит такие таблицы.
-- Новая схема не создаёт `participants` и `chat_participants`.
-- Per-chat overrides are not supported in this reset; only `llm/assistant/base.md` is used.
+Проектные документы и планы реализации держать в `docs/superpowers/plans/`, когда они действительно нужны. Эта папка не должна становиться архивом всех завершенных задач.
