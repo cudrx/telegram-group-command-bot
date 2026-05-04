@@ -3,6 +3,7 @@
 .env
 .eval-runs/
 .worktrees/
+.DS_Store
 /data/
 coverage/
 dist/
