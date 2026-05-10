@@ -15,6 +15,7 @@ export function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, 'messages', 'from_last_name', 'TEXT');
   ensureColumn(db, 'messages', 'from_display_name', 'TEXT');
   ensureColumn(db, 'messages', 'output_mode', "TEXT NOT NULL DEFAULT 'text'");
+  ensureColumn(db, 'messages', 'edited_at', 'TEXT');
   ensureColumn(db, 'chats', 'answer_last_output_mode', 'TEXT');
   ensureColumn(
     db,

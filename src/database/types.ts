@@ -58,6 +58,7 @@ export type StoredMediaArtifact = {
 export type StoredMessageRow = Omit<StoredMessage, 'isBot'> & {
   isBot: number;
   outputMode?: string | null;
+  editedAt?: string | null;
   mediaKind?: string | null;
   mediaFileId?: string | null;
   mediaFileUniqueId?: string | null;

@@ -8,6 +8,7 @@ import {
   botState,
   chatOrchestratorConstructor,
   createEnv,
+  dbUpdateIncomingMessageEdit,
   handleIncomingMessage,
   importCreateApplication,
   installAppTestHooks,
@@ -54,7 +55,7 @@ describe('createApplication wiring', () => {
     await app.start();
 
     expect(botStart).toHaveBeenCalledWith({
-      allowed_updates: ['message']
+      allowed_updates: ['message', 'edited_message']
     });
 
     await botState.messageHandler?.({
@@ -85,6 +86,48 @@ describe('createApplication wiring', () => {
         authorizedMode: 'chat'
       })
     );
+  });
+
+  test('updates existing incoming messages on Telegram edits without invoking orchestrator', async () => {
+    const { createApplication } = await importCreateApplication();
+    const app = await createApplication(
+      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+    );
+
+    await app.start();
+
+    dbUpdateIncomingMessageEdit.mockReturnValue(true);
+
+    await botState.editedMessageHandler?.({
+      update: {
+        edited_message: {
+          message_id: 11,
+          date: 1_744_000_000,
+          edit_date: 1_744_000_060,
+          text: '@hrupa_bot исправленный текст',
+          entities: [{ type: 'mention', offset: 0, length: 10 }],
+          from: {
+            id: 123,
+            is_bot: false,
+            username: 'artyom',
+            first_name: 'Artyom'
+          },
+          chat: {
+            id: -1001,
+            type: 'supergroup',
+            title: 'Test chat'
+          }
+        }
+      }
+    });
+
+    expect(dbUpdateIncomingMessageEdit).toHaveBeenCalledWith({
+      chatId: -1001,
+      messageId: 11,
+      text: '@hrupa_bot исправленный текст',
+      editedAt: '2025-04-07T04:27:40.000Z'
+    });
+    expect(handleIncomingMessage).not.toHaveBeenCalled();
   });
 
   test('wires outbound tts provider and voice dispatcher when yandex env is present', async () => {

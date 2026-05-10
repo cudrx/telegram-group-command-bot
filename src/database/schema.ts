@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS messages (
   from_last_name TEXT,
   from_display_name TEXT,
   output_mode TEXT NOT NULL DEFAULT 'text',
+  edited_at TEXT,
   FOREIGN KEY (chat_id) REFERENCES chats(chat_id) ON DELETE CASCADE,
   UNIQUE (chat_id, telegram_message_id)
 );

@@ -15,6 +15,7 @@ export function toStoredMessage(row: StoredMessageRow): StoredMessage {
     senderDisplayName: row.senderDisplayName,
     text: row.text,
     createdAt: row.createdAt,
+    editedAt: row.editedAt ?? null,
     isBot: Boolean(row.isBot),
     outputMode: row.outputMode === 'voice' ? 'voice' : 'text',
     replyToMessageId: row.replyToMessageId,

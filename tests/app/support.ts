@@ -11,6 +11,7 @@ export const loggerChild = vi.fn();
 export const createLogger = vi.fn();
 export const dbClose = vi.fn();
 export const dbOpen = vi.fn();
+export const dbUpdateIncomingMessageEdit = vi.fn();
 export const llmConstructor = vi.fn();
 export const botGetMe = vi.fn();
 export const botGetFile = vi.fn();
@@ -39,9 +40,11 @@ export const botState: {
       ) => Promise<void>)
     | undefined;
   messageHandler: ((ctx: unknown) => Promise<void>) | undefined;
+  editedMessageHandler: ((ctx: unknown) => Promise<void>) | undefined;
 } = {
   middleware: undefined,
-  messageHandler: undefined
+  messageHandler: undefined,
+  editedMessageHandler: undefined
 };
 
 vi.mock('grammy', () => {
@@ -68,7 +71,12 @@ vi.mock('grammy', () => {
 
     on(event: string, handler: (ctx: unknown) => Promise<void>): void {
       botOn(event, handler);
-      botState.messageHandler = handler;
+      if (event === 'message') {
+        botState.messageHandler = handler;
+      }
+      if (event === 'edited_message') {
+        botState.editedMessageHandler = handler;
+      }
     }
 
     catch(handler: (error: unknown) => Promise<void> | void): void {
@@ -175,6 +183,7 @@ export function installAppTestHooks(): void {
     vi.clearAllMocks();
 
     botState.messageHandler = undefined;
+    botState.editedMessageHandler = undefined;
     botState.middleware = undefined;
 
     loggerChild.mockReturnValue({
@@ -193,7 +202,8 @@ export function installAppTestHooks(): void {
     });
     dbOpen.mockReturnValue({
       close: dbClose,
-      cleanupExpiredData: dbCleanupExpiredData
+      cleanupExpiredData: dbCleanupExpiredData,
+      updateIncomingMessageEdit: dbUpdateIncomingMessageEdit
     });
     dbCleanupExpiredData.mockReturnValue({
       mediaArtifacts: 0,

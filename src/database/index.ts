@@ -18,7 +18,8 @@ import {
   getRecentMessages,
   saveBotMessage,
   saveIncomingMessage,
-  updateChatTtsState
+  updateChatTtsState,
+  updateIncomingMessageEdit
 } from './messages.js';
 import { migrateExistingSchema } from './migrations.js';
 import { schema } from './schema.js';
@@ -67,6 +68,15 @@ export class DatabaseClient {
 
   saveIncomingMessage(message: NormalizedMessage): boolean {
     return saveIncomingMessage(this.db, message);
+  }
+
+  updateIncomingMessageEdit(input: {
+    chatId: number;
+    messageId: number;
+    text: string;
+    editedAt: string;
+  }): boolean {
+    return updateIncomingMessageEdit(this.db, input);
   }
 
   saveBotMessage(input: {

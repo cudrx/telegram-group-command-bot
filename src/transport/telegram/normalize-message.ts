@@ -13,6 +13,10 @@ type TelegramTextPayloadMessage = {
   caption_entities?: Array<{ type: string; offset: number; length: number }>;
 };
 
+type NormalizedEditedMessage = NormalizedMessage & {
+  editedAt: string;
+};
+
 export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
   const message = ctx.message;
 
@@ -20,6 +24,35 @@ export function normalizeTextMessage(ctx: Context): NormalizedMessage | null {
     return null;
   }
 
+  return normalizeTelegramMessage(message);
+}
+
+export function normalizeEditedTextMessage(
+  ctx: Context
+): NormalizedEditedMessage | null {
+  const message = ctx.update.edited_message;
+
+  if (!message) {
+    return null;
+  }
+
+  const normalized = normalizeTelegramMessage(
+    message as NonNullable<Context['message']>
+  );
+
+  if (!normalized) {
+    return null;
+  }
+
+  return {
+    ...normalized,
+    editedAt: new Date((message.edit_date ?? message.date) * 1000).toISOString()
+  };
+}
+
+function normalizeTelegramMessage(
+  message: NonNullable<Context['message']>
+): NormalizedMessage | null {
   const textPayload = normalizeMessageTextPayload(message);
 
   if (!textPayload) {

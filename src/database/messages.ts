@@ -5,4 +5,8 @@ export {
   getMessagesInRange,
   getRecentMessages
 } from './messages-read.js';
-export { saveBotMessage, saveIncomingMessage } from './messages-save.js';
+export {
+  saveBotMessage,
+  saveIncomingMessage,
+  updateIncomingMessageEdit
+} from './messages-save.js';

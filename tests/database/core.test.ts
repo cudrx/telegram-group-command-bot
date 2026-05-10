@@ -214,8 +214,63 @@ describeWithSqlite('DatabaseClient core', () => {
       'from_first_name',
       'from_last_name',
       'from_display_name',
-      'output_mode'
+      'output_mode',
+      'edited_at'
     ]);
+
+    db.close();
+  });
+
+  test('updates text and edited_at for existing incoming human messages only', () => {
+    const db = DatabaseClient.open(':memory:');
+
+    db.saveIncomingMessage(createIncomingMessage({ messageId: 10 }));
+    db.saveBotMessage({
+      chatId: 1,
+      chatType: 'group',
+      chatTitle: 'Friends',
+      messageId: 11,
+      text: 'бот ответил',
+      createdAt: '2026-04-10T12:00:20.000Z',
+      userId: 77,
+      username: 'fun_bot',
+      displayName: 'Fun Bot',
+      replyToMessageId: 10
+    });
+
+    expect(
+      db.updateIncomingMessageEdit({
+        chatId: 1,
+        messageId: 10,
+        text: 'исправленное сообщение',
+        editedAt: '2026-04-10T12:01:00.000Z'
+      })
+    ).toBe(true);
+    expect(
+      db.updateIncomingMessageEdit({
+        chatId: 1,
+        messageId: 11,
+        text: 'нельзя править бота',
+        editedAt: '2026-04-10T12:01:30.000Z'
+      })
+    ).toBe(false);
+    expect(
+      db.updateIncomingMessageEdit({
+        chatId: 1,
+        messageId: 99,
+        text: 'неизвестное сообщение',
+        editedAt: '2026-04-10T12:02:00.000Z'
+      })
+    ).toBe(false);
+
+    expect(db.getMessageByTelegramMessageId(1, 10)).toMatchObject({
+      text: 'исправленное сообщение',
+      editedAt: '2026-04-10T12:01:00.000Z'
+    });
+    expect(db.getMessageByTelegramMessageId(1, 11)).toMatchObject({
+      text: 'бот ответил',
+      editedAt: null
+    });
 
     db.close();
   });

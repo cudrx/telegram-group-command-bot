@@ -12,7 +12,10 @@ import { createTelegramDispatchers } from './app/telegram-dispatchers.js';
 import type { AppEnv } from './config/env/index.js';
 import { DatabaseClient } from './database/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
-import { normalizeTextMessage } from './transport/telegram/normalize-message.js';
+import {
+  normalizeEditedTextMessage,
+  normalizeTextMessage
+} from './transport/telegram/normalize-message.js';
 
 type Application = {
   start(): Promise<void>;
@@ -77,7 +80,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     now: () => new Date().toISOString()
   });
   bot.use(async (ctx, next) => {
-    const message = ctx.update.message;
+    const message = ctx.update.message ?? ctx.update.edited_message;
 
     logger.debug('telegram_update_received', {
       updateId: ctx.update.update_id,
@@ -139,6 +142,43 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     });
   });
 
+  bot.on('edited_message', async (ctx) => {
+    const normalized = normalizeEditedTextMessage(ctx);
+
+    if (!normalized || normalized.fromUserId === botInfo.id) {
+      return;
+    }
+
+    const authorizedMode = resolveAuthorizedMode({
+      env,
+      chatId: normalized.chatId,
+      chatType: normalized.chatType,
+      fromUserId: normalized.fromUserId
+    });
+
+    if (!authorizedMode) {
+      logger.debug('edited_message_rejected_by_access_policy', {
+        chatId: normalized.chatId,
+        chatType: normalized.chatType,
+        fromUserId: normalized.fromUserId
+      });
+      return;
+    }
+
+    const updated = db.updateIncomingMessageEdit({
+      chatId: normalized.chatId,
+      messageId: normalized.messageId,
+      text: normalized.text,
+      editedAt: normalized.editedAt
+    });
+
+    logger.debug('edited_message_processed', {
+      chatId: normalized.chatId,
+      messageId: normalized.messageId,
+      updated
+    });
+  });
+
   return {
     async start() {
       cleanupScheduler.start();
@@ -155,11 +195,11 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       });
 
       logger.info('bot_polling_started', {
-        allowedUpdates: ['message']
+        allowedUpdates: ['message', 'edited_message']
       });
 
       await bot.start({
-        allowed_updates: ['message']
+        allowed_updates: ['message', 'edited_message']
       });
     },
 

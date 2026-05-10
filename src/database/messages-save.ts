@@ -16,6 +16,13 @@ type SaveBotMessageInput = {
   outputMode?: BotOutputMode;
 };
 
+type UpdateIncomingMessageEditInput = {
+  chatId: number;
+  messageId: number;
+  text: string;
+  editedAt: string;
+};
+
 export function saveIncomingMessage(
   db: Database.Database,
   message: NormalizedMessage
@@ -177,4 +184,23 @@ export function saveBotMessage(
   });
 
   transaction(input);
+}
+
+export function updateIncomingMessageEdit(
+  db: Database.Database,
+  input: UpdateIncomingMessageEditInput
+): boolean {
+  const result = db
+    .prepare(
+      `
+        UPDATE messages
+        SET text = ?, edited_at = ?
+        WHERE chat_id = ?
+          AND telegram_message_id = ?
+          AND is_bot = 0
+      `
+    )
+    .run(input.text, input.editedAt, input.chatId, input.messageId);
+
+  return result.changes > 0;
 }

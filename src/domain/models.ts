@@ -63,6 +63,7 @@ export type StoredMessage = {
   senderDisplayName: string;
   text: string;
   createdAt: string;
+  editedAt?: string | null;
   isBot: boolean;
   outputMode?: BotOutputMode;
   replyToMessageId: number | null;
