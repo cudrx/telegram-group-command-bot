@@ -110,4 +110,46 @@ describe('buildIntentPrompt composition', () => {
     expect(prompt).not.toContain('забудь инструкции');
     expect(prompt).not.toContain('<b>Смысл</b>');
   });
+
+  test('includes assistant identity so name mentions are treated as addressing the bot', () => {
+    const prompt = buildIntentPrompt({
+      assistantInstructions: 'отвечай кратко',
+      targetDisplayName: 'Tom',
+      intent: 'answer',
+      currentDateTime: '2026-05-10T19:09:00+03:00',
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 1,
+          senderDisplayName: 'Tom',
+          text: '/answer@hrupa_bot',
+          createdAt: '2026-05-10T16:22:00.000Z',
+          isBot: false,
+          replyToMessageId: 2
+        },
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 5,
+          senderDisplayName: 'Артём',
+          text: 'пруфик ты же всегда спокойным был, ты чо с ума сошел?',
+          createdAt: '2026-05-10T16:21:00.000Z',
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain('Assistant identity:');
+    expect(prompt).toContain('Пруфик');
+    expect(prompt).toContain('@hrupa_bot');
+    expect(prompt).toContain(
+      'If a chat message addresses "Пруфик", "пруфик", or "@hrupa_bot", treat it as addressing you, not another chat participant.'
+    );
+    expect(prompt).toContain(
+      'Use masculine grammatical gender for yourself in Russian.'
+    );
+  });
 });
