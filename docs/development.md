@@ -120,9 +120,10 @@ npm run build
 npm run eval:intents
 ```
 
-Prompt-контракт reply-моделей включает блок `CURRENT_DATETIME` с timezone
-`Europe/Moscow`. При изменениях сборки prompt держите это поле в тестах и intent
-fixtures, чтобы LLM могла корректно считать относительные даты.
+Prompt-контракт reply-моделей включает блок `CURRENT_DATETIME` с текущими датой
+и временем Москвы в простом текстовом формате. При изменениях сборки prompt
+держите это поле в тестах и intent fixtures, чтобы LLM могла корректно считать
+относительные даты.
 
 ## Локальный Docker
 

@@ -11,17 +11,16 @@ describe('buildIntentPrompt composition', () => {
         assistantInstructions: loadPrompt('base'),
         targetDisplayName: 'Tom',
         intent,
-        currentDateTime: '2026-05-10T19:09:00+03:00',
+        currentDateTime: 'Monday, 11 May 2026, 00:41 Moscow time',
         replyContext: createPromptReplyContext(`/${intent}`)
       });
 
       expect(prompt).toContain('CURRENT_DATETIME:');
-      expect(prompt).toContain('Timezone: Europe/Moscow');
       expect(prompt).toContain(
-        'Current Moscow date and time: 2026-05-10T19:09:00+03:00'
+        'Current Moscow date and time: Monday, 11 May 2026, 00:41 Moscow time'
       );
       expect(prompt).toContain(
-        'Use this value when resolving relative dates like today, tomorrow, and yesterday.'
+        'Use this value as authoritative when resolving relative dates like today, tomorrow, and yesterday.'
       );
     }
   });
@@ -31,7 +30,7 @@ describe('buildIntentPrompt composition', () => {
       assistantInstructions: loadPrompt('base'),
       targetDisplayName: 'Tom',
       intent: 'summarize',
-      currentDateTime: '2026-05-10T19:09:00+03:00',
+      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: createPromptReplyContext('/summarize')
     });
 
@@ -46,7 +45,7 @@ describe('buildIntentPrompt composition', () => {
       assistantInstructions: loadPrompt('base'),
       targetDisplayName: 'Tom',
       intent: 'decide',
-      currentDateTime: '2026-05-10T19:09:00+03:00',
+      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: createPromptReplyContext('/decide')
     });
 
@@ -61,7 +60,7 @@ describe('buildIntentPrompt composition', () => {
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
       intent: 'answer',
-      currentDateTime: '2026-05-10T19:09:00+03:00',
+      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: {
         triggerMessage: {
           chatId: 1,
@@ -116,7 +115,7 @@ describe('buildIntentPrompt composition', () => {
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
       intent: 'answer',
-      currentDateTime: '2026-05-10T19:09:00+03:00',
+      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: {
         triggerMessage: {
           chatId: 1,

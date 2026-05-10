@@ -43,7 +43,7 @@ describe('ChatOrchestrator reply basics', () => {
         assistantInstructions: loadPrompt('base'),
         targetDisplayName: 'Tom',
         intent: 'decide',
-        currentDateTime: '2026-04-13T12:00:10+03:00',
+        currentDateTime: 'Monday, 13 April 2026, 12:00 Moscow time',
         lookupContext: null,
         mediaContext: null,
         replyContext: expect.objectContaining({

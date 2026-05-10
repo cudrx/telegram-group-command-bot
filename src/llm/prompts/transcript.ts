@@ -1,3 +1,4 @@
+import { formatMoscowCurrentDateTime } from '../current-datetime.js';
 import { loadPrompt } from '../prompt-files.js';
 import { renderPromptTemplate } from './render.js';
 import { sanitizePromptText } from './sanitize.js';
@@ -10,7 +11,7 @@ export function formatConversationForLlm(messages: PromptMessage[]): string {
         ? `bot ${sanitizePromptText(message.senderDisplayName)}`
         : `user#${message.userId ?? 'unknown'} ${sanitizePromptText(message.senderDisplayName)}`;
 
-      return `[${message.createdAt}] actor=${actor} content="${sanitizePromptText(message.text)}"`;
+      return `[${formatMoscowCurrentDateTime(message.createdAt)}] actor=${actor} content="${sanitizePromptText(message.text)}"`;
     })
     .join('\n');
 }

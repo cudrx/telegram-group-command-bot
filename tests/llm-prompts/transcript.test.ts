@@ -24,11 +24,30 @@ describe('formatConversationForLlm', () => {
     ]);
 
     expect(formatted).toContain(
-      '[2026-04-03T12:00:00.000Z] actor=user#1 Tom content="погнали"'
+      '[Friday, 3 April 2026, 15:00 Moscow time] actor=user#1 Tom content="погнали"'
     );
     expect(formatted).toContain(
-      '[2026-04-03T12:01:00.000Z] actor=bot Bot content="я уже здесь"'
+      '[Friday, 3 April 2026, 15:01 Moscow time] actor=bot Bot content="я уже здесь"'
     );
+    expect(formatted).not.toContain('2026-04-03T12:00:00.000Z');
+  });
+
+  test('renders UTC evening timestamps as the next Moscow calendar day', () => {
+    const formatted = formatConversationForLlm([
+      {
+        messageId: 301,
+        userId: 1,
+        senderDisplayName: 'Артём',
+        text: 'какой сегодня день? и сколько времени?',
+        createdAt: '2026-05-10T21:41:00.000Z',
+        isBot: false
+      }
+    ]);
+
+    expect(formatted).toContain(
+      '[Monday, 11 May 2026, 00:41 Moscow time] actor=user#1 Артём content="какой сегодня день? и сколько времени?"'
+    );
+    expect(formatted).not.toContain('2026-05-10T21:41:00.000Z');
   });
 
   test('neutralizes role markers, fenced blocks, and newlines inside transcript content', () => {

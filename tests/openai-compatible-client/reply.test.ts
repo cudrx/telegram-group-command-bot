@@ -219,7 +219,7 @@ describe('OpenAiCompatibleLlmClient reply', () => {
       assistantInstructions: 'Assistant instructions',
       targetDisplayName: 'Tom',
       intent: 'decide',
-      currentDateTime: '2026-05-10T19:09:00+03:00',
+      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: {
         triggerMessage: {
           chatId: 1,
