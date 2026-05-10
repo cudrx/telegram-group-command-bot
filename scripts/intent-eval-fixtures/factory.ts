@@ -45,6 +45,7 @@ export function createFixture(input: {
     targetDisplayName: input.targetDisplayName,
     assistantInstructions:
       input.assistantInstructions ?? DEFAULT_ASSISTANT_INSTRUCTIONS,
+    currentDateTime: '2026-05-10T19:09:00+03:00',
     replyContext: {
       triggerMessage: {
         chatId: 1,

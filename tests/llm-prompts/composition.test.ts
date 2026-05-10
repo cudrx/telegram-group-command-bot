@@ -5,11 +5,33 @@ import { buildIntentPrompt } from '../../src/llm/prompts.js';
 import { createPromptReplyContext } from './support.js';
 
 describe('buildIntentPrompt composition', () => {
+  test('includes current Moscow date and time for every reply mode', () => {
+    for (const intent of ['summarize', 'decide', 'read', 'answer'] as const) {
+      const prompt = buildIntentPrompt({
+        assistantInstructions: loadPrompt('base'),
+        targetDisplayName: 'Tom',
+        intent,
+        currentDateTime: '2026-05-10T19:09:00+03:00',
+        replyContext: createPromptReplyContext(`/${intent}`)
+      });
+
+      expect(prompt).toContain('CURRENT_DATETIME:');
+      expect(prompt).toContain('Timezone: Europe/Moscow');
+      expect(prompt).toContain(
+        'Current Moscow date and time: 2026-05-10T19:09:00+03:00'
+      );
+      expect(prompt).toContain(
+        'Use this value when resolving relative dates like today, tomorrow, and yesterday.'
+      );
+    }
+  });
+
   test('composes summarize prompt from base, global, and summarize prompt files', () => {
     const prompt = buildIntentPrompt({
       assistantInstructions: loadPrompt('base'),
       targetDisplayName: 'Tom',
       intent: 'summarize',
+      currentDateTime: '2026-05-10T19:09:00+03:00',
       replyContext: createPromptReplyContext('/summarize')
     });
 
@@ -24,6 +46,7 @@ describe('buildIntentPrompt composition', () => {
       assistantInstructions: loadPrompt('base'),
       targetDisplayName: 'Tom',
       intent: 'decide',
+      currentDateTime: '2026-05-10T19:09:00+03:00',
       replyContext: createPromptReplyContext('/decide')
     });
 
@@ -38,6 +61,7 @@ describe('buildIntentPrompt composition', () => {
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
       intent: 'answer',
+      currentDateTime: '2026-05-10T19:09:00+03:00',
       replyContext: {
         triggerMessage: {
           chatId: 1,

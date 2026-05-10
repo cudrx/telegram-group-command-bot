@@ -11,6 +11,7 @@ Telegram-бот на `Node.js`, `TypeScript`, `grammY` и `SQLite`.
 - SQLite хранит чаты, сообщения, данные отправителей, reply-связи, артефакты медиа и небольшой `app_state`.
 - Команды: `/summarize`, `/decide`, `/answer`, `/read`, `/weekly` только для администратора.
 - Поиск для `/decide` и `/answer` включается только при наличии `TAVILY_API_KEY`.
+- Reply prompt для LLM получает текущие дату и время в `Europe/Moscow`, чтобы ответы корректно разрешали “сегодня”, “завтра” и “вчера”.
 - Автоматическое распознавание поддержанных медиа при наличии ключей провайдеров:
   `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
 - `/read` озвучивает текст сообщения, на которое сделали reply, при наличии `YANDEX_SPEECHKIT_API_KEY`.

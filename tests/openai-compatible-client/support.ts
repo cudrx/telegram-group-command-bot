@@ -38,6 +38,7 @@ export function createReplyInput(
     assistantInstructions: 'Assistant instructions',
     targetDisplayName: 'Tom',
     intent,
+    currentDateTime: '2026-05-10T19:09:00+03:00',
     replyContext: {
       triggerMessage: {
         chatId: 1,

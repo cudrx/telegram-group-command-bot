@@ -49,6 +49,7 @@ export type GenerateReplyInput = {
   assistantInstructions: string;
   targetDisplayName: string;
   intent: AssistantIntent;
+  currentDateTime: string;
   replyContext: ReplyContext;
   lookupContext?: LookupContext | null;
   mediaContext?: DescribeMediaContext | null;

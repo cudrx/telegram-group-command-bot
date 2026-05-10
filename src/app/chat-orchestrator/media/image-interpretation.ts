@@ -1,4 +1,5 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
+import { formatMoscowCurrentDateTime } from '../../../llm/current-datetime.js';
 import { loadPrompt } from '../../../llm/prompt-files.js';
 import {
   addDaysIso,
@@ -21,6 +22,7 @@ export async function generateAndStoreVisionInterpretation(
     assistantInstructions: loadPrompt('base'),
     targetDisplayName: input.request.fromDisplayName,
     intent: 'read',
+    currentDateTime: formatMoscowCurrentDateTime(deps.now()),
     replyContext: {
       triggerMessage: {
         chatId: input.request.chatId,

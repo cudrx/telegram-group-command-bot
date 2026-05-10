@@ -8,6 +8,7 @@ describe('buildIntentPrompt chat intent response shapes', () => {
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
       intent: 'summarize',
+      currentDateTime: '2026-05-10T19:09:00+03:00',
       replyContext: {
         triggerMessage: {
           chatId: 1,
@@ -73,6 +74,7 @@ describe('buildIntentPrompt chat intent response shapes', () => {
       assistantInstructions: 'отвечай кратко',
       targetDisplayName: 'Tom',
       intent: 'decide',
+      currentDateTime: '2026-05-10T19:09:00+03:00',
       replyContext: {
         triggerMessage: {
           chatId: 1,

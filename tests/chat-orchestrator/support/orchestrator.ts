@@ -18,6 +18,7 @@ export function createOrchestrator(input: {
       assistantInstructions: string;
       targetDisplayName: string;
       intent: 'summarize' | 'decide' | 'read' | 'answer';
+      currentDateTime: string;
       replyContext: unknown;
       lookupContext?: unknown;
       mediaContext?: unknown;

@@ -5,6 +5,7 @@ import {
   decideReplyAction,
   detectDirectTrigger
 } from '../../domain/response-policy.js';
+import { formatMoscowCurrentDateTime } from '../../llm/current-datetime.js';
 import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js';
 import { loadPrompt } from '../../llm/prompt-files.js';
 import { serializeError } from '../../logging/logger.js';
@@ -260,6 +261,7 @@ export class ChatOrchestrator {
       assistantInstructions,
       targetDisplayName: request.fromDisplayName,
       intent: request.intent,
+      currentDateTime: formatMoscowCurrentDateTime(this.deps.now()),
       replyContext,
       lookupContext,
       mediaContext: targetMediaContext

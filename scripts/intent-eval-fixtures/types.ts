@@ -14,6 +14,7 @@ export type IntentEvalFixture = {
   intent: AssistantIntent;
   targetDisplayName: string;
   assistantInstructions: string;
+  currentDateTime: string;
   replyContext: ReplyContext;
   mediaContext?: DescribeMediaContext;
   lookupExpectation?: {

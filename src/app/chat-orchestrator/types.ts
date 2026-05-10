@@ -56,6 +56,7 @@ export type LlmClient = {
     assistantInstructions: string;
     targetDisplayName: string;
     intent: AssistantIntent;
+    currentDateTime: string;
     replyContext: ReplyContext;
     lookupContext?: import('../../lookup/types.js').LookupContext | null;
     mediaContext?: DescribeMediaContext | null;

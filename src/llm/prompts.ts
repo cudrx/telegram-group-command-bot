@@ -13,6 +13,7 @@ export function buildIntentPrompt(input: {
   assistantInstructions: string;
   targetDisplayName: string;
   intent: AssistantIntent;
+  currentDateTime: string;
   replyContext: ReplyContext;
   lookupContext?: LookupContext | null;
   mediaContext?: import('./prompts/types.js').DescribeMediaContext | null;
@@ -32,6 +33,7 @@ export function buildIntentPrompt(input: {
     globalPrompt: loadPrompt('global'),
     targetDisplayName: sanitizePromptText(input.targetDisplayName),
     intent: input.intent,
+    currentDateTime: sanitizePromptText(input.currentDateTime),
     intentPrompt: getIntentPrompt(input.intent),
     dataSections,
     lookupSections

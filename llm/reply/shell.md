@@ -17,6 +17,11 @@ Global rules:
 Current command message author: {{targetDisplayName}}
 The selected task mode is: {{intent}}
 
+CURRENT_DATETIME:
+Timezone: Europe/Moscow
+Current Moscow date and time: {{currentDateTime}}
+Use this value when resolving relative dates like today, tomorrow, and yesterday.
+
 Task-specific instructions:
 {{intentPrompt}}
 

@@ -15,6 +15,7 @@
 - `docs/development.md` — это руководство.
 - `llm/assistant/base.md` — базовые инструкции ассистента.
 - `llm/` — статические prompt-файлы.
+- `src/llm/current-datetime.ts` — форматирование текущей даты и времени Москвы для reply prompt.
 - `src/config/env/` — схема окружения, значения по умолчанию и проверки.
 - `scripts/` — миграции, eval-скрипты, metadata для деплоя, smoke-проверка weekly.
 
@@ -118,6 +119,10 @@ npm run build
 ```bash
 npm run eval:intents
 ```
+
+Prompt-контракт reply-моделей включает блок `CURRENT_DATETIME` с timezone
+`Europe/Moscow`. При изменениях сборки prompt держите это поле в тестах и intent
+fixtures, чтобы LLM могла корректно считать относительные даты.
 
 ## Локальный Docker
 
