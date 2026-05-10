@@ -54,6 +54,7 @@ export function createLocalReplyResult(text: string): LlmReplyResult {
   return {
     text,
     model: 'local',
+    source: 'local',
     latencyMs: 0,
     attemptCount: 0,
     promptTokensEstimate: 0

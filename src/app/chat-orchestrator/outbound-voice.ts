@@ -30,6 +30,16 @@ export async function dispatchGeneratedReply(input: {
     return { outputMode: 'text', sent };
   }
 
+  if (input.llmResult.source === 'local') {
+    const sent = await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: input.formattedText
+    });
+
+    return { outputMode: 'text', sent };
+  }
+
   const textToSpeechProvider = input.deps.textToSpeechProvider;
   const decision = decideAnswerTts({
     intent: input.request.intent,

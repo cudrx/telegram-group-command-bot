@@ -77,6 +77,7 @@ export async function generateWeekly(params: {
   return {
     text: reply,
     model: replyModel,
+    source: 'llm',
     latencyMs: Date.now() - startedAt,
     attemptCount: completion.attemptCount,
     promptTokensEstimate

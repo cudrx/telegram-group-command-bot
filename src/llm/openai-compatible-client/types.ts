@@ -12,6 +12,7 @@ import type { DescribeMediaContext } from '../prompts.js';
 export type LlmReplyResult = {
   text: string;
   model: string;
+  source: 'llm' | 'local';
   latencyMs: number;
   attemptCount: number;
   promptTokensEstimate: number;

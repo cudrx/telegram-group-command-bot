@@ -75,6 +75,7 @@ export async function generateReply(params: {
   return {
     text: reply,
     model: replyModel,
+    source: 'llm',
     latencyMs: Date.now() - startedAt,
     attemptCount: completion.attemptCount,
     promptTokensEstimate

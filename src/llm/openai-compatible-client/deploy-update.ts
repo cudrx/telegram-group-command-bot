@@ -70,6 +70,7 @@ export async function formatDeployUpdate(params: {
   return {
     text: reply,
     model,
+    source: 'llm',
     latencyMs: Date.now() - startedAt,
     attemptCount: completion.attemptCount,
     promptTokensEstimate

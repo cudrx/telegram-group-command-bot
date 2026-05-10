@@ -241,4 +241,55 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
       text: 'смотри https://example.com'
     });
   });
+
+  test('sends local answer placeholders as text even when voice is eligible', async () => {
+    const db = new FakeDatabaseClient();
+    const synthesize = vi.fn().mockResolvedValue({
+      provider: 'yandex_speechkit',
+      providerModel: 'speechkit-v1',
+      audioBytes: new Uint8Array([1]),
+      mimeType: 'audio/ogg'
+    });
+    const voiceDispatcher = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1006,
+      createdAt: '2026-04-13T09:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: {
+        generateReply: vi.fn().mockResolvedValue(createReplyResult('не надо'))
+      },
+      replyDispatcher,
+      textToSpeechProvider: { synthesize },
+      voiceDispatcher,
+      random: () => 0,
+      initialChatTtsState: {
+        answerLastOutputMode: 'text',
+        answerEligibleTextSinceVoice: 3,
+        answerEligibleTextStreak: 3,
+        readLastVoiceAt: null
+      }
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/answer кто сильнее лев или тигр',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+      })
+    );
+
+    expect(synthesize).not.toHaveBeenCalled();
+    expect(voiceDispatcher).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Сделай reply на сообщение с вопросом и отправь /answer.'
+    });
+    expect(db.getMessageByTelegramMessageId(1, 1006)).toMatchObject({
+      text: 'Сделай reply на сообщение с вопросом и отправь /answer.',
+      outputMode: 'text'
+    });
+  });
 });
