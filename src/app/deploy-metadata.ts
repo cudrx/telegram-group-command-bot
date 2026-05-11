@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs';
 
 import { z } from 'zod';
 
-export const DEPLOY_METADATA_FILE = '/app/data/deploy-metadata.json';
+import { storageConfig } from '../config/runtime/index.js';
+
+export const DEPLOY_METADATA_FILE: string = storageConfig.deployMetadataFile;
 
 const deployMetadataSchema = z.object({
   sha: z.string().min(1),

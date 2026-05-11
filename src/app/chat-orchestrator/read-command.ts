@@ -1,16 +1,18 @@
+import { readActionConfig } from '../../config/runtime/index.js';
 import { serializeError } from '../../logging/logger.js';
 import { normalizeSpeechText } from '../../tts/speech-cleanup.js';
 import { runWithReplyVoiceRecording } from './helpers/reply.js';
 import { dispatchTextReply } from './outbound-voice.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
-export const OUTBOUND_TTS_READ_MAX_CHARS = 500;
-export const READ_TTS_COOLDOWN_MS = 60 * 60 * 1000;
-export const READ_TTS_HOURLY_VOICE_LIMIT = 3;
+export const OUTBOUND_TTS_READ_MAX_CHARS =
+  readActionConfig.outboundTts.maxChars;
+export const READ_TTS_COOLDOWN_MS = readActionConfig.outboundTts.cooldownMs;
+export const READ_TTS_HOURLY_VOICE_LIMIT =
+  readActionConfig.outboundTts.hourlyVoiceLimit;
 export const READ_TTS_USAGE_FALLBACK =
   'Сделай reply на текстовое сообщение и отправь /read.';
-export const READ_TTS_TOO_LONG_FALLBACK =
-  'Сообщение слишком длинное, я могу прочитать только до 500 символов.';
+export const READ_TTS_TOO_LONG_FALLBACK = `Сообщение слишком длинное, я могу прочитать только до ${OUTBOUND_TTS_READ_MAX_CHARS} символов.`;
 export const READ_TTS_FAILED_FALLBACK =
   'Не удалось озвучить сообщение. Попробуй позже.';
 
@@ -47,9 +49,7 @@ export function decideReadTts(input: {
   ) {
     return {
       ok: false,
-      fallbackText: `Я уже прочитал 3 сообщения за час в этом чате. Попробуй через ${Math.ceil(
-        remainingMs / 60_000
-      )} мин.`,
+      fallbackText: `Я уже прочитал ${READ_TTS_HOURLY_VOICE_LIMIT} сообщения за час в этом чате. Попробуй через ${Math.ceil(remainingMs / 60_000)} мин.`,
       reason: 'cooldown'
     };
   }

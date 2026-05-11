@@ -1,9 +1,10 @@
+import { weeklyActionConfig } from '../../config/runtime/index.js';
 import type { StoredMediaArtifact } from '../../database/index.js';
 import type { StoredMessage } from '../../domain/models.js';
 import { getWeeklyPreferredMediaSummary } from './media.js';
 import type { WeeklyMessage, WeeklyStats } from './types.js';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+const WEEK_MS = weeklyActionConfig.rangeMs;
 
 type WeeklyMessageReader = {
   getMessagesInRange(input: {

@@ -1,3 +1,4 @@
+import { llmProviderConfig } from '../../config/runtime/index.js';
 import { buildDeployUpdatePrompt } from '../deploy-update-prompt.js';
 import { estimateTokens, logLlmText, toSingleLinePreview } from './logging.js';
 import { withRetry } from './retry.js';
@@ -26,7 +27,7 @@ export async function formatDeployUpdate(params: {
   logLlmText(options, 'llm.deploy_update.request', {
     kind: 'deploy_update',
     model,
-    temperature: 0.4,
+    temperature: llmProviderConfig.deployUpdate.temperature,
     promptChars: prompt.length,
     promptTokensEstimate
   });
@@ -35,8 +36,8 @@ export async function formatDeployUpdate(params: {
     () =>
       createCompletion({
         model,
-        temperature: 0.4,
-        max_tokens: 500,
+        temperature: llmProviderConfig.deployUpdate.temperature,
+        max_tokens: llmProviderConfig.deployUpdate.maxTokens,
         thinking: { type: 'disabled' },
         messages: [
           {

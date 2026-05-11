@@ -1,4 +1,6 @@
-const MOSCOW_TIME_ZONE = 'Europe/Moscow';
+import { localizationConfig } from '../config/runtime/index.js';
+
+const MOSCOW_TIME_ZONE = localizationConfig.moscowTimeZone;
 
 export function formatMoscowCurrentDateTime(value: string): string {
   const date = new Date(value);

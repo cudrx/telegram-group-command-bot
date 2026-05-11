@@ -17,6 +17,7 @@
 - `llm/` — статические prompt-файлы.
 - `src/llm/current-datetime.ts` — форматирование текущей даты и времени Москвы для reply prompt.
 - `src/config/env/` — схема окружения, значения по умолчанию и проверки.
+- `src/config/runtime/` — типизированные runtime defaults, сгруппированные по action и provider.
 - `scripts/` — миграции, eval-скрипты, metadata для деплоя, smoke-проверка weekly.
 
 ## Окружение
@@ -47,6 +48,13 @@
 - `YANDEX_SPEECHKIT_API_KEY` — исходящая озвучка.
 
 `.env.example` содержит плейсхолдеры. Проверка окружения отклоняет `your-*` значения, поэтому ключи дополнительных провайдеров нужно либо заменить, либо удалить/закомментировать.
+
+Runtime-настройки, которые не являются секретами и не требуют deploy-specific
+переопределения, лежат в `src/config/runtime/`. Значения там сгруппированы по
+сценариям (`actions/answer`, `actions/read`, `actions/weekly`) и внешним
+провайдерам (`providers/llm`, `providers/media`, `providers/tts`,
+`providers/lookup`). Если настройка должна меняться между окружениями,
+добавляйте ее в `src/config/env/schema.ts`, а default берите из runtime config.
 
 ## Локальный Запуск
 

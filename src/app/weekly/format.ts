@@ -1,3 +1,4 @@
+import { weeklyActionConfig } from '../../config/runtime/index.js';
 import { sanitizePromptText } from '../../llm/prompts/sanitize.js';
 import { formatWeeklyMessageLine } from './media.js';
 import type { WeeklyDataset, WeeklyDatasetEvent } from './types.js';
@@ -65,11 +66,11 @@ function getActivityTier(
 
   const ratio = messageCount / maxMessageCount;
 
-  if (ratio >= 0.6) {
+  if (ratio >= weeklyActionConfig.activityTiers.highRatio) {
     return 'high';
   }
 
-  if (ratio >= 0.25) {
+  if (ratio >= weeklyActionConfig.activityTiers.mediumRatio) {
     return 'medium';
   }
 

@@ -1,3 +1,4 @@
+import { weeklyActionConfig } from '../../../config/runtime/index.js';
 import type { WeeklyEventCandidate, WeeklyMessage } from '../types.js';
 import {
   createCandidate,
@@ -6,8 +7,9 @@ import {
   uniqueMessages
 } from './shared.js';
 
-const MEDIA_DENSE_WINDOW_MS = 10 * 60 * 1000;
-const MEDIA_DENSE_MIN_MESSAGES = 4;
+const MEDIA_DENSE_WINDOW_MS = weeklyActionConfig.mediaMoment.denseWindowMs;
+const MEDIA_DENSE_MIN_MESSAGES =
+  weeklyActionConfig.mediaMoment.denseMinMessages;
 
 export function detectMediaMoments(
   messages: WeeklyMessage[]

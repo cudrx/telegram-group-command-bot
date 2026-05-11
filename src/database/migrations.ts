@@ -1,5 +1,7 @@
 import type Database from 'better-sqlite3';
 
+import { answerActionConfig } from '../config/runtime/index.js';
+
 export function migrateExistingSchema(db: Database.Database): void {
   ensureColumn(db, 'messages', 'media_kind', 'TEXT');
   ensureColumn(db, 'messages', 'media_file_id', 'TEXT');
@@ -21,7 +23,7 @@ export function migrateExistingSchema(db: Database.Database): void {
     db,
     'chats',
     'answer_eligible_text_since_voice',
-    'INTEGER NOT NULL DEFAULT 3'
+    `INTEGER NOT NULL DEFAULT ${answerActionConfig.outboundTts.minEligibleTextGap}`
   );
   ensureColumn(
     db,

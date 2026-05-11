@@ -1,10 +1,11 @@
+import { weeklyActionConfig } from '../../../config/runtime/index.js';
 import type { WeeklyEventCandidate, WeeklyMessage } from '../types.js';
 import { createCandidate, getParticipantIds, getTimestamp } from './shared.js';
 
-const BURST_WINDOW_MS = 10 * 60 * 1000;
-const BURST_EXPAND_GAP_MS = 5 * 60 * 1000;
-const BURST_MIN_MESSAGES = 12;
-const BURST_MIN_PARTICIPANTS = 2;
+const BURST_WINDOW_MS = weeklyActionConfig.burst.windowMs;
+const BURST_EXPAND_GAP_MS = weeklyActionConfig.burst.expandGapMs;
+const BURST_MIN_MESSAGES = weeklyActionConfig.burst.minMessages;
+const BURST_MIN_PARTICIPANTS = weeklyActionConfig.burst.minParticipants;
 
 export function detectBursts(
   messages: WeeklyMessage[]

@@ -1,3 +1,4 @@
+import { weeklyActionConfig } from '../../../config/runtime/index.js';
 import type { WeeklyEventCandidate, WeeklyMessage } from '../types.js';
 import {
   createCandidate,
@@ -5,7 +6,8 @@ import {
   uniqueMessages
 } from './shared.js';
 
-const CONTEXT_MESSAGES_EACH_SIDE = 5;
+const CONTEXT_MESSAGES_EACH_SIDE =
+  weeklyActionConfig.replies.contextMessagesEachSide;
 
 export function detectReplyHotspots(
   messages: WeeklyMessage[]
@@ -17,7 +19,7 @@ export function detectReplyHotspots(
   const candidates: WeeklyEventCandidate[] = [];
 
   for (const [anchorId, replies] of repliesByAnchor.entries()) {
-    if (replies.length < 2) {
+    if (replies.length < weeklyActionConfig.replies.minHotspotReplies) {
       continue;
     }
 
@@ -85,7 +87,10 @@ export function detectReplyChains(
           message.replyToMessageId !== null && ids.has(message.replyToMessageId)
       ).length;
 
-      return component.length >= 3 && replyCount >= 2;
+      return (
+        component.length >= weeklyActionConfig.replies.minChainMessages &&
+        replyCount >= weeklyActionConfig.replies.minChainReplies
+      );
     })
     .map((component) =>
       createCandidate({

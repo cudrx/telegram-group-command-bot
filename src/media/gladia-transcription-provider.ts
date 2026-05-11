@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 
+import { mediaProviderConfig } from '../config/runtime/index.js';
 import { normalizeGladiaTranscriptionResult } from './normalize.js';
 import type { SpeechToTextProvider } from './types.js';
 
@@ -30,9 +31,9 @@ type GladiaPollResponse = {
   status?: unknown;
 };
 
-const GLADIA_UPLOAD_URL = 'https://api.gladia.io/v2/upload';
-const GLADIA_PRE_RECORDED_URL = 'https://api.gladia.io/v2/pre-recorded';
-const GLADIA_PROVIDER_MODEL = 'gladia-v2-pre-recorded';
+const GLADIA_UPLOAD_URL = mediaProviderConfig.gladia.uploadUrl;
+const GLADIA_PRE_RECORDED_URL = mediaProviderConfig.gladia.preRecordedUrl;
+const GLADIA_PROVIDER_MODEL = mediaProviderConfig.gladia.model;
 
 export class GladiaTranscriptionProvider implements SpeechToTextProvider {
   constructor(
@@ -58,8 +59,10 @@ export class GladiaTranscriptionProvider implements SpeechToTextProvider {
     sourceDurationSeconds: number | null;
   }> {
     const fetchImpl = this.config.fetch ?? globalThis.fetch;
-    const pollIntervalMs = this.config.pollIntervalMs ?? 1000;
-    const maxPollAttempts = this.config.maxPollAttempts ?? 30;
+    const pollIntervalMs =
+      this.config.pollIntervalMs ?? mediaProviderConfig.gladia.pollIntervalMs;
+    const maxPollAttempts =
+      this.config.maxPollAttempts ?? mediaProviderConfig.gladia.maxPollAttempts;
     const deadlineMs = Date.now() + input.timeoutMs;
     const delay =
       this.config.delay ??
@@ -116,7 +119,7 @@ export class GladiaTranscriptionProvider implements SpeechToTextProvider {
     const artifact = normalizeGladiaTranscriptionResult(rawResponse);
 
     return {
-      provider: 'gladia',
+      provider: mediaProviderConfig.gladia.provider,
       providerModel: GLADIA_PROVIDER_MODEL,
       artifact,
       rawResponse,

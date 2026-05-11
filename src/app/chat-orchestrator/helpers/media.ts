@@ -1,22 +1,32 @@
+import { mediaProviderConfig } from '../../../config/runtime/index.js';
 import type { StoredMediaArtifact } from '../../../database/index.js';
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import type { NormalizedMediaArtifact } from '../../../media/types.js';
 
-export const NEARBY_MEDIA_SCAN_LIMIT = 10;
-export const IMAGE_DESCRIPTION_PROVIDER = 'cloudflare';
-export const IMAGE_DESCRIPTION_ARTIFACT_KIND = 'vision_description';
-export const OCR_PROVIDER = 'ocr_space';
-export const OCR_TEXT_RU_ARTIFACT_KIND = 'ocr_text_ru';
-export const OCR_TEXT_DEFAULT_ARTIFACT_KIND = 'ocr_text_default';
-export const IMAGE_INTERPRETATION_PROVIDER = 'deepseek';
-export const IMAGE_INTERPRETATION_ARTIFACT_KIND = 'vision_interpretation';
-export const EMPTY_OCR_RESULT_MARKER = 'empty_result';
-export const AUTO_READ_MAX_ATTEMPTS = 2;
-export const AUTO_READ_FAILED_PROVIDER = 'auto_read';
-export const AUTO_READ_FAILED_MODEL = 'auto_read';
-export const AUTO_READ_FAILED_ARTIFACT_KIND = 'auto_read';
-export const AUTO_READ_FAILED_ERROR_TEXT_MAX_LENGTH = 500;
+export const NEARBY_MEDIA_SCAN_LIMIT = mediaProviderConfig.nearbyScanLimit;
+export const IMAGE_DESCRIPTION_PROVIDER =
+  mediaProviderConfig.providers.imageDescription;
+export const IMAGE_DESCRIPTION_ARTIFACT_KIND =
+  mediaProviderConfig.artifactKinds.imageDescription;
+export const OCR_PROVIDER = mediaProviderConfig.providers.ocr;
+export const OCR_TEXT_RU_ARTIFACT_KIND =
+  mediaProviderConfig.artifactKinds.ocrTextRu;
+export const OCR_TEXT_DEFAULT_ARTIFACT_KIND =
+  mediaProviderConfig.artifactKinds.ocrTextDefault;
+export const IMAGE_INTERPRETATION_PROVIDER =
+  mediaProviderConfig.providers.imageInterpretation;
+export const IMAGE_INTERPRETATION_ARTIFACT_KIND =
+  mediaProviderConfig.artifactKinds.imageInterpretation;
+export const EMPTY_OCR_RESULT_MARKER = mediaProviderConfig.emptyOcrResultMarker;
+export const AUTO_READ_MAX_ATTEMPTS = mediaProviderConfig.autoRead.maxAttempts;
+export const AUTO_READ_FAILED_PROVIDER =
+  mediaProviderConfig.providers.autoReadFailed;
+export const AUTO_READ_FAILED_MODEL = mediaProviderConfig.autoRead.failedModel;
+export const AUTO_READ_FAILED_ARTIFACT_KIND =
+  mediaProviderConfig.artifactKinds.autoReadFailed;
+export const AUTO_READ_FAILED_ERROR_TEXT_MAX_LENGTH =
+  mediaProviderConfig.autoRead.failedErrorTextMaxLength;
 
 export function artifactFromStoredMediaArtifact(input: unknown): {
   artifact: NormalizedMediaArtifact;

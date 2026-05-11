@@ -1,3 +1,5 @@
+import { llmProviderConfig } from '../runtime/index.js';
+
 export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
   const usesGenericLlmVars =
     rawEnv.LLM_API_KEY !== undefined ||
@@ -38,13 +40,22 @@ export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
     : {
         LLM_API_KEY: rawEnv.QWEN_API_KEY,
         LLM_BASE_URL:
-          rawEnv.QWEN_BASE_URL ??
-          'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-        LLM_REPLY_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
-        LLM_PLANNER_MODEL: rawEnv.QWEN_REPLY_MODEL ?? 'qwen-plus',
-        LLM_REPLY_TEMPERATURE: rawEnv.QWEN_REPLY_TEMPERATURE ?? '0.6',
-        LLM_TIMEOUT_MS: rawEnv.QWEN_TIMEOUT_MS ?? '20000',
-        LLM_MAX_RETRIES: rawEnv.QWEN_MAX_RETRIES ?? '1',
+          rawEnv.QWEN_BASE_URL ?? llmProviderConfig.legacyQwenDefaults.baseUrl,
+        LLM_REPLY_MODEL:
+          rawEnv.QWEN_REPLY_MODEL ??
+          llmProviderConfig.legacyQwenDefaults.replyModel,
+        LLM_PLANNER_MODEL:
+          rawEnv.QWEN_REPLY_MODEL ??
+          llmProviderConfig.legacyQwenDefaults.replyModel,
+        LLM_REPLY_TEMPERATURE:
+          rawEnv.QWEN_REPLY_TEMPERATURE ??
+          llmProviderConfig.legacyQwenDefaults.replyTemperature,
+        LLM_TIMEOUT_MS:
+          rawEnv.QWEN_TIMEOUT_MS ??
+          llmProviderConfig.legacyQwenDefaults.timeoutMs,
+        LLM_MAX_RETRIES:
+          rawEnv.QWEN_MAX_RETRIES ??
+          llmProviderConfig.legacyQwenDefaults.maxRetries,
         TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
         LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
         LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,

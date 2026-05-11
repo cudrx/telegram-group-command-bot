@@ -1,9 +1,10 @@
+import { weeklyActionConfig } from '../../config/runtime/index.js';
 import type { WeeklyEventCandidate } from './types.js';
 
-const MERGE_GAP_MS = 5 * 60 * 1000;
-const MAX_EVENTS = 10;
-const MIN_EVENTS = 6;
-const MAX_EVENTS_PER_DAY = 2;
+const MERGE_GAP_MS = weeklyActionConfig.selection.mergeGapMs;
+const MAX_EVENTS = weeklyActionConfig.selection.maxEvents;
+const MIN_EVENTS = weeklyActionConfig.selection.minEvents;
+const MAX_EVENTS_PER_DAY = weeklyActionConfig.selection.maxEventsPerDay;
 
 export function mergeWeeklyCandidates(
   candidates: WeeklyEventCandidate[]

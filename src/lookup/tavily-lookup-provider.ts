@@ -1,3 +1,4 @@
+import { lookupProviderConfig } from '../config/runtime/index.js';
 import type {
   LookupProvider,
   LookupProviderSearchInput,
@@ -19,7 +20,7 @@ export class TavilyLookupProvider implements LookupProvider {
   async search(
     input: LookupProviderSearchInput
   ): Promise<LookupProviderSearchResult> {
-    const response = await fetch('https://api.tavily.com/search', {
+    const response = await fetch(lookupProviderConfig.tavily.endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.config.apiKey}`,
@@ -27,11 +28,11 @@ export class TavilyLookupProvider implements LookupProvider {
       },
       body: JSON.stringify({
         query: input.query,
-        search_depth: 'basic',
+        search_depth: lookupProviderConfig.tavily.searchDepth,
         max_results: input.maxResults,
-        include_answer: false,
-        include_raw_content: false,
-        include_usage: true
+        include_answer: lookupProviderConfig.tavily.includeAnswer,
+        include_raw_content: lookupProviderConfig.tavily.includeRawContent,
+        include_usage: lookupProviderConfig.tavily.includeUsage
       }),
       signal: AbortSignal.timeout(input.timeoutMs)
     });
@@ -49,7 +50,7 @@ export class TavilyLookupProvider implements LookupProvider {
     const payload = (await response.json()) as TavilySearchResponse;
 
     return {
-      provider: 'tavily',
+      provider: lookupProviderConfig.provider,
       query: input.query,
       sources: normalizeResults(payload.results),
       responseTimeMs: toMilliseconds(payload.response_time),

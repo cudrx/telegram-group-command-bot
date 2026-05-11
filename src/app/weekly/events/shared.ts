@@ -1,3 +1,4 @@
+import { weeklyActionConfig } from '../../../config/runtime/index.js';
 import type {
   WeeklyEventCandidate,
   WeeklyEventKind,
@@ -101,10 +102,11 @@ function scoreCandidate(input: {
 }): number {
   return (
     input.messageCount +
-    input.participantCount * 3 +
-    input.replyCount * 2 +
-    input.maxRepliesToOneMessage * 4 +
-    input.mediaSummaryCount * 3
+    input.participantCount * weeklyActionConfig.scoring.participantWeight +
+    input.replyCount * weeklyActionConfig.scoring.replyWeight +
+    input.maxRepliesToOneMessage *
+      weeklyActionConfig.scoring.maxRepliesToOneMessageWeight +
+    input.mediaSummaryCount * weeklyActionConfig.scoring.mediaSummaryWeight
   );
 }
 

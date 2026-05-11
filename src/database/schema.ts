@@ -1,3 +1,5 @@
+import { answerActionConfig } from '../config/runtime/index.js';
+
 export const schema = `
 CREATE TABLE IF NOT EXISTS chats (
   chat_id INTEGER PRIMARY KEY,
@@ -6,7 +8,7 @@ CREATE TABLE IF NOT EXISTS chats (
   last_message_at TEXT,
   last_bot_message_at TEXT,
   answer_last_output_mode TEXT,
-  answer_eligible_text_since_voice INTEGER NOT NULL DEFAULT 3,
+  answer_eligible_text_since_voice INTEGER NOT NULL DEFAULT ${answerActionConfig.outboundTts.minEligibleTextGap},
   answer_eligible_text_streak INTEGER NOT NULL DEFAULT 0,
   read_last_voice_at TEXT,
   read_tts_voice_count INTEGER NOT NULL DEFAULT 0

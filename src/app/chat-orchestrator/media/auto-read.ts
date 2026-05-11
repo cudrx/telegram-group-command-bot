@@ -1,3 +1,4 @@
+import { mediaProviderConfig } from '../../../config/runtime/index.js';
 import type {
   MediaMessageSnapshot,
   StoredMessage
@@ -17,7 +18,8 @@ export type AutoReadResult =
   | { status: 'success' }
   | { status: 'failed'; error: Error };
 
-const ALBUM_IMAGE_DEDUPE_TTL_MS = 24 * 60 * 60 * 1000;
+const ALBUM_IMAGE_DEDUPE_TTL_MS =
+  mediaProviderConfig.autoRead.albumImageDedupeTtlMs;
 
 export class MediaAutoReadCoordinator {
   private readonly inFlight = new Map<string, Promise<AutoReadResult>>();

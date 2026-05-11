@@ -1,10 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 
+import { mediaProviderConfig } from '../config/runtime/index.js';
 import type { OcrProvider } from './types.js';
 
-const OCR_SPACE_ENDPOINT = 'https://api.ocr.space/parse/image';
-const OCR_SPACE_PROVIDER_MODEL = 'ocr.space/parse/image:OCREngine=2';
+const OCR_SPACE_ENDPOINT = mediaProviderConfig.ocrSpace.endpoint;
+const OCR_SPACE_PROVIDER_MODEL = mediaProviderConfig.ocrSpace.model;
 
 export class OcrSpaceProvider implements OcrProvider {
   constructor(
@@ -59,7 +60,7 @@ export class OcrSpaceProvider implements OcrProvider {
     const text = extractOcrSpaceText(rawResponse);
 
     return {
-      provider: 'ocr_space',
+      provider: mediaProviderConfig.ocrSpace.provider,
       providerModel: OCR_SPACE_PROVIDER_MODEL,
       text,
       language: input.language,
@@ -77,7 +78,7 @@ export class OcrSpaceProvider implements OcrProvider {
     const form = new FormData();
 
     form.set('file', new Blob([bytes], { type: blobType }), filename);
-    form.set('OCREngine', '2');
+    form.set('OCREngine', mediaProviderConfig.ocrSpace.engine);
 
     if (language === 'rus') {
       form.set('language', 'rus');

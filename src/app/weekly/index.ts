@@ -1,3 +1,4 @@
+import { weeklyActionConfig } from '../../config/runtime/index.js';
 import type { DatabaseClient } from '../../database/index.js';
 import { loadPrompt } from '../../llm/prompt-files.js';
 import { type AppLogger, serializeError } from '../../logging/logger.js';
@@ -22,8 +23,8 @@ import type {
   WeeklyParticipantStats
 } from './types.js';
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const WEEKLY_EVENT_EXCERPT_LIMIT = 12;
+const WEEK_MS = weeklyActionConfig.rangeMs;
+const WEEKLY_EVENT_EXCERPT_LIMIT = weeklyActionConfig.eventExcerptLimit;
 
 export type WeeklyServiceDeps = {
   db: DatabaseClient;

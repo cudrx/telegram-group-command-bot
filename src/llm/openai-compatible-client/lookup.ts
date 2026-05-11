@@ -1,3 +1,7 @@
+import {
+  llmProviderConfig,
+  lookupProviderConfig
+} from '../../config/runtime/index.js';
 import type { LookupDecision } from '../../lookup/types.js';
 import {
   buildLookupPlannerPrompt,
@@ -24,12 +28,13 @@ export async function planLookup(params: {
   const promptTokensEstimate = estimateTokens(prompt);
   const startedAt = Date.now();
   const plannerModel = config.plannerModel ?? config.replyModel;
-  const lookupMaxQueries = config.lookupMaxQueries ?? 1;
+  const lookupMaxQueries =
+    config.lookupMaxQueries ?? lookupProviderConfig.defaults.maxQueries;
 
   logLlmText(options, 'llm.lookup_planner.request', {
     kind: 'lookup_planner',
     model: plannerModel,
-    temperature: 0,
+    temperature: llmProviderConfig.lookupPlanner.temperature,
     promptChars: prompt.length,
     promptTokensEstimate
   });
@@ -38,8 +43,8 @@ export async function planLookup(params: {
     () =>
       createCompletion({
         model: plannerModel,
-        temperature: 0,
-        max_tokens: 500,
+        temperature: llmProviderConfig.lookupPlanner.temperature,
+        max_tokens: llmProviderConfig.lookupPlanner.maxTokens,
         thinking: { type: 'disabled' },
         messages: [
           {

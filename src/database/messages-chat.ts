@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3';
 
+import { answerActionConfig } from '../config/runtime/index.js';
 import type { BotOutputMode, ChatState } from '../domain/models.js';
 import type { UpdateChatTtsStateInput } from './types.js';
 
@@ -149,7 +150,9 @@ function toChatState(row: ChatStateRow): ChatState {
   return {
     ...row,
     answerLastOutputMode: toBotOutputMode(row.answerLastOutputMode),
-    answerEligibleTextSinceVoice: row.answerEligibleTextSinceVoice ?? 3,
+    answerEligibleTextSinceVoice:
+      row.answerEligibleTextSinceVoice ??
+      answerActionConfig.outboundTts.minEligibleTextGap,
     answerEligibleTextStreak: row.answerEligibleTextStreak ?? 0,
     readLastVoiceAt: row.readLastVoiceAt ?? null,
     readTtsVoiceCount: row.readTtsVoiceCount ?? 0

@@ -1,5 +1,13 @@
 import { z } from 'zod';
 
+import {
+  answerActionConfig,
+  decideActionConfig,
+  llmProviderConfig,
+  lookupProviderConfig,
+  storageConfig,
+  summarizeActionConfig
+} from '../runtime/index.js';
 import { stringBooleanSchema } from './boolean.js';
 
 export const envSchema = z.object({
@@ -11,26 +19,68 @@ export const envSchema = z.object({
   LLM_BASE_URL: z
     .string()
     .url('LLM_BASE_URL must be a valid URL')
-    .default('https://api.deepseek.com'),
-  LLM_REPLY_MODEL: z.string().min(1).default('deepseek-v4-flash'),
+    .default(llmProviderConfig.genericDefaults.baseUrl),
+  LLM_REPLY_MODEL: z
+    .string()
+    .min(1)
+    .default(llmProviderConfig.genericDefaults.replyModel),
   LLM_PLANNER_MODEL: z.string().min(1).optional(),
-  LLM_REPLY_TEMPERATURE: z.coerce.number().min(0).max(2).default(0.6),
-  LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(45_000),
-  LLM_MAX_RETRIES: z.coerce.number().int().min(0).max(3).default(1),
+  LLM_REPLY_TEMPERATURE: z.coerce
+    .number()
+    .min(0)
+    .max(2)
+    .default(llmProviderConfig.genericDefaults.replyTemperature),
+  LLM_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(llmProviderConfig.genericDefaults.timeoutMs),
+  LLM_MAX_RETRIES: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(3)
+    .default(llmProviderConfig.genericDefaults.maxRetries),
   LOG_LLM_TEXT: stringBooleanSchema.default(false),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
-  SQLITE_PATH: z.string().min(1).default('data/bot.sqlite'),
-  ANSWER_CONTEXT_LIMIT: z.coerce.number().int().positive().default(16),
-  SUMMARIZE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(128),
-  DECIDE_CONTEXT_LIMIT: z.coerce.number().int().positive().default(64),
+  SQLITE_PATH: z.string().min(1).default(storageConfig.sqlitePath),
+  ANSWER_CONTEXT_LIMIT: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(answerActionConfig.contextLimit),
+  SUMMARIZE_CONTEXT_LIMIT: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(summarizeActionConfig.contextLimit),
+  DECIDE_CONTEXT_LIMIT: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(decideActionConfig.contextLimit),
   REPLY_MIN_TYPING_MS: z.coerce.number().int().min(0).default(900),
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000),
   TAVILY_API_KEY: z.string().min(1).optional(),
-  LOOKUP_TIMEOUT_MS: z.coerce.number().int().positive().default(7000),
-  LOOKUP_MAX_QUERIES: z.coerce.number().int().min(1).max(3).default(1),
-  LOOKUP_MAX_RESULTS: z.coerce.number().int().min(1).max(5).default(3),
+  LOOKUP_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(lookupProviderConfig.defaults.timeoutMs),
+  LOOKUP_MAX_QUERIES: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(3)
+    .default(lookupProviderConfig.defaults.maxQueries),
+  LOOKUP_MAX_RESULTS: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(5)
+    .default(lookupProviderConfig.defaults.maxResults),
   OCR_SPACE_API_KEY: z.string().min(1).optional(),
   GLADIA_API_KEY: z.string().min(1).optional(),
   YANDEX_SPEECHKIT_API_KEY: z.string().min(1).optional(),

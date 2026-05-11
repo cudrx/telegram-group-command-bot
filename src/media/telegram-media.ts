@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import type { Context } from 'grammy';
 
+import { mediaProviderConfig } from '../config/runtime/index.js';
 import type { MediaMessageSnapshot } from '../domain/models.js';
 
 type TelegramReplyMessage = NonNullable<Context['message']> & {
@@ -140,12 +141,14 @@ export async function downloadTelegramFileToTemp(input: {
   }
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
-  const { signal, clear } = createTimeoutSignal(input.timeoutMs ?? 30_000);
+  const { signal, clear } = createTimeoutSignal(
+    input.timeoutMs ?? mediaProviderConfig.telegram.fileDownloadTimeoutMs
+  );
   let response: Response;
 
   try {
     response = await fetchImpl(
-      `https://api.telegram.org/file/bot${input.botToken}/${filePath}`,
+      `${mediaProviderConfig.telegram.fileEndpointBase}/bot${input.botToken}/${filePath}`,
       { signal }
     );
   } finally {

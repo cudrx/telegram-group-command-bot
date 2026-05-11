@@ -1,10 +1,15 @@
+import { answerActionConfig } from '../config/runtime/index.js';
 import type { AssistantIntent } from '../domain/models.js';
 import { normalizeSpeechText } from './speech-cleanup.js';
 
-export const OUTBOUND_TTS_ANSWER_MAX_CHARS = 250;
-export const OUTBOUND_TTS_ANSWER_BASE_PROBABILITY = 0.25;
-export const OUTBOUND_TTS_ANSWER_MIN_ELIGIBLE_TEXT_GAP = 3;
-export const OUTBOUND_TTS_ANSWER_PITY_GAP = 12;
+export const OUTBOUND_TTS_ANSWER_MAX_CHARS =
+  answerActionConfig.outboundTts.maxChars;
+export const OUTBOUND_TTS_ANSWER_BASE_PROBABILITY =
+  answerActionConfig.outboundTts.baseProbability;
+export const OUTBOUND_TTS_ANSWER_MIN_ELIGIBLE_TEXT_GAP =
+  answerActionConfig.outboundTts.minEligibleTextGap;
+export const OUTBOUND_TTS_ANSWER_PITY_GAP =
+  answerActionConfig.outboundTts.pityGap;
 
 export type AnswerTtsOutputMode = 'text' | 'voice';
 

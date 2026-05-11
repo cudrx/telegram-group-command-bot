@@ -1,12 +1,13 @@
 import { readFile } from 'node:fs/promises';
 
+import { mediaProviderConfig } from '../config/runtime/index.js';
 import { loadPrompt } from '../llm/prompt-files.js';
 import type { VisionProvider } from './types.js';
 
 const CLOUDFLARE_VISION_PROVIDER_MODEL =
-  '@cf/meta/llama-3.2-11b-vision-instruct';
+  mediaProviderConfig.cloudflareVision.model;
 const CLOUDFLARE_VISION_ENDPOINT =
-  'https://api.cloudflare.com/client/v4/accounts';
+  mediaProviderConfig.cloudflareVision.endpoint;
 
 export class CloudflareVisionProvider implements VisionProvider {
   constructor(
@@ -57,7 +58,7 @@ export class CloudflareVisionProvider implements VisionProvider {
     const rawText = extractCloudflareVisionText(responseBody);
 
     return {
-      provider: 'cloudflare',
+      provider: mediaProviderConfig.cloudflareVision.provider,
       providerModel: CLOUDFLARE_VISION_PROVIDER_MODEL,
       rawText,
       rawResponse
@@ -74,8 +75,8 @@ export class CloudflareVisionProvider implements VisionProvider {
     return JSON.stringify({
       prompt: loadPrompt('cloudflareVisionImageRawUser'),
       image: Array.from(bytes),
-      max_tokens: 700,
-      temperature: 0
+      max_tokens: mediaProviderConfig.cloudflareVision.maxTokens,
+      temperature: mediaProviderConfig.cloudflareVision.temperature
     });
   }
 
