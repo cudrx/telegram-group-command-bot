@@ -25,14 +25,11 @@ function toDispatchMedia(
   media: DownloadedMemeMedia
 ):
   | { kind: 'image'; filePath: string }
-  | { kind: 'video'; filePath: string }
-  | { kind: 'animation'; filePath: string }
-  | { kind: 'gallery'; files: Array<{ filePath: string }> } {
-  if (media.kind === 'gallery') {
-    return {
-      kind: 'gallery',
-      files: media.files.map((file) => ({ filePath: file.filePath }))
-    };
+  | { kind: 'animation'; filePath: string } {
+  if (media.kind !== 'image' && media.kind !== 'animation') {
+    throw new Error(
+      `Unsupported meme media kind for Telegram dispatch: ${media.kind}.`
+    );
   }
 
   return {

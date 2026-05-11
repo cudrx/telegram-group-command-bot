@@ -58,9 +58,7 @@ export type MemeMediaDispatchInput = {
   caption: string;
   media:
     | { kind: 'image'; filePath: string }
-    | { kind: 'video'; filePath: string }
-    | { kind: 'animation'; filePath: string }
-    | { kind: 'gallery'; files: Array<{ filePath: string }> };
+    | { kind: 'animation'; filePath: string };
 };
 
 export type MemeDispatcher = (
@@ -86,7 +84,7 @@ export type LlmClient = {
     subreddit: string;
     upvotes: number;
     permalink: string;
-    mediaKind: 'image' | 'gallery' | 'video' | 'animation';
+    mediaKind: 'image' | 'animation';
   }): Promise<LlmReplyResult>;
   planLookup(input: {
     intent: LookupIntent;

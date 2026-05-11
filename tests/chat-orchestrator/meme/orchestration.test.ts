@@ -7,13 +7,22 @@ import { FakeDatabaseClient } from '../support/fake-database.js';
 import { createReplyResult } from '../support/llm.js';
 import { createOrchestrator } from '../support/orchestrator.js';
 
-function redditListing(posts: unknown[]) {
+function memeApiListing(memes: unknown[]) {
   return new Response(
     JSON.stringify({
-      data: {
-        children: posts.map((data) => ({ kind: 't3', data }))
-      }
+      count: memes.length,
+      memes
     })
+  );
+}
+
+function emptyMemeApiListing() {
+  return new Response(
+    JSON.stringify({
+      code: 400,
+      message: 'r/unexpected has no Posts with Images'
+    }),
+    { status: 400 }
   );
 }
 
@@ -23,15 +32,15 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        redditListing([
+        memeApiListing([
           {
-            id: 'abc',
+            postLink: 'https://redd.it/abc',
             subreddit: 'memes',
             title: "It's true.",
-            ups: 50592,
-            permalink: '/r/memes/comments/abc/its_true/',
-            is_self: false,
-            url: 'https://i.redd.it/a.jpeg'
+            url: 'https://i.redd.it/a.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 50592
           }
         ])
       )
@@ -72,7 +81,7 @@ describe('ChatOrchestrator /meme command', () => {
       title: "It's true.",
       subreddit: 'memes',
       upvotes: 50592,
-      permalink: '/r/memes/comments/abc/its_true/',
+      permalink: 'https://redd.it/abc',
       mediaKind: 'image'
     });
     expect(memeDispatcher).toHaveBeenCalledWith(
@@ -113,28 +122,28 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        redditListing([
+        memeApiListing([
           {
-            id: 'seen',
+            postLink: 'https://redd.it/seen',
             subreddit: 'blursed_videos',
             title: 'seen',
-            ups: 1,
-            permalink: '/r/blursed_videos/comments/seen/seen/',
-            is_self: false,
-            url: 'https://i.redd.it/seen.jpeg'
+            url: 'https://i.redd.it/seen.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 1
           }
         ])
       )
       .mockResolvedValueOnce(
-        redditListing([
+        memeApiListing([
           {
-            id: 'fresh',
+            postLink: 'https://redd.it/fresh',
             subreddit: 'dankvideos',
             title: 'fresh',
-            ups: 2,
-            permalink: '/r/dankvideos/comments/fresh/fresh/',
-            is_self: false,
-            url: 'https://i.redd.it/fresh.jpeg'
+            url: 'https://i.redd.it/fresh.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 2
           }
         ])
       )
@@ -173,29 +182,29 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        redditListing([
+        memeApiListing([
           {
-            id: 'bad',
+            postLink: 'https://redd.it/bad',
             subreddit: 'blursed_videos',
             title: 'bad',
-            ups: 1,
-            permalink: '/r/blursed_videos/comments/bad/bad/',
-            is_self: false,
-            url: 'https://i.redd.it/bad.jpeg'
+            url: 'https://i.redd.it/bad.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 1
           }
         ])
       )
       .mockResolvedValueOnce(new Response('too large', { status: 413 }))
       .mockResolvedValueOnce(
-        redditListing([
+        memeApiListing([
           {
-            id: 'fresh',
+            postLink: 'https://redd.it/fresh',
             subreddit: 'dankvideos',
             title: 'fresh',
-            ups: 2,
-            permalink: '/r/dankvideos/comments/fresh/fresh/',
-            is_self: false,
-            url: 'https://i.redd.it/fresh.jpeg'
+            url: 'https://i.redd.it/fresh.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 2
           }
         ])
       )
@@ -244,7 +253,7 @@ describe('ChatOrchestrator /meme command', () => {
       db,
       fetch: vi
         .fn()
-        .mockImplementation(() => Promise.resolve(redditListing([]))),
+        .mockImplementation(() => Promise.resolve(emptyMemeApiListing())),
       qwen: {
         generateReply: vi.fn(),
         generateMemeCaption
@@ -279,15 +288,15 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        redditListing([
+        memeApiListing([
           {
-            id: 'cleanup',
+            postLink: 'https://redd.it/cleanup',
             subreddit: 'memes',
             title: 'cleanup',
-            ups: 10,
-            permalink: '/r/memes/comments/cleanup/cleanup/',
-            is_self: false,
-            url: 'https://i.redd.it/cleanup.jpeg'
+            url: 'https://i.redd.it/cleanup.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 10
           }
         ])
       )

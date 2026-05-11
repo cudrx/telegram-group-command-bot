@@ -21,24 +21,18 @@ export const memeActionConfig = {
     'WatchPeopleDieInside'
   ],
   listing: {
-    timeRange: 'week',
     limit: 10,
     maxSourceAttempts: 3
   },
   historyRetentionDays: 14,
   fallbackText: 'Мемы закончились, идите трогайте траву.',
-  reddit: {
-    listingUrlBase: 'https://www.reddit.com/r',
-    userAgent: 'test-chatbot/0.1 meme command'
+  source: {
+    baseUrl: 'https://meme-api.com/gimme'
   },
   media: {
     imageMaxBytes: 10_000_000,
-    galleryItemMaxBytes: 10_000_000,
-    galleryTotalMaxBytes: 40_000_000,
-    videoMaxBytes: 45_000_000,
     animationMaxBytes: 45_000_000,
-    downloadTimeoutMs: 30_000,
-    maxGalleryItems: 10
+    downloadTimeoutMs: 30_000
   },
   caption: {
     maxLength: 1024

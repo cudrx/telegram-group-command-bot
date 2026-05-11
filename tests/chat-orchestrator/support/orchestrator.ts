@@ -35,7 +35,7 @@ export function createOrchestrator(input: {
       subreddit: string;
       upvotes: number;
       permalink: string;
-      mediaKind: 'image' | 'gallery' | 'video' | 'animation';
+      mediaKind: 'image' | 'animation';
     }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
       intent: LookupIntent;
@@ -57,9 +57,7 @@ export function createOrchestrator(input: {
     caption: string;
     media:
       | { kind: 'image'; filePath: string }
-      | { kind: 'video'; filePath: string }
-      | { kind: 'animation'; filePath: string }
-      | { kind: 'gallery'; files: Array<{ filePath: string }> };
+      | { kind: 'animation'; filePath: string };
   }) => Promise<{ messageId: number; createdAt: string }>;
   lookupProvider?: LookupProvider | null;
   speechToTextProvider?: {

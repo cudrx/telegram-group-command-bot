@@ -28,7 +28,7 @@ describeWithSqlite('DatabaseClient meme posts', () => {
       telegramMessageId: null,
       title: 'second meme',
       permalink: 'https://reddit.test/r/Unexpected/comments/post-2',
-      mediaKind: 'video',
+      mediaKind: 'animation',
       mediaUrl: null,
       upvotes: 200,
       sentAt: '2026-05-05T10:00:00.000Z'
@@ -87,8 +87,8 @@ describeWithSqlite('DatabaseClient meme posts', () => {
       telegramMessageId: 202,
       title: 'new title',
       permalink: 'https://reddit.test/r/Unexpected/comments/same-post-new',
-      mediaKind: 'video',
-      mediaUrl: 'https://v.redd.it/new/DASH_720.mp4',
+      mediaKind: 'animation',
+      mediaUrl: 'https://i.redd.it/new.gif',
       upvotes: 200,
       sentAt: '2026-05-10T10:00:00.000Z'
     });
@@ -126,8 +126,8 @@ describeWithSqlite('DatabaseClient meme posts', () => {
       telegramMessageId: 11,
       title: 'recent meme',
       permalink: 'https://reddit.test/r/hmm/comments/recent-post',
-      mediaKind: 'gallery',
-      mediaUrl: null,
+      mediaKind: 'image',
+      mediaUrl: 'https://i.redd.it/recent-post.jpg',
       upvotes: 20,
       sentAt: '2026-04-20T00:00:00.000Z'
     });

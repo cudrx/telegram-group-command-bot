@@ -4,8 +4,7 @@ import { runWithReplyTyping } from './helpers/reply.js';
 import { formatMemeCaption } from './meme/caption.js';
 import { getRecentlySentMemeIds } from './meme/history-store.js';
 import { downloadMemeMediaToTemp } from './meme/media-downloader.js';
-import { toMemePostCandidate } from './meme/media-resolver.js';
-import { fetchTopRedditPosts } from './meme/reddit-client.js';
+import { fetchMemeApiCandidates } from './meme/meme-api-client.js';
 import { selectMemeSources } from './meme/source-selection.js';
 import { dispatchMemeMedia } from './meme/telegram-dispatcher.js';
 import type {
@@ -14,7 +13,6 @@ import type {
   ResolvedMemeMedia
 } from './meme/types.js';
 import { toMemeMediaKind } from './meme/types.js';
-import { assembleRedditVideo } from './meme/video-assembler.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export async function runMemeJob(input: {
@@ -90,17 +88,12 @@ async function selectCandidateFromSubreddit(input: {
   request: ReplyRequest;
   subreddit: string;
 }): Promise<MemePostCandidate | null> {
-  const posts = await fetchTopRedditPosts({
+  const candidates = await fetchMemeApiCandidates({
     subreddit: input.subreddit,
-    limit: memeActionConfig.listing.limit,
-    timeRange: memeActionConfig.listing.timeRange,
-    listingUrlBase: memeActionConfig.reddit.listingUrlBase,
-    userAgent: memeActionConfig.reddit.userAgent,
+    count: memeActionConfig.listing.limit,
+    baseUrl: memeActionConfig.source.baseUrl,
     ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
   });
-  const candidates = posts
-    .map(toMemePostCandidate)
-    .filter((candidate): candidate is MemePostCandidate => Boolean(candidate));
   const seen = getRecentlySentMemeIds({
     db: input.deps.db,
     chatId: input.request.chatId,
@@ -213,80 +206,21 @@ async function downloadResolvedMedia(
   deps: ChatOrchestratorDeps,
   media: ResolvedMemeMedia
 ): Promise<DownloadedMemeMedia> {
-  if (media.kind === 'gallery') {
-    return downloadGalleryMedia(deps, media);
-  }
-
   const maxBytes =
     media.kind === 'image'
       ? memeActionConfig.media.imageMaxBytes
-      : media.kind === 'video'
-        ? memeActionConfig.media.videoMaxBytes
-        : memeActionConfig.media.animationMaxBytes;
+      : memeActionConfig.media.animationMaxBytes;
   const downloaded = await downloadMemeMediaToTemp({
     url: media.mediaUrl,
-    filename: `reddit-meme.${media.extension}`,
+    filename: `meme-api-media.${media.extension}`,
     maxBytes,
     timeoutMs: memeActionConfig.media.downloadTimeoutMs,
     ...(deps.fetch ? { fetch: deps.fetch } : {})
   });
 
-  if (media.kind === 'video') {
-    const assembled = await assembleRedditVideo(downloaded);
-
-    return { kind: 'video', extension: media.extension, ...assembled };
-  }
-
   return { kind: media.kind, extension: media.extension, ...downloaded };
 }
 
-async function downloadGalleryMedia(
-  deps: ChatOrchestratorDeps,
-  media: Extract<ResolvedMemeMedia, { kind: 'gallery' }>
-): Promise<DownloadedMemeMedia> {
-  const files: Array<{ filePath: string; cleanup: () => Promise<void> }> = [];
-  let totalBytes = 0;
-
-  try {
-    for (const [index, item] of media.items
-      .slice(0, memeActionConfig.media.maxGalleryItems)
-      .entries()) {
-      const downloaded = await downloadMemeMediaToTemp({
-        url: item.url,
-        filename: `reddit-gallery-${index}.${item.extension}`,
-        maxBytes: memeActionConfig.media.galleryItemMaxBytes,
-        timeoutMs: memeActionConfig.media.downloadTimeoutMs,
-        ...(deps.fetch ? { fetch: deps.fetch } : {})
-      });
-
-      files.push({
-        filePath: downloaded.filePath,
-        cleanup: downloaded.cleanup
-      });
-      totalBytes += downloaded.bytes;
-
-      if (totalBytes > memeActionConfig.media.galleryTotalMaxBytes) {
-        throw new Error(`Meme gallery is too large: ${totalBytes} bytes.`);
-      }
-    }
-  } catch (error) {
-    await Promise.all(files.map((file) => file.cleanup()));
-    throw error;
-  }
-
-  return {
-    kind: 'gallery',
-    files,
-    cleanup: async () => {
-      await Promise.all(files.map((file) => file.cleanup()));
-    }
-  };
-}
-
 function getPrimaryMediaUrl(media: ResolvedMemeMedia): string | null {
-  if (media.kind === 'gallery') {
-    return media.items[0]?.url ?? null;
-  }
-
   return media.mediaUrl;
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
-  botSendMediaGroup,
+  botSendAnimation,
   botSendMessage,
   botSendPhoto,
   botStart,
@@ -109,14 +109,14 @@ describe('createApplication lifecycle', () => {
     });
   });
 
-  test('sends meme galleries with caption on the first Telegram media item', async () => {
+  test('sends meme animations with Telegram HTML captions', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(createEnv());
 
-    botSendMediaGroup.mockResolvedValue([
-      { message_id: 46, date: 1_744_000_002 },
-      { message_id: 47, date: 1_744_000_002 }
-    ]);
+    botSendAnimation.mockResolvedValue({
+      message_id: 46,
+      date: 1_744_000_002
+    });
 
     const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
       | {
@@ -125,8 +125,9 @@ describe('createApplication lifecycle', () => {
             replyToMessageId: number;
             caption: string;
             media: {
-              kind: 'gallery';
-              files: Array<{ filePath: string; cleanup: () => Promise<void> }>;
+              kind: 'animation';
+              filePath: string;
+              extension: string;
               cleanup: () => Promise<void>;
             };
           }) => Promise<{ messageId: number; createdAt: string }>;
@@ -136,30 +137,21 @@ describe('createApplication lifecycle', () => {
     const sent = await orchestratorDeps?.memeDispatcher?.({
       chatId: -1001,
       replyToMessageId: 12,
-      caption: '<b>Галерея</b>',
+      caption: '<b>Анимация</b>',
       media: {
-        kind: 'gallery',
-        files: [
-          { filePath: '/tmp/one.jpg', cleanup: vi.fn() },
-          { filePath: '/tmp/two.jpg', cleanup: vi.fn() }
-        ],
+        kind: 'animation',
+        filePath: '/tmp/meme.gif',
+        extension: 'gif',
         cleanup: vi.fn()
       }
     });
 
-    expect(botSendMediaGroup).toHaveBeenCalledWith(
+    expect(botSendAnimation).toHaveBeenCalledWith(
       -1001,
-      [
-        expect.objectContaining({
-          type: 'photo',
-          caption: '<b>Галерея</b>',
-          parse_mode: 'HTML'
-        }),
-        expect.objectContaining({
-          type: 'photo'
-        })
-      ],
+      expect.objectContaining({ source: '/tmp/meme.gif' }),
       {
+        caption: '<b>Анимация</b>',
+        parse_mode: 'HTML',
         reply_parameters: {
           message_id: 12
         }

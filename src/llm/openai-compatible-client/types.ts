@@ -68,7 +68,7 @@ export type GenerateMemeCaptionInput = {
   subreddit: string;
   upvotes: number;
   permalink: string;
-  mediaKind: 'image' | 'gallery' | 'video' | 'animation';
+  mediaKind: 'image' | 'animation';
 };
 
 export type PlanLookupInput = {

@@ -23,9 +23,7 @@ export const botUse = vi.fn();
 export const botSendMessage = vi.fn();
 export const botSendVoice = vi.fn();
 export const botSendPhoto = vi.fn();
-export const botSendVideo = vi.fn();
 export const botSendAnimation = vi.fn();
-export const botSendMediaGroup = vi.fn();
 export const botSendChatAction = vi.fn();
 export const chatOrchestratorConstructor = vi.fn();
 export const tavilyConstructor = vi.fn();
@@ -59,9 +57,7 @@ vi.mock('grammy', () => {
       sendMessage: botSendMessage,
       sendVoice: botSendVoice,
       sendPhoto: botSendPhoto,
-      sendVideo: botSendVideo,
       sendAnimation: botSendAnimation,
-      sendMediaGroup: botSendMediaGroup,
       sendChatAction: botSendChatAction
     };
 
@@ -107,17 +103,7 @@ vi.mock('grammy', () => {
     ) {}
   }
 
-  const InputMediaBuilder = {
-    photo(source: unknown, options?: Record<string, unknown>) {
-      return {
-        type: 'photo',
-        media: source,
-        ...options
-      };
-    }
-  };
-
-  return { Bot, InputFile, InputMediaBuilder };
+  return { Bot, InputFile };
 });
 
 vi.mock('../../src/database/index.js', () => ({
