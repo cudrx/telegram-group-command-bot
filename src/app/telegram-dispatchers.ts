@@ -1,5 +1,6 @@
-import { InputFile } from 'grammy';
+import { InputFile, InputMediaBuilder } from 'grammy';
 import type {
+  MemeDispatcher,
   ReplyDispatcher,
   SentBotMessage,
   VoiceDispatcher,
@@ -23,6 +24,26 @@ type TelegramApi = {
     file: InputFile,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
+  sendPhoto(
+    chatId: number,
+    file: InputFile,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage>;
+  sendVideo(
+    chatId: number,
+    file: InputFile,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage>;
+  sendAnimation(
+    chatId: number,
+    file: InputFile,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage>;
+  sendMediaGroup(
+    chatId: number,
+    media: ReturnType<typeof InputMediaBuilder.photo>[],
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage[]>;
   sendChatAction(chatId: number, action: TelegramChatAction): Promise<unknown>;
 };
 
@@ -30,6 +51,7 @@ export type TelegramDispatchers = {
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;
   weeklyDispatcher: WeeklyDispatcher;
+  memeDispatcher: MemeDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   sendHtmlMessage: (input: {
     chatId: number;
@@ -49,6 +71,66 @@ export function createTelegramDispatchers(
     });
 
     return toSentBotMessage(sent);
+  };
+  const memeDispatcher: MemeDispatcher = async ({
+    chatId,
+    replyToMessageId,
+    caption,
+    media
+  }) => {
+    const replyParameters = {
+      reply_parameters: {
+        message_id: replyToMessageId
+      }
+    };
+
+    if (media.kind === 'image') {
+      const sent = await api.sendPhoto(chatId, new InputFile(media.filePath), {
+        caption,
+        parse_mode: 'HTML',
+        ...replyParameters
+      });
+
+      return toSentBotMessage(sent);
+    }
+
+    if (media.kind === 'video') {
+      const sent = await api.sendVideo(chatId, new InputFile(media.filePath), {
+        caption,
+        parse_mode: 'HTML',
+        ...replyParameters
+      });
+
+      return toSentBotMessage(sent);
+    }
+
+    if (media.kind === 'animation') {
+      const sent = await api.sendAnimation(
+        chatId,
+        new InputFile(media.filePath),
+        {
+          caption,
+          parse_mode: 'HTML',
+          ...replyParameters
+        }
+      );
+
+      return toSentBotMessage(sent);
+    }
+
+    const group = media.files.map((file, index) =>
+      InputMediaBuilder.photo(new InputFile(file.filePath), {
+        ...(index === 0 ? { caption, parse_mode: 'HTML' } : {})
+      })
+    );
+    const sent = await api.sendMediaGroup(chatId, group, replyParameters);
+    const first = sent[0];
+
+    if (!first) {
+      throw new Error('Telegram sendMediaGroup returned no messages.');
+    }
+
+    return toSentBotMessage(first);
   };
 
   return {
@@ -81,6 +163,7 @@ export function createTelegramDispatchers(
       return toSentBotMessage(sent);
     },
     weeklyDispatcher: sendHtmlMessage,
+    memeDispatcher,
     sendChatAction: async (chatId, action) => {
       await api.sendChatAction(chatId, action);
     },

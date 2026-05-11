@@ -10,6 +10,7 @@ import {
 } from './artifacts.js';
 import { cleanupExpiredData } from './artifacts-cleanup.js';
 import { normalizeDatabaseOpenError } from './errors.js';
+import { getRecentMemePostIds, saveMemePost } from './meme-posts.js';
 import {
   getChatState,
   getMessageByTelegramMessageId,
@@ -27,6 +28,7 @@ import type {
   ChatState,
   NormalizedMessage,
   SaveMediaArtifactInput,
+  SaveMemePostInput,
   StoredMediaArtifact,
   StoredMessage,
   UpdateChatTtsStateInput
@@ -35,7 +37,9 @@ import type {
 export type {
   BotOutputMode,
   MediaArtifactStatus,
+  MemeMediaKind,
   SaveMediaArtifactInput,
+  SaveMemePostInput,
   StoredMediaArtifact,
   UpdateChatTtsStateInput
 } from './types.js';
@@ -161,11 +165,29 @@ export class DatabaseClient {
     return getSuccessfulMediaArtifactsForMessages(this.db, input);
   }
 
+  saveMemePost(input: SaveMemePostInput): void {
+    saveMemePost(this.db, input);
+  }
+
+  getRecentMemePostIds(input: {
+    chatId: number;
+    redditPostIds: string[];
+    since: string;
+  }): Set<string> {
+    return getRecentMemePostIds(this.db, input);
+  }
+
   cleanupExpiredData(input: {
     now: string;
     messageRetentionDays: number;
     mediaArtifactRetentionDays: number;
-  }): { mediaArtifacts: number; messages: number; chats: number } {
+    memeHistoryRetentionDays: number;
+  }): {
+    mediaArtifacts: number;
+    messages: number;
+    chats: number;
+    memePosts: number;
+  } {
     return cleanupExpiredData(this.db, input);
   }
 

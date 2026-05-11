@@ -1,4 +1,7 @@
-import type { AssistantIntent, ReplyContext } from '../../domain/models.js';
+import type {
+  ReplyContext,
+  ReplyGenerationIntent
+} from '../../domain/models.js';
 import { loadPrompt } from '../prompt-files.js';
 import { renderPromptTemplate } from './render.js';
 import { formatJsonForPrompt, sanitizePromptText } from './sanitize.js';
@@ -10,7 +13,7 @@ import {
 import type { DescribeMediaContext } from './types.js';
 
 export function getIntentDataSections(input: {
-  intent: AssistantIntent;
+  intent: ReplyGenerationIntent;
   replyContext: ReplyContext;
   mediaContext?: DescribeMediaContext | null;
 }): string {

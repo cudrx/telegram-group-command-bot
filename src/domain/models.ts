@@ -7,7 +7,14 @@ export type ChatType =
 
 export type AuthorizedMode = 'chat' | 'private_admin';
 
-export type AssistantIntent = 'summarize' | 'decide' | 'read' | 'answer';
+export type AssistantIntent =
+  | 'summarize'
+  | 'decide'
+  | 'read'
+  | 'answer'
+  | 'meme';
+
+export type ReplyGenerationIntent = Exclude<AssistantIntent, 'meme'>;
 
 export type DirectTriggerIntent = AssistantIntent | 'weekly';
 

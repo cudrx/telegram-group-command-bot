@@ -19,7 +19,8 @@ export function createCleanupScheduler(input: {
     const deleted = input.db.cleanupExpiredData({
       now: input.now(),
       messageRetentionDays: input.env.messageRetentionDays,
-      mediaArtifactRetentionDays: input.env.mediaArtifactRetentionDays
+      mediaArtifactRetentionDays: input.env.mediaArtifactRetentionDays,
+      memeHistoryRetentionDays: input.env.memeHistoryRetentionDays
     });
 
     input.logger.debug('database_cleanup_completed', deleted);

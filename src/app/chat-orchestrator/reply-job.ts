@@ -5,12 +5,12 @@ import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import { dispatchGeneratedReply } from './outbound-voice.js';
 import { runReadTtsJob } from './read-command.js';
 import { executeReplyGeneration } from './reply-generation.js';
-import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
+import type { ChatOrchestratorDeps, ReplyJobRequest } from './types.js';
 
 export async function runReplyJob(input: {
   deps: ChatOrchestratorDeps;
   mediaSupport: ChatOrchestratorMediaSupport;
-  request: ReplyRequest;
+  request: ReplyJobRequest;
   logger: ChatOrchestratorDeps['logger'];
 }): Promise<void> {
   const { deps, mediaSupport, request, logger } = input;

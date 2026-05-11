@@ -32,6 +32,25 @@ describe('detectDirectTrigger', () => {
     });
   });
 
+  test('returns meme command intent in chat mode for /meme', () => {
+    const trigger = detectDirectTrigger({
+      botUserId: 77,
+      botUsername: 'fun_bot',
+      message: {
+        authorizedMode: 'chat',
+        text: '/meme',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }],
+        replyToUserId: null
+      }
+    });
+
+    expect(trigger).toEqual({
+      kind: 'command',
+      intent: 'meme',
+      commandText: '/meme'
+    });
+  });
+
   test.each([
     ['/summarize@fun_bot', 'summarize'],
     ['/decide@fun_bot', 'decide'],
@@ -55,6 +74,25 @@ describe('detectDirectTrigger', () => {
       kind: 'command',
       intent,
       commandText
+    });
+  });
+
+  test('returns meme command intent when addressed to this bot for /meme@fun_bot', () => {
+    const trigger = detectDirectTrigger({
+      botUserId: 77,
+      botUsername: 'fun_bot',
+      message: {
+        authorizedMode: 'chat',
+        text: '/meme@fun_bot',
+        entities: [{ type: 'bot_command', offset: 0, length: 13 }],
+        replyToUserId: null
+      }
+    });
+
+    expect(trigger).toMatchObject({
+      kind: 'command',
+      intent: 'meme',
+      commandText: '/meme@fun_bot'
     });
   });
 

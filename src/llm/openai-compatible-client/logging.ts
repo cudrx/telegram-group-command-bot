@@ -1,4 +1,4 @@
-import type { AssistantIntent } from '../../domain/models.js';
+import type { ReplyGenerationIntent } from '../../domain/models.js';
 import { getIntentOutputShapeViolations } from '../intent-output-shape.js';
 import type { LlmClientOptions } from './types.js';
 
@@ -42,7 +42,7 @@ export function logLlmText(
 
 export function warnOnReplyFormatGuardrailViolation(
   options: LlmClientOptions,
-  intent: AssistantIntent,
+  intent: ReplyGenerationIntent,
   reply: string,
   model: string
 ): void {

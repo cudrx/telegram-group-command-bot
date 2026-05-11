@@ -1,6 +1,9 @@
 import type OpenAI from 'openai';
 
-import type { AssistantIntent, ReplyContext } from '../../domain/models.js';
+import type {
+  ReplyContext,
+  ReplyGenerationIntent
+} from '../../domain/models.js';
 import type { AppLogger } from '../../logging/logger.js';
 import type {
   LookupContext,
@@ -48,7 +51,7 @@ export type ChatCompletionsCreate = OpenAI['chat']['completions']['create'];
 export type GenerateReplyInput = {
   assistantInstructions: string;
   targetDisplayName: string;
-  intent: AssistantIntent;
+  intent: ReplyGenerationIntent;
   currentDateTime: string;
   replyContext: ReplyContext;
   lookupContext?: LookupContext | null;
@@ -58,6 +61,14 @@ export type GenerateReplyInput = {
 export type GenerateWeeklyInput = {
   assistantInstructions: string;
   weeklyDataset: string;
+};
+
+export type GenerateMemeCaptionInput = {
+  title: string;
+  subreddit: string;
+  upvotes: number;
+  permalink: string;
+  mediaKind: 'image' | 'gallery' | 'video' | 'animation';
 };
 
 export type PlanLookupInput = {

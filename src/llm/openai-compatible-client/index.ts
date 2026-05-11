@@ -2,9 +2,11 @@ import OpenAI from 'openai';
 
 import { formatDeployUpdate } from './deploy-update.js';
 import { planLookup } from './lookup.js';
+import { generateMemeCaption } from './meme-caption.js';
 import { generateReply } from './reply.js';
 import type {
   ChatCompletionsCreate,
+  GenerateMemeCaptionInput,
   GenerateReplyInput,
   GenerateWeeklyInput,
   LlmClientConfig,
@@ -16,6 +18,7 @@ import type {
 import { generateWeekly } from './weekly.js';
 
 export type {
+  GenerateMemeCaptionInput,
   GenerateReplyInput,
   GenerateWeeklyInput,
   LlmClientConfig,
@@ -67,6 +70,17 @@ export class OpenAiCompatibleLlmClient {
 
   async generateWeekly(input: GenerateWeeklyInput): Promise<LlmReplyResult> {
     return generateWeekly({
+      config: this.config,
+      createCompletion: this.createCompletion,
+      options: this.options,
+      input
+    });
+  }
+
+  async generateMemeCaption(
+    input: GenerateMemeCaptionInput
+  ): Promise<LlmReplyResult> {
+    return generateMemeCaption({
       config: this.config,
       createCompletion: this.createCompletion,
       options: this.options,

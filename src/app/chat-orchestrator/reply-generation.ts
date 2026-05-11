@@ -10,12 +10,12 @@ import {
 } from './helpers/reply.js';
 import { buildLookupContext } from './lookup.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
-import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
+import type { ChatOrchestratorDeps, ReplyJobRequest } from './types.js';
 
 export async function executeReplyGeneration(input: {
   deps: ChatOrchestratorDeps;
   mediaSupport: ChatOrchestratorMediaSupport;
-  request: ReplyRequest;
+  request: ReplyJobRequest;
   logger: ChatOrchestratorDeps['logger'];
 }): Promise<LlmReplyResult | null> {
   const { deps, mediaSupport, request, logger } = input;

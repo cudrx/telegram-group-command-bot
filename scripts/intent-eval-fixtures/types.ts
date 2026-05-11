@@ -1,4 +1,7 @@
-import type { AssistantIntent, ReplyContext } from '../../src/domain/models.js';
+import type {
+  ReplyContext,
+  ReplyGenerationIntent
+} from '../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../src/llm/prompts.js';
 
 export type IntentEvalRubric = {
@@ -11,7 +14,7 @@ export type IntentEvalRubric = {
 
 export type IntentEvalFixture = {
   id: string;
-  intent: AssistantIntent;
+  intent: ReplyGenerationIntent;
   targetDisplayName: string;
   assistantInstructions: string;
   currentDateTime: string;

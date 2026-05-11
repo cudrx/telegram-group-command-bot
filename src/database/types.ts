@@ -8,6 +8,8 @@ import type {
 
 export type MediaArtifactStatus = 'success' | 'failed' | 'partial';
 
+export type MemeMediaKind = 'image' | 'gallery' | 'video' | 'animation';
+
 export type SaveMediaArtifactInput = {
   fileUniqueId: string | null;
   chatId: number;
@@ -29,6 +31,19 @@ export type SaveMediaArtifactInput = {
   errorText: string | null;
   createdAt: string;
   expiresAt: string;
+};
+
+export type SaveMemePostInput = {
+  chatId: number;
+  redditPostId: string;
+  subreddit: string;
+  telegramMessageId: number | null;
+  title: string;
+  permalink: string;
+  mediaKind: MemeMediaKind;
+  mediaUrl: string | null;
+  upvotes: number;
+  sentAt: string;
 };
 
 export type StoredMediaArtifact = {

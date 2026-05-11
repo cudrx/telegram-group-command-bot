@@ -7,8 +7,13 @@ import {
 } from '../../domain/response-policy.js';
 import { runWeeklyJob } from '../weekly/index.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
+import { runMemeJob } from './meme-job.js';
 import { runReplyJob } from './reply-job.js';
-import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
+import type {
+  ChatOrchestratorDeps,
+  ReplyJobRequest,
+  ReplyRequest
+} from './types.js';
 
 export type {
   BotIdentity,
@@ -104,10 +109,22 @@ export class ChatOrchestrator {
       replyToMediaSnapshot: message.replyToMediaSnapshot
     };
 
+    if (decision.intent === 'meme') {
+      await runMemeJob({
+        deps: this.deps,
+        request,
+        logger
+      });
+      return;
+    }
+
     await runReplyJob({
       deps: this.deps,
       mediaSupport: this.mediaSupport,
-      request,
+      request: {
+        ...request,
+        intent: decision.intent
+      } satisfies ReplyJobRequest,
       logger
     });
   }

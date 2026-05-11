@@ -1,4 +1,4 @@
-import type { AssistantIntent } from '../domain/models.js';
+import type { ReplyGenerationIntent } from '../domain/models.js';
 
 export type IntentOutputShapeViolation =
   | 'english_summary_heading'
@@ -7,7 +7,7 @@ export type IntentOutputShapeViolation =
   | 'missing_decide_shape';
 
 export function getIntentOutputShapeViolations(
-  intent: AssistantIntent,
+  intent: ReplyGenerationIntent,
   reply: string
 ): IntentOutputShapeViolation[] {
   const violations: IntentOutputShapeViolation[] = [];

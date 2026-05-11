@@ -35,6 +35,7 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     cloudflareAccountId: null,
     mediaMaxFileBytes: 10_000_000,
     mediaArtifactRetentionDays: 7,
+    memeHistoryRetentionDays: 14,
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
     telegramChatId: -1002155313986,

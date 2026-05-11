@@ -331,12 +331,14 @@ describeWithSqlite('DatabaseClient artifacts', () => {
       db.cleanupExpiredData({
         now: '2026-04-29T00:00:00.000Z',
         messageRetentionDays: 7,
-        mediaArtifactRetentionDays: 7
+        mediaArtifactRetentionDays: 7,
+        memeHistoryRetentionDays: 14
       })
     ).toEqual({
       mediaArtifacts: 1,
       messages: 1,
-      chats: 1
+      chats: 1,
+      memePosts: 0
     });
 
     db.close();
@@ -379,12 +381,14 @@ describeWithSqlite('DatabaseClient artifacts', () => {
       db.cleanupExpiredData({
         now: '2026-04-29T00:00:00.000Z',
         messageRetentionDays: 7,
-        mediaArtifactRetentionDays: 30
+        mediaArtifactRetentionDays: 30,
+        memeHistoryRetentionDays: 14
       })
     ).toEqual({
       mediaArtifacts: 0,
       messages: 1,
-      chats: 0
+      chats: 0,
+      memePosts: 0
     });
 
     db.close();

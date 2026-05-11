@@ -1,7 +1,7 @@
 import type { AppEnv } from '../../../config/env/index.js';
 import type {
-  AssistantIntent,
   ReplyContext,
+  ReplyGenerationIntent,
   StoredMessage
 } from '../../../domain/models.js';
 import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
@@ -14,7 +14,7 @@ export const ANSWER_USAGE_PLACEHOLDER =
 export function withReplySnapshotFallback(
   context: ReplyContext,
   input: {
-    intent: AssistantIntent;
+    intent: ReplyGenerationIntent;
     botUserId: number;
     replyToMessageSnapshot: StoredMessage | null;
   }
@@ -36,7 +36,7 @@ export function withReplySnapshotFallback(
 
 export function getContextLimitForIntent(
   env: AppEnv,
-  intent: AssistantIntent
+  intent: ReplyGenerationIntent
 ): number {
   switch (intent) {
     case 'summarize':

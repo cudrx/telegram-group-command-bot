@@ -56,6 +56,61 @@ describeWithSqlite('DatabaseClient migrations', () => {
     db.close();
   });
 
+  test('adds meme_posts table and indexes when opening an existing database', () => {
+    const directory = mkdtempSync(
+      path.join(os.tmpdir(), 'chatbot-meme-posts-db-')
+    );
+    const dbPath = path.join(directory, 'bot.sqlite');
+    trackTempDirectory(directory);
+
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY,
+        chat_type TEXT NOT NULL,
+        title TEXT,
+        last_message_at TEXT,
+        last_bot_message_at TEXT
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        reply_to_telegram_message_id INTEGER,
+        UNIQUE (chat_id, telegram_message_id)
+      );
+    `);
+    legacyDb.close();
+
+    const db = DatabaseClient.open(dbPath);
+    expect(db.getSchemaColumns('meme_posts')).toEqual([
+      'id',
+      'reddit_post_id',
+      'subreddit',
+      'chat_id',
+      'telegram_message_id',
+      'title',
+      'permalink',
+      'media_kind',
+      'media_url',
+      'upvotes',
+      'sent_at'
+    ]);
+    expect(db.getIndexNames('meme_posts')).toEqual(
+      expect.arrayContaining([
+        'idx_meme_posts_chat_post',
+        'idx_meme_posts_chat_sent_at'
+      ])
+    );
+    db.close();
+  });
+
   test('adds media_artifacts when opening an existing database', () => {
     const directory = mkdtempSync(
       path.join(os.tmpdir(), 'chatbot-media-artifacts-db-')

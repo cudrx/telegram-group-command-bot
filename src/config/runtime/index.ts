@@ -1,5 +1,6 @@
 import { answerActionConfig } from './actions/answer.js';
 import { decideActionConfig } from './actions/decide.js';
+import { memeActionConfig } from './actions/meme.js';
 import { readActionConfig } from './actions/read.js';
 import { summarizeActionConfig } from './actions/summarize.js';
 import { weeklyActionConfig } from './actions/weekly.js';
@@ -14,6 +15,7 @@ export const runtimeConfig = {
   actions: {
     answer: answerActionConfig,
     decide: decideActionConfig,
+    meme: memeActionConfig,
     read: readActionConfig,
     summarize: summarizeActionConfig,
     weekly: weeklyActionConfig
@@ -30,6 +32,7 @@ export const runtimeConfig = {
 
 export { answerActionConfig } from './actions/answer.js';
 export { decideActionConfig } from './actions/decide.js';
+export { memeActionConfig } from './actions/meme.js';
 export { readActionConfig } from './actions/read.js';
 export { summarizeActionConfig } from './actions/summarize.js';
 export { weeklyActionConfig } from './actions/weekly.js';

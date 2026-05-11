@@ -22,6 +22,10 @@ export const botCatch = vi.fn();
 export const botUse = vi.fn();
 export const botSendMessage = vi.fn();
 export const botSendVoice = vi.fn();
+export const botSendPhoto = vi.fn();
+export const botSendVideo = vi.fn();
+export const botSendAnimation = vi.fn();
+export const botSendMediaGroup = vi.fn();
 export const botSendChatAction = vi.fn();
 export const chatOrchestratorConstructor = vi.fn();
 export const tavilyConstructor = vi.fn();
@@ -54,6 +58,10 @@ vi.mock('grammy', () => {
       getFile: botGetFile,
       sendMessage: botSendMessage,
       sendVoice: botSendVoice,
+      sendPhoto: botSendPhoto,
+      sendVideo: botSendVideo,
+      sendAnimation: botSendAnimation,
+      sendMediaGroup: botSendMediaGroup,
       sendChatAction: botSendChatAction
     };
 
@@ -99,7 +107,17 @@ vi.mock('grammy', () => {
     ) {}
   }
 
-  return { Bot, InputFile };
+  const InputMediaBuilder = {
+    photo(source: unknown, options?: Record<string, unknown>) {
+      return {
+        type: 'photo',
+        media: source,
+        ...options
+      };
+    }
+  };
+
+  return { Bot, InputFile, InputMediaBuilder };
 });
 
 vi.mock('../../src/database/index.js', () => ({
@@ -262,6 +280,7 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     cloudflareAccountId: null,
     mediaMaxFileBytes: 10_000_000,
     mediaArtifactRetentionDays: 7,
+    memeHistoryRetentionDays: 14,
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
     telegramChatId: -1002155313986,

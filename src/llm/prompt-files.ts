@@ -9,6 +9,7 @@ export const PROMPT_FILE_PATHS = {
   read: 'llm/reply/read.md',
   answer: 'llm/reply/answer.md',
   weekly: 'llm/reply/weekly.md',
+  memeCaption: 'llm/reply/meme-caption.md',
   systemAnswer: 'llm/system/answer.md',
   systemRead: 'llm/system/read.md',
   systemGeneric: 'llm/system/generic.md',

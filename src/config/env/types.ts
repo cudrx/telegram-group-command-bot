@@ -32,6 +32,7 @@ export type ParsedEnv = {
   cloudflareAccountId: string | null;
   mediaMaxFileBytes: number;
   mediaArtifactRetentionDays: number;
+  memeHistoryRetentionDays: number;
   messageRetentionDays: number;
   databaseCleanupIntervalHours: number;
   telegramChatId: number;

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 
 import type {
-  AssistantIntent,
+  ReplyGenerationIntent,
   StoredMessage
 } from '../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../src/llm/prompts.js';
@@ -14,7 +14,7 @@ const DEFAULT_ASSISTANT_INSTRUCTIONS = readFileSync(
 
 export function createFixture(input: {
   id: string;
-  intent: AssistantIntent;
+  intent: ReplyGenerationIntent;
   targetDisplayName: string;
   rows: Array<[string, string, string]>;
   triggerText: string;

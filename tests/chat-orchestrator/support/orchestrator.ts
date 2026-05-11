@@ -3,9 +3,12 @@ import { vi } from 'vitest';
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
 import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
-import type { ChatState } from '../../../src/domain/models.js';
+import type { AssistantIntent, ChatState } from '../../../src/domain/models.js';
 import type { AppLogger } from '../../../src/logging/logger.js';
-import type { LookupProvider } from '../../../src/lookup/types.js';
+import type {
+  LookupIntent,
+  LookupProvider
+} from '../../../src/lookup/types.js';
 import { createEnv } from './env.js';
 import type { FakeDatabaseClient } from './fake-database.js';
 import { createLookupPlanResult, createReplyResult } from './llm.js';
@@ -17,7 +20,7 @@ export function createOrchestrator(input: {
     generateReply: (input: {
       assistantInstructions: string;
       targetDisplayName: string;
-      intent: 'summarize' | 'decide' | 'read' | 'answer';
+      intent: AssistantIntent;
       currentDateTime: string;
       replyContext: unknown;
       lookupContext?: unknown;
@@ -27,8 +30,15 @@ export function createOrchestrator(input: {
       assistantInstructions: string;
       weeklyDataset: string;
     }) => Promise<ReturnType<typeof createReplyResult>>;
+    generateMemeCaption?: (input: {
+      title: string;
+      subreddit: string;
+      upvotes: number;
+      permalink: string;
+      mediaKind: 'image' | 'gallery' | 'video' | 'animation';
+    }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
-      intent: 'decide' | 'answer';
+      intent: LookupIntent;
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createLookupPlanResult>>;
   };
@@ -40,6 +50,16 @@ export function createOrchestrator(input: {
   weeklyDispatcher?: (input: {
     chatId: number;
     text: string;
+  }) => Promise<{ messageId: number; createdAt: string }>;
+  memeDispatcher?: (input: {
+    chatId: number;
+    replyToMessageId: number;
+    caption: string;
+    media:
+      | { kind: 'image'; filePath: string }
+      | { kind: 'video'; filePath: string }
+      | { kind: 'animation'; filePath: string }
+      | { kind: 'gallery'; files: Array<{ filePath: string }> };
   }) => Promise<{ messageId: number; createdAt: string }>;
   lookupProvider?: LookupProvider | null;
   speechToTextProvider?: {
@@ -120,6 +140,9 @@ export function createOrchestrator(input: {
       generateWeekly:
         input.qwen.generateWeekly ??
         vi.fn().mockResolvedValue(createReplyResult('<b>Неделя в чате</b>')),
+      generateMemeCaption:
+        input.qwen.generateMemeCaption ??
+        vi.fn().mockResolvedValue(createReplyResult('мем')),
       planLookup:
         input.qwen.planLookup ??
         vi.fn().mockResolvedValue(
@@ -156,6 +179,12 @@ export function createOrchestrator(input: {
       input.weeklyDispatcher ??
       vi.fn().mockResolvedValue({
         messageId: 1000,
+        createdAt: '2026-04-13T09:00:30.000Z'
+      }),
+    memeDispatcher:
+      input.memeDispatcher ??
+      vi.fn().mockResolvedValue({
+        messageId: 3000,
         createdAt: '2026-04-13T09:00:30.000Z'
       }),
     sendChatAction,

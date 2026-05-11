@@ -74,6 +74,21 @@ CREATE TABLE IF NOT EXISTS app_state (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS meme_posts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  reddit_post_id TEXT NOT NULL,
+  subreddit TEXT NOT NULL,
+  chat_id INTEGER NOT NULL,
+  telegram_message_id INTEGER,
+  title TEXT NOT NULL,
+  permalink TEXT NOT NULL,
+  media_kind TEXT NOT NULL,
+  media_url TEXT,
+  upvotes INTEGER NOT NULL DEFAULT 0,
+  sent_at TEXT NOT NULL,
+  UNIQUE (chat_id, reddit_post_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at
   ON messages(chat_id, created_at);
 
@@ -85,4 +100,10 @@ CREATE INDEX IF NOT EXISTS idx_media_artifacts_message_provider
 
 CREATE INDEX IF NOT EXISTS idx_media_artifacts_expires_at
   ON media_artifacts(expires_at);
+
+CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_sent_at
+  ON meme_posts(chat_id, sent_at);
+
+CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_post
+  ON meme_posts(chat_id, reddit_post_id);
 `;

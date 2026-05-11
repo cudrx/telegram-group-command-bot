@@ -5,6 +5,7 @@ import {
   LOOKUP_PROVIDER,
   MEDIA_ARTIFACT_RETENTION_DAYS,
   MEDIA_MAX_FILE_BYTES,
+  MEME_HISTORY_RETENTION_DAYS,
   MESSAGE_RETENTION_DAYS,
   STT_PROVIDER,
   VISION_PROVIDER
@@ -62,6 +63,7 @@ export function parseEnv(
     cloudflareAccountId: parsed.CLOUDFLARE_ACCOUNT_ID ?? null,
     mediaMaxFileBytes: MEDIA_MAX_FILE_BYTES,
     mediaArtifactRetentionDays: MEDIA_ARTIFACT_RETENTION_DAYS,
+    memeHistoryRetentionDays: MEME_HISTORY_RETENTION_DAYS,
     messageRetentionDays: MESSAGE_RETENTION_DAYS,
     databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
     yandexSpeechKitApiKey: parsed.YANDEX_SPEECHKIT_API_KEY ?? null,

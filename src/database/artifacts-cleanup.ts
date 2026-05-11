@@ -6,8 +6,14 @@ export function cleanupExpiredData(
     now: string;
     messageRetentionDays: number;
     mediaArtifactRetentionDays: number;
+    memeHistoryRetentionDays: number;
   }
-): { mediaArtifacts: number; messages: number; chats: number } {
+): {
+  mediaArtifacts: number;
+  messages: number;
+  chats: number;
+  memePosts: number;
+} {
   const transaction = db.transaction((cleanupInput: typeof input) => {
     const mediaArtifactCutoff = new Date(
       new Date(cleanupInput.now).getTime() -
@@ -32,17 +38,27 @@ export function cleanupExpiredData(
       .prepare(`DELETE FROM messages WHERE created_at < ?`)
       .run(messageCutoff).changes;
 
+    const memePostCutoff = new Date(
+      new Date(cleanupInput.now).getTime() -
+        cleanupInput.memeHistoryRetentionDays * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const memePosts = db
+      .prepare(`DELETE FROM meme_posts WHERE sent_at < ?`)
+      .run(memePostCutoff).changes;
+
     const chats = db
       .prepare(
         `
           DELETE FROM chats
           WHERE chat_id NOT IN (SELECT DISTINCT chat_id FROM messages)
             AND chat_id NOT IN (SELECT DISTINCT chat_id FROM media_artifacts)
+            AND chat_id NOT IN (SELECT DISTINCT chat_id FROM meme_posts)
         `
       )
       .run().changes;
 
-    return { mediaArtifacts, messages, chats };
+    return { mediaArtifacts, messages, chats, memePosts };
   });
 
   return transaction(input);

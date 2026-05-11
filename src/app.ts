@@ -67,6 +67,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     replyDispatcher: telegramDispatchers.replyDispatcher,
     voiceDispatcher: telegramDispatchers.voiceDispatcher,
     weeklyDispatcher: telegramDispatchers.weeklyDispatcher,
+    memeDispatcher: telegramDispatchers.memeDispatcher,
     sendChatAction: telegramDispatchers.sendChatAction,
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     logger,

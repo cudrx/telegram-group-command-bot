@@ -17,6 +17,7 @@ describe('parseEnv media settings', () => {
     expect(env.cloudflareAccountId).toBe(null);
     expect(env.mediaMaxFileBytes).toBe(10_000_000);
     expect(env.mediaArtifactRetentionDays).toBe(7);
+    expect(env.memeHistoryRetentionDays).toBe(14);
     expect(env.messageRetentionDays).toBe(7);
     expect(env.databaseCleanupIntervalHours).toBe(24);
   });
@@ -45,6 +46,7 @@ describe('parseEnv media settings', () => {
     expect(env.cloudflareAccountId).toBe('cf-account');
     expect(env.mediaMaxFileBytes).toBe(10_000_000);
     expect(env.mediaArtifactRetentionDays).toBe(7);
+    expect(env.memeHistoryRetentionDays).toBe(14);
     expect(env.messageRetentionDays).toBe(7);
     expect(env.databaseCleanupIntervalHours).toBe(24);
   });

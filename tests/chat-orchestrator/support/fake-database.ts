@@ -1,6 +1,7 @@
 import type {
   BotOutputMode,
   SaveMediaArtifactInput,
+  SaveMemePostInput,
   StoredMediaArtifact,
   UpdateChatTtsStateInput
 } from '../../../src/database/index.js';
@@ -38,6 +39,7 @@ export class FakeDatabaseClient {
   private readonly messages = new Map<number, StoredMessage[]>();
   private readonly chats = new Map<number, ChatState>();
   readonly savedMediaArtifacts: SaveMediaArtifactInput[] = [];
+  readonly savedMemePosts: SaveMemePostInput[] = [];
 
   constructor(input?: { chats?: ChatState[]; messages?: StoredMessage[] }) {
     for (const chat of input?.chats ?? []) {
@@ -263,6 +265,37 @@ export class FakeDatabaseClient {
         );
       })
       .map((artifact) => toStoredMediaArtifact(artifact));
+  }
+
+  saveMemePost(input: SaveMemePostInput): void {
+    const existingIndex = this.savedMemePosts.findIndex(
+      (post) =>
+        post.chatId === input.chatId && post.redditPostId === input.redditPostId
+    );
+
+    if (existingIndex >= 0) {
+      this.savedMemePosts[existingIndex] = input;
+      return;
+    }
+
+    this.savedMemePosts.push(input);
+  }
+
+  getRecentMemePostIds(input: {
+    chatId: number;
+    redditPostIds: string[];
+    since: string;
+  }): Set<string> {
+    return new Set(
+      this.savedMemePosts
+        .filter(
+          (post) =>
+            post.chatId === input.chatId &&
+            post.sentAt >= input.since &&
+            input.redditPostIds.includes(post.redditPostId)
+        )
+        .map((post) => post.redditPostId)
+    );
   }
 
   private insertMessage(message: StoredMessage): boolean {

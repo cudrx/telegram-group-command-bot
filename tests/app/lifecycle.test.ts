@@ -1,7 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+  botSendMediaGroup,
   botSendMessage,
+  botSendPhoto,
   botStart,
   botStop,
   chatOrchestratorConstructor,
@@ -50,6 +52,122 @@ describe('createApplication lifecycle', () => {
     expect(sent).toEqual({
       messageId: 44,
       createdAt: '2025-04-07T04:26:40.000Z'
+    });
+  });
+
+  test('sends meme photos with Telegram HTML captions', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv());
+
+    botSendPhoto.mockResolvedValue({
+      message_id: 45,
+      date: 1_744_000_001
+    });
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          memeDispatcher?: (input: {
+            chatId: number;
+            replyToMessageId: number;
+            caption: string;
+            media: {
+              kind: 'image';
+              filePath: string;
+              extension: string;
+              cleanup: () => Promise<void>;
+            };
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    const sent = await orchestratorDeps?.memeDispatcher?.({
+      chatId: -1001,
+      replyToMessageId: 11,
+      caption: '<b>Мем</b>',
+      media: {
+        kind: 'image',
+        filePath: '/tmp/meme.jpg',
+        extension: 'jpg',
+        cleanup: vi.fn()
+      }
+    });
+
+    expect(botSendPhoto).toHaveBeenCalledWith(
+      -1001,
+      expect.objectContaining({ source: '/tmp/meme.jpg' }),
+      {
+        caption: '<b>Мем</b>',
+        parse_mode: 'HTML',
+        reply_parameters: {
+          message_id: 11
+        }
+      }
+    );
+    expect(sent).toEqual({
+      messageId: 45,
+      createdAt: '2025-04-07T04:26:41.000Z'
+    });
+  });
+
+  test('sends meme galleries with caption on the first Telegram media item', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv());
+
+    botSendMediaGroup.mockResolvedValue([
+      { message_id: 46, date: 1_744_000_002 },
+      { message_id: 47, date: 1_744_000_002 }
+    ]);
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          memeDispatcher?: (input: {
+            chatId: number;
+            replyToMessageId: number;
+            caption: string;
+            media: {
+              kind: 'gallery';
+              files: Array<{ filePath: string; cleanup: () => Promise<void> }>;
+              cleanup: () => Promise<void>;
+            };
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    const sent = await orchestratorDeps?.memeDispatcher?.({
+      chatId: -1001,
+      replyToMessageId: 12,
+      caption: '<b>Галерея</b>',
+      media: {
+        kind: 'gallery',
+        files: [
+          { filePath: '/tmp/one.jpg', cleanup: vi.fn() },
+          { filePath: '/tmp/two.jpg', cleanup: vi.fn() }
+        ],
+        cleanup: vi.fn()
+      }
+    });
+
+    expect(botSendMediaGroup).toHaveBeenCalledWith(
+      -1001,
+      [
+        expect.objectContaining({
+          type: 'photo',
+          caption: '<b>Галерея</b>',
+          parse_mode: 'HTML'
+        }),
+        expect.objectContaining({
+          type: 'photo'
+        })
+      ],
+      {
+        reply_parameters: {
+          message_id: 12
+        }
+      }
+    );
+    expect(sent).toEqual({
+      messageId: 46,
+      createdAt: '2025-04-07T04:26:42.000Z'
     });
   });
 
@@ -124,7 +242,8 @@ describe('createApplication lifecycle', () => {
     expect(dbCleanupExpiredData).toHaveBeenCalledWith({
       now: expect.any(String),
       messageRetentionDays: 3,
-      mediaArtifactRetentionDays: 5
+      mediaArtifactRetentionDays: 5,
+      memeHistoryRetentionDays: 14
     });
 
     vi.advanceTimersByTime(2 * 60 * 60 * 1000);

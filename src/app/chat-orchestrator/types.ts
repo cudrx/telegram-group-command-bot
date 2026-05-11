@@ -4,6 +4,7 @@ import type {
   AssistantIntent,
   MediaMessageSnapshot,
   ReplyContext,
+  ReplyGenerationIntent,
   StoredMessage
 } from '../../domain/models.js';
 import type {
@@ -51,11 +52,26 @@ export type WeeklyDispatcher = (input: {
   text: string;
 }) => Promise<SentBotMessage>;
 
+export type MemeMediaDispatchInput = {
+  chatId: number;
+  replyToMessageId: number;
+  caption: string;
+  media:
+    | { kind: 'image'; filePath: string }
+    | { kind: 'video'; filePath: string }
+    | { kind: 'animation'; filePath: string }
+    | { kind: 'gallery'; files: Array<{ filePath: string }> };
+};
+
+export type MemeDispatcher = (
+  input: MemeMediaDispatchInput
+) => Promise<SentBotMessage>;
+
 export type LlmClient = {
   generateReply(input: {
     assistantInstructions: string;
     targetDisplayName: string;
-    intent: AssistantIntent;
+    intent: ReplyGenerationIntent;
     currentDateTime: string;
     replyContext: ReplyContext;
     lookupContext?: import('../../lookup/types.js').LookupContext | null;
@@ -64,6 +80,13 @@ export type LlmClient = {
   generateWeekly(input: {
     assistantInstructions: string;
     weeklyDataset: string;
+  }): Promise<LlmReplyResult>;
+  generateMemeCaption(input: {
+    title: string;
+    subreddit: string;
+    upvotes: number;
+    permalink: string;
+    mediaKind: 'image' | 'gallery' | 'video' | 'animation';
   }): Promise<LlmReplyResult>;
   planLookup(input: {
     intent: LookupIntent;
@@ -83,6 +106,10 @@ export type ReplyRequest = {
   replyToMediaSnapshot: MediaMessageSnapshot | null;
 };
 
+export type ReplyJobRequest = Omit<ReplyRequest, 'intent'> & {
+  intent: ReplyGenerationIntent;
+};
+
 export type ChatOrchestratorDeps = {
   db: DatabaseClient;
   qwen: LlmClient;
@@ -100,6 +127,7 @@ export type ChatOrchestratorDeps = {
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;
   weeklyDispatcher: WeeklyDispatcher;
+  memeDispatcher: MemeDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   delay: (ms: number) => Promise<void>;
   logger: AppLogger;

@@ -30,7 +30,8 @@ const CHAT_COMMAND_INTENTS: Record<string, AssistantIntent> = {
   summarize: 'summarize',
   decide: 'decide',
   read: 'read',
-  answer: 'answer'
+  answer: 'answer',
+  meme: 'meme'
 };
 
 export function detectDirectTrigger(

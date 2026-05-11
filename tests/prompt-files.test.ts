@@ -28,6 +28,7 @@ describe('prompt file registry', () => {
       read: 'llm/reply/read.md',
       answer: 'llm/reply/answer.md',
       weekly: 'llm/reply/weekly.md',
+      memeCaption: 'llm/reply/meme-caption.md',
       replyShell: 'llm/reply/shell.md',
       systemAnswer: 'llm/system/answer.md',
       systemRead: 'llm/system/read.md',

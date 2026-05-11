@@ -38,6 +38,40 @@ export function migrateExistingSchema(db: Database.Database): void {
     'read_tts_voice_count',
     'INTEGER NOT NULL DEFAULT 0'
   );
+  ensureMemePosts(db);
+}
+
+function ensureMemePosts(db: Database.Database): void {
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS meme_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        reddit_post_id TEXT NOT NULL,
+        subreddit TEXT NOT NULL,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER,
+        title TEXT NOT NULL,
+        permalink TEXT NOT NULL,
+        media_kind TEXT NOT NULL,
+        media_url TEXT,
+        upvotes INTEGER NOT NULL DEFAULT 0,
+        sent_at TEXT NOT NULL,
+        UNIQUE (chat_id, reddit_post_id)
+      )
+    `
+  ).run();
+  db.prepare(
+    `
+      CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_sent_at
+      ON meme_posts(chat_id, sent_at)
+    `
+  ).run();
+  db.prepare(
+    `
+      CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_post
+      ON meme_posts(chat_id, reddit_post_id)
+    `
+  ).run();
 }
 
 function ensureColumn(

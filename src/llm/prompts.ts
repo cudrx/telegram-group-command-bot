@@ -1,4 +1,4 @@
-import type { AssistantIntent, ReplyContext } from '../domain/models.js';
+import type { ReplyContext, ReplyGenerationIntent } from '../domain/models.js';
 import type { LookupContext } from '../lookup/types.js';
 import { loadPrompt } from './prompt-files.js';
 import { getIntentDataSections } from './prompts/data-sections.js';
@@ -12,7 +12,7 @@ export type { DescribeMediaContext, PromptMessage } from './prompts/types.js';
 export function buildIntentPrompt(input: {
   assistantInstructions: string;
   targetDisplayName: string;
-  intent: AssistantIntent;
+  intent: ReplyGenerationIntent;
   currentDateTime: string;
   replyContext: ReplyContext;
   lookupContext?: LookupContext | null;
@@ -40,7 +40,7 @@ export function buildIntentPrompt(input: {
   });
 }
 
-function getIntentPrompt(intent: AssistantIntent): string {
+function getIntentPrompt(intent: ReplyGenerationIntent): string {
   switch (intent) {
     case 'summarize':
       return loadPrompt('summarize');
