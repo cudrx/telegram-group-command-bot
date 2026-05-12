@@ -79,13 +79,6 @@ export type LlmClient = {
     assistantInstructions: string;
     weeklyDataset: string;
   }): Promise<LlmReplyResult>;
-  generateMemeCaption(input: {
-    title: string;
-    subreddit: string;
-    upvotes: number;
-    permalink: string;
-    mediaKind: 'image' | 'animation';
-  }): Promise<LlmReplyResult>;
   planLookup(input: {
     intent: LookupIntent;
     replyContext: ReplyContext;

@@ -63,14 +63,6 @@ export type GenerateWeeklyInput = {
   weeklyDataset: string;
 };
 
-export type GenerateMemeCaptionInput = {
-  title: string;
-  subreddit: string;
-  upvotes: number;
-  permalink: string;
-  mediaKind: 'image' | 'animation';
-};
-
 export type PlanLookupInput = {
   intent: LookupIntent;
   replyContext: ReplyContext;

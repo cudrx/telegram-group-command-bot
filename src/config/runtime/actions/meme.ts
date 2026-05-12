@@ -1,9 +1,11 @@
 export const memeActionConfig = {
   subreddits: [
-    'blursed_videos',
-    'dankvideos',
+    'BatmanArkham',
+    // 'blursed_videos',
+    // 'dankvideos',
     'hmm',
     'marvelcirclejerk',
+    'MarvelRivalsCirclejer',
     'nbacirclejerk',
     'okbuddychicanery',
     'okbuddycinephile',
@@ -11,18 +13,19 @@ export const memeActionConfig = {
     'okbuddymimir',
     'okbuddyretard',
     'okbuddyviltrum',
-    'PeopleFuckingDying',
-    'perfectlycutscreams',
-    'shitposting',
-    'ShittyMovieDetails',
-    'SipsTea',
-    'TikTokCringe',
-    'Unexpected',
-    'WatchPeopleDieInside'
+    // 'PeopleFuckingDying',
+    // 'perfectlycutscreams',
+    'shitposting'
+    // 'ShittyMovieDetails'
+    // 'SipsTea'
+    // 'TikTokCringe',
+    // 'Unexpected',
+    // 'WatchPeopleDieInside'
   ],
   listing: {
     limit: 10,
-    maxSourceAttempts: 3
+    maxSourceAttempts: 3,
+    minUpvotes: 10
   },
   historyRetentionDays: 14,
   fallbackText: 'Мемы закончились, идите трогайте траву.',

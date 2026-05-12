@@ -30,13 +30,6 @@ export function createOrchestrator(input: {
       assistantInstructions: string;
       weeklyDataset: string;
     }) => Promise<ReturnType<typeof createReplyResult>>;
-    generateMemeCaption?: (input: {
-      title: string;
-      subreddit: string;
-      upvotes: number;
-      permalink: string;
-      mediaKind: 'image' | 'animation';
-    }) => Promise<ReturnType<typeof createReplyResult>>;
     planLookup?: (input: {
       intent: LookupIntent;
       replyContext: unknown;
@@ -138,9 +131,6 @@ export function createOrchestrator(input: {
       generateWeekly:
         input.qwen.generateWeekly ??
         vi.fn().mockResolvedValue(createReplyResult('<b>Неделя в чате</b>')),
-      generateMemeCaption:
-        input.qwen.generateMemeCaption ??
-        vi.fn().mockResolvedValue(createReplyResult('мем')),
       planLookup:
         input.qwen.planLookup ??
         vi.fn().mockResolvedValue(

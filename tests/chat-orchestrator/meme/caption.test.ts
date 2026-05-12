@@ -3,37 +3,46 @@ import { describe, expect, test } from 'vitest';
 import { formatMemeCaption } from '../../../src/app/chat-orchestrator/meme/caption.js';
 
 describe('formatMemeCaption', () => {
-  test('escapes localized text and appends source metadata', () => {
+  test('escapes original title and links upvotes to the original post', () => {
     expect(
       formatMemeCaption({
-        localizedTitle: '<это & правда>',
+        title: '<this & true>',
         subreddit: 'memes',
         upvotes: 50_592,
+        permalink: 'https://redd.it/abc123',
         maxLength: 1024
       })
-    ).toBe('&lt;это &amp; правда&gt;\n\nr/memes · 50 592 апвоутов');
+    ).toBe(
+      '&lt;this &amp; true&gt;\n\nr/memes · <a href="https://redd.it/abc123">↑50592</a>'
+    );
   });
 
-  test('truncates localized text while preserving metadata', () => {
+  test('truncates title while preserving linked metadata', () => {
     const caption = formatMemeCaption({
-      localizedTitle: 'очень длинный заголовок',
+      title: 'very long meme title',
       subreddit: 'memes',
-      upvotes: 1,
-      maxLength: 35
+      upvotes: 1_234,
+      permalink: 'https://redd.it/abc123',
+      maxLength: 64
     });
 
-    expect(caption).toBe('очень длинны…\n\nr/memes · 1 апвоутов');
+    expect(caption).toBe(
+      'very long…\n\nr/memes · <a href="https://redd.it/abc123">↑1234</a>'
+    );
   });
 
   test('does not truncate inside escaped HTML entities', () => {
     const caption = formatMemeCaption({
-      localizedTitle: '&&&&&&',
+      title: '&&&&&&',
       subreddit: 'memes',
       upvotes: 1,
-      maxLength: 31
+      permalink: 'https://redd.it/abc123',
+      maxLength: 57
     });
 
-    expect(caption).toBe('&amp;…\n\nr/memes · 1 апвоутов');
+    expect(caption).toBe(
+      '&amp;…\n\nr/memes · <a href="https://redd.it/abc123">↑1</a>'
+    );
     expect(caption).not.toContain('&am…');
   });
 });

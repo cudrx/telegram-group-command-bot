@@ -4,7 +4,6 @@ import { describe, expect, test, vi } from 'vitest';
 
 import { createIncomingMessage } from '../../database/support.js';
 import { FakeDatabaseClient } from '../support/fake-database.js';
-import { createReplyResult } from '../support/llm.js';
 import { createOrchestrator } from '../support/orchestrator.js';
 
 function memeApiListing(memes: unknown[]) {
@@ -27,7 +26,7 @@ function emptyMemeApiListing() {
 }
 
 describe('ChatOrchestrator /meme command', () => {
-  test('fetches a meme, localizes caption, sends media, saves history and bot message', async () => {
+  test('fetches a meme, sends original caption, saves history and bot message without LLM captioning', async () => {
     const db = new FakeDatabaseClient();
     const fetchMock = vi
       .fn()
@@ -49,9 +48,6 @@ describe('ChatOrchestrator /meme command', () => {
           headers: { 'Content-Length': '3' }
         })
       );
-    const generateMemeCaption = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('Это правда.'));
     const memeDispatcher = vi.fn().mockResolvedValue({
       messageId: 500,
       createdAt: '2026-05-11T10:00:00.000Z'
@@ -62,8 +58,7 @@ describe('ChatOrchestrator /meme command', () => {
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
       qwen: {
-        generateReply: vi.fn(),
-        generateMemeCaption
+        generateReply: vi.fn()
       },
       replyDispatcher: vi.fn(),
       memeDispatcher
@@ -77,18 +72,11 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(generateMemeCaption).toHaveBeenCalledWith({
-      title: "It's true.",
-      subreddit: 'memes',
-      upvotes: 50592,
-      permalink: 'https://redd.it/abc',
-      mediaKind: 'image'
-    });
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
         replyToMessageId: 10,
-        caption: 'Это правда.\n\nr/memes · 50 592 апвоутов',
+        caption: `It's true.\n\nr/memes · <a href="https://redd.it/abc">↑50592</a>`,
         media: expect.objectContaining({ kind: 'image' })
       })
     );
@@ -99,7 +87,7 @@ describe('ChatOrchestrator /meme command', () => {
       mediaKind: 'image'
     });
     expect(db.getMessageByTelegramMessageId(1, 500)).toMatchObject({
-      text: 'Это правда.\n\nr/memes · 50 592 апвоутов',
+      text: `It's true.\n\nr/memes · <a href="https://redd.it/abc">↑50592</a>`,
       isBot: true,
       replyToMessageId: 10
     });
@@ -116,7 +104,7 @@ describe('ChatOrchestrator /meme command', () => {
       permalink: '/r/blursed_videos/comments/seen/seen/',
       mediaKind: 'image',
       mediaUrl: 'https://i.redd.it/seen.jpeg',
-      upvotes: 1,
+      upvotes: 10,
       sentAt: '2026-05-10T00:00:00.000Z'
     });
     const fetchMock = vi
@@ -130,7 +118,7 @@ describe('ChatOrchestrator /meme command', () => {
             url: 'https://i.redd.it/seen.jpeg',
             nsfw: false,
             spoiler: false,
-            ups: 1
+            ups: 10
           }
         ])
       )
@@ -143,7 +131,7 @@ describe('ChatOrchestrator /meme command', () => {
             url: 'https://i.redd.it/fresh.jpeg',
             nsfw: false,
             spoiler: false,
-            ups: 2
+            ups: 20
           }
         ])
       )
@@ -154,10 +142,7 @@ describe('ChatOrchestrator /meme command', () => {
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
       qwen: {
-        generateReply: vi.fn(),
-        generateMemeCaption: vi
-          .fn()
-          .mockResolvedValue(createReplyResult('свежее'))
+        generateReply: vi.fn()
       },
       replyDispatcher: vi.fn(),
       memeDispatcher: vi.fn().mockResolvedValue({
@@ -190,7 +175,7 @@ describe('ChatOrchestrator /meme command', () => {
             url: 'https://i.redd.it/bad.jpeg',
             nsfw: false,
             spoiler: false,
-            ups: 1
+            ups: 10
           }
         ])
       )
@@ -204,7 +189,7 @@ describe('ChatOrchestrator /meme command', () => {
             url: 'https://i.redd.it/fresh.jpeg',
             nsfw: false,
             spoiler: false,
-            ups: 2
+            ups: 20
           }
         ])
       )
@@ -220,10 +205,7 @@ describe('ChatOrchestrator /meme command', () => {
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
       qwen: {
-        generateReply: vi.fn(),
-        generateMemeCaption: vi
-          .fn()
-          .mockResolvedValue(createReplyResult('готово'))
+        generateReply: vi.fn()
       },
       replyDispatcher,
       memeDispatcher
@@ -244,7 +226,6 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('sends local fallback without LLM when all attempted sources are exhausted', async () => {
     const db = new FakeDatabaseClient();
-    const generateMemeCaption = vi.fn();
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 600,
       createdAt: '2026-05-11T10:00:00.000Z'
@@ -255,8 +236,7 @@ describe('ChatOrchestrator /meme command', () => {
         .fn()
         .mockImplementation(() => Promise.resolve(emptyMemeApiListing())),
       qwen: {
-        generateReply: vi.fn(),
-        generateMemeCaption
+        generateReply: vi.fn()
       },
       replyDispatcher,
       memeDispatcher: vi.fn()
@@ -269,7 +249,6 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(generateMemeCaption).not.toHaveBeenCalled();
     expect(replyDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Мемы закончились, идите трогайте траву.'
@@ -311,8 +290,7 @@ describe('ChatOrchestrator /meme command', () => {
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
       qwen: {
-        generateReply: vi.fn(),
-        generateMemeCaption: vi.fn().mockResolvedValue(createReplyResult('ой'))
+        generateReply: vi.fn()
       },
       replyDispatcher: vi.fn().mockResolvedValue({
         messageId: 601,
@@ -337,5 +315,77 @@ describe('ChatOrchestrator /meme command', () => {
     expect(dispatchedFilePath).not.toBe('');
     expect(existsSync(dispatchedFilePath)).toBe(false);
     expect(db.savedMemePosts).toHaveLength(0);
+  });
+
+  test('skips candidates below the minimum upvote threshold', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        memeApiListing([
+          {
+            postLink: 'https://redd.it/zero',
+            subreddit: 'hmm',
+            title: 'zero',
+            url: 'https://i.redd.it/zero.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 0
+          },
+          {
+            postLink: 'https://redd.it/low',
+            subreddit: 'hmm',
+            title: 'low',
+            url: 'https://i.redd.it/low.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 9
+          }
+        ])
+      )
+      .mockResolvedValueOnce(
+        memeApiListing([
+          {
+            postLink: 'https://redd.it/fresh',
+            subreddit: 'marvelcirclejerk',
+            title: 'fresh',
+            url: 'https://i.redd.it/fresh.jpeg',
+            nsfw: false,
+            spoiler: false,
+            ups: 10
+          }
+        ])
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array([1])));
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 503,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/meme',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caption: `fresh\n\nr/marvelcirclejerk · <a href="https://redd.it/fresh">↑10</a>`
+      })
+    );
+    expect(db.savedMemePosts).toHaveLength(1);
+    expect(db.savedMemePosts[0]).toMatchObject({ redditPostId: 'fresh' });
   });
 });

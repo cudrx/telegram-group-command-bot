@@ -102,7 +102,9 @@ async function selectCandidateFromSubreddit(input: {
     retentionDays: input.deps.env.memeHistoryRetentionDays
   });
   const fresh = candidates.filter(
-    (candidate) => !seen.has(candidate.redditPostId)
+    (candidate) =>
+      candidate.upvotes >= memeActionConfig.listing.minUpvotes &&
+      !seen.has(candidate.redditPostId)
   );
 
   if (fresh.length === 0) return null;
@@ -123,17 +125,11 @@ async function sendCandidate(
   let downloaded: DownloadedMemeMedia | null = null;
 
   try {
-    const captionResult = await input.deps.qwen.generateMemeCaption({
+    const caption = formatMemeCaption({
       title: candidate.title,
       subreddit: candidate.subreddit,
       upvotes: candidate.upvotes,
       permalink: candidate.permalink,
-      mediaKind: candidate.media.kind
-    });
-    const caption = formatMemeCaption({
-      localizedTitle: captionResult.text,
-      subreddit: candidate.subreddit,
-      upvotes: candidate.upvotes,
       maxLength: memeActionConfig.caption.maxLength
     });
 

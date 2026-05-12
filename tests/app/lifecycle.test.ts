@@ -98,6 +98,9 @@ describe('createApplication lifecycle', () => {
       {
         caption: '<b>Мем</b>',
         parse_mode: 'HTML',
+        link_preview_options: {
+          is_disabled: true
+        },
         reply_parameters: {
           message_id: 11
         }
@@ -152,6 +155,9 @@ describe('createApplication lifecycle', () => {
       {
         caption: '<b>Анимация</b>',
         parse_mode: 'HTML',
+        link_preview_options: {
+          is_disabled: true
+        },
         reply_parameters: {
           message_id: 12
         }

@@ -73,11 +73,17 @@ export function createTelegramDispatchers(
         message_id: replyToMessageId
       }
     };
+    const linkPreviewOptions = {
+      link_preview_options: {
+        is_disabled: true
+      }
+    };
 
     if (media.kind === 'image') {
       const sent = await api.sendPhoto(chatId, new InputFile(media.filePath), {
         caption,
         parse_mode: 'HTML',
+        ...linkPreviewOptions,
         ...replyParameters
       });
 
@@ -90,6 +96,7 @@ export function createTelegramDispatchers(
       {
         caption,
         parse_mode: 'HTML',
+        ...linkPreviewOptions,
         ...replyParameters
       }
     );
