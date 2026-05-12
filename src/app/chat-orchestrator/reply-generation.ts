@@ -38,20 +38,10 @@ export async function executeReplyGeneration(input: {
   );
 
   if (request.intent === 'answer' && !replyContext.replyAnchorMessage) {
-    logger.warn(`${request.intent}_anchor_missing`, {
-      replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
-      replyToUserId: request.replyToMessageSnapshot?.userId ?? null
-    });
-
     return createLocalReplyResult(ANSWER_USAGE_PLACEHOLDER);
   }
 
   if (request.intent === 'translate' && !replyContext.replyAnchorMessage) {
-    logger.warn(`${request.intent}_anchor_missing`, {
-      replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
-      replyToUserId: request.replyToMessageSnapshot?.userId ?? null
-    });
-
     return createLocalReplyResult(TRANSLATE_USAGE_PLACEHOLDER);
   }
 

@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest';
 import type { NormalizedMessage } from '../../../src/domain/models.js';
 import {
   createIncomingMessage,
+  createLogger,
   createOrchestrator,
   createReplyResult,
   FakeDatabaseClient
@@ -122,6 +123,7 @@ describe('ChatOrchestrator reply anchors', () => {
 
   test('returns local answer placeholder when no usable reply anchor exists', async () => {
     const db = new FakeDatabaseClient();
+    const logger = createLogger();
     const generateReply = vi
       .fn()
       .mockResolvedValue(createReplyResult('не надо'));
@@ -131,6 +133,7 @@ describe('ChatOrchestrator reply anchors', () => {
     });
     const orchestrator = createOrchestrator({
       db,
+      logger,
       qwen: { generateReply },
       replyDispatcher
     });
@@ -149,5 +152,9 @@ describe('ChatOrchestrator reply anchors', () => {
       replyToMessageId: 2,
       text: 'Сделай reply на сообщение с вопросом и отправь /answer.'
     });
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      'answer_anchor_missing',
+      expect.anything()
+    );
   });
 });

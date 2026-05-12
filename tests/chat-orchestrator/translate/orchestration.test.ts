@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from 'vitest';
 
 import {
   createIncomingMessage,
+  createLogger,
   createLookupPlanResult,
   createOrchestrator,
   createReplyResult,
@@ -11,6 +12,7 @@ import {
 describe('ChatOrchestrator translate command', () => {
   test('returns usage placeholder when no usable reply target exists', async () => {
     const db = new FakeDatabaseClient();
+    const logger = createLogger();
     const generateReply = vi.fn().mockResolvedValue(createReplyResult('нет'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 1001,
@@ -18,6 +20,7 @@ describe('ChatOrchestrator translate command', () => {
     });
     const orchestrator = createOrchestrator({
       db,
+      logger,
       qwen: { generateReply },
       replyDispatcher
     });
@@ -36,6 +39,10 @@ describe('ChatOrchestrator translate command', () => {
       replyToMessageId: 2,
       text: 'Сделай reply на сообщение и отправь /translate.'
     });
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      'translate_anchor_missing',
+      expect.anything()
+    );
   });
 
   test('returns local placeholder when target text already looks Russian', async () => {
