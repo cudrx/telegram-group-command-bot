@@ -17,7 +17,8 @@ export async function dispatchMemeMedia(input: {
 
   return {
     messageId: sent.messageId,
-    createdAt: sent.createdAt
+    createdAt: sent.createdAt,
+    mediaSnapshot: sent.mediaSnapshot ?? null
   };
 }
 

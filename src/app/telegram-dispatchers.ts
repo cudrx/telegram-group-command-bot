@@ -1,4 +1,5 @@
 import { InputFile } from 'grammy';
+import type { MediaMessageSnapshot } from '../domain/models.js';
 import type {
   MemeDispatcher,
   ReplyDispatcher,
@@ -11,6 +12,11 @@ import type { TelegramChatAction } from './typing-indicator.js';
 type TelegramSentMessage = {
   message_id: number;
   date: number;
+  photo?: Array<{
+    file_id: string;
+    file_unique_id?: string;
+    file_size?: number;
+  }>;
 };
 
 type TelegramApi = {
@@ -86,8 +92,12 @@ export function createTelegramDispatchers(
         ...linkPreviewOptions,
         ...replyParameters
       });
+      const mediaSnapshot = toSentPhotoSnapshot(sent, caption);
 
-      return toSentBotMessage(sent);
+      return {
+        ...toSentBotMessage(sent),
+        ...(mediaSnapshot ? { mediaSnapshot } : {})
+      };
     }
 
     const sent = await api.sendAnimation(
@@ -146,5 +156,25 @@ function toSentBotMessage(sent: TelegramSentMessage): SentBotMessage {
   return {
     messageId: sent.message_id,
     createdAt: new Date(sent.date * 1000).toISOString()
+  };
+}
+
+function toSentPhotoSnapshot(
+  sent: TelegramSentMessage,
+  caption: string
+): MediaMessageSnapshot | null {
+  const photo = sent.photo?.at(-1);
+
+  if (!photo) return null;
+
+  return {
+    messageId: sent.message_id,
+    mediaKind: 'photo',
+    fileId: photo.file_id,
+    fileUniqueId: photo.file_unique_id ?? null,
+    mimeType: 'image/jpeg',
+    fileSize: photo.file_size ?? null,
+    durationSeconds: null,
+    caption
   };
 }

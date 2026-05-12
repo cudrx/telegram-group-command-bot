@@ -1,3 +1,5 @@
+import type { MediaMessageSnapshot } from '../../../domain/models.js';
+
 export type MemeMediaKind = 'image' | 'animation';
 
 export type ResolvedMemeMedia = ResolvedMemeImage | ResolvedMemeAnimation;
@@ -44,6 +46,7 @@ export type DownloadedMemeMedia = {
 export interface SentMemeMedia {
   messageId: number;
   createdAt: string;
+  mediaSnapshot?: MediaMessageSnapshot | null;
 }
 
 export function toMemeMediaKind(media: ResolvedMemeMedia): MemeMediaKind {

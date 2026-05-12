@@ -113,6 +113,7 @@ export class ChatOrchestrator {
       await runMemeJob({
         deps: this.deps,
         request,
+        mediaSupport: this.mediaSupport,
         logger
       });
       return;

@@ -7,6 +7,7 @@ import type {
 } from '../../../src/database/index.js';
 import type {
   ChatState,
+  MediaMessageSnapshot,
   NormalizedMessage,
   StoredMessage
 } from '../../../src/domain/models.js';
@@ -84,6 +85,7 @@ export class FakeDatabaseClient {
     displayName: string;
     replyToMessageId?: number | null;
     outputMode?: BotOutputMode;
+    mediaSnapshot?: MediaMessageSnapshot | null;
   }): void {
     const existingChat = this.chats.get(input.chatId);
     const chat: ChatState = {
@@ -112,7 +114,7 @@ export class FakeDatabaseClient {
       isBot: true,
       outputMode: input.outputMode ?? 'text',
       replyToMessageId: input.replyToMessageId ?? null,
-      mediaSnapshot: null
+      mediaSnapshot: input.mediaSnapshot ?? null
     });
   }
 

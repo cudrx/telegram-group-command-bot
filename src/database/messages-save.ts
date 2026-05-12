@@ -1,6 +1,10 @@
 import type Database from 'better-sqlite3';
 import { upsertChat } from './messages-chat.js';
-import type { BotOutputMode, NormalizedMessage } from './types.js';
+import type {
+  BotOutputMode,
+  MediaMessageSnapshot,
+  NormalizedMessage
+} from './types.js';
 
 type SaveBotMessageInput = {
   chatId: number;
@@ -14,6 +18,7 @@ type SaveBotMessageInput = {
   displayName: string;
   replyToMessageId?: number | null;
   outputMode?: BotOutputMode;
+  mediaSnapshot?: MediaMessageSnapshot | null;
 };
 
 type UpdateIncomingMessageEditInput = {
@@ -156,13 +161,13 @@ export function saveBotMessage(
         outgoing.createdAt,
         1,
         outgoing.replyToMessageId ?? null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
+        outgoing.mediaSnapshot?.mediaKind ?? null,
+        outgoing.mediaSnapshot?.fileId ?? null,
+        outgoing.mediaSnapshot?.fileUniqueId ?? null,
+        outgoing.mediaSnapshot?.mimeType ?? null,
+        outgoing.mediaSnapshot?.fileSize ?? null,
+        outgoing.mediaSnapshot?.durationSeconds ?? null,
+        outgoing.mediaSnapshot?.caption ?? null,
         null,
         outgoing.userId,
         outgoing.username,

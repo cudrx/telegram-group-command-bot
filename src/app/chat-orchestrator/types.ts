@@ -21,6 +21,7 @@ import type {
   VisionProvider
 } from '../../media/types.js';
 import type { TelegramChatAction } from '../typing-indicator.js';
+import type { MemeFrameExtractor } from './meme/frame-extractor.js';
 
 export type BotIdentity = {
   userId: number;
@@ -31,6 +32,7 @@ export type BotIdentity = {
 export type SentBotMessage = {
   messageId: number;
   createdAt: string;
+  mediaSnapshot?: MediaMessageSnapshot | null;
 };
 
 export type ReplyDispatcher = (input: {
@@ -119,6 +121,7 @@ export type ChatOrchestratorDeps = {
   voiceDispatcher: VoiceDispatcher;
   weeklyDispatcher: WeeklyDispatcher;
   memeDispatcher: MemeDispatcher;
+  memeFrameExtractor?: MemeFrameExtractor;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   delay: (ms: number) => Promise<void>;
   logger: AppLogger;

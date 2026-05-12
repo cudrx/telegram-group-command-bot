@@ -1,4 +1,7 @@
 import { existsSync } from 'node:fs';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
 
@@ -387,5 +390,103 @@ describe('ChatOrchestrator /meme command', () => {
     );
     expect(db.savedMemePosts).toHaveLength(1);
     expect(db.savedMemePosts[0]).toMatchObject({ redditPostId: 'fresh' });
+  });
+
+  test('extracts and recognizes a local frame after sending an animation meme', async () => {
+    const db = new FakeDatabaseClient();
+    const tempDirectories: string[] = [];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        memeApiListing([
+          {
+            postLink: 'https://redd.it/gif',
+            subreddit: 'memes',
+            title: 'gif title',
+            url: 'https://i.redd.it/a.gif',
+            nsfw: false,
+            spoiler: false,
+            ups: 11
+          }
+        ])
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])));
+    const frameExtractor = vi.fn().mockImplementation(async () => {
+      const directory = await mkdtemp(path.join(os.tmpdir(), 'meme-frame-'));
+      const filePath = path.join(directory, 'frame.jpg');
+
+      tempDirectories.push(directory);
+      await writeFile(filePath, new Uint8Array([7, 8, 9]));
+
+      return {
+        filePath,
+        bytes: 3,
+        cleanup: async () => {
+          await rm(directory, { recursive: true, force: true });
+        }
+      };
+    });
+    const ocrProvider = {
+      extractText: vi.fn().mockResolvedValue({
+        provider: 'ocr_space',
+        providerModel: 'ocr-space',
+        text: 'FRAME TEXT',
+        language: null,
+        rawResponse: { parsed: true }
+      })
+    };
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher: vi.fn().mockResolvedValue({
+        messageId: 504,
+        createdAt: '2026-05-11T10:00:00.000Z'
+      }),
+      memeFrameExtractor: frameExtractor,
+      ocrProvider
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/meme',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(frameExtractor).toHaveBeenCalledWith(
+      expect.objectContaining({ inputPath: expect.stringMatching(/\.gif$/) })
+    );
+    expect(ocrProvider.extractText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        filePath: expect.stringMatching(/frame\.jpg$/),
+        language: null
+      })
+    );
+    expect(db.getMessageByTelegramMessageId(1, 504)?.mediaSnapshot).toEqual(
+      expect.objectContaining({
+        messageId: 504,
+        mediaKind: 'document_image',
+        mimeType: 'image/jpeg',
+        fileSize: 3,
+        caption: expect.stringContaining('gif title')
+      })
+    );
+    expect(db.savedMediaArtifacts).toContainEqual(
+      expect.objectContaining({
+        telegramMessageId: 504,
+        mediaKind: 'document_image',
+        artifactKind: 'ocr_text_default',
+        artifactText: 'FRAME TEXT'
+      })
+    );
+    expect(tempDirectories.every((directory) => !existsSync(directory))).toBe(
+      true
+    );
   });
 });
