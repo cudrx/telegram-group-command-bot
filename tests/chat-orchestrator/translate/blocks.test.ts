@@ -98,6 +98,28 @@ describe('translate blocks', () => {
     ).toEqual([]);
   });
 
+  test('does not duplicate message text and caption when only permalink differs', () => {
+    const blocks = collectTranslateBlocks({
+      targetMessage: {
+        ...baseTarget,
+        text: 'Mark and Eve, sitting in a tree, .... ...\n\nr/okbuddyviltrum · ↑93 (https://redd.it/1taqtnt)'
+      },
+      mediaContext: {
+        ...emptyMediaContext,
+        sourceCaption:
+          'Mark and Eve, sitting in a tree, .... ...\n\nr/okbuddyviltrum · ↑93'
+      }
+    });
+
+    expect(blocks).toEqual([
+      {
+        kind: 'caption',
+        header: 'Подпись',
+        text: 'Mark and Eve, sitting in a tree, .... ...\n\nr/okbuddyviltrum · ↑93'
+      }
+    ]);
+  });
+
   test('detects ordinary Russian text without treating all Cyrillic as Russian', () => {
     expect(looksRussian('Привет, как дела?')).toBe(true);
     expect(looksRussian('Спасибо')).toBe(true);

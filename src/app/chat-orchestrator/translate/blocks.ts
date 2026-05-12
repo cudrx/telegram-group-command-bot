@@ -134,11 +134,22 @@ function addBlock(
 }
 
 function isSameNonEmptyText(
-  left: string | null,
-  right: string | null
+  messageText: string | null,
+  captionText: string | null
 ): boolean {
-  const normalizedLeft = left?.trim() ?? '';
-  const normalizedRight = right?.trim() ?? '';
+  const normalizedMessageText = normalizeSourceIdentity(messageText);
+  const normalizedCaptionText = normalizeSourceIdentity(captionText);
 
-  return normalizedLeft.length > 0 && normalizedLeft === normalizedRight;
+  return (
+    normalizedMessageText.length > 0 &&
+    normalizedMessageText === normalizedCaptionText
+  );
+}
+
+function normalizeSourceIdentity(text: string | null): string {
+  return (text ?? '')
+    .replace(/\(\s*https?:\/\/[^)]*\)/g, ' ')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
