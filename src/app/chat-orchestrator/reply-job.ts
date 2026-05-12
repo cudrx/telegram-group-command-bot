@@ -98,5 +98,35 @@ function normalizeGeneratedReplyText(
     return text;
   }
 
-  return text.replaceAll(/ *\\n */g, '\n');
+  return formatTranslateReplyBlocks(text.replaceAll(/ *\\n */g, '\n'));
+}
+
+function formatTranslateReplyBlocks(text: string): string {
+  const output: string[] = [];
+
+  for (const line of text.split('\n')) {
+    const header = parseTranslateHeader(line);
+
+    if (!header) {
+      output.push(line);
+      continue;
+    }
+
+    if (output.length > 0 && output.at(-1) !== '') {
+      output.push('');
+    }
+
+    output.push(`<b>${header}:</b>`);
+  }
+
+  return output.join('\n');
+}
+
+function parseTranslateHeader(line: string): string | null {
+  const match =
+    /^ *(?:<b>)?(Текст сообщения|Подпись|Текст на картинке|Расшифровка аудио|Описание изображения):(?:<\/b>)? *$/u.exec(
+      line
+    );
+
+  return match?.[1] ?? null;
 }

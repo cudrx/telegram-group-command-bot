@@ -144,7 +144,7 @@ describe('ChatOrchestrator translate command', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Текст сообщения:\nПривет, мир'
+      text: '<b>Текст сообщения:</b>\nПривет, мир'
     });
   });
 
@@ -187,7 +187,7 @@ describe('ChatOrchestrator translate command', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Текст на картинке:\nОтсканируй этого препода\nи скажи мне'
+      text: '<b>Текст на картинке:</b>\nОтсканируй этого препода\nи скажи мне'
     });
   });
 
@@ -245,7 +245,63 @@ describe('ChatOrchestrator translate command', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Текст сообщения:\nТекст на картинке'
+      text: '<b>Текст сообщения:</b>\nТекст на картинке'
+    });
+  });
+
+  test('formats translate block headers in bold with blank lines between blocks', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: 'caption',
+        createdAt: '2026-04-03T12:00:00.000Z'
+      })
+    );
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(
+        createReplyResult(
+          [
+            'Текст на картинке:',
+            'ШАКАЛ ПОСЛЕ ТОГО, КАК ЗАЯВИЛСЯ В',
+            'КОНКУРС «ЛЮБЛЮ ГВЕН СТЭЙСИ»,',
+            'Подпись:',
+            'И всё это ради самой посредственной любовной линии в истории'
+          ].join('\n')
+        )
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/translate',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }],
+        replyToMessageId: 1,
+        replyToUserId: 42
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: [
+        '<b>Текст на картинке:</b>',
+        'ШАКАЛ ПОСЛЕ ТОГО, КАК ЗАЯВИЛСЯ В',
+        'КОНКУРС «ЛЮБЛЮ ГВЕН СТЭЙСИ»,',
+        '',
+        '<b>Подпись:</b>',
+        'И всё это ради самой посредственной любовной линии в истории'
+      ].join('\n')
     });
   });
 
