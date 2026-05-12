@@ -84,6 +84,18 @@ export function getIntentDataSections(input: {
     });
   }
 
+  if (input.intent === 'translate') {
+    return [
+      'TARGET_MESSAGE_TO_TRANSLATE:',
+      formatSingleMessage(input.replyContext.replyAnchorMessage),
+      '',
+      'TRANSLATE_BLOCKS:',
+      formatTranslateBlocksForPrompt(
+        input.replyContext.replyAnchorMessage?.text
+      )
+    ].join('\n');
+  }
+
   return renderPromptTemplate(loadPrompt('systemGeneric'), {
     currentCommandMessage: formatCommandMessage(
       input.replyContext.triggerMessage
@@ -92,4 +104,18 @@ export function getIntentDataSections(input: {
       input.replyContext.priorContextMessages
     )
   });
+}
+
+function formatTranslateBlocksForPrompt(text: string | undefined): string {
+  const sanitized = sanitizePromptText(text ?? '');
+
+  if (
+    /^(Текст сообщения|Подпись|Текст на картинке|Расшифровка аудио|Описание изображения):/u.test(
+      sanitized
+    )
+  ) {
+    return sanitized;
+  }
+
+  return ['Текст сообщения:', sanitized].join('\n');
 }

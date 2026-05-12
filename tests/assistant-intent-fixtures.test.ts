@@ -10,11 +10,14 @@ describe('intent eval fixtures', () => {
       intentEvalFixtures.map((fixture) => fixture.intent)
     );
 
-    expect(coveredIntents).toEqual(new Set(['answer', 'decide', 'summarize']));
+    expect(coveredIntents).toEqual(
+      new Set(['answer', 'decide', 'summarize', 'translate'])
+    );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
       'answer-factual-question',
       'summarize-basic-discussion',
-      'decide-basic-dispute'
+      'decide-basic-dispute',
+      'translate-basic-message'
     ]);
   });
 
@@ -23,14 +26,18 @@ describe('intent eval fixtures', () => {
       const prompt = buildIntentPrompt(fixture);
 
       expect(prompt).toContain(`The selected task mode is: ${fixture.intent}`);
-      expect(prompt).toContain('BEGIN CHAT TRANSCRIPT');
-      expect(prompt).toContain('END CHAT TRANSCRIPT');
+      if (fixture.intent === 'translate') {
+        expect(prompt).toContain('TRANSLATE_BLOCKS:');
+      } else {
+        expect(prompt).toContain('BEGIN CHAT TRANSCRIPT');
+        expect(prompt).toContain('END CHAT TRANSCRIPT');
+      }
     }
   });
 
   test('reply-target fixtures use anchors instead of command arguments', () => {
     const replyTargetFixtures = intentEvalFixtures.filter(
-      (fixture) => fixture.intent === 'answer'
+      (fixture) => fixture.intent === 'answer' || fixture.intent === 'translate'
     );
 
     expect(replyTargetFixtures.length).toBeGreaterThan(0);

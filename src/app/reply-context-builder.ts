@@ -52,7 +52,10 @@ function buildReplyAnchorMessage(
     botUserId: number;
   }
 ): StoredMessage | null {
-  if (input.intent !== 'answer' || !input.triggerMessage.replyToMessageId) {
+  if (
+    !usesReplyAnchor(input.intent) ||
+    !input.triggerMessage.replyToMessageId
+  ) {
     return null;
   }
 
@@ -66,6 +69,10 @@ function buildReplyAnchorMessage(
   }
 
   return anchor;
+}
+
+function usesReplyAnchor(intent: AssistantIntent): boolean {
+  return intent === 'answer' || intent === 'translate';
 }
 
 function buildPriorContextMessages(

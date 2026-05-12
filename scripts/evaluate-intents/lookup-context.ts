@@ -7,7 +7,8 @@ export function createEvalLookupContext(
   if (
     !fixture.lookupExpectation ||
     fixture.intent === 'summarize' ||
-    fixture.intent === 'read'
+    fixture.intent === 'read' ||
+    fixture.intent === 'translate'
   ) {
     return null;
   }

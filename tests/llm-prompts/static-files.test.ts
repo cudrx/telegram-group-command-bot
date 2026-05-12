@@ -19,6 +19,9 @@ describe('LLM prompt files', () => {
     expect(readFileSync('llm/reply/answer.md', 'utf8')).toContain(
       'You are in ANSWER mode.'
     );
+    expect(readFileSync('llm/reply/translate.md', 'utf8')).toContain(
+      'You are in TRANSLATE mode.'
+    );
     expect(readFileSync('llm/reply/shell.md', 'utf8')).toContain(
       '{{dataSections}}'
     );

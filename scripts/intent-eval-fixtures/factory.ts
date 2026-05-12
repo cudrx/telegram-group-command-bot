@@ -60,7 +60,7 @@ export function createFixture(input: {
         replyToMessageId: input.replyAnchorText ? anchorMessageId : null
       },
       replyAnchorMessage:
-        input.replyAnchorText && input.intent === 'answer'
+        input.replyAnchorText && usesReplyAnchor(input.intent)
           ? {
               chatId: 1,
               messageId: anchorMessageId,
@@ -88,4 +88,8 @@ export function createFixture(input: {
   }
 
   return fixture;
+}
+
+function usesReplyAnchor(intent: ReplyGenerationIntent): boolean {
+  return intent === 'answer' || intent === 'translate';
 }

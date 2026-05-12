@@ -50,5 +50,7 @@ function getIntentPrompt(intent: ReplyGenerationIntent): string {
       return loadPrompt('read');
     case 'answer':
       return loadPrompt('answer');
+    case 'translate':
+      return loadPrompt('translate');
   }
 }

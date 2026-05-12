@@ -47,7 +47,7 @@ export class ChatOrchestratorMediaSupport {
     replyContext: ReplyContext,
     logger: AppLogger
   ): Promise<DescribeMediaContext | null> {
-    if (request.intent !== 'answer') {
+    if (request.intent !== 'answer' && request.intent !== 'translate') {
       return null;
     }
 
@@ -185,7 +185,7 @@ export class ChatOrchestratorMediaSupport {
     request: ReplyRequest,
     replyContext: ReplyContext
   ): MediaMessageSnapshot[] {
-    if (request.intent === 'answer') {
+    if (request.intent === 'answer' || request.intent === 'translate') {
       const target = getTargetMediaSnapshot(request, replyContext);
       return target ? [target] : [];
     }

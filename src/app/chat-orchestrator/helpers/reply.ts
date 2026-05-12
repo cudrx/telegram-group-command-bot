@@ -10,6 +10,12 @@ import type { ChatOrchestratorDeps } from '../types.js';
 
 export const ANSWER_USAGE_PLACEHOLDER =
   'Сделай reply на сообщение с вопросом и отправь /answer.';
+export const TRANSLATE_USAGE_PLACEHOLDER =
+  'Сделай reply на сообщение и отправь /translate.';
+export const TRANSLATE_NO_MATERIAL_PLACEHOLDER =
+  'Нечего переводить: сделай reply на текст, подпись, картинку или голосовое.';
+export const TRANSLATE_ALREADY_RUSSIAN_PLACEHOLDER =
+  'Похоже, это уже на русском.';
 
 export function withReplySnapshotFallback(
   context: ReplyContext,
@@ -20,7 +26,7 @@ export function withReplySnapshotFallback(
   }
 ): ReplyContext {
   if (
-    input.intent !== 'answer' ||
+    !usesReplySnapshotFallback(input.intent) ||
     context.replyAnchorMessage ||
     !input.replyToMessageSnapshot ||
     input.replyToMessageSnapshot.userId === input.botUserId
@@ -47,6 +53,8 @@ export function getContextLimitForIntent(
       return 0;
     case 'answer':
       return env.answerContextLimit;
+    case 'translate':
+      return 0;
   }
 }
 
@@ -59,6 +67,10 @@ export function createLocalReplyResult(text: string): LlmReplyResult {
     attemptCount: 0,
     promptTokensEstimate: 0
   };
+}
+
+function usesReplySnapshotFallback(intent: ReplyGenerationIntent): boolean {
+  return intent === 'answer' || intent === 'translate';
 }
 
 export function runWithReplyTyping<T>(
