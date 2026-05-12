@@ -108,5 +108,27 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
       ],
       mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
     }
+  }),
+  createFixture({
+    id: 'translate-basic-message',
+    intent: 'translate',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:30:00.000Z', 'Артём', 'переведи']],
+    triggerText: '/translate',
+    replyAnchorText: 'Hello, see you tomorrow',
+    rubric: {
+      mustIncludeAny: [
+        ['Привет', 'Здравствуйте'],
+        ['увидимся', 'до завтра']
+      ],
+      mustIncludeAll: ['Текст сообщения:'],
+      mustMatchRegex: ['^Текст сообщения:\\s*[\\s\\S]+'],
+      mustNotIncludeAny: [
+        ['Translate', 'translation'],
+        ['перевод:', 'Перевод:'],
+        ['I will', 'Here is']
+      ],
+      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*', '<b>', '(^|\\n)\\s*Summary\\s*:']
+    }
   })
 ];

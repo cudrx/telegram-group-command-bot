@@ -8,6 +8,7 @@ export const PROMPT_FILE_PATHS = {
   decide: 'llm/reply/decide.md',
   read: 'llm/reply/read.md',
   answer: 'llm/reply/answer.md',
+  translate: 'llm/reply/translate.md',
   weekly: 'llm/reply/weekly.md',
   memeCaption: 'llm/reply/meme-caption.md',
   systemAnswer: 'llm/system/answer.md',

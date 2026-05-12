@@ -149,4 +149,45 @@ describe('buildIntentPrompt chat intent response shapes', () => {
     expect(prompt).not.toContain('Optional final line:');
     expect(prompt).not.toContain('кто прав');
   });
+
+  test('builds translate prompt with target translation blocks', () => {
+    const prompt = buildIntentPrompt({
+      assistantInstructions: 'отвечай кратко',
+      targetDisplayName: 'Tom',
+      intent: 'translate',
+      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
+      replyContext: {
+        triggerMessage: {
+          chatId: 1,
+          messageId: 3,
+          userId: 1,
+          senderDisplayName: 'Tom',
+          text: '/translate ignored text',
+          createdAt: '2026-04-03T12:00:00.000Z',
+          isBot: false,
+          replyToMessageId: 2
+        },
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 2,
+          senderDisplayName: 'Alice',
+          text: 'Hello world',
+          createdAt: '2026-04-03T12:00:00.000Z',
+          isBot: false,
+          replyToMessageId: null
+        },
+        priorContextMessages: []
+      }
+    });
+
+    expect(prompt).toContain('The selected task mode is: translate');
+    expect(prompt).toContain('You are in TRANSLATE mode.');
+    expect(prompt).toContain('Translate the provided blocks to Russian.');
+    expect(prompt).toContain('TRANSLATE_BLOCKS:');
+    expect(prompt).toContain('TARGET_MESSAGE_TO_TRANSLATE:');
+    expect(prompt).toContain('Текст сообщения:');
+    expect(prompt).toContain('Hello world');
+    expect(prompt).not.toContain('ignored text');
+  });
 });

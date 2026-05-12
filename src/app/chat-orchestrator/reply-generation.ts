@@ -6,10 +6,12 @@ import {
   ANSWER_USAGE_PLACEHOLDER,
   createLocalReplyResult,
   getContextLimitForIntent,
+  TRANSLATE_USAGE_PLACEHOLDER,
   withReplySnapshotFallback
 } from './helpers/reply.js';
 import { buildLookupContext } from './lookup.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
+import { prepareTranslateReply } from './translate/index.js';
 import type { ChatOrchestratorDeps, ReplyJobRequest } from './types.js';
 
 export async function executeReplyGeneration(input: {
@@ -44,6 +46,15 @@ export async function executeReplyGeneration(input: {
     return createLocalReplyResult(ANSWER_USAGE_PLACEHOLDER);
   }
 
+  if (request.intent === 'translate' && !replyContext.replyAnchorMessage) {
+    logger.warn(`${request.intent}_anchor_missing`, {
+      replyToMessageId: replyContext.triggerMessage?.replyToMessageId ?? null,
+      replyToUserId: request.replyToMessageSnapshot?.userId ?? null
+    });
+
+    return createLocalReplyResult(TRANSLATE_USAGE_PLACEHOLDER);
+  }
+
   const mediaGate = await mediaSupport.waitForRequiredMedia(
     request,
     replyContext,
@@ -73,6 +84,20 @@ export async function executeReplyGeneration(input: {
     replyContext,
     logger
   );
+
+  if (request.intent === 'translate') {
+    const translatePreparation = prepareTranslateReply({
+      request,
+      replyContext,
+      mediaContext: targetMediaContext
+    });
+
+    if (!translatePreparation.ok) {
+      return translatePreparation.result;
+    }
+
+    replyContext = translatePreparation.replyContext;
+  }
 
   const assistantInstructions = loadPrompt('base');
   const lookupContext = await buildLookupContext(deps, {

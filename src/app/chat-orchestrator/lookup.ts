@@ -18,7 +18,11 @@ export async function buildLookupContext(
     logger: AppLogger;
   }
 ): Promise<LookupContext | null> {
-  if (input.intent === 'summarize' || input.intent === 'read') {
+  if (
+    input.intent === 'summarize' ||
+    input.intent === 'read' ||
+    input.intent === 'translate'
+  ) {
     return null;
   }
 

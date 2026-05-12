@@ -1,6 +1,9 @@
 import type { AssistantIntent } from '../domain/models.js';
 
-export type LookupIntent = Exclude<AssistantIntent, 'summarize' | 'read'>;
+export type LookupIntent = Exclude<
+  AssistantIntent,
+  'summarize' | 'read' | 'translate'
+>;
 
 export type LookupPurpose =
   | 'none'

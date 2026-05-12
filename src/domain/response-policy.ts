@@ -31,6 +31,7 @@ const CHAT_COMMAND_INTENTS: Record<string, AssistantIntent> = {
   decide: 'decide',
   read: 'read',
   answer: 'answer',
+  translate: 'translate',
   meme: 'meme'
 };
 

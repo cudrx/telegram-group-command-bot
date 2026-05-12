@@ -12,6 +12,7 @@ export type AssistantIntent =
   | 'decide'
   | 'read'
   | 'answer'
+  | 'translate'
   | 'meme';
 
 export type ReplyGenerationIntent = Exclude<AssistantIntent, 'meme'>;

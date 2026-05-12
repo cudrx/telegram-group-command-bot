@@ -10,7 +10,8 @@ describe('detectDirectTrigger', () => {
     ['/summarize', 'summarize'],
     ['/decide', 'decide'],
     ['/read', 'read'],
-    ['/answer', 'answer']
+    ['/answer', 'answer'],
+    ['/translate', 'translate']
   ] as const)('returns %s command intent in chat mode', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
@@ -55,7 +56,8 @@ describe('detectDirectTrigger', () => {
     ['/summarize@fun_bot', 'summarize'],
     ['/decide@fun_bot', 'decide'],
     ['/read@fun_bot', 'read'],
-    ['/answer@fun_bot', 'answer']
+    ['/answer@fun_bot', 'answer'],
+    ['/translate@fun_bot', 'translate']
   ] as const)('returns %s bot-suffixed command intent in chat mode', (commandText, intent) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
@@ -156,7 +158,8 @@ describe('detectDirectTrigger', () => {
     '/summarize',
     '/decide',
     '/read',
-    '/answer'
+    '/answer',
+    '/translate'
   ] as const)('returns none for %s command in private admin mode', (commandText) => {
     const trigger = detectDirectTrigger({
       botUserId: 77,
