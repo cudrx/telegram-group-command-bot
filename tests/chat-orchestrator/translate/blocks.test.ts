@@ -30,7 +30,7 @@ const emptyMediaContext: DescribeMediaContext = {
 };
 
 describe('translate blocks', () => {
-  test('collects message text, caption, OCR, and transcript blocks in display order', () => {
+  test('collects message text, OCR, transcript, and caption blocks in display order', () => {
     const blocks = collectTranslateBlocks({
       targetMessage: { ...baseTarget, text: 'Hello' },
       mediaContext: {
@@ -47,13 +47,13 @@ describe('translate blocks', () => {
 
     expect(blocks).toEqual([
       { kind: 'message_text', header: 'Текст сообщения', text: 'Hello' },
-      { kind: 'caption', header: 'Подпись', text: 'photo caption' },
       { kind: 'image_text', header: 'Текст на картинке', text: 'SALE TODAY' },
       {
         kind: 'audio_transcript',
         header: 'Расшифровка аудио',
         text: 'voice note'
-      }
+      },
+      { kind: 'caption', header: 'Подпись', text: 'photo caption' }
     ]);
   });
 
@@ -115,7 +115,7 @@ describe('translate blocks', () => {
       {
         kind: 'caption',
         header: 'Подпись',
-        text: 'Mark and Eve, sitting in a tree, .... ...\n\nr/okbuddyviltrum · ↑93'
+        text: 'Mark and Eve, sitting in a tree, .... ...'
       }
     ]);
   });
@@ -137,7 +137,36 @@ describe('translate blocks', () => {
       {
         kind: 'caption',
         header: 'Подпись',
-        text: 'All this for the middest love interest in history\n\nr/marvelcirclejerk · <a href="https://redd.it/1t8eay6">↑114</a>'
+        text: 'All this for the middest love interest in history'
+      }
+    ]);
+  });
+
+  test('puts image text before cleaned meme caption', () => {
+    const blocks = collectTranslateBlocks({
+      targetMessage: {
+        ...baseTarget,
+        text: 'All this for the middest love interest in history\n\nr/marvelcirclejerk · ↑114 (https://redd.it/1t8eay6)'
+      },
+      mediaContext: {
+        ...emptyMediaContext,
+        sourceCaption:
+          'All this for the middest love interest in history\n\nr/marvelcirclejerk · <a href="https://redd.it/1t8eay6">↑114</a>',
+        ocrTextDefault:
+          'THE JACKAL AFTER ENTERING A LOVING GWEN STACEY COMPETITION'
+      }
+    });
+
+    expect(blocks).toEqual([
+      {
+        kind: 'image_text',
+        header: 'Текст на картинке',
+        text: 'THE JACKAL AFTER ENTERING A LOVING GWEN STACEY COMPETITION'
+      },
+      {
+        kind: 'caption',
+        header: 'Подпись',
+        text: 'All this for the middest love interest in history'
       }
     ]);
   });

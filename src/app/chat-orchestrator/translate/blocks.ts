@@ -33,15 +33,9 @@ export function collectTranslateBlocks(input: {
     addBlock(blocks, {
       kind: 'message_text',
       header: 'Текст сообщения',
-      text: targetText
+      text: cleanMessageOrCaptionText(targetText)
     });
   }
-
-  addBlock(blocks, {
-    kind: 'caption',
-    header: 'Подпись',
-    text: mediaCaption
-  });
 
   const ocrText =
     input.mediaContext?.ocrTextRu || input.mediaContext?.ocrTextDefault || null;
@@ -68,6 +62,12 @@ export function collectTranslateBlocks(input: {
         null
     });
   }
+
+  addBlock(blocks, {
+    kind: 'caption',
+    header: 'Подпись',
+    text: cleanMessageOrCaptionText(mediaCaption)
+  });
 
   return blocks;
 }
@@ -154,4 +154,28 @@ function normalizeSourceIdentity(text: string | null): string {
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function cleanMessageOrCaptionText(text: string | null): string | null {
+  if (!text) {
+    return null;
+  }
+
+  return text
+    .split('\n')
+    .filter((line) => !isRedditAttributionLine(line))
+    .join('\n')
+    .trim();
+}
+
+function isRedditAttributionLine(line: string): boolean {
+  const normalized = line
+    .replace(/\s+href=["']https?:\/\/[^"']*["']/g, ' ')
+    .replace(/<\/?[^>]+>/g, ' ')
+    .replace(/\(\s*https?:\/\/[^)]*\)/g, ' ')
+    .replace(/https?:\/\/\S+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return /^r\/[A-Za-z0-9_]+(?:\s*·\s*↑?\d+)?$/u.test(normalized);
 }
