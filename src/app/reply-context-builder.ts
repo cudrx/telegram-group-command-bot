@@ -64,7 +64,10 @@ function buildReplyAnchorMessage(
     input.triggerMessage.replyToMessageId
   );
 
-  if (!anchor || anchor.userId === input.botUserId) {
+  if (
+    !anchor ||
+    (anchor.userId === input.botUserId && input.intent !== 'translate')
+  ) {
     return null;
   }
 

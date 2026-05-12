@@ -141,6 +141,107 @@ describe('ChatOrchestrator translate command', () => {
     });
   });
 
+  test('normalizes escaped newlines in translate LLM output before sending', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: 'Scan this lecturer',
+        createdAt: '2026-04-03T12:00:00.000Z'
+      })
+    );
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(
+        createReplyResult(
+          'Текст на картинке: \\n Отсканируй этого препода \\n и скажи мне'
+        )
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/translate',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }],
+        replyToMessageId: 1,
+        replyToUserId: 42
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Текст на картинке:\nОтсканируй этого препода\nи скажи мне'
+    });
+  });
+
+  test('allows translate to target this bot own previous message', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        fromUserId: 77,
+        fromUsername: 'fun_bot',
+        fromDisplayName: 'Fun Bot',
+        isBot: true,
+        text: 'Text on image:\nScan this lecturer',
+        createdAt: '2026-04-03T12:00:00.000Z'
+      })
+    );
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(
+        createReplyResult('Текст сообщения:\nТекст на картинке')
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/translate',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }],
+        replyToMessageId: 1,
+        replyToUserId: 77
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'translate',
+        replyContext: expect.objectContaining({
+          replyAnchorMessage: expect.objectContaining({
+            messageId: 1,
+            userId: 77,
+            isBot: true,
+            text: 'Текст сообщения:\nText on image:\nScan this lecturer'
+          })
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Текст сообщения:\nТекст на картинке'
+    });
+  });
+
   test('omits already-Russian media caption and translates non-Russian OCR block', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(

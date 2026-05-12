@@ -53,7 +53,11 @@ export async function runReplyJob(input: {
       return;
     }
 
-    const replyText = formatTelegramHtmlReply(result.text, {
+    const generatedText = normalizeGeneratedReplyText(
+      result.text,
+      request.intent
+    );
+    const replyText = formatTelegramHtmlReply(generatedText, {
       intent: request.intent
     });
 
@@ -61,9 +65,12 @@ export async function runReplyJob(input: {
       deps,
       request,
       logger,
-      generatedText: result.text,
+      generatedText,
       formattedText: replyText,
-      llmResult: result
+      llmResult: {
+        ...result,
+        text: generatedText
+      }
     });
 
     logger.debug('reply_job_completed', {
@@ -81,4 +88,15 @@ export async function runReplyJob(input: {
       ...serializeError(error)
     });
   }
+}
+
+function normalizeGeneratedReplyText(
+  text: string,
+  intent: ReplyJobRequest['intent']
+): string {
+  if (intent !== 'translate') {
+    return text;
+  }
+
+  return text.replaceAll(/ *\\n */g, '\n');
 }

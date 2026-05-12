@@ -29,7 +29,8 @@ export function withReplySnapshotFallback(
     !usesReplySnapshotFallback(input.intent) ||
     context.replyAnchorMessage ||
     !input.replyToMessageSnapshot ||
-    input.replyToMessageSnapshot.userId === input.botUserId
+    (input.replyToMessageSnapshot.userId === input.botUserId &&
+      input.intent !== 'translate')
   ) {
     return context;
   }
