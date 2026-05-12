@@ -148,6 +148,8 @@ function isSameNonEmptyText(
 
 function normalizeSourceIdentity(text: string | null): string {
   return (text ?? '')
+    .replace(/\s+href=["']https?:\/\/[^"']*["']/g, ' ')
+    .replace(/<\/?[^>]+>/g, ' ')
     .replace(/\(\s*https?:\/\/[^)]*\)/g, ' ')
     .replace(/https?:\/\/\S+/g, ' ')
     .replace(/\s+/g, ' ')

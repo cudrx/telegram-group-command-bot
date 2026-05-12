@@ -15,9 +15,10 @@ export const memeActionConfig = {
     'okbuddyviltrum',
     // 'PeopleFuckingDying',
     // 'perfectlycutscreams',
-    'shitposting'
-    // 'ShittyMovieDetails'
-    // 'SipsTea'
+    'shitposting',
+    // 'ShittyMovieDetails',
+    // 'SipsTea',
+    'soccercirclejerk'
     // 'TikTokCringe',
     // 'Unexpected',
     // 'WatchPeopleDieInside'

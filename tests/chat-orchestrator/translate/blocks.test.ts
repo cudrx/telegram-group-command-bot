@@ -120,6 +120,28 @@ describe('translate blocks', () => {
     ]);
   });
 
+  test('does not duplicate message text and caption when caption keeps Telegram HTML link', () => {
+    const blocks = collectTranslateBlocks({
+      targetMessage: {
+        ...baseTarget,
+        text: 'All this for the middest love interest in history\n\nr/marvelcirclejerk · ↑114 (https://redd.it/1t8eay6)'
+      },
+      mediaContext: {
+        ...emptyMediaContext,
+        sourceCaption:
+          'All this for the middest love interest in history\n\nr/marvelcirclejerk · <a href="https://redd.it/1t8eay6">↑114</a>'
+      }
+    });
+
+    expect(blocks).toEqual([
+      {
+        kind: 'caption',
+        header: 'Подпись',
+        text: 'All this for the middest love interest in history\n\nr/marvelcirclejerk · <a href="https://redd.it/1t8eay6">↑114</a>'
+      }
+    ]);
+  });
+
   test('detects ordinary Russian text without treating all Cyrillic as Russian', () => {
     expect(looksRussian('Привет, как дела?')).toBe(true);
     expect(looksRussian('Спасибо')).toBe(true);
