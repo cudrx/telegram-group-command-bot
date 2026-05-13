@@ -52,17 +52,20 @@ function buildReplyAnchorMessage(
     botUserId: number;
   }
 ): StoredMessage | null {
-  if (
-    !usesReplyAnchor(input.intent) ||
-    !input.triggerMessage.replyToMessageId
-  ) {
+  if (!usesReplyAnchor(input.intent)) {
     return null;
   }
 
-  const anchor = db.getMessageByTelegramMessageId(
-    input.chatId,
-    input.triggerMessage.replyToMessageId
-  );
+  const anchor = input.triggerMessage.replyToMessageId
+    ? db.getMessageByTelegramMessageId(
+        input.chatId,
+        input.triggerMessage.replyToMessageId
+      )
+    : buildAnswerPreviousMessageAnchor(db, {
+        chatId: input.chatId,
+        triggerMessage: input.triggerMessage,
+        intent: input.intent
+      });
 
   if (
     !anchor ||
@@ -72,6 +75,24 @@ function buildReplyAnchorMessage(
   }
 
   return anchor;
+}
+
+function buildAnswerPreviousMessageAnchor(
+  db: ReplyContextDb,
+  input: {
+    chatId: number;
+    triggerMessage: StoredMessage;
+    intent: AssistantIntent;
+  }
+): StoredMessage | null {
+  if (input.intent !== 'answer') {
+    return null;
+  }
+
+  return (
+    db.getMessagesBefore(input.chatId, input.triggerMessage.messageId, 1)[0] ??
+    null
+  );
 }
 
 function usesReplyAnchor(intent: AssistantIntent): boolean {

@@ -234,6 +234,85 @@ test('uses a replied-to non-self message as answer anchor', () => {
   });
 });
 
+test('uses previous non-self message as answer anchor when answer has no reply', () => {
+  const db = new FakeDatabaseClient();
+
+  db.seedStoredMessages(1, [
+    {
+      messageId: 98,
+      userId: 42,
+      senderDisplayName: 'Tom',
+      text: 'кто такой джон голт?',
+      isBot: false,
+      replyToMessageId: null,
+      createdAt: '2026-04-10T11:59:50.000Z',
+      chatId: 1
+    },
+    {
+      messageId: 99,
+      userId: 43,
+      senderDisplayName: 'Max',
+      text: '/answer',
+      isBot: false,
+      replyToMessageId: null,
+      createdAt: '2026-04-10T12:00:00.000Z',
+      chatId: 1
+    }
+  ]);
+
+  const context = buildReplyContext({
+    db,
+    chatId: 1,
+    triggerMessageId: 99,
+    contextLimit: 3,
+    intent: 'answer',
+    botUserId: 77
+  });
+
+  expect(context.replyAnchorMessage).toMatchObject({
+    messageId: 98,
+    text: 'кто такой джон голт?'
+  });
+});
+
+test("does not use this bot's previous message as answer anchor without reply", () => {
+  const db = new FakeDatabaseClient();
+
+  db.seedStoredMessages(1, [
+    {
+      messageId: 98,
+      userId: 77,
+      senderDisplayName: 'Fun Bot',
+      text: 'мой старый ответ',
+      isBot: true,
+      replyToMessageId: null,
+      createdAt: '2026-04-10T11:59:50.000Z',
+      chatId: 1
+    },
+    {
+      messageId: 99,
+      userId: 43,
+      senderDisplayName: 'Max',
+      text: '/answer',
+      isBot: false,
+      replyToMessageId: null,
+      createdAt: '2026-04-10T12:00:00.000Z',
+      chatId: 1
+    }
+  ]);
+
+  const context = buildReplyContext({
+    db,
+    chatId: 1,
+    triggerMessageId: 99,
+    contextLimit: 3,
+    intent: 'answer',
+    botUserId: 77
+  });
+
+  expect(context.replyAnchorMessage).toBe(null);
+});
+
 test('ignores reply anchors for decide and summarize', () => {
   const db = new FakeDatabaseClient();
 

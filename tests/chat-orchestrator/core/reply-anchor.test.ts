@@ -121,6 +121,61 @@ describe('ChatOrchestrator reply anchors', () => {
     });
   });
 
+  test('uses previous message as answer request anchor when no reply exists', async () => {
+    const db = new FakeDatabaseClient();
+    db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        fromUserId: 42,
+        fromDisplayName: 'Tom',
+        text: 'кто такой джон голт?',
+        createdAt: '2026-04-03T12:00:00.000Z'
+      })
+    );
+
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(
+        createReplyResult('персонаж из Атлант расправил плечи')
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 1001,
+      createdAt: '2026-04-03T12:00:30.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 2,
+        text: '/answer',
+        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+      })
+    );
+
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: 'answer',
+        replyContext: expect.objectContaining({
+          triggerMessage: expect.objectContaining({ messageId: 2 }),
+          replyAnchorMessage: expect.objectContaining({
+            messageId: 1,
+            isBot: false,
+            text: 'кто такой джон голт?'
+          })
+        })
+      })
+    );
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'персонаж из Атлант расправил плечи'
+    });
+  });
+
   test('returns local answer placeholder when no usable reply anchor exists', async () => {
     const db = new FakeDatabaseClient();
     const logger = createLogger();

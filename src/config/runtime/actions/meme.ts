@@ -6,7 +6,7 @@ export const memeActionConfig = {
     'hmm',
     'marvelcirclejerk',
     'MarvelRivalsCirclejer',
-    'nbacirclejerk',
+    // 'nbacirclejerk',
     'okbuddychicanery',
     'okbuddycinephile',
     'OkBuddyFresca',
@@ -16,7 +16,7 @@ export const memeActionConfig = {
     // 'PeopleFuckingDying',
     // 'perfectlycutscreams',
     'shitposting',
-    // 'ShittyMovieDetails',
+    'ShittyMovieDetails',
     // 'SipsTea',
     'soccercirclejerk'
     // 'TikTokCringe',
