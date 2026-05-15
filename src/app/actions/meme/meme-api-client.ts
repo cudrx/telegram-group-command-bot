@@ -18,8 +18,6 @@ export interface MemeApiSourceClientOptions {
 
 const DEFAULT_BASE_URL = 'https://meme-api.com/gimme';
 const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp']);
-const ANIMATION_EXTENSIONS = new Set(['gif', 'mp4']);
-const REDDIT_IMAGE_HOSTS = new Set(['i.redd.it', 'preview.redd.it']);
 
 export function createMemeApiSourceClient(
   options: MemeApiSourceClientOptions = {}
@@ -117,17 +115,6 @@ function resolveMedia(url: string): ResolvedMemeMedia | null {
       kind: 'image',
       mediaUrl,
       extension: extension as 'jpg' | 'jpeg' | 'png' | 'webp'
-    };
-  }
-
-  if (
-    ANIMATION_EXTENSIONS.has(extension) &&
-    REDDIT_IMAGE_HOSTS.has(parsed.hostname)
-  ) {
-    return {
-      kind: 'animation',
-      mediaUrl,
-      extension: extension as 'gif' | 'mp4'
     };
   }
 

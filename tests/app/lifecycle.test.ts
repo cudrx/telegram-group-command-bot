@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
-  botSendAnimation,
   botSendMessage,
   botSendPhoto,
   botStart,
@@ -109,63 +108,6 @@ describe('createApplication lifecycle', () => {
     expect(sent).toEqual({
       messageId: 45,
       createdAt: '2025-04-07T04:26:41.000Z'
-    });
-  });
-
-  test('sends meme animations with Telegram HTML captions', async () => {
-    const { createApplication } = await importCreateApplication();
-    await createApplication(createEnv());
-
-    botSendAnimation.mockResolvedValue({
-      message_id: 46,
-      date: 1_744_000_002
-    });
-
-    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
-      | {
-          memeDispatcher?: (input: {
-            chatId: number;
-            replyToMessageId: number;
-            caption: string;
-            media: {
-              kind: 'animation';
-              filePath: string;
-              extension: string;
-              cleanup: () => Promise<void>;
-            };
-          }) => Promise<{ messageId: number; createdAt: string }>;
-        }
-      | undefined;
-
-    const sent = await orchestratorDeps?.memeDispatcher?.({
-      chatId: -1001,
-      replyToMessageId: 12,
-      caption: '<b>Анимация</b>',
-      media: {
-        kind: 'animation',
-        filePath: '/tmp/meme.gif',
-        extension: 'gif',
-        cleanup: vi.fn()
-      }
-    });
-
-    expect(botSendAnimation).toHaveBeenCalledWith(
-      -1001,
-      expect.objectContaining({ source: '/tmp/meme.gif' }),
-      {
-        caption: '<b>Анимация</b>',
-        parse_mode: 'HTML',
-        link_preview_options: {
-          is_disabled: true
-        },
-        reply_parameters: {
-          message_id: 12
-        }
-      }
-    );
-    expect(sent).toEqual({
-      messageId: 46,
-      createdAt: '2025-04-07T04:26:42.000Z'
     });
   });
 

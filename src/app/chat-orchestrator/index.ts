@@ -1,18 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
 import type { NormalizedMessage } from '../../domain/models.js';
-import {
-  decideReplyAction,
-  detectDirectTrigger
-} from '../../domain/response-policy.js';
+import { chatActionRegistry } from '../actions/index.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
-import { runMemeJob } from './meme-job.js';
-import { runReplyJob } from './reply-job.js';
-import type {
-  ChatOrchestratorDeps,
-  ReplyJobRequest,
-  ReplyRequest
-} from './types.js';
+import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export type {
   BotIdentity,
@@ -58,27 +49,20 @@ export class ChatOrchestrator {
       this.mediaSupport.startAutoReadForIncomingMessage(storedMessage, logger);
     }
 
-    const directTrigger = detectDirectTrigger({
-      botUserId: this.deps.bot.userId,
+    const resolvedAction = chatActionRegistry.resolveCommand({
       botUsername: this.deps.bot.username,
-      message: {
-        ...(message.authorizedMode
-          ? { authorizedMode: message.authorizedMode }
-          : {}),
-        text: message.text,
-        entities: message.entities,
-        replyToUserId: message.replyToUserId
-      }
+      ...(message.authorizedMode ? { mode: message.authorizedMode } : {}),
+      text: message.text,
+      entities: message.entities
     });
-    const decision = decideReplyAction({ directTrigger });
 
     logger.debug('incoming_message_evaluated', {
-      directTrigger,
-      decision: decision.reason,
-      intent: decision.intent
+      commandText: resolvedAction?.commandText ?? null,
+      decision: resolvedAction ? 'command' : 'ignore',
+      intent: resolvedAction?.action.intent
     });
 
-    if (!decision.shouldReply || !decision.intent) {
+    if (!resolvedAction) {
       return;
     }
 
@@ -89,28 +73,15 @@ export class ChatOrchestrator {
       triggerMessageId: message.messageId,
       fromDisplayName: message.fromDisplayName,
       createdAt: message.createdAt,
-      intent: decision.intent,
+      intent: resolvedAction.action.intent,
       replyToMessageSnapshot: message.replyToMessageSnapshot,
       replyToMediaSnapshot: message.replyToMediaSnapshot
     };
 
-    if (decision.intent === 'meme') {
-      await runMemeJob({
-        deps: this.deps,
-        request,
-        mediaSupport: this.mediaSupport,
-        logger
-      });
-      return;
-    }
-
-    await runReplyJob({
+    await resolvedAction.action.handle({
       deps: this.deps,
       mediaSupport: this.mediaSupport,
-      request: {
-        ...request,
-        intent: decision.intent
-      } satisfies ReplyJobRequest,
+      request,
       logger
     });
   }

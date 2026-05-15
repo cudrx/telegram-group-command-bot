@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { selectMemeSources } from '../../../src/app/chat-orchestrator/meme/source-selection.js';
+import { selectMemeSources } from '../../../src/app/actions/meme/source-selection.js';
 
 describe('selectMemeSources', () => {
   test('returns a shuffled copy capped at max source attempts', () => {

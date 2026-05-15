@@ -35,7 +35,6 @@ export const memeActionConfig = {
   },
   media: {
     imageMaxBytes: 10_000_000,
-    animationMaxBytes: 45_000_000,
     downloadTimeoutMs: 30_000
   },
   caption: {

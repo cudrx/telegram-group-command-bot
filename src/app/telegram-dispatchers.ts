@@ -34,11 +34,6 @@ type TelegramApi = {
     file: InputFile,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
-  sendAnimation(
-    chatId: number,
-    file: InputFile,
-    options?: Record<string, unknown>
-  ): Promise<TelegramSentMessage>;
   sendChatAction(chatId: number, action: TelegramChatAction): Promise<unknown>;
 };
 
@@ -83,33 +78,18 @@ export function createTelegramDispatchers(
       }
     };
 
-    if (media.kind === 'image') {
-      const sent = await api.sendPhoto(chatId, new InputFile(media.filePath), {
-        caption,
-        parse_mode: 'HTML',
-        ...linkPreviewOptions,
-        ...replyParameters
-      });
-      const mediaSnapshot = toSentPhotoSnapshot(sent, caption);
+    const sent = await api.sendPhoto(chatId, new InputFile(media.filePath), {
+      caption,
+      parse_mode: 'HTML',
+      ...linkPreviewOptions,
+      ...replyParameters
+    });
+    const mediaSnapshot = toSentPhotoSnapshot(sent, caption);
 
-      return {
-        ...toSentBotMessage(sent),
-        ...(mediaSnapshot ? { mediaSnapshot } : {})
-      };
-    }
-
-    const sent = await api.sendAnimation(
-      chatId,
-      new InputFile(media.filePath),
-      {
-        caption,
-        parse_mode: 'HTML',
-        ...linkPreviewOptions,
-        ...replyParameters
-      }
-    );
-
-    return toSentBotMessage(sent);
+    return {
+      ...toSentBotMessage(sent),
+      ...(mediaSnapshot ? { mediaSnapshot } : {})
+    };
   };
 
   return {

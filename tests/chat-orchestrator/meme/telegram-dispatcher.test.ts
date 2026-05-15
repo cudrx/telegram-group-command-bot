@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
-import { dispatchMemeMedia } from '../../../src/app/chat-orchestrator/meme/telegram-dispatcher.js';
+import { dispatchMemeMedia } from '../../../src/app/actions/meme/telegram-dispatcher.js';
 
 describe('dispatchMemeMedia', () => {
   test('adapts image downloads to the meme dispatcher', async () => {
@@ -29,36 +29,6 @@ describe('dispatchMemeMedia', () => {
       media: {
         kind: 'image',
         filePath: '/tmp/1.jpg'
-      }
-    });
-  });
-
-  test('adapts animation downloads to the meme dispatcher', async () => {
-    const memeDispatcher = vi.fn().mockResolvedValue({
-      messageId: 101,
-      createdAt: '2026-05-11T10:01:00.000Z'
-    });
-
-    await dispatchMemeMedia({
-      memeDispatcher,
-      chatId: 1,
-      replyToMessageId: 10,
-      caption: 'caption',
-      media: {
-        kind: 'animation',
-        filePath: '/tmp/1.gif',
-        extension: 'gif',
-        cleanup: vi.fn()
-      }
-    });
-
-    expect(memeDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 10,
-      caption: 'caption',
-      media: {
-        kind: 'animation',
-        filePath: '/tmp/1.gif'
       }
     });
   });

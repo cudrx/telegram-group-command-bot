@@ -1,7 +1,6 @@
 import { vi } from 'vitest';
 
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
-import type { MemeFrameExtractor } from '../../../src/app/chat-orchestrator/meme/frame-extractor.js';
 import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
 import type { AssistantIntent, ChatState } from '../../../src/domain/models.js';
@@ -41,11 +40,8 @@ export function createOrchestrator(input: {
     chatId: number;
     replyToMessageId: number;
     caption: string;
-    media:
-      | { kind: 'image'; filePath: string }
-      | { kind: 'animation'; filePath: string };
+    media: { kind: 'image'; filePath: string };
   }) => Promise<{ messageId: number; createdAt: string }>;
-  memeFrameExtractor?: MemeFrameExtractor;
   lookupProvider?: LookupProvider | null;
   speechToTextProvider?: {
     transcribe: (input: {
@@ -160,9 +156,6 @@ export function createOrchestrator(input: {
         messageId: 3000,
         createdAt: '2026-04-13T09:00:30.000Z'
       }),
-    ...(input.memeFrameExtractor
-      ? { memeFrameExtractor: input.memeFrameExtractor }
-      : {}),
     sendChatAction,
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { formatMemeCaption } from '../../../src/app/chat-orchestrator/meme/caption.js';
+import { formatMemeCaption } from '../../../src/app/actions/meme/caption.js';
 
 describe('formatMemeCaption', () => {
   test('escapes original title and links upvotes to the original post', () => {

@@ -1,4 +1,4 @@
-import type { MemeDispatcher } from '../types.js';
+import type { MemeDispatcher } from '../../chat-orchestrator/types.js';
 import type { DownloadedMemeMedia, SentMemeMedia } from './types.js';
 
 export async function dispatchMemeMedia(input: {
@@ -22,12 +22,11 @@ export async function dispatchMemeMedia(input: {
   };
 }
 
-function toDispatchMedia(
-  media: DownloadedMemeMedia
-):
-  | { kind: 'image'; filePath: string }
-  | { kind: 'animation'; filePath: string } {
-  if (media.kind !== 'image' && media.kind !== 'animation') {
+function toDispatchMedia(media: DownloadedMemeMedia): {
+  kind: 'image';
+  filePath: string;
+} {
+  if (media.kind !== 'image') {
     throw new Error(
       `Unsupported meme media kind for Telegram dispatch: ${media.kind}.`
     );
