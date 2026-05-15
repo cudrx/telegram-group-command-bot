@@ -3,7 +3,6 @@ import { decideActionConfig } from './actions/decide.js';
 import { memeActionConfig } from './actions/meme.js';
 import { readActionConfig } from './actions/read.js';
 import { summarizeActionConfig } from './actions/summarize.js';
-import { weeklyActionConfig } from './actions/weekly.js';
 import { localizationConfig } from './localization.js';
 import { llmProviderConfig } from './providers/llm.js';
 import { lookupProviderConfig } from './providers/lookup.js';
@@ -17,8 +16,7 @@ export const runtimeConfig = {
     decide: decideActionConfig,
     meme: memeActionConfig,
     read: readActionConfig,
-    summarize: summarizeActionConfig,
-    weekly: weeklyActionConfig
+    summarize: summarizeActionConfig
   },
   providers: {
     llm: llmProviderConfig,
@@ -35,7 +33,6 @@ export { decideActionConfig } from './actions/decide.js';
 export { memeActionConfig } from './actions/meme.js';
 export { readActionConfig } from './actions/read.js';
 export { summarizeActionConfig } from './actions/summarize.js';
-export { weeklyActionConfig } from './actions/weekly.js';
 export { localizationConfig } from './localization.js';
 export { llmProviderConfig } from './providers/llm.js';
 export { lookupProviderConfig } from './providers/lookup.js';

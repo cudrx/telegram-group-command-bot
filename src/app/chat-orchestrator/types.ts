@@ -49,11 +49,6 @@ export type VoiceDispatcher = (input: {
   mimeType: 'audio/ogg';
 }) => Promise<SentBotMessage>;
 
-export type WeeklyDispatcher = (input: {
-  chatId: number;
-  text: string;
-}) => Promise<SentBotMessage>;
-
 export type MemeMediaDispatchInput = {
   chatId: number;
   replyToMessageId: number;
@@ -76,10 +71,6 @@ export type LlmClient = {
     replyContext: ReplyContext;
     lookupContext?: import('../../lookup/types.js').LookupContext | null;
     mediaContext?: DescribeMediaContext | null;
-  }): Promise<LlmReplyResult>;
-  generateWeekly(input: {
-    assistantInstructions: string;
-    weeklyDataset: string;
   }): Promise<LlmReplyResult>;
   planLookup(input: {
     intent: LookupIntent;
@@ -119,7 +110,6 @@ export type ChatOrchestratorDeps = {
   bot: BotIdentity;
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;
-  weeklyDispatcher: WeeklyDispatcher;
   memeDispatcher: MemeDispatcher;
   memeFrameExtractor?: MemeFrameExtractor;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;

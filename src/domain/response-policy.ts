@@ -1,8 +1,7 @@
 import type {
   AssistantIntent,
   AuthorizedMode,
-  DirectTrigger,
-  DirectTriggerIntent
+  DirectTrigger
 } from './models.js';
 
 export type DetectDirectTriggerInput = {
@@ -44,10 +43,7 @@ export function detectDirectTrigger(
 export function decideReplyAction(
   input: DecideReplyActionInput
 ): DecideReplyActionResult {
-  if (
-    input.directTrigger.kind === 'command' &&
-    isAssistantIntent(input.directTrigger.intent)
-  ) {
+  if (input.directTrigger.kind === 'command') {
     return {
       shouldReply: true,
       reason: 'command',
@@ -59,12 +55,6 @@ export function decideReplyAction(
     shouldReply: false,
     reason: 'ignore'
   };
-}
-
-function isAssistantIntent(
-  intent: DirectTriggerIntent
-): intent is AssistantIntent {
-  return intent !== 'weekly';
 }
 
 function detectCommandTrigger(
@@ -97,18 +87,6 @@ function detectCommandTrigger(
   }
 
   const commandName = parsed.commandName.toLowerCase();
-
-  if (commandName === 'weekly') {
-    if (input.message.authorizedMode !== 'private_admin') {
-      return null;
-    }
-
-    return {
-      kind: 'command',
-      intent: 'weekly',
-      commandText
-    };
-  }
 
   if (!allowsCommands(input.message.authorizedMode)) {
     return null;

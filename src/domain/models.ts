@@ -17,7 +17,7 @@ export type AssistantIntent =
 
 export type ReplyGenerationIntent = Exclude<AssistantIntent, 'meme'>;
 
-export type DirectTriggerIntent = AssistantIntent | 'weekly';
+export type DirectTriggerIntent = AssistantIntent;
 
 export type BotOutputMode = 'text' | 'voice';
 

@@ -9,7 +9,6 @@ export const PROMPT_FILE_PATHS = {
   read: 'llm/reply/read.md',
   answer: 'llm/reply/answer.md',
   translate: 'llm/reply/translate.md',
-  weekly: 'llm/reply/weekly.md',
   systemAnswer: 'llm/system/answer.md',
   systemRead: 'llm/system/read.md',
   systemGeneric: 'llm/system/generic.md',

@@ -19,7 +19,7 @@
 - `src/llm/current-datetime.ts` — форматирование текущей даты и времени Москвы для reply prompt.
 - `src/config/env/` — схема окружения, значения по умолчанию и проверки.
 - `src/config/runtime/` — типизированные runtime defaults, сгруппированные по action и provider.
-- `scripts/` — миграции, eval-скрипты, metadata для деплоя, smoke-проверка weekly.
+- `scripts/` — миграции, eval-скрипты и metadata для деплоя.
 
 ## Окружение
 
@@ -52,7 +52,7 @@
 
 Runtime-настройки, которые не являются секретами и не требуют deploy-specific
 переопределения, лежат в `src/config/runtime/`. Значения там сгруппированы по
-сценариям (`actions/answer`, `actions/read`, `actions/weekly`, `actions/meme`) и внешним
+сценариям (`actions/answer`, `actions/read`, `actions/meme`) и внешним
 провайдерам (`providers/llm`, `providers/media`, `providers/tts`,
 `providers/lookup`). Если настройка должна меняться между окружениями,
 добавляйте ее в `src/config/env/schema.ts`, а default берите из runtime config.
@@ -100,12 +100,6 @@ LOG_COLOR=true
 - `npm run eval:intents` — полный набор intent eval, отчеты в `.eval-runs/`.
 - `npm run eval:intents -- --id=<fixture-id>` — один fixture.
 - `npm run eval:intents -- --intent=<intent>` — fixtures одного intent.
-
-Предпросмотр данных для недельного обзора без обращений к Telegram и LLM:
-
-```bash
-SQLITE_PATH=data/prod-smoke.sqlite TELEGRAM_CHAT_ID=-1001234567890 npm exec tsx scripts/weekly-smoke.ts
-```
 
 ## Проверки
 
@@ -210,7 +204,6 @@ Metadata деплоя пишется в серверный `data/deploy-metadata
 - `/translate` должен возвращать локальный fallback для уже русского target и переводить на русский нерусские текстовые/media-блоки с заголовками источников.
 - Редактирование уже сохраненного сообщения должно обновлять будущий контекст, но не отправлять новый ответ само по себе.
 - `/meme` делает внешний запрос к `meme-api.com`, скачивает image/gif media во временные файлы, должен чистить их после успешной отправки и после ошибок Telegram, а для GIF/MP4 при наличии `ffmpeg` извлекает JPEG-кадр для OCR/vision.
-- `/weekly` проверяется из личного чата администратора и публикует результат в `TELEGRAM_CHAT_ID`.
 - Провайдеры медиа запускаются только при наличии соответствующих ключей.
 - Smoke-проверку поиска перед включением в продакшне можно сделать прямым запросом к Tavily API.
 

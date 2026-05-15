@@ -177,40 +177,6 @@ describe('detectDirectTrigger', () => {
     expect(trigger).toEqual({ kind: 'none' });
   });
 
-  test('returns weekly command intent in private admin mode', () => {
-    const trigger = detectDirectTrigger({
-      botUserId: 77,
-      botUsername: 'fun_bot',
-      message: {
-        authorizedMode: 'private_admin',
-        text: '/weekly',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
-        replyToUserId: null
-      }
-    });
-
-    expect(trigger).toEqual({
-      kind: 'command',
-      intent: 'weekly',
-      commandText: '/weekly'
-    });
-  });
-
-  test('returns none for /weekly in chat mode', () => {
-    const trigger = detectDirectTrigger({
-      botUserId: 77,
-      botUsername: 'fun_bot',
-      message: {
-        authorizedMode: 'chat',
-        text: '/weekly',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
-        replyToUserId: null
-      }
-    });
-
-    expect(trigger).toEqual({ kind: 'none' });
-  });
-
   test('returns none for ordinary private admin text', () => {
     const trigger = detectDirectTrigger({
       botUserId: 77,

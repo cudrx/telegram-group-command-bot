@@ -4,8 +4,7 @@ import type {
   MemeDispatcher,
   ReplyDispatcher,
   SentBotMessage,
-  VoiceDispatcher,
-  WeeklyDispatcher
+  VoiceDispatcher
 } from './chat-orchestrator/types.js';
 import type { TelegramChatAction } from './typing-indicator.js';
 
@@ -46,7 +45,6 @@ type TelegramApi = {
 export type TelegramDispatchers = {
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;
-  weeklyDispatcher: WeeklyDispatcher;
   memeDispatcher: MemeDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   sendHtmlMessage: (input: {
@@ -143,7 +141,6 @@ export function createTelegramDispatchers(
 
       return toSentBotMessage(sent);
     },
-    weeklyDispatcher: sendHtmlMessage,
     memeDispatcher,
     sendChatAction: async (chatId, action) => {
       await api.sendChatAction(chatId, action);

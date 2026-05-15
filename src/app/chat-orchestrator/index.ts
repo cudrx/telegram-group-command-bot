@@ -5,7 +5,6 @@ import {
   decideReplyAction,
   detectDirectTrigger
 } from '../../domain/response-policy.js';
-import { runWeeklyJob } from '../weekly/index.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
 import { runMemeJob } from './meme-job.js';
 import { runReplyJob } from './reply-job.js';
@@ -19,8 +18,7 @@ export type {
   BotIdentity,
   LlmClient,
   ReplyDispatcher,
-  SentBotMessage,
-  WeeklyDispatcher
+  SentBotMessage
 } from './types.js';
 
 export class ChatOrchestrator {
@@ -79,19 +77,6 @@ export class ChatOrchestrator {
       decision: decision.reason,
       intent: decision.intent
     });
-
-    if (directTrigger.kind === 'command' && directTrigger.intent === 'weekly') {
-      await runWeeklyJob({
-        db: this.deps.db,
-        qwen: this.deps.qwen,
-        env: this.deps.env,
-        bot: this.deps.bot,
-        weeklyDispatcher: this.deps.weeklyDispatcher,
-        logger,
-        now: this.deps.now
-      });
-      return;
-    }
 
     if (!decision.shouldReply || !decision.intent) {
       return;
