@@ -16,6 +16,7 @@
 - `docs/development.md` — это руководство.
 - `llm/assistant/base.md` — базовые инструкции ассистента.
 - `llm/` — статические prompt-файлы.
+- `src/app/actions/` — action-модули команд и command registry.
 - `src/llm/current-datetime.ts` — форматирование текущей даты и времени Москвы для reply prompt.
 - `src/config/env/` — схема окружения, значения по умолчанию и проверки.
 - `src/config/runtime/` — типизированные runtime defaults, сгруппированные по action и provider.
@@ -127,6 +128,19 @@ Prompt-контракт reply-моделей включает блок `CURRENT_
 и временем Москвы в простом текстовом формате. При изменениях сборки prompt
 держите это поле в тестах и intent fixtures, чтобы LLM могла корректно считать
 относительные даты.
+
+## Добавление Команды
+
+Новая команда добавляется как action-модуль:
+
+1. Создать `src/app/actions/<name>/index.ts`.
+2. Экспортировать `ChatAction` с `intent`, `commands`, `modes` и `handle`.
+3. Подключить action в `src/app/actions/index.ts`.
+4. Добавить focused tests для registry/action behavior.
+5. Если action использует LLM, prompt остается в `llm/`.
+
+`index.ts` в action-папке должен оставаться входной точкой. Если файл достигает
+250+ строк, логику нужно вынести в соседние файлы этой же папки.
 
 ## Локальный Docker
 

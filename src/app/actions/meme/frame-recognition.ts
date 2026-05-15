@@ -7,13 +7,16 @@ import {
   OCR_PROVIDER,
   OCR_TEXT_DEFAULT_ARTIFACT_KIND,
   OCR_TEXT_RU_ARTIFACT_KIND
-} from '../helpers/media.js';
+} from '../../chat-orchestrator/helpers/media.js';
 import {
   saveImageArtifactMarker,
   saveImageTextArtifact
-} from '../media/image-artifacts.js';
-import { generateAndStoreVisionInterpretation } from '../media/image-interpretation.js';
-import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
+} from '../../chat-orchestrator/media/image-artifacts.js';
+import { generateAndStoreVisionInterpretation } from '../../chat-orchestrator/media/image-interpretation.js';
+import type {
+  ChatOrchestratorDeps,
+  ReplyRequest
+} from '../../chat-orchestrator/types.js';
 import type { ExtractedAnimationFrame } from './frame-extractor.js';
 
 export async function recognizeMemeAnimationFrame(input: {

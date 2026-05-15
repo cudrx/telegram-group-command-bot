@@ -1,23 +1,23 @@
 import { memeActionConfig } from '../../config/runtime/index.js';
 import type { MediaMessageSnapshot } from '../../domain/models.js';
 import { serializeError } from '../../logging/logger.js';
-import { runWithReplyTyping } from './helpers/reply.js';
-import type { ChatOrchestratorMediaSupport } from './media/index.js';
-import { formatMemeCaption } from './meme/caption.js';
-import { extractAnimationFrameToTemp } from './meme/frame-extractor.js';
-import { recognizeMemeAnimationFrame } from './meme/frame-recognition.js';
-import { getRecentlySentMemeIds } from './meme/history-store.js';
-import { downloadMemeMediaToTemp } from './meme/media-downloader.js';
-import { fetchMemeApiCandidates } from './meme/meme-api-client.js';
-import { selectMemeSources } from './meme/source-selection.js';
-import { dispatchMemeMedia } from './meme/telegram-dispatcher.js';
+import { formatMemeCaption } from '../actions/meme/caption.js';
+import { extractAnimationFrameToTemp } from '../actions/meme/frame-extractor.js';
+import { recognizeMemeAnimationFrame } from '../actions/meme/frame-recognition.js';
+import { getRecentlySentMemeIds } from '../actions/meme/history-store.js';
+import { downloadMemeMediaToTemp } from '../actions/meme/media-downloader.js';
+import { fetchMemeApiCandidates } from '../actions/meme/meme-api-client.js';
+import { selectMemeSources } from '../actions/meme/source-selection.js';
+import { dispatchMemeMedia } from '../actions/meme/telegram-dispatcher.js';
 import type {
   DownloadedMemeMedia,
   MemePostCandidate,
   ResolvedMemeMedia,
   SentMemeMedia
-} from './meme/types.js';
-import { toMemeMediaKind } from './meme/types.js';
+} from '../actions/meme/types.js';
+import { toMemeMediaKind } from '../actions/meme/types.js';
+import { runWithReplyTyping } from './helpers/reply.js';
+import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export async function runMemeJob(input: {

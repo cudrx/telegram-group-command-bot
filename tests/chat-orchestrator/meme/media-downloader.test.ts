@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { describe, expect, test, vi } from 'vitest';
 
-import { downloadMemeMediaToTemp } from '../../../src/app/chat-orchestrator/meme/media-downloader.js';
+import { downloadMemeMediaToTemp } from '../../../src/app/actions/meme/media-downloader.js';
 
 describe('downloadMemeMediaToTemp', () => {
   test('downloads a file to temp and cleans it up', async () => {

@@ -1,4 +1,4 @@
-import type { MemeDispatcher } from '../types.js';
+import type { MemeDispatcher } from '../../chat-orchestrator/types.js';
 import type { DownloadedMemeMedia, SentMemeMedia } from './types.js';
 
 export async function dispatchMemeMedia(input: {

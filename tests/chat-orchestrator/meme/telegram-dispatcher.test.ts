@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
-import { dispatchMemeMedia } from '../../../src/app/chat-orchestrator/meme/telegram-dispatcher.js';
+import { dispatchMemeMedia } from '../../../src/app/actions/meme/telegram-dispatcher.js';
 
 describe('dispatchMemeMedia', () => {
   test('adapts image downloads to the meme dispatcher', async () => {

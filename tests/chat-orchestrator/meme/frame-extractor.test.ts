@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 
 import { describe, expect, test, vi } from 'vitest';
 
-import { extractAnimationFrameToTemp } from '../../../src/app/chat-orchestrator/meme/frame-extractor.js';
+import { extractAnimationFrameToTemp } from '../../../src/app/actions/meme/frame-extractor.js';
 
 describe('meme animation frame extractor', () => {
   test('extracts a jpeg frame around one second into the animation', async () => {

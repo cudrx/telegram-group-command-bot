@@ -2,17 +2,17 @@ import type { ReplyContext } from '../../../domain/models.js';
 import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import {
+  collectTranslateBlocks,
+  createTranslateBlockMessage,
+  filterTranslatableBlocks
+} from '../../actions/translate/blocks.js';
+import {
   createLocalReplyResult,
   TRANSLATE_ALREADY_RUSSIAN_PLACEHOLDER,
   TRANSLATE_NO_MATERIAL_PLACEHOLDER,
   TRANSLATE_USAGE_PLACEHOLDER
 } from '../helpers/reply.js';
 import type { ReplyJobRequest } from '../types.js';
-import {
-  collectTranslateBlocks,
-  createTranslateBlockMessage,
-  filterTranslatableBlocks
-} from './blocks.js';
 
 export function prepareTranslateReply(input: {
   request: ReplyJobRequest;

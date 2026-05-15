@@ -3,7 +3,7 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   createMemeApiSourceClient,
   fetchMemeApiCandidates
-} from '../../../src/app/chat-orchestrator/meme/meme-api-client.js';
+} from '../../../src/app/actions/meme/meme-api-client.js';
 
 describe('fetchMemeApiCandidates', () => {
   test('maps meme-api image and gif responses to meme candidates', async () => {

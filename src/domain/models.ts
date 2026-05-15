@@ -17,17 +17,7 @@ export type AssistantIntent =
 
 export type ReplyGenerationIntent = Exclude<AssistantIntent, 'meme'>;
 
-export type DirectTriggerIntent = AssistantIntent;
-
 export type BotOutputMode = 'text' | 'voice';
-
-export type DirectTrigger =
-  | {
-      kind: 'command';
-      intent: DirectTriggerIntent;
-      commandText: string;
-    }
-  | { kind: 'none' };
 
 export type NormalizedMessage = {
   chatId: number;

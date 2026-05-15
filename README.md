@@ -137,10 +137,11 @@ npm run eval:intents -- --intent=summarize
 - `src/index.ts` — точка входа процесса.
 - `src/app.ts` — сборка приложения.
 - `src/app/` — оркестрация, отправка сообщений в Telegram, HTML-форматирование, оповещения о деплое.
-- `src/app/chat-orchestrator/` — обработка команд, задачи ответа и перевода, поиск, медиа-контекст, голосовые ответы и `/meme`.
+- `src/app/actions/` — модульные action-команды, registry команд и action-local helpers.
+- `src/app/chat-orchestrator/` — жизненный цикл входящего сообщения, сохранение, media auto-read и запуск action через registry.
 - `src/config/env/` — схема окружения, значения по умолчанию и проверки.
 - `src/database/` — схема SQLite, миграции, преобразование строк и запросы.
-- `src/domain/` — триггеры команд и политика ответа.
+- `src/domain/` — общие доменные типы сообщений, чатов и intent.
 - `src/llm/` — сборка prompt, планировщик поиска, OpenAI-compatible клиент.
 - `src/media/` — Telegram media download, Gladia, Cloudflare Vision, OCR.space.
 - `src/tts/` — подготовка текста к речи, политика озвучки, Yandex SpeechKit.

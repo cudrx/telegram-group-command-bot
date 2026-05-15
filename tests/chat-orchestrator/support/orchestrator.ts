@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 
+import type { MemeFrameExtractor } from '../../../src/app/actions/meme/frame-extractor.js';
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
-import type { MemeFrameExtractor } from '../../../src/app/chat-orchestrator/meme/frame-extractor.js';
 import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
 import type { AssistantIntent, ChatState } from '../../../src/domain/models.js';

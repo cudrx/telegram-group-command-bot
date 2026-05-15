@@ -4,7 +4,7 @@ import {
   collectTranslateBlocks,
   filterTranslatableBlocks,
   looksRussian
-} from '../../../src/app/chat-orchestrator/translate/blocks.js';
+} from '../../../src/app/actions/translate/blocks.js';
 import type { StoredMessage } from '../../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../../src/llm/prompts.js';
 

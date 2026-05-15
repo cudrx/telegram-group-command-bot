@@ -1,9 +1,12 @@
-import { readActionConfig } from '../../config/runtime/index.js';
-import { serializeError } from '../../logging/logger.js';
-import { normalizeSpeechText } from '../../tts/speech-cleanup.js';
-import { runWithReplyVoiceRecording } from './helpers/reply.js';
-import { dispatchTextReply } from './outbound-voice.js';
-import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
+import { readActionConfig } from '../../../config/runtime/index.js';
+import { serializeError } from '../../../logging/logger.js';
+import { normalizeSpeechText } from '../../../tts/speech-cleanup.js';
+import { runWithReplyVoiceRecording } from '../../chat-orchestrator/helpers/reply.js';
+import { dispatchTextReply } from '../../chat-orchestrator/outbound-voice.js';
+import type {
+  ChatOrchestratorDeps,
+  ReplyRequest
+} from '../../chat-orchestrator/types.js';
 
 export const OUTBOUND_TTS_READ_MAX_CHARS =
   readActionConfig.outboundTts.maxChars;

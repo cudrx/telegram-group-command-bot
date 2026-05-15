@@ -20,8 +20,8 @@ import type {
   TextToSpeechProvider,
   VisionProvider
 } from '../../media/types.js';
+import type { MemeFrameExtractor } from '../actions/meme/frame-extractor.js';
 import type { TelegramChatAction } from '../typing-indicator.js';
-import type { MemeFrameExtractor } from './meme/frame-extractor.js';
 
 export type BotIdentity = {
   userId: number;

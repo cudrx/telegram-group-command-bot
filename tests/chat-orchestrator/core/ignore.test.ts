@@ -50,4 +50,27 @@ describe('ChatOrchestrator ignore paths', () => {
     expect(generateReply).not.toHaveBeenCalled();
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
+
+  test('ignores unsupported commands through action resolution', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
+    const replyDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/unknown',
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+  });
 });
