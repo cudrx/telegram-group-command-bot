@@ -1,9 +1,6 @@
 import { memeActionConfig } from '../../config/runtime/index.js';
-import type { MediaMessageSnapshot } from '../../domain/models.js';
 import { serializeError } from '../../logging/logger.js';
 import { formatMemeCaption } from '../actions/meme/caption.js';
-import { extractAnimationFrameToTemp } from '../actions/meme/frame-extractor.js';
-import { recognizeMemeAnimationFrame } from '../actions/meme/frame-recognition.js';
 import { getRecentlySentMemeIds } from '../actions/meme/history-store.js';
 import { downloadMemeMediaToTemp } from '../actions/meme/media-downloader.js';
 import { fetchMemeApiCandidates } from '../actions/meme/meme-api-client.js';
@@ -12,8 +9,7 @@ import { dispatchMemeMedia } from '../actions/meme/telegram-dispatcher.js';
 import type {
   DownloadedMemeMedia,
   MemePostCandidate,
-  ResolvedMemeMedia,
-  SentMemeMedia
+  ResolvedMemeMedia
 } from '../actions/meme/types.js';
 import { toMemeMediaKind } from '../actions/meme/types.js';
 import { runWithReplyTyping } from './helpers/reply.js';
@@ -150,15 +146,6 @@ async function sendCandidate(
       caption,
       media: downloaded
     });
-    const mediaSnapshot = await buildSentMemeMediaSnapshot({
-      deps: input.deps,
-      request: input.request,
-      logger: input.logger,
-      sent,
-      caption,
-      downloaded
-    });
-
     input.deps.db.saveBotMessage({
       chatId: input.request.chatId,
       chatType: input.request.chatType,
@@ -171,7 +158,7 @@ async function sendCandidate(
       displayName: input.deps.bot.displayName,
       replyToMessageId: input.request.triggerMessageId,
       outputMode: 'text',
-      mediaSnapshot
+      mediaSnapshot: sent.mediaSnapshot ?? null
     });
 
     const storedMessage = input.deps.db.getMessageByTelegramMessageId(
@@ -200,66 +187,6 @@ async function sendCandidate(
     });
   } finally {
     await downloaded?.cleanup();
-  }
-}
-
-async function buildSentMemeMediaSnapshot(input: {
-  deps: ChatOrchestratorDeps;
-  request: ReplyRequest;
-  logger: ChatOrchestratorDeps['logger'];
-  sent: SentMemeMedia;
-  caption: string;
-  downloaded: DownloadedMemeMedia;
-}): Promise<MediaMessageSnapshot | null> {
-  if (input.sent.mediaSnapshot) {
-    return input.sent.mediaSnapshot;
-  }
-
-  if (input.downloaded.kind !== 'animation') {
-    return null;
-  }
-
-  if (!input.deps.ocrProvider && !input.deps.visionProvider) {
-    return null;
-  }
-
-  const frameExtractor =
-    input.deps.memeFrameExtractor ?? extractAnimationFrameToTemp;
-  const frameMedia: MediaMessageSnapshot = {
-    messageId: input.sent.messageId,
-    mediaKind: 'document_image',
-    fileId: `meme-frame:${input.sent.messageId}`,
-    fileUniqueId: null,
-    mimeType: 'image/jpeg',
-    fileSize: null,
-    durationSeconds: null,
-    caption: input.caption
-  };
-
-  try {
-    const frame = await frameExtractor({
-      inputPath: input.downloaded.filePath
-    });
-
-    try {
-      frameMedia.fileSize = frame.bytes;
-      await recognizeMemeAnimationFrame({
-        deps: input.deps,
-        request: input.request,
-        media: frameMedia,
-        frame,
-        logger: input.logger
-      });
-    } finally {
-      await frame.cleanup();
-    }
-
-    return frameMedia;
-  } catch (error) {
-    input.logger.warn('meme_animation_frame_recognition_failed', {
-      ...serializeError(error)
-    });
-    return null;
   }
 }
 
@@ -292,14 +219,10 @@ async function downloadResolvedMedia(
   deps: ChatOrchestratorDeps,
   media: ResolvedMemeMedia
 ): Promise<DownloadedMemeMedia> {
-  const maxBytes =
-    media.kind === 'image'
-      ? memeActionConfig.media.imageMaxBytes
-      : memeActionConfig.media.animationMaxBytes;
   const downloaded = await downloadMemeMediaToTemp({
     url: media.mediaUrl,
     filename: `meme-api-media.${media.extension}`,
-    maxBytes,
+    maxBytes: memeActionConfig.media.imageMaxBytes,
     timeoutMs: memeActionConfig.media.downloadTimeoutMs,
     ...(deps.fetch ? { fetch: deps.fetch } : {})
   });

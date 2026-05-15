@@ -1,19 +1,13 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
 
-export type MemeMediaKind = 'image' | 'animation';
+export type MemeMediaKind = 'image';
 
-export type ResolvedMemeMedia = ResolvedMemeImage | ResolvedMemeAnimation;
+export type ResolvedMemeMedia = ResolvedMemeImage;
 
 export interface ResolvedMemeImage {
   kind: 'image';
   mediaUrl: string;
   extension: 'jpg' | 'jpeg' | 'png' | 'webp';
-}
-
-export interface ResolvedMemeAnimation {
-  kind: 'animation';
-  mediaUrl: string;
-  extension: 'gif' | 'mp4';
 }
 
 export interface MemePostCandidate {
@@ -37,9 +31,9 @@ export interface MemeSourceClient {
 }
 
 export type DownloadedMemeMedia = {
-  kind: 'image' | 'animation';
+  kind: 'image';
   filePath: string;
-  extension: string;
+  extension: ResolvedMemeImage['extension'];
   cleanup: () => Promise<void>;
 };
 

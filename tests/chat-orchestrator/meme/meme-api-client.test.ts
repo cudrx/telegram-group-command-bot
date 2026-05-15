@@ -6,7 +6,7 @@ import {
 } from '../../../src/app/actions/meme/meme-api-client.js';
 
 describe('fetchMemeApiCandidates', () => {
-  test('maps meme-api image and gif responses to meme candidates', async () => {
+  test('maps meme-api image responses to meme candidates and skips gifs', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -69,23 +69,11 @@ describe('fetchMemeApiCandidates', () => {
           mediaUrl: 'https://i.redd.it/a.png',
           extension: 'png'
         }
-      },
-      {
-        redditPostId: 'gif123',
-        subreddit: 'shitposting',
-        title: 'a gif',
-        permalink: 'https://redd.it/gif123',
-        upvotes: 7,
-        media: {
-          kind: 'animation',
-          mediaUrl: 'https://i.redd.it/b.gif',
-          extension: 'gif'
-        }
       }
     ]);
   });
 
-  test('decodes URLs, maps direct images, reddit-hosted mp4s, and stable id fallbacks', async () => {
+  test('decodes URLs, maps direct images, skips mp4s, and keeps stable id fallbacks', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -144,14 +132,6 @@ describe('fetchMemeApiCandidates', () => {
           kind: 'image',
           mediaUrl: 'https://i.redd.it/fallback.jpeg',
           extension: 'jpeg'
-        }
-      },
-      {
-        redditPostId: 'mp4123',
-        media: {
-          kind: 'animation',
-          mediaUrl: 'https://preview.redd.it/clip.mp4?format=mp4&width=640',
-          extension: 'mp4'
         }
       }
     ]);
