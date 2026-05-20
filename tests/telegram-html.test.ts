@@ -110,6 +110,42 @@ describe('formatTelegramHtmlReply', () => {
     );
   });
 
+  test('normalizes markdown-wrapped news labels and final lines', () => {
+    const formatted = formatTelegramHtmlReply(
+      [
+        '*Значение:* важный контекст.',
+        '*Уверенность:* средняя.',
+        '5. Итог',
+        'Итог: общий вывод.',
+        'Для РФ: нейтрально.',
+        'Для гражданина РФ: главный риск.',
+        'Война: истощение.',
+        'Следить дальше: нефть, курс, санкции.'
+      ].join('\n'),
+      { intent: 'news' }
+    );
+
+    expect(formatted).toBe(
+      [
+        '<b>Значение:</b> важный контекст.',
+        '',
+        '<b>Уверенность:</b> средняя.',
+        '',
+        '<b>5. Итог</b>',
+        '',
+        '<b>Итог:</b> общий вывод.',
+        '',
+        '<b>Для РФ:</b> нейтрально.',
+        '',
+        '<b>Для гражданина РФ:</b> главный риск.',
+        '',
+        '<b>Война:</b> истощение.',
+        '',
+        '<b>Следить дальше:</b> нефть, курс, санкции.'
+      ].join('\n')
+    );
+  });
+
   test('escapes html-like text inside markdown code spans', () => {
     const formatted = formatTelegramHtmlReply('`<b>не тег</b>`');
 

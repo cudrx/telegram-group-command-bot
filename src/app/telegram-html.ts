@@ -84,11 +84,25 @@ function normalizeNewsLine(line: string): string {
     return `<b>${escapeMarkdownTagContent(signalMatch[1].trim())}</b>`;
   }
 
-  const labelMatch = /^(Значение|Уверенность):\s*(.*)$/iu.exec(line);
+  const labelMatch = /^\*{0,2}(Значение|Уверенность):\*{0,2}\s*(.*)$/iu.exec(
+    line
+  );
 
   if (labelMatch?.[1]) {
     const value = labelMatch[2]?.trim();
     const label = `<b>${escapeMarkdownTagContent(labelMatch[1])}:</b>`;
+
+    return value ? `${label} ${value}` : label;
+  }
+
+  const finalLabelMatch =
+    /^(Итог|Для РФ|Для гражданина РФ|Война|Следить дальше):\s*(.*)$/iu.exec(
+      line
+    );
+
+  if (finalLabelMatch?.[1]) {
+    const value = finalLabelMatch[2]?.trim();
+    const label = `<b>${escapeMarkdownTagContent(finalLabelMatch[1])}:</b>`;
 
     return value ? `${label} ${value}` : label;
   }
@@ -118,7 +132,9 @@ function isNewsBlockLine(line: string): boolean {
   return (
     /^<b>\d+\.\s+.+<\/b>$/u.test(line) ||
     /^<b>Сигнал\s+\d+:.+<\/b>$/iu.test(line) ||
-    /^<b>(?:Значение|Уверенность):<\/b>/iu.test(line)
+    /^<b>(?:Значение|Уверенность|Итог|Для РФ|Для гражданина РФ|Война|Следить дальше):<\/b>/iu.test(
+      line
+    )
   );
 }
 
