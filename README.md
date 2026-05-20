@@ -167,7 +167,7 @@ docker compose down
 
 Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированной папке `data/`, а не внутри контейнера.
 
-Для direct Reddit video fallback образ содержит `yt-dlp` и `ffmpeg`. Если Reddit anonymous JSON возвращает 403, бот использует cookies-файл `reddit-cookies.txt` из той же директории, где лежит SQLite база, например `/app/data/reddit-cookies.txt`.
+Для direct Reddit video fallback `yt-dlp` ставится на хосте и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Если Reddit anonymous JSON возвращает 403, бот использует cookies-файл `reddit-cookies.txt` из той же директории, где лежит SQLite база, например `/app/data/reddit-cookies.txt`.
 
 ## Документация
 
