@@ -1,4 +1,6 @@
 import { existsSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
 
@@ -192,9 +194,115 @@ describe('ChatOrchestrator /meme command', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       'reddit_video_resolution_failed',
       expect.objectContaining({
-        errorMessage: 'Reddit post request failed with status 429'
+        errorMessage:
+          'Reddit post request failed for https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/.json with status 429'
       })
     );
+  });
+
+  test('falls back to yt-dlp with cookies when Reddit JSON is blocked', async () => {
+    let dispatchedFilePath = '';
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('blocked', { status: 403 }));
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            return {
+              stdout: JSON.stringify({
+                id: 'vp5yv91as62h1',
+                title: 'AI vs Creativity from yt-dlp',
+                webpage_url:
+                  'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
+                like_count: 661,
+                duration: 192
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          expect(outputIndex).toBeGreaterThanOrEqual(0);
+          expect(args).toContain('/app/data/reddit-cookies.txt');
+
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, 'vp5yv91as62h1.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 511,
+        createdAt: '2026-05-20T10:00:00.000Z'
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile,
+      env: {
+        sqlitePath: '/app/data/bot.sqlite'
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-20T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
+        entities: [],
+        messageId: 44,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(execFile).toHaveBeenCalledTimes(2);
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: 44,
+        caption:
+          'AI vs Creativity from yt-dlp\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑661</a>',
+        media: expect.objectContaining({ kind: 'video' })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 44
+    });
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: '1ti5fvt',
+      subreddit: 'SipsTea',
+      telegramMessageId: 511,
+      mediaKind: 'video',
+      mediaUrl: 'yt-dlp:vp5yv91as62h1',
+      upvotes: 661
+    });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
   test('fetches a meme, sends original caption, saves history and bot message without LLM captioning', async () => {

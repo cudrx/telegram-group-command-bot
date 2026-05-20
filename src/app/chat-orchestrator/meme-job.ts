@@ -13,6 +13,7 @@ import type {
   ResolvedMemeMedia
 } from '../actions/meme/types.js';
 import { toMemeMediaKind } from '../actions/meme/types.js';
+import { downloadRedditVideoWithYtDlp } from '../actions/meme/yt-dlp-client.js';
 import { runWithReplyTyping } from './helpers/reply.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
@@ -33,7 +34,35 @@ export async function runDirectRedditVideoMemeJob(input: {
     });
   } catch (error) {
     input.logger.warn('reddit_video_resolution_failed', serializeError(error));
-    return false;
+    let fallback: Awaited<ReturnType<typeof downloadRedditVideoWithYtDlp>>;
+
+    try {
+      fallback = await downloadRedditVideoWithYtDlp({
+        text: input.text,
+        sqlitePath: input.deps.env.sqlitePath,
+        maxBytes: memeActionConfig.media.videoMaxBytes,
+        ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+      });
+    } catch (fallbackError) {
+      input.logger.warn(
+        'reddit_video_ytdlp_failed',
+        serializeError(fallbackError)
+      );
+      return false;
+    }
+
+    if (!fallback) return false;
+
+    await runWithReplyTyping(input.deps, input.request.chatId, async () => {
+      await sendDownloadedCandidate(
+        input,
+        fallback.candidate,
+        fallback.downloaded
+      );
+    });
+
+    await deleteSourceMessage(input);
+    return true;
   }
 
   if (!candidate) return false;
@@ -42,6 +71,15 @@ export async function runDirectRedditVideoMemeJob(input: {
     await sendCandidate(input, candidate);
   });
 
+  await deleteSourceMessage(input);
+  return true;
+}
+
+async function deleteSourceMessage(input: {
+  deps: ChatOrchestratorDeps;
+  request: ReplyRequest;
+  logger: ChatOrchestratorDeps['logger'];
+}): Promise<void> {
   try {
     await input.deps.deleteMessageDispatcher({
       chatId: input.request.chatId,
@@ -53,8 +91,6 @@ export async function runDirectRedditVideoMemeJob(input: {
       serializeError(error)
     );
   }
-
-  return true;
 }
 
 export async function runMemeJob(input: {
@@ -167,8 +203,21 @@ async function sendCandidate(
   },
   candidate: MemePostCandidate
 ): Promise<void> {
-  let downloaded: DownloadedMemeMedia | null = null;
+  const downloaded = await downloadResolvedMedia(input.deps, candidate.media);
 
+  await sendDownloadedCandidate(input, candidate, downloaded);
+}
+
+async function sendDownloadedCandidate(
+  input: {
+    deps: ChatOrchestratorDeps;
+    request: ReplyRequest;
+    mediaSupport?: ChatOrchestratorMediaSupport;
+    logger: ChatOrchestratorDeps['logger'];
+  },
+  candidate: MemePostCandidate,
+  downloaded: DownloadedMemeMedia
+): Promise<void> {
   try {
     const caption = formatMemeCaption({
       title: candidate.title,
@@ -177,8 +226,6 @@ async function sendCandidate(
       permalink: candidate.permalink,
       maxLength: memeActionConfig.caption.maxLength
     });
-
-    downloaded = await downloadResolvedMedia(input.deps, candidate.media);
 
     const sent = await dispatchMemeMedia({
       memeDispatcher: input.deps.memeDispatcher,
@@ -227,7 +274,7 @@ async function sendCandidate(
       sentAt: sent.createdAt
     });
   } finally {
-    await downloaded?.cleanup();
+    await downloaded.cleanup();
   }
 }
 

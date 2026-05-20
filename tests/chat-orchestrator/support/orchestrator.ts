@@ -85,6 +85,11 @@ export function createOrchestrator(input: {
     getFile: (fileId: string) => Promise<{ file_path?: string | null }>;
   } | null;
   fetch?: typeof fetch | undefined;
+  execFile?: (
+    file: string,
+    args: string[],
+    options?: { cwd?: string | undefined }
+  ) => Promise<{ stdout: string; stderr: string }>;
   env?: Partial<AppEnv>;
   logger?: AppLogger;
   textToSpeechProvider?: {
@@ -164,6 +169,7 @@ export function createOrchestrator(input: {
     visionProvider: input.visionProvider as never,
     telegramFileApi: input.telegramFileApi ?? null,
     fetch: input.fetch,
+    execFile: input.execFile,
     env: createEnv(input.env),
     bot: {
       userId: 77,

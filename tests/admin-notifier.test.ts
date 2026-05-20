@@ -93,7 +93,7 @@ describe('createNotifyingLogger', () => {
     expect(notify).toHaveBeenCalledWith('ERROR: error_event: fallback failed');
   });
 
-  test('does not include warn payload details in admin notifications', async () => {
+  test('includes warn error messages in admin notifications', async () => {
     const base = {
       child: vi.fn(),
       debug: vi.fn(),
@@ -112,7 +112,7 @@ describe('createNotifyingLogger', () => {
 
     await Promise.resolve();
 
-    expect(notify).toHaveBeenCalledWith('WARN: warn_event');
+    expect(notify).toHaveBeenCalledWith('WARN: warn_event: hidden failure');
     expect(notify).toHaveBeenCalledTimes(1);
   });
 

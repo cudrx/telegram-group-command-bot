@@ -167,6 +167,8 @@ docker compose down
 
 Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированной папке `data/`, а не внутри контейнера.
 
+Для direct Reddit video fallback образ содержит `yt-dlp` и `ffmpeg`. Если Reddit anonymous JSON возвращает 403, бот использует cookies-файл `reddit-cookies.txt` из той же директории, где лежит SQLite база, например `/app/data/reddit-cookies.txt`.
+
 ## Документация
 
 - `docs/README.md` — карта Markdown-файлов.

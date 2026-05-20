@@ -49,7 +49,7 @@ export function createNotifyingLogger(
     },
     warn(event, payload = {}) {
       base.warn(event, payload);
-      void notifier.notify(`WARN: ${event}`);
+      void notifier.notify(formatAdminLogMessage('WARN', event, payload));
     },
     error(event, payload = {}) {
       base.error(event, payload);

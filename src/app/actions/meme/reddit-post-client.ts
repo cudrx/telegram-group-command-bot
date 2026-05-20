@@ -2,6 +2,9 @@ import type { MemePostCandidate } from './types.js';
 
 type RedditPostReference = {
   jsonUrl: string;
+  permalink: string;
+  redditPostId: string;
+  subreddit: string;
 };
 
 export function findRedditPostReference(
@@ -27,16 +30,26 @@ export async function fetchRedditVideoCandidate(input: {
   if (!reference) return null;
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
-  const response = await fetchImpl(reference.jsonUrl, {
-    headers: {
-      Accept: 'application/json',
-      'User-Agent': 'test-chatbot/0.1 by /u/local-test'
-    }
-  });
+  let response: Response;
+
+  try {
+    response = await fetchImpl(reference.jsonUrl, {
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': 'test-chatbot/0.1 by /u/local-test'
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    throw new Error(
+      `Reddit post request failed for ${reference.jsonUrl}: ${message}`
+    );
+  }
 
   if (!response.ok) {
     throw new Error(
-      `Reddit post request failed with status ${response.status}`
+      `Reddit post request failed for ${reference.jsonUrl} with status ${response.status}`
     );
   }
 
@@ -71,7 +84,10 @@ function parseRedditPostUrl(value: string): RedditPostReference | null {
   parsed.pathname = `/${parts.slice(0, subredditIndex + 5).join('/')}`;
 
   return {
-    jsonUrl: `${parsed.toString().replace(/\/$/, '')}/.json`
+    jsonUrl: `${parsed.toString().replace(/\/$/, '')}/.json`,
+    permalink: `${parsed.toString().replace(/\/$/, '')}/`,
+    redditPostId: parts[subredditIndex + 3] as string,
+    subreddit: parts[subredditIndex + 1] as string
   };
 }
 
