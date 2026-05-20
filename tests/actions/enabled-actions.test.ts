@@ -10,7 +10,8 @@ describe('chatActions', () => {
       'answer',
       'translate',
       'read',
-      'meme'
+      'meme',
+      'news'
     ]);
 
     expect(chatActions.map((action) => action.commands)).toEqual([
@@ -19,11 +20,17 @@ describe('chatActions', () => {
       ['answer'],
       ['translate'],
       ['read'],
-      ['meme']
+      ['meme'],
+      ['news']
     ]);
 
-    expect(chatActions.every((action) => action.modes.includes('chat'))).toBe(
-      true
-    );
+    expect(
+      chatActions
+        .filter((action) => action.intent !== 'news')
+        .every((action) => action.modes.includes('chat'))
+    ).toBe(true);
+    expect(
+      chatActions.find((action) => action.intent === 'news')?.modes
+    ).toEqual(['private_admin']);
   });
 });

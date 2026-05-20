@@ -3,7 +3,7 @@ import { getIntentOutputShapeViolations } from '../intent-output-shape.js';
 import type { LlmClientOptions } from './types.js';
 
 type LogPayload = {
-  kind: 'reply' | 'lookup_planner' | 'deploy_update';
+  kind: 'reply' | 'lookup_planner' | 'deploy_update' | 'news';
   model: string;
   temperature?: number;
   latencyMs?: number;

@@ -13,9 +13,10 @@ export type AssistantIntent =
   | 'read'
   | 'answer'
   | 'translate'
-  | 'meme';
+  | 'meme'
+  | 'news';
 
-export type ReplyGenerationIntent = Exclude<AssistantIntent, 'meme'>;
+export type ReplyGenerationIntent = Exclude<AssistantIntent, 'meme' | 'news'>;
 
 export type BotOutputMode = 'text' | 'voice';
 

@@ -23,9 +23,11 @@ import {
   updateIncomingMessageEdit
 } from './messages.js';
 import { migrateExistingSchema } from './migrations.js';
+import { getNewsPosts, saveNewsPosts } from './news-posts.js';
 import { schema } from './schema.js';
 import type {
   ChatState,
+  NewsPostRecord,
   NormalizedMessage,
   SaveMediaArtifactInput,
   SaveMemePostInput,
@@ -38,6 +40,7 @@ export type {
   BotOutputMode,
   MediaArtifactStatus,
   MemeMediaKind,
+  NewsPostRecord,
   SaveMediaArtifactInput,
   SaveMemePostInput,
   StoredMediaArtifact,
@@ -178,16 +181,29 @@ export class DatabaseClient {
     return getRecentMemePostIds(this.db, input);
   }
 
+  saveNewsPosts(posts: NewsPostRecord[]): void {
+    saveNewsPosts(this.db, posts);
+  }
+
+  getNewsPosts(input: {
+    sourceSlugs: string[];
+    since: string;
+  }): NewsPostRecord[] {
+    return getNewsPosts(this.db, input);
+  }
+
   cleanupExpiredData(input: {
     now: string;
     messageRetentionDays: number;
     mediaArtifactRetentionDays: number;
     memeHistoryRetentionDays: number;
+    newsPostRetentionDays?: number;
   }): {
     mediaArtifacts: number;
     messages: number;
     chats: number;
     memePosts: number;
+    newsPosts: number;
   } {
     return cleanupExpiredData(this.db, input);
   }

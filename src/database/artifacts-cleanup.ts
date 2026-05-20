@@ -7,12 +7,14 @@ export function cleanupExpiredData(
     messageRetentionDays: number;
     mediaArtifactRetentionDays: number;
     memeHistoryRetentionDays: number;
+    newsPostRetentionDays?: number;
   }
 ): {
   mediaArtifacts: number;
   messages: number;
   chats: number;
   memePosts: number;
+  newsPosts: number;
 } {
   const transaction = db.transaction((cleanupInput: typeof input) => {
     const mediaArtifactCutoff = new Date(
@@ -47,6 +49,18 @@ export function cleanupExpiredData(
       .prepare(`DELETE FROM meme_posts WHERE sent_at < ?`)
       .run(memePostCutoff).changes;
 
+    const newsPostRetentionDays =
+      cleanupInput.newsPostRetentionDays ??
+      cleanupInput.memeHistoryRetentionDays;
+    const newsPostCutoff = new Date(
+      new Date(cleanupInput.now).getTime() -
+        newsPostRetentionDays * 24 * 60 * 60 * 1000
+    ).toISOString();
+
+    const newsPosts = db
+      .prepare(`DELETE FROM news_posts WHERE published_at < ?`)
+      .run(newsPostCutoff).changes;
+
     const chats = db
       .prepare(
         `
@@ -58,7 +72,7 @@ export function cleanupExpiredData(
       )
       .run().changes;
 
-    return { mediaArtifacts, messages, chats, memePosts };
+    return { mediaArtifacts, messages, chats, memePosts, newsPosts };
   });
 
   return transaction(input);

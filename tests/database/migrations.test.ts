@@ -111,6 +111,58 @@ describeWithSqlite('DatabaseClient migrations', () => {
     db.close();
   });
 
+  test('adds news_posts table and indexes when opening an existing database', () => {
+    const directory = mkdtempSync(
+      path.join(os.tmpdir(), 'chatbot-news-posts-db-')
+    );
+    const dbPath = path.join(directory, 'bot.sqlite');
+    trackTempDirectory(directory);
+
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY,
+        chat_type TEXT NOT NULL,
+        title TEXT,
+        last_message_at TEXT,
+        last_bot_message_at TEXT
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        reply_to_telegram_message_id INTEGER,
+        UNIQUE (chat_id, telegram_message_id)
+      );
+    `);
+    legacyDb.close();
+
+    const db = DatabaseClient.open(dbPath);
+    expect(db.getSchemaColumns('news_posts')).toEqual([
+      'id',
+      'source_slug',
+      'message_id',
+      'published_at',
+      'fetched_at',
+      'text',
+      'url',
+      'content_hash'
+    ]);
+    expect(db.getIndexNames('news_posts')).toEqual(
+      expect.arrayContaining([
+        'idx_news_posts_published_at',
+        'idx_news_posts_source_published_at'
+      ])
+    );
+    db.close();
+  });
+
   test('adds media_artifacts when opening an existing database', () => {
     const directory = mkdtempSync(
       path.join(os.tmpdir(), 'chatbot-media-artifacts-db-')

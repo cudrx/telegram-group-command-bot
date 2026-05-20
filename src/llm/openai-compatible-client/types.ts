@@ -62,3 +62,7 @@ export type PlanLookupInput = {
   intent: LookupIntent;
   replyContext: ReplyContext;
 };
+
+export type AnalyzeNewsInput = {
+  prompt: string;
+};
