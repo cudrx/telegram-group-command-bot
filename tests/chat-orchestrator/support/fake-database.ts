@@ -188,6 +188,15 @@ export class FakeDatabaseClient {
     return message ? { ...message } : null;
   }
 
+  getMessagesByMediaGroupId(input: {
+    chatId: number;
+    mediaGroupId: string;
+  }): StoredMessage[] {
+    return (this.messages.get(input.chatId) ?? [])
+      .filter((message) => message.mediaGroupId === input.mediaGroupId)
+      .map((message) => ({ ...message }));
+  }
+
   saveMediaArtifact(input: SaveMediaArtifactInput): void {
     this.savedMediaArtifacts.push(input);
   }

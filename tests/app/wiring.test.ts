@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  botCopyMessage,
+  botCopyMessages,
   botGetMe,
   botSendChatAction,
   botSendVoice,
@@ -178,6 +180,51 @@ describe('createApplication wiring', () => {
         reply_parameters: { message_id: 11 }
       })
     );
+  });
+
+  test('wires publish copy dispatchers to Telegram copy APIs', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(
+      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+    );
+
+    const deps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          copyMessageDispatcher?: (input: {
+            targetChatId: number;
+            sourceChatId: number;
+            messageId: number;
+          }) => Promise<{ messageId: number; createdAt: string }>;
+          copyMessagesDispatcher?: (input: {
+            targetChatId: number;
+            sourceChatId: number;
+            messageIds: number[];
+          }) => Promise<Array<{ messageId: number; createdAt: string }>>;
+        }
+      | undefined;
+
+    botCopyMessage.mockResolvedValue({
+      message_id: 99,
+      date: 1_744_000_100
+    });
+    botCopyMessages.mockResolvedValue([
+      { message_id: 100 },
+      { message_id: 101 }
+    ]);
+
+    await deps?.copyMessageDispatcher?.({
+      targetChatId: -1001,
+      sourceChatId: 84626969,
+      messageId: 11
+    });
+    await deps?.copyMessagesDispatcher?.({
+      targetChatId: -1001,
+      sourceChatId: 84626969,
+      messageIds: [11, 12]
+    });
+
+    expect(botCopyMessage).toHaveBeenCalledWith(-1001, 84626969, 11);
+    expect(botCopyMessages).toHaveBeenCalledWith(-1001, 84626969, [11, 12]);
   });
 
   test('drops messages from unauthorized chats before the orchestrator', async () => {

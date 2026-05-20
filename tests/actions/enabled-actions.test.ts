@@ -11,6 +11,7 @@ describe('chatActions', () => {
       'translate',
       'read',
       'meme',
+      'publish',
       'news'
     ]);
 
@@ -21,14 +22,18 @@ describe('chatActions', () => {
       ['translate'],
       ['read'],
       ['meme'],
+      ['publish'],
       ['news']
     ]);
 
     expect(
       chatActions
-        .filter((action) => action.intent !== 'news')
+        .filter((action) => !['publish', 'news'].includes(action.intent))
         .every((action) => action.modes.includes('chat'))
     ).toBe(true);
+    expect(
+      chatActions.find((action) => action.intent === 'publish')?.modes
+    ).toEqual(['private_admin']);
     expect(
       chatActions.find((action) => action.intent === 'news')?.modes
     ).toEqual(['private_admin']);
