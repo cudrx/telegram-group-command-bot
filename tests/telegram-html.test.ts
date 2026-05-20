@@ -49,6 +49,33 @@ describe('formatTelegramHtmlReply', () => {
     );
   });
 
+  test('normalizes markdown headings as bold titles for news replies', () => {
+    const formatted = formatTelegramHtmlReply(
+      ['# Отчёт по новостям', '## 1. Общая картина', 'Текст'].join('\n'),
+      { intent: 'news' }
+    );
+
+    expect(formatted).toBe(
+      ['<b>Отчёт по новостям</b>', '<b>1. Общая картина</b>', 'Текст'].join(
+        '\n'
+      )
+    );
+  });
+
+  test('does not normalize markdown headings for generic replies', () => {
+    const formatted = formatTelegramHtmlReply('## 1. Общая картина');
+
+    expect(formatted).toBe('## 1. Общая картина');
+  });
+
+  test('escapes html-like text inside news markdown headings', () => {
+    const formatted = formatTelegramHtmlReply('# 2 < 3 & важно', {
+      intent: 'news'
+    });
+
+    expect(formatted).toBe('<b>2 &lt; 3 &amp; важно</b>');
+  });
+
   test('escapes html-like text inside markdown code spans', () => {
     const formatted = formatTelegramHtmlReply('`<b>не тег</b>`');
 

@@ -9,7 +9,8 @@ type TelegramReplyIntent =
   | 'decide'
   | 'read'
   | 'answer'
-  | 'translate';
+  | 'translate'
+  | 'news';
 
 export function formatTelegramHtmlReply(
   text: string,
@@ -43,6 +44,10 @@ function normalizeLine(
 ): string | null {
   const bulletLine = normalizeBulletLine(line);
 
+  if (options.intent === 'news') {
+    return normalizeMarkdownLine(normalizeNewsLine(bulletLine));
+  }
+
   if (options.intent === 'summarize') {
     const summarizeLine = normalizeSummarizeLine(bulletLine);
 
@@ -54,6 +59,16 @@ function normalizeLine(
   }
 
   return normalizeMarkdownLine(bulletLine);
+}
+
+function normalizeNewsLine(line: string): string {
+  const headingMatch = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
+
+  if (!headingMatch?.[1]) {
+    return line;
+  }
+
+  return `<b>${escapeMarkdownTagContent(headingMatch[1].trim())}</b>`;
 }
 
 function normalizeBulletLine(line: string): string {

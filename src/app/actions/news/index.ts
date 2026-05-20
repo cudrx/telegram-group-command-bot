@@ -1,4 +1,5 @@
 import { newsActionConfig } from '../../../config/runtime/index.js';
+import { runWithReplyTyping } from '../../chat-orchestrator/helpers/reply.js';
 import { dispatchTextReply } from '../../chat-orchestrator/outbound-voice.js';
 import { formatTelegramHtmlReply } from '../../telegram-html.js';
 import type { ChatAction } from '../types.js';
@@ -17,87 +18,93 @@ export const newsAction: ChatAction = {
   commands: ['news'],
   modes: ['private_admin'],
   async handle(ctx) {
-    const now = ctx.deps.now();
-    const fetcher = ctx.deps.fetch ?? globalThis.fetch;
-    const sources = [...newsActionConfig.sources];
-    const fetchedPosts = [];
-    const failedSources: string[] = [];
+    const text = await runWithReplyTyping(ctx.deps, ctx.request.chatId, () =>
+      buildNewsReply(ctx)
+    );
 
-    ctx.logger.debug('news_digest_started', {
-      sourceCount: sources.length,
-      triggerMessageId: ctx.request.triggerMessageId
-    });
-
-    for (const source of sources) {
-      try {
-        const sourcePosts = await fetchTelegramChannelPosts({
-          fetch: fetcher,
-          source,
-          now,
-          timeoutMs: newsActionConfig.fetchTimeoutMs,
-          maxResponseChars: newsActionConfig.maxResponseChars,
-          userAgent: newsActionConfig.userAgent
-        });
-
-        if (sourcePosts.length === 0) {
-          failedSources.push(`${source.handle} (нет постов после парсинга)`);
-          ctx.logger.warn('news_source_parse_empty', {
-            sourceSlug: source.slug
-          });
-          continue;
-        }
-
-        fetchedPosts.push(...sourcePosts);
-      } catch (error) {
-        failedSources.push(`${source.handle} (fetch error)`);
-        ctx.logger.warn('news_source_fetch_failed', {
-          sourceSlug: source.slug,
-          error: error instanceof Error ? error.message : String(error)
-        });
-      }
-    }
-
-    if (fetchedPosts.length > 0) {
-      ctx.deps.db.saveNewsPosts(fetchedPosts);
-    }
-
-    const oldestCutoff = getOldestLookbackCutoff(sources, now);
-    const cachedPosts = ctx.deps.db.getNewsPosts({
-      sourceSlugs: sources.map((source) => source.slug),
-      since: oldestCutoff
-    });
-    const selection = selectNewsPostsForDigest({
-      sources,
-      posts: cachedPosts,
-      now
-    });
-
-    if (selection.selectedPosts.length === 0) {
-      await dispatchLocalReplies(
-        ctx,
-        formatUnavailableMessage(failedSources, 'Нет постов для анализа.')
-      );
-      return;
-    }
-
-    const prompt = buildNewsAnalysisPrompt({
-      currentDateTime: now,
-      analysisPeriod: selection.analysisPeriod,
-      sourcesPolicy: renderNewsSourcesPolicy(sources),
-      postsBySource: renderNewsPostsBySource({
-        sources,
-        bySource: selection.bySource
-      })
-    });
-    const result = await ctx.deps.qwen.analyzeNews({ prompt });
-    const prefix =
-      failedSources.length > 0
-        ? `WARN: не удалось получить данные по источникам: ${failedSources.join(', ')}.\n\n`
-        : '';
-
-    await dispatchLocalReplies(ctx, `${prefix}${result.text}`);
+    await dispatchLocalReplies(ctx, text);
   }
 };
+
+async function buildNewsReply(
+  ctx: Parameters<ChatAction['handle']>[0]
+): Promise<string> {
+  const now = ctx.deps.now();
+  const fetcher = ctx.deps.fetch ?? globalThis.fetch;
+  const sources = [...newsActionConfig.sources];
+  const fetchedPosts = [];
+  const failedSources: string[] = [];
+
+  ctx.logger.debug('news_digest_started', {
+    sourceCount: sources.length,
+    triggerMessageId: ctx.request.triggerMessageId
+  });
+
+  for (const source of sources) {
+    try {
+      const sourcePosts = await fetchTelegramChannelPosts({
+        fetch: fetcher,
+        source,
+        now,
+        timeoutMs: newsActionConfig.fetchTimeoutMs,
+        maxResponseChars: newsActionConfig.maxResponseChars,
+        userAgent: newsActionConfig.userAgent
+      });
+
+      if (sourcePosts.length === 0) {
+        failedSources.push(`${source.handle} (нет постов после парсинга)`);
+        ctx.logger.warn('news_source_parse_empty', {
+          sourceSlug: source.slug
+        });
+        continue;
+      }
+
+      fetchedPosts.push(...sourcePosts);
+    } catch (error) {
+      failedSources.push(`${source.handle} (fetch error)`);
+      ctx.logger.warn('news_source_fetch_failed', {
+        sourceSlug: source.slug,
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  if (fetchedPosts.length > 0) {
+    ctx.deps.db.saveNewsPosts(fetchedPosts);
+  }
+
+  const oldestCutoff = getOldestLookbackCutoff(sources, now);
+  const cachedPosts = ctx.deps.db.getNewsPosts({
+    sourceSlugs: sources.map((source) => source.slug),
+    since: oldestCutoff
+  });
+  const selection = selectNewsPostsForDigest({
+    sources,
+    posts: cachedPosts,
+    now
+  });
+
+  if (selection.selectedPosts.length === 0) {
+    return formatUnavailableMessage(failedSources, 'Нет постов для анализа.');
+  }
+
+  const prompt = buildNewsAnalysisPrompt({
+    currentDateTime: now,
+    analysisPeriod: selection.analysisPeriod,
+    sourcesPolicy: renderNewsSourcesPolicy(sources),
+    postsBySource: renderNewsPostsBySource({
+      sources,
+      bySource: selection.bySource
+    })
+  });
+  const result = await ctx.deps.qwen.analyzeNews({ prompt });
+  const prefix =
+    failedSources.length > 0
+      ? `WARN: не удалось получить данные по источникам: ${failedSources.join(', ')}.\n\n`
+      : '';
+
+  return `${prefix}${result.text}`;
+}
 
 function getOldestLookbackCutoff(
   sources: Array<{ lookbackDays: number }>,
@@ -120,7 +127,7 @@ async function dispatchLocalReplies(
     await dispatchTextReply({
       deps: ctx.deps,
       request: ctx.request,
-      text: formatTelegramHtmlReply(chunk)
+      text: formatTelegramHtmlReply(chunk, { intent: 'news' })
     });
   }
 }

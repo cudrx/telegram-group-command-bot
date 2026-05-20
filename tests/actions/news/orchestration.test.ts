@@ -7,6 +7,7 @@ describe('newsAction', () => {
     const savedPosts: unknown[] = [];
     const sentMessages: string[] = [];
     const prompts: string[] = [];
+    const sendChatAction = vi.fn();
     const html = `
       <div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="investblog_ru/100">
         <div class="tgme_widget_message_text js-message_text" dir="auto">Санкции и рынок</div>
@@ -32,6 +33,12 @@ describe('newsAction', () => {
         now: () => '2026-05-20T12:00:00.000Z',
         random: () => 0,
         delay: async () => {},
+        env: {
+          replyMinTypingMs: 0,
+          replyMaxTypingMs: 0,
+          replyTypingRefreshMs: 1000
+        },
+        sendChatAction,
         bot: {
           userId: 77,
           username: 'bot',
@@ -109,6 +116,7 @@ describe('newsAction', () => {
     expect(prompts[0]).toContain('Контекстная новость');
     expect(prompts[0]).not.toContain('{{posts_by_source}}');
     expect(sentMessages).toEqual(['Итог анализа']);
+    expect(sendChatAction).toHaveBeenCalledWith(123, 'typing');
   });
 
   test('warns in the private reply when a source returns no parsed posts', async () => {
@@ -135,6 +143,12 @@ describe('newsAction', () => {
         now: () => '2026-05-20T12:00:00.000Z',
         random: () => 0,
         delay: async () => {},
+        env: {
+          replyMinTypingMs: 0,
+          replyMaxTypingMs: 0,
+          replyTypingRefreshMs: 1000
+        },
+        sendChatAction: vi.fn(),
         bot: {
           userId: 77,
           username: 'bot',
@@ -223,6 +237,12 @@ describe('newsAction', () => {
         now: () => '2026-05-20T12:00:00.000Z',
         random: () => 0,
         delay: async () => {},
+        env: {
+          replyMinTypingMs: 0,
+          replyMaxTypingMs: 0,
+          replyTypingRefreshMs: 1000
+        },
+        sendChatAction: vi.fn(),
         bot: {
           userId: 77,
           username: 'bot',
