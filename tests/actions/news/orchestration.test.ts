@@ -312,4 +312,99 @@ describe('newsAction', () => {
     expect(sentMessages.join('')).toContain('A'.repeat(3200));
     expect(sentMessages.join('')).toContain('B'.repeat(3200));
   });
+
+  test('keeps news section headings with following content when splitting replies', async () => {
+    const savedPosts: unknown[] = [];
+    const sentMessages: string[] = [];
+    const fetchMock = vi.fn(async (url: string) => {
+      const slug = url.split('/').at(-1);
+
+      return new Response(`
+        <div class="tgme_widget_message text_not_supported_wrap js-widget_message" data-post="${slug}/100">
+          <div class="tgme_widget_message_text js-message_text" dir="auto">Новость ${slug}</div>
+          <time datetime="2026-05-20T08:00:00+00:00">08:00</time>
+        </div>
+      `);
+    });
+
+    await newsAction.handle({
+      deps: {
+        fetch: fetchMock,
+        now: () => '2026-05-20T12:00:00.000Z',
+        random: () => 0,
+        delay: async () => {},
+        env: {
+          replyMinTypingMs: 0,
+          replyMaxTypingMs: 0,
+          replyTypingRefreshMs: 1000
+        },
+        sendChatAction: vi.fn(),
+        bot: {
+          userId: 77,
+          username: 'bot',
+          displayName: 'Bot'
+        },
+        db: {
+          saveNewsPosts(posts: unknown[]) {
+            savedPosts.push(...posts);
+          },
+          getNewsPosts() {
+            return savedPosts;
+          },
+          getChatState: () => null,
+          saveBotMessage: vi.fn()
+        },
+        qwen: {
+          async analyzeNews() {
+            return {
+              text: `${'A'.repeat(3488)}\n5. Итог\nИтоговый вывод после заголовка.`,
+              model: 'test-model',
+              source: 'llm',
+              latencyMs: 1,
+              attemptCount: 1,
+              promptTokensEstimate: 10
+            };
+          }
+        },
+        replyDispatcher: async ({ text }: { text: string }) => {
+          sentMessages.push(text);
+
+          return {
+            messageId: 600 + sentMessages.length,
+            createdAt: '2026-05-20T12:00:01.000Z'
+          };
+        },
+        logger: {
+          debug: vi.fn(),
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          child: vi.fn()
+        }
+      },
+      mediaSupport: {},
+      request: {
+        chatId: 123,
+        chatType: 'private',
+        chatTitle: null,
+        triggerMessageId: 10,
+        fromDisplayName: 'Tom',
+        createdAt: '2026-05-20T12:00:00.000Z',
+        intent: 'news',
+        replyToMessageSnapshot: null,
+        replyToMediaSnapshot: null
+      },
+      logger: {
+        debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        child: vi.fn()
+      }
+    } as never);
+
+    expect(sentMessages).toHaveLength(2);
+    expect(sentMessages[0]).not.toMatch(/<b>5\. Итог<\/b>$/u);
+    expect(sentMessages[1]).toContain('<b>5. Итог</b>\n\nИтоговый вывод');
+  });
 });

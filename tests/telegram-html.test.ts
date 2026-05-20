@@ -56,9 +56,13 @@ describe('formatTelegramHtmlReply', () => {
     );
 
     expect(formatted).toBe(
-      ['<b>Отчёт по новостям</b>', '<b>1. Общая картина</b>', 'Текст'].join(
-        '\n'
-      )
+      [
+        '<b>Отчёт по новостям</b>',
+        '',
+        '<b>1. Общая картина</b>',
+        '',
+        'Текст'
+      ].join('\n')
     );
   });
 
@@ -74,6 +78,36 @@ describe('formatTelegramHtmlReply', () => {
     });
 
     expect(formatted).toBe('<b>2 &lt; 3 &amp; важно</b>');
+  });
+
+  test('adds readable spacing before news sections and signal labels', () => {
+    const formatted = formatTelegramHtmlReply(
+      [
+        '1. Общая картина',
+        'Текст общего блока.',
+        '2. Главные сигналы',
+        'Сигнал 1: Китай и санкции',
+        'Значение: важный контекст.',
+        'Уверенность: средняя.'
+      ].join('\n'),
+      { intent: 'news' }
+    );
+
+    expect(formatted).toBe(
+      [
+        '<b>1. Общая картина</b>',
+        '',
+        'Текст общего блока.',
+        '',
+        '<b>2. Главные сигналы</b>',
+        '',
+        '<b>Сигнал 1: Китай и санкции</b>',
+        '',
+        '<b>Значение:</b> важный контекст.',
+        '',
+        '<b>Уверенность:</b> средняя.'
+      ].join('\n')
+    );
   });
 
   test('escapes html-like text inside markdown code spans', () => {

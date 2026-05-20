@@ -168,13 +168,22 @@ function findSplitIndex(text: string, maxLength: number): number {
   const candidate = text.slice(0, maxLength + 1);
   const paragraphBreak = candidate.lastIndexOf('\n\n');
 
-  if (paragraphBreak >= Math.floor(maxLength * 0.5)) {
+  if (
+    paragraphBreak >= Math.floor(maxLength * 0.5) &&
+    !createsOrphanNewsHeading(text, paragraphBreak)
+  ) {
     return paragraphBreak;
   }
 
   const lineBreak = candidate.lastIndexOf('\n');
 
   if (lineBreak >= Math.floor(maxLength * 0.5)) {
+    const headingStart = getOrphanNewsHeadingStart(text, lineBreak);
+
+    if (headingStart !== null) {
+      return headingStart;
+    }
+
     return lineBreak;
   }
 
@@ -185,4 +194,28 @@ function findSplitIndex(text: string, maxLength: number): number {
   }
 
   return maxLength;
+}
+
+function createsOrphanNewsHeading(text: string, splitAt: number): boolean {
+  return getOrphanNewsHeadingStart(text, splitAt) !== null;
+}
+
+function getOrphanNewsHeadingStart(
+  text: string,
+  splitAt: number
+): number | null {
+  const before = text.slice(0, splitAt).trimEnd();
+  const lastLine = before.split('\n').at(-1)?.trim();
+
+  if (!lastLine || !isNewsHeadingLine(lastLine)) {
+    return null;
+  }
+
+  const headingStart = before.lastIndexOf(lastLine);
+
+  return headingStart > 0 ? headingStart : null;
+}
+
+function isNewsHeadingLine(line: string): boolean {
+  return /^(?:#{1,6}\s+)?(?:\d+\.\s+\S.*|Сигнал\s+\d+:\s*.+)$/iu.test(line);
 }

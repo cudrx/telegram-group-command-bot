@@ -31,8 +31,12 @@ function normalizeReplyText(
     .split('\n')
     .map((line) => normalizeLine(line.trimEnd(), options))
     .filter((line) => line !== null);
+  const spacedLines =
+    options.intent === 'news'
+      ? addNewsSpacing(normalizedLines)
+      : normalizedLines;
 
-  return normalizedLines
+  return spacedLines
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -64,11 +68,58 @@ function normalizeLine(
 function normalizeNewsLine(line: string): string {
   const headingMatch = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
 
-  if (!headingMatch?.[1]) {
-    return line;
+  if (headingMatch?.[1]) {
+    return `<b>${escapeMarkdownTagContent(headingMatch[1].trim())}</b>`;
   }
 
-  return `<b>${escapeMarkdownTagContent(headingMatch[1].trim())}</b>`;
+  const sectionMatch = /^(\d+\.\s+\S.*)$/.exec(line);
+
+  if (sectionMatch?.[1]) {
+    return `<b>${escapeMarkdownTagContent(sectionMatch[1].trim())}</b>`;
+  }
+
+  const signalMatch = /^(Сигнал\s+\d+:\s*.+)$/iu.exec(line);
+
+  if (signalMatch?.[1]) {
+    return `<b>${escapeMarkdownTagContent(signalMatch[1].trim())}</b>`;
+  }
+
+  const labelMatch = /^(Значение|Уверенность):\s*(.*)$/iu.exec(line);
+
+  if (labelMatch?.[1]) {
+    const value = labelMatch[2]?.trim();
+    const label = `<b>${escapeMarkdownTagContent(labelMatch[1])}:</b>`;
+
+    return value ? `${label} ${value}` : label;
+  }
+
+  return line;
+}
+
+function addNewsSpacing(lines: string[]): string[] {
+  const output: string[] = [];
+
+  for (const line of lines) {
+    if (isNewsBlockLine(line) && output.at(-1) && output.at(-1) !== '') {
+      output.push('');
+    }
+
+    output.push(line);
+
+    if (isNewsBlockLine(line)) {
+      output.push('');
+    }
+  }
+
+  return output;
+}
+
+function isNewsBlockLine(line: string): boolean {
+  return (
+    /^<b>\d+\.\s+.+<\/b>$/u.test(line) ||
+    /^<b>Сигнал\s+\d+:.+<\/b>$/iu.test(line) ||
+    /^<b>(?:Значение|Уверенность):<\/b>/iu.test(line)
+  );
 }
 
 function normalizeBulletLine(line: string): string {
