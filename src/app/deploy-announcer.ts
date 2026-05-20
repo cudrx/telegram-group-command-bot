@@ -4,7 +4,7 @@ import {
   type DeployMetadataLoadResult,
   loadDeployMetadata as defaultLoadDeployMetadata
 } from './deploy-metadata.js';
-import { formatTelegramHtmlReply } from './telegram-html.js';
+import { formatTelegramHtmlReply } from './telegram-html/index.js';
 
 const LAST_ANNOUNCED_DEPLOY_SHA_KEY = 'last_announced_deploy_sha';
 

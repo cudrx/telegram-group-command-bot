@@ -1,8 +1,5 @@
-import { addNewsSpacing, normalizeNewsLine } from './actions/news/format.js';
-import {
-  escapeMarkdownTagContent,
-  restoreMarkdownEscapes
-} from './telegram-markdown-escapes.js';
+import { addNewsSpacing, normalizeNewsLine } from '../actions/news/format.js';
+import { escapeMarkdownTagContent, restoreMarkdownEscapes } from './escapes.js';
 
 const ALLOWED_TAGS = new Set(['b', 'i', 'code']);
 const TAG_PATTERN = /<\/?[a-zA-Z][^>]*>/g;

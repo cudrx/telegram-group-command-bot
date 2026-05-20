@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { formatTelegramHtmlReply } from '../src/app/telegram-html.js';
+import { formatTelegramHtmlReply } from '../src/app/telegram-html/index.js';
 
 describe('formatTelegramHtmlReply', () => {
   test('preserves safe Telegram HTML tags and escapes raw text', () => {

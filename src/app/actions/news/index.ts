@@ -1,7 +1,7 @@
 import { newsActionConfig } from '../../../config/runtime/index.js';
 import { runWithReplyTyping } from '../../chat-orchestrator/helpers/reply.js';
 import { dispatchTextReply } from '../../chat-orchestrator/outbound-voice.js';
-import { formatTelegramHtmlReply } from '../../telegram-html.js';
+import { formatTelegramHtmlReply } from '../../telegram-html/index.js';
 import type { ChatAction } from '../types.js';
 import {
   buildNewsAnalysisPrompt,

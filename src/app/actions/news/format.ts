@@ -1,4 +1,4 @@
-import { escapeMarkdownTagContent } from '../../telegram-markdown-escapes.js';
+import { escapeMarkdownTagContent } from '../../telegram-html/escapes.js';
 
 export function normalizeNewsLine(line: string): string {
   const headingMatch = /^#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
