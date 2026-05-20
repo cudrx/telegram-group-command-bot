@@ -10,6 +10,8 @@ import {
 import { fetchTelegramChannelPosts } from './scraper.js';
 import { selectNewsPostsForDigest } from './source-policy.js';
 
+const TELEGRAM_SAFE_TEXT_CHUNK_LENGTH = 3500;
+
 export const newsAction: ChatAction = {
   intent: 'news',
   commands: ['news'],
@@ -71,7 +73,7 @@ export const newsAction: ChatAction = {
     });
 
     if (selection.selectedPosts.length === 0) {
-      await dispatchLocalReply(
+      await dispatchLocalReplies(
         ctx,
         formatUnavailableMessage(failedSources, 'Нет постов для анализа.')
       );
@@ -93,7 +95,7 @@ export const newsAction: ChatAction = {
         ? `WARN: не удалось получить данные по источникам: ${failedSources.join(', ')}.\n\n`
         : '';
 
-    await dispatchLocalReply(ctx, `${prefix}${result.text}`);
+    await dispatchLocalReplies(ctx, `${prefix}${result.text}`);
   }
 };
 
@@ -110,15 +112,17 @@ function getOldestLookbackCutoff(
   ).toISOString();
 }
 
-async function dispatchLocalReply(
+async function dispatchLocalReplies(
   ctx: Parameters<ChatAction['handle']>[0],
   text: string
 ): Promise<void> {
-  await dispatchTextReply({
-    deps: ctx.deps,
-    request: ctx.request,
-    text: formatTelegramHtmlReply(text)
-  });
+  for (const chunk of splitTelegramText(text)) {
+    await dispatchTextReply({
+      deps: ctx.deps,
+      request: ctx.request,
+      text: formatTelegramHtmlReply(chunk)
+    });
+  }
 }
 
 function formatUnavailableMessage(
@@ -128,4 +132,50 @@ function formatUnavailableMessage(
   if (failedSources.length === 0) return fallback;
 
   return `${fallback}\nWARN: не удалось получить данные по источникам: ${failedSources.join(', ')}.`;
+}
+
+function splitTelegramText(text: string): string[] {
+  const normalized = text.trim();
+
+  if (normalized.length <= TELEGRAM_SAFE_TEXT_CHUNK_LENGTH) {
+    return [normalized];
+  }
+
+  const chunks: string[] = [];
+  let remaining = normalized;
+
+  while (remaining.length > TELEGRAM_SAFE_TEXT_CHUNK_LENGTH) {
+    const splitAt = findSplitIndex(remaining, TELEGRAM_SAFE_TEXT_CHUNK_LENGTH);
+    chunks.push(remaining.slice(0, splitAt).trim());
+    remaining = remaining.slice(splitAt).trim();
+  }
+
+  if (remaining.length > 0) {
+    chunks.push(remaining);
+  }
+
+  return chunks;
+}
+
+function findSplitIndex(text: string, maxLength: number): number {
+  const candidate = text.slice(0, maxLength + 1);
+  const paragraphBreak = candidate.lastIndexOf('\n\n');
+
+  if (paragraphBreak >= Math.floor(maxLength * 0.5)) {
+    return paragraphBreak;
+  }
+
+  const lineBreak = candidate.lastIndexOf('\n');
+
+  if (lineBreak >= Math.floor(maxLength * 0.5)) {
+    return lineBreak;
+  }
+
+  const space = candidate.lastIndexOf(' ');
+
+  if (space >= Math.floor(maxLength * 0.5)) {
+    return space;
+  }
+
+  return maxLength;
 }
