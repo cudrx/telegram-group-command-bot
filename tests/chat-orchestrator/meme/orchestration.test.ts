@@ -233,7 +233,7 @@ describe('ChatOrchestrator /meme command', () => {
           const outputIndex = args.indexOf('-o');
           expect(outputIndex).toBeGreaterThanOrEqual(0);
           expect(args).toContain('/app/data/reddit-cookies.txt');
-          expect(args).toContain('fallback/best[ext=mp4]/best');
+          expect(args).toContain('bestvideo[ext=mp4]+bestaudio/best/fallback');
 
           const outputTemplate = args[outputIndex + 1] ?? '';
           const tempDirectory = path.dirname(outputTemplate);

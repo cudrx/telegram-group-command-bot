@@ -286,7 +286,7 @@ LLM слой:
 - Работает в авторизованном рабочем чате и в личке администратора без команды.
 - `ChatOrchestrator` проверяет входящий текст на Reddit post URL до command resolver.
 - Resolver запрашивает Reddit post JSON через `/.json` и принимает только публичные non-NSFW, non-spoiler посты с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
-- Если anonymous Reddit JSON/API возвращает ошибку, flow использует standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` для запуска zipapp, но не содержит `ffmpeg`; MVP предпочитает единый mp4-формат без merge, чтобы не раздувать Docker image.
+- Если anonymous Reddit JSON/API возвращает ошибку, flow использует standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.
 - Caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
 - После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; если Telegram отклоняет удаление из-за прав, media message не откатывается.

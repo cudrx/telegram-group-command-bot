@@ -53,7 +53,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
         '--max-filesize',
         formatMaxFilesize(input.maxBytes),
         '-f',
-        'fallback/best[ext=mp4]/best',
+        'bestvideo[ext=mp4]+bestaudio/best/fallback',
         '-o',
         path.join(tempDirectory, '%(id)s.%(ext)s'),
         reference.permalink
