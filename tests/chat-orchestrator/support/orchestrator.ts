@@ -43,7 +43,7 @@ export function createOrchestrator(input: {
     chatId: number;
     replyToMessageId: number;
     caption: string;
-    media: { kind: 'image'; filePath: string };
+    media: { kind: 'image' | 'video'; filePath: string };
   }) => Promise<{ messageId: number; createdAt: string }>;
   copyMessageDispatcher?: (input: {
     targetChatId: number;
@@ -55,6 +55,10 @@ export function createOrchestrator(input: {
     sourceChatId: number;
     messageIds: number[];
   }) => Promise<Array<{ messageId: number }>>;
+  deleteMessageDispatcher?: (input: {
+    chatId: number;
+    messageId: number;
+  }) => Promise<void>;
   lookupProvider?: LookupProvider | null;
   speechToTextProvider?: {
     transcribe: (input: {
@@ -191,6 +195,8 @@ export function createOrchestrator(input: {
           messageId: 4000
         }
       ]),
+    deleteMessageDispatcher:
+      input.deleteMessageDispatcher ?? vi.fn().mockResolvedValue(undefined),
     sendChatAction,
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),

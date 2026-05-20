@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   botCopyMessage,
   botCopyMessages,
+  botDeleteMessage,
   botGetMe,
   botSendChatAction,
   botSendVoice,
@@ -225,6 +226,29 @@ describe('createApplication wiring', () => {
 
     expect(botCopyMessage).toHaveBeenCalledWith(-1001, 84626969, 11);
     expect(botCopyMessages).toHaveBeenCalledWith(-1001, 84626969, [11, 12]);
+  });
+
+  test('wires source message deletion to Telegram deleteMessage API', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(
+      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+    );
+
+    const deps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          deleteMessageDispatcher?: (input: {
+            chatId: number;
+            messageId: number;
+          }) => Promise<void>;
+        }
+      | undefined;
+
+    await deps?.deleteMessageDispatcher?.({
+      chatId: -1001,
+      messageId: 11
+    });
+
+    expect(botDeleteMessage).toHaveBeenCalledWith(-1001, 11);
   });
 
   test('drops messages from unauthorized chats before the orchestrator', async () => {

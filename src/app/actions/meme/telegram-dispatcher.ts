@@ -23,12 +23,14 @@ export async function dispatchMemeMedia(input: {
 }
 
 function toDispatchMedia(media: DownloadedMemeMedia): {
-  kind: 'image';
+  kind: 'image' | 'video';
   filePath: string;
 } {
-  if (media.kind !== 'image') {
+  if (media.kind !== 'image' && media.kind !== 'video') {
+    const unsupported = media as { kind?: string };
+
     throw new Error(
-      `Unsupported meme media kind for Telegram dispatch: ${media.kind}.`
+      `Unsupported meme media kind for Telegram dispatch: ${unsupported.kind}.`
     );
   }
 

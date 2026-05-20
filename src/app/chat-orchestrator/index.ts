@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { NormalizedMessage } from '../../domain/models.js';
 import { chatActionRegistry } from '../actions/index.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
+import { runDirectRedditVideoMemeJob } from './meme-job.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export type {
@@ -47,6 +48,29 @@ export class ChatOrchestrator {
 
     if (storedMessage) {
       this.mediaSupport.startAutoReadForIncomingMessage(storedMessage, logger);
+    }
+
+    const directRedditVideoRequest: ReplyRequest = {
+      chatId: message.chatId,
+      chatType: message.chatType,
+      chatTitle: message.chatTitle,
+      triggerMessageId: message.messageId,
+      fromDisplayName: message.fromDisplayName,
+      createdAt: message.createdAt,
+      intent: 'meme',
+      replyToMessageSnapshot: message.replyToMessageSnapshot,
+      replyToMediaSnapshot: message.replyToMediaSnapshot
+    };
+    const handledRedditVideo = await runDirectRedditVideoMemeJob({
+      deps: this.deps,
+      mediaSupport: this.mediaSupport,
+      request: directRedditVideoRequest,
+      text: message.text,
+      logger
+    });
+
+    if (handledRedditVideo) {
+      return;
     }
 
     const resolvedAction = chatActionRegistry.resolveCommand({

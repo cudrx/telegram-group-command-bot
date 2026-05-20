@@ -4,6 +4,7 @@ import type {
   CopiedBotMessage,
   CopyMessageDispatcher,
   CopyMessagesDispatcher,
+  DeleteMessageDispatcher,
   MemeDispatcher,
   ReplyDispatcher,
   SentBotMessage,
@@ -19,6 +20,13 @@ type TelegramSentMessage = {
     file_unique_id?: string;
     file_size?: number;
   }>;
+  video?: {
+    file_id: string;
+    file_unique_id?: string;
+    mime_type?: string;
+    file_size?: number;
+    duration?: number;
+  };
 };
 
 type TelegramMessageId = {
@@ -41,6 +49,11 @@ type TelegramApi = {
     file: InputFile,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
+  sendVideo(
+    chatId: number,
+    file: InputFile,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage>;
   copyMessage(
     chatId: number,
     fromChatId: number,
@@ -53,6 +66,7 @@ type TelegramApi = {
     messageIds: number[],
     options?: Record<string, unknown>
   ): Promise<TelegramMessageId[]>;
+  deleteMessage(chatId: number, messageId: number): Promise<unknown>;
   sendChatAction(chatId: number, action: TelegramChatAction): Promise<unknown>;
 };
 
@@ -62,6 +76,7 @@ export type TelegramDispatchers = {
   memeDispatcher: MemeDispatcher;
   copyMessageDispatcher: CopyMessageDispatcher;
   copyMessagesDispatcher: CopyMessagesDispatcher;
+  deleteMessageDispatcher: DeleteMessageDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   sendHtmlMessage: (input: {
     chatId: number;
@@ -99,13 +114,20 @@ export function createTelegramDispatchers(
       }
     };
 
-    const sent = await api.sendPhoto(chatId, new InputFile(media.filePath), {
+    const options = {
       caption,
       parse_mode: 'HTML',
       ...linkPreviewOptions,
       ...replyParameters
-    });
-    const mediaSnapshot = toSentPhotoSnapshot(sent, caption);
+    };
+    const sent =
+      media.kind === 'video'
+        ? await api.sendVideo(chatId, new InputFile(media.filePath), options)
+        : await api.sendPhoto(chatId, new InputFile(media.filePath), options);
+    const mediaSnapshot =
+      media.kind === 'video'
+        ? toSentVideoSnapshot(sent, caption)
+        : toSentPhotoSnapshot(sent, caption);
 
     return {
       ...toSentBotMessage(sent),
@@ -169,6 +191,9 @@ export function createTelegramDispatchers(
 
       return copied.map(toCopiedBotMessage);
     },
+    deleteMessageDispatcher: async ({ chatId, messageId }) => {
+      await api.deleteMessage(chatId, messageId);
+    },
     sendChatAction: async (chatId, action) => {
       await api.sendChatAction(chatId, action);
     },
@@ -205,6 +230,26 @@ function toSentPhotoSnapshot(
     mimeType: 'image/jpeg',
     fileSize: photo.file_size ?? null,
     durationSeconds: null,
+    caption
+  };
+}
+
+function toSentVideoSnapshot(
+  sent: TelegramSentMessage,
+  caption: string
+): MediaMessageSnapshot | null {
+  const video = sent.video;
+
+  if (!video) return null;
+
+  return {
+    messageId: sent.message_id,
+    mediaKind: 'video',
+    fileId: video.file_id,
+    fileUniqueId: video.file_unique_id ?? null,
+    mimeType: video.mime_type ?? 'video/mp4',
+    fileSize: video.file_size ?? null,
+    durationSeconds: video.duration ?? null,
     caption
   };
 }

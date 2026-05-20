@@ -56,25 +56,34 @@ describe('dispatchMemeMedia', () => {
     expect(memeDispatcher).not.toHaveBeenCalled();
   });
 
-  test('rejects unsupported video downloads before dispatching', async () => {
-    const memeDispatcher = vi.fn();
+  test('adapts video downloads to the meme dispatcher', async () => {
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 101,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
 
-    await expect(
-      dispatchMemeMedia({
-        memeDispatcher,
-        chatId: 1,
-        replyToMessageId: 10,
-        caption: 'caption',
-        media: unsupportedDownloadedMedia({
-          kind: 'video',
-          filePath: '/tmp/1.mp4',
-          extension: 'mp4',
-          cleanup: vi.fn()
-        })
-      })
-    ).rejects.toThrow('Unsupported meme media kind for Telegram dispatch');
+    await dispatchMemeMedia({
+      memeDispatcher,
+      chatId: 1,
+      replyToMessageId: 10,
+      caption: 'caption',
+      media: {
+        kind: 'video',
+        filePath: '/tmp/1.mp4',
+        extension: 'mp4',
+        cleanup: vi.fn()
+      }
+    });
 
-    expect(memeDispatcher).not.toHaveBeenCalled();
+    expect(memeDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 10,
+      caption: 'caption',
+      media: {
+        kind: 'video',
+        filePath: '/tmp/1.mp4'
+      }
+    });
   });
 });
 

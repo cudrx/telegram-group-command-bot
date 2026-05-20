@@ -3,6 +3,7 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   botSendMessage,
   botSendPhoto,
+  botSendVideo,
   botStart,
   botStop,
   chatOrchestratorConstructor,
@@ -108,6 +109,76 @@ describe('createApplication lifecycle', () => {
     expect(sent).toEqual({
       messageId: 45,
       createdAt: '2025-04-07T04:26:41.000Z'
+    });
+  });
+
+  test('sends meme videos with Telegram HTML captions', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv());
+
+    botSendVideo.mockResolvedValue({
+      message_id: 46,
+      date: 1_744_000_002,
+      video: {
+        file_id: 'video-file',
+        file_unique_id: 'video-unique',
+        mime_type: 'video/mp4',
+        file_size: 123,
+        duration: 7
+      }
+    });
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          memeDispatcher?: (input: {
+            chatId: number;
+            replyToMessageId: number;
+            caption: string;
+            media: {
+              kind: 'video';
+              filePath: string;
+            };
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    const sent = await orchestratorDeps?.memeDispatcher?.({
+      chatId: -1001,
+      replyToMessageId: 11,
+      caption: '<b>Видео</b>',
+      media: {
+        kind: 'video',
+        filePath: '/tmp/meme.mp4'
+      }
+    });
+
+    expect(botSendVideo).toHaveBeenCalledWith(
+      -1001,
+      expect.objectContaining({ source: '/tmp/meme.mp4' }),
+      {
+        caption: '<b>Видео</b>',
+        parse_mode: 'HTML',
+        link_preview_options: {
+          is_disabled: true
+        },
+        reply_parameters: {
+          message_id: 11
+        }
+      }
+    );
+    expect(sent).toEqual({
+      messageId: 46,
+      createdAt: '2025-04-07T04:26:42.000Z',
+      mediaSnapshot: {
+        messageId: 46,
+        mediaKind: 'video',
+        fileId: 'video-file',
+        fileUniqueId: 'video-unique',
+        mimeType: 'video/mp4',
+        fileSize: 123,
+        durationSeconds: 7,
+        caption: '<b>Видео</b>'
+      }
     });
   });
 

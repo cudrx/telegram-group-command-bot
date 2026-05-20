@@ -49,7 +49,13 @@ export type NormalizedMessage = {
 
 export type MediaMessageSnapshot = {
   messageId: number;
-  mediaKind: 'photo' | 'document_image' | 'voice' | 'audio' | 'video_note';
+  mediaKind:
+    | 'photo'
+    | 'document_image'
+    | 'voice'
+    | 'audio'
+    | 'video'
+    | 'video_note';
   fileId: string;
   fileUniqueId: string | null;
   mimeType: string | null;

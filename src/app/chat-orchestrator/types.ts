@@ -53,7 +53,7 @@ export type MemeMediaDispatchInput = {
   chatId: number;
   replyToMessageId: number;
   caption: string;
-  media: { kind: 'image'; filePath: string };
+  media: { kind: 'image' | 'video'; filePath: string };
 };
 
 export type MemeDispatcher = (
@@ -75,6 +75,11 @@ export type CopyMessagesDispatcher = (input: {
   sourceChatId: number;
   messageIds: number[];
 }) => Promise<CopiedBotMessage[]>;
+
+export type DeleteMessageDispatcher = (input: {
+  chatId: number;
+  messageId: number;
+}) => Promise<void>;
 
 export type LlmClient = {
   generateReply(input: {
@@ -128,6 +133,7 @@ export type ChatOrchestratorDeps = {
   memeDispatcher: MemeDispatcher;
   copyMessageDispatcher: CopyMessageDispatcher;
   copyMessagesDispatcher: CopyMessagesDispatcher;
+  deleteMessageDispatcher: DeleteMessageDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   delay: (ms: number) => Promise<void>;
   logger: AppLogger;

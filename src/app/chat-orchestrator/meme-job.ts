@@ -4,6 +4,7 @@ import { formatMemeCaption } from '../actions/meme/caption.js';
 import { getRecentlySentMemeIds } from '../actions/meme/history-store.js';
 import { downloadMemeMediaToTemp } from '../actions/meme/media-downloader.js';
 import { fetchMemeApiCandidates } from '../actions/meme/meme-api-client.js';
+import { fetchRedditVideoCandidate } from '../actions/meme/reddit-post-client.js';
 import { selectMemeSources } from '../actions/meme/source-selection.js';
 import { dispatchMemeMedia } from '../actions/meme/telegram-dispatcher.js';
 import type {
@@ -15,6 +16,46 @@ import { toMemeMediaKind } from '../actions/meme/types.js';
 import { runWithReplyTyping } from './helpers/reply.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
+
+export async function runDirectRedditVideoMemeJob(input: {
+  deps: ChatOrchestratorDeps;
+  request: ReplyRequest;
+  text: string;
+  mediaSupport?: ChatOrchestratorMediaSupport;
+  logger: ChatOrchestratorDeps['logger'];
+}): Promise<boolean> {
+  let candidate: MemePostCandidate | null;
+
+  try {
+    candidate = await fetchRedditVideoCandidate({
+      text: input.text,
+      ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
+    });
+  } catch (error) {
+    input.logger.warn('reddit_video_resolution_failed', serializeError(error));
+    return false;
+  }
+
+  if (!candidate) return false;
+
+  await runWithReplyTyping(input.deps, input.request.chatId, async () => {
+    await sendCandidate(input, candidate);
+  });
+
+  try {
+    await input.deps.deleteMessageDispatcher({
+      chatId: input.request.chatId,
+      messageId: input.request.triggerMessageId
+    });
+  } catch (error) {
+    input.logger.warn(
+      'reddit_video_source_delete_failed',
+      serializeError(error)
+    );
+  }
+
+  return true;
+}
 
 export async function runMemeJob(input: {
   deps: ChatOrchestratorDeps;
@@ -221,13 +262,29 @@ async function downloadResolvedMedia(
 ): Promise<DownloadedMemeMedia> {
   const downloaded = await downloadMemeMediaToTemp({
     url: media.mediaUrl,
-    filename: `meme-api-media.${media.extension}`,
-    maxBytes: memeActionConfig.media.imageMaxBytes,
+    filename: `meme-media.${media.extension}`,
+    maxBytes:
+      media.kind === 'video'
+        ? memeActionConfig.media.videoMaxBytes
+        : memeActionConfig.media.imageMaxBytes,
     timeoutMs: memeActionConfig.media.downloadTimeoutMs,
     ...(deps.fetch ? { fetch: deps.fetch } : {})
   });
 
-  return { kind: media.kind, extension: media.extension, ...downloaded };
+  if (media.kind === 'video') {
+    return {
+      kind: 'video',
+      extension: media.extension,
+      durationSeconds: media.durationSeconds ?? null,
+      ...downloaded
+    };
+  }
+
+  return {
+    kind: 'image',
+    extension: media.extension,
+    ...downloaded
+  };
 }
 
 function getPrimaryMediaUrl(media: ResolvedMemeMedia): string | null {
