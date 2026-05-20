@@ -45,6 +45,16 @@ export function createOrchestrator(input: {
     caption: string;
     media: { kind: 'image'; filePath: string };
   }) => Promise<{ messageId: number; createdAt: string }>;
+  copyMessageDispatcher?: (input: {
+    targetChatId: number;
+    sourceChatId: number;
+    messageId: number;
+  }) => Promise<{ messageId: number }>;
+  copyMessagesDispatcher?: (input: {
+    targetChatId: number;
+    sourceChatId: number;
+    messageIds: number[];
+  }) => Promise<Array<{ messageId: number }>>;
   lookupProvider?: LookupProvider | null;
   speechToTextProvider?: {
     transcribe: (input: {
@@ -169,6 +179,18 @@ export function createOrchestrator(input: {
         messageId: 3000,
         createdAt: '2026-04-13T09:00:30.000Z'
       }),
+    copyMessageDispatcher:
+      input.copyMessageDispatcher ??
+      vi.fn().mockResolvedValue({
+        messageId: 4000
+      }),
+    copyMessagesDispatcher:
+      input.copyMessagesDispatcher ??
+      vi.fn().mockResolvedValue([
+        {
+          messageId: 4000
+        }
+      ]),
     sendChatAction,
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),

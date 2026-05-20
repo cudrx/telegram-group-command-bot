@@ -161,3 +161,42 @@ export function getMessageByTelegramMessageId(
 
   return row ? toStoredMessage(row) : null;
 }
+
+export function getMessagesByMediaGroupId(
+  db: Database.Database,
+  input: {
+    chatId: number;
+    mediaGroupId: string;
+  }
+): StoredMessage[] {
+  const rows = db
+    .prepare(
+      `
+        SELECT
+          chat_id AS chatId,
+          telegram_message_id AS messageId,
+          user_id AS userId,
+          sender_display_name AS senderDisplayName,
+          text,
+          created_at AS createdAt,
+          edited_at AS editedAt,
+          is_bot AS isBot,
+          output_mode AS outputMode,
+          reply_to_telegram_message_id AS replyToMessageId,
+          media_kind AS mediaKind,
+          media_file_id AS mediaFileId,
+          media_file_unique_id AS mediaFileUniqueId,
+          media_mime_type AS mediaMimeType,
+          media_file_size AS mediaFileSize,
+          media_duration_seconds AS mediaDurationSeconds,
+          media_caption AS mediaCaption,
+          media_group_id AS mediaGroupId
+        FROM messages
+        WHERE chat_id = ? AND media_group_id = ?
+        ORDER BY telegram_message_id ASC
+      `
+    )
+    .all(input.chatId, input.mediaGroupId) as StoredMessageRow[];
+
+  return rows.map(toStoredMessage);
+}

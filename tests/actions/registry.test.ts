@@ -209,6 +209,8 @@ describe('chatActionRegistry command policy', () => {
   });
 
   test.each([
+    '/publish',
+    '/publish@fun_bot',
     '/news',
     '/news@fun_bot'
   ] as const)('resolves %s command only in private admin mode', (commandText) => {
@@ -220,12 +222,16 @@ describe('chatActionRegistry command policy', () => {
     });
 
     expect(resolved).toMatchObject({
-      action: expect.objectContaining({ intent: 'news' }),
+      action: expect.objectContaining({
+        intent: commandText.startsWith('/publish') ? 'publish' : 'news'
+      }),
       commandText
     });
   });
 
   test.each([
+    '/publish',
+    '/publish@fun_bot',
     '/news',
     '/news@fun_bot'
   ] as const)('returns none for %s command in chat mode', (commandText) => {

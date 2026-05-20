@@ -1,6 +1,9 @@
 import { InputFile } from 'grammy';
 import type { MediaMessageSnapshot } from '../domain/models.js';
 import type {
+  CopiedBotMessage,
+  CopyMessageDispatcher,
+  CopyMessagesDispatcher,
   MemeDispatcher,
   ReplyDispatcher,
   SentBotMessage,
@@ -16,6 +19,10 @@ type TelegramSentMessage = {
     file_unique_id?: string;
     file_size?: number;
   }>;
+};
+
+type TelegramMessageId = {
+  message_id: number;
 };
 
 type TelegramApi = {
@@ -34,6 +41,18 @@ type TelegramApi = {
     file: InputFile,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
+  copyMessage(
+    chatId: number,
+    fromChatId: number,
+    messageId: number,
+    options?: Record<string, unknown>
+  ): Promise<TelegramMessageId>;
+  copyMessages(
+    chatId: number,
+    fromChatId: number,
+    messageIds: number[],
+    options?: Record<string, unknown>
+  ): Promise<TelegramMessageId[]>;
   sendChatAction(chatId: number, action: TelegramChatAction): Promise<unknown>;
 };
 
@@ -41,6 +60,8 @@ export type TelegramDispatchers = {
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;
   memeDispatcher: MemeDispatcher;
+  copyMessageDispatcher: CopyMessageDispatcher;
+  copyMessagesDispatcher: CopyMessagesDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   sendHtmlMessage: (input: {
     chatId: number;
@@ -122,6 +143,32 @@ export function createTelegramDispatchers(
       return toSentBotMessage(sent);
     },
     memeDispatcher,
+    copyMessageDispatcher: async ({
+      targetChatId,
+      sourceChatId,
+      messageId
+    }) => {
+      const copied = await api.copyMessage(
+        targetChatId,
+        sourceChatId,
+        messageId
+      );
+
+      return toCopiedBotMessage(copied);
+    },
+    copyMessagesDispatcher: async ({
+      targetChatId,
+      sourceChatId,
+      messageIds
+    }) => {
+      const copied = await api.copyMessages(
+        targetChatId,
+        sourceChatId,
+        messageIds
+      );
+
+      return copied.map(toCopiedBotMessage);
+    },
     sendChatAction: async (chatId, action) => {
       await api.sendChatAction(chatId, action);
     },
@@ -133,6 +180,12 @@ function toSentBotMessage(sent: TelegramSentMessage): SentBotMessage {
   return {
     messageId: sent.message_id,
     createdAt: new Date(sent.date * 1000).toISOString()
+  };
+}
+
+function toCopiedBotMessage(sent: TelegramMessageId): CopiedBotMessage {
+  return {
+    messageId: sent.message_id
   };
 }
 

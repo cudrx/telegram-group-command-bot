@@ -15,6 +15,7 @@ import {
   getChatState,
   getMessageByTelegramMessageId,
   getMessagesBefore,
+  getMessagesByMediaGroupId,
   getMessagesInRange,
   getRecentMessages,
   saveBotMessage,
@@ -136,6 +137,13 @@ export class DatabaseClient {
     messageId: number
   ): StoredMessage | null {
     return getMessageByTelegramMessageId(this.db, chatId, messageId);
+  }
+
+  getMessagesByMediaGroupId(input: {
+    chatId: number;
+    mediaGroupId: string;
+  }): StoredMessage[] {
+    return getMessagesByMediaGroupId(this.db, input);
   }
 
   saveMediaArtifact(input: SaveMediaArtifactInput): void {
