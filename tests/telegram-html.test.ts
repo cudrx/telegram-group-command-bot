@@ -146,6 +146,24 @@ describe('formatTelegramHtmlReply', () => {
     );
   });
 
+  test('expands inline numbered follow-up items for news replies', () => {
+    const formatted = formatTelegramHtmlReply(
+      'Следить дальше: 1) нефть США; 2) акции Rheinmetall; 3) реакция Китая; 4) курс рубля.',
+      { intent: 'news' }
+    );
+
+    expect(formatted).toBe(
+      [
+        '<b>Следить дальше:</b>',
+        '',
+        '1. нефть США',
+        '2. акции Rheinmetall',
+        '3. реакция Китая',
+        '4. курс рубля.'
+      ].join('\n')
+    );
+  });
+
   test('escapes html-like text inside markdown code spans', () => {
     const formatted = formatTelegramHtmlReply('`<b>не тег</b>`');
 

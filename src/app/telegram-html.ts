@@ -103,11 +103,32 @@ function normalizeNewsLine(line: string): string {
   if (finalLabelMatch?.[1]) {
     const value = finalLabelMatch[2]?.trim();
     const label = `<b>${escapeMarkdownTagContent(finalLabelMatch[1])}:</b>`;
+    const numberedList =
+      finalLabelMatch[1].toLocaleLowerCase('ru-RU') === 'следить дальше'
+        ? normalizeInlineNumberedList(value ?? '')
+        : null;
+
+    if (numberedList !== null) {
+      return `${label}\n\n${numberedList}`;
+    }
 
     return value ? `${label} ${value}` : label;
   }
 
   return line;
+}
+
+function normalizeInlineNumberedList(text: string): string | null {
+  const items = Array.from(
+    text.matchAll(/(?:^|;\s*)\d+\)\s*([^;]+?)(?=\s*;\s*\d+\)|$)/gu),
+    (match) => match[1]?.trim()
+  ).filter((item): item is string => Boolean(item));
+
+  if (items.length < 2) {
+    return null;
+  }
+
+  return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
 }
 
 function addNewsSpacing(lines: string[]): string[] {
