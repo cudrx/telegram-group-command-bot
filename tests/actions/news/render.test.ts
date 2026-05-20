@@ -80,7 +80,14 @@ describe('news prompt rendering', () => {
     expect(prompt).toContain('Целевой объём отчёта: 3500–5000 знаков');
     expect(prompt).toContain('Верхний предел 6000 знаков');
     expect(prompt).toContain('оставь 3 сигнала');
-    expect(prompt).toContain('Эффект: РФ +/−/0; граждане +/−/0; война +/−/0');
+    expect(prompt).toContain(
+      'Не используй символические оценки, плюсы/минусы, рейтинги и шкалы'
+    );
+    expect(prompt).toContain('Значение: что это меняет');
+    expect(prompt).toContain(
+      'Каждый нумерованный раздел пиши с отдельным заголовком'
+    );
+    expect(prompt).not.toContain('Эффект: РФ +/−/0');
     expect(prompt).toContain(
       'context-источников не используй как самостоятельную основу'
     );
