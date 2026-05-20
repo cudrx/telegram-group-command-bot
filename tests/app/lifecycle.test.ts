@@ -183,7 +183,8 @@ describe('createApplication lifecycle', () => {
       now: expect.any(String),
       messageRetentionDays: 3,
       mediaArtifactRetentionDays: 5,
-      memeHistoryRetentionDays: 14
+      memeHistoryRetentionDays: 14,
+      newsPostRetentionDays: 7
     });
 
     vi.advanceTimersByTime(2 * 60 * 60 * 1000);

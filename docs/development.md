@@ -52,7 +52,7 @@
 
 Runtime-настройки, которые не являются секретами и не требуют deploy-specific
 переопределения, лежат в `src/config/runtime/`. Значения там сгруппированы по
-сценариям (`actions/answer`, `actions/read`, `actions/meme`) и внешним
+сценариям (`actions/answer`, `actions/read`, `actions/meme`, `actions/news`) и внешним
 провайдерам (`providers/llm`, `providers/media`, `providers/tts`,
 `providers/lookup`). Если настройка должна меняться между окружениями,
 добавляйте ее в `src/config/env/schema.ts`, а default берите из runtime config.
@@ -100,6 +100,7 @@ LOG_COLOR=true
 - `npm run eval:intents` — полный набор intent eval, отчеты в `.eval-runs/`.
 - `npm run eval:intents -- --id=<fixture-id>` — один fixture.
 - `npm run eval:intents -- --intent=<intent>` — fixtures одного intent.
+- `npm run eval:news` — live news eval: fetch публичных Telegram news-источников, сборка prompt и один LLM-вызов; отчет пишется в `.eval-runs/`.
 
 ## Проверки
 
@@ -123,6 +124,12 @@ npm run build
 npm run eval:intents
 ```
 
+Для изменений `/news`, source policy, parser или news prompt:
+
+```bash
+npm run eval:news
+```
+
 Prompt-контракт reply-моделей включает блок `CURRENT_DATETIME` с текущими датой
 и временем Москвы в простом текстовом формате. При изменениях сборки prompt
 держите это поле в тестах и intent fixtures, чтобы LLM могла корректно считать
@@ -137,6 +144,10 @@ Prompt-контракт reply-моделей включает блок `CURRENT_
 3. Подключить action в `src/app/actions/index.ts`.
 4. Добавить focused tests для registry/action behavior.
 5. Если action использует LLM, prompt остается в `llm/`.
+
+Команды только для лички администратора регистрируйте с `modes:
+['private_admin']`. Например `/news` не должен резолвиться в обычном рабочем
+чате.
 
 `index.ts` в action-папке должен оставаться входной точкой. Если файл достигает
 250+ строк, логику нужно вынести в соседние файлы этой же папки.
@@ -217,6 +228,7 @@ Metadata деплоя пишется в серверный `data/deploy-metadata
 - `/translate` должен возвращать локальный fallback для уже русского target и переводить на русский нерусские текстовые/media-блоки с заголовками источников.
 - Редактирование уже сохраненного сообщения должно обновлять будущий контекст, но не отправлять новый ответ само по себе.
 - `/meme` делает внешний запрос к `meme-api.com`, скачивает только image media во временные файлы и должен чистить их после успешной отправки и после ошибок Telegram.
+- `/news` запускайте в личке администратора; он делает внешние запросы к публичным `t.me/s/<channel>` страницам, сохраняет text-only кэш на неделю и отправляет один LLM-запрос.
 - Провайдеры медиа запускаются только при наличии соответствующих ключей.
 - Smoke-проверку поиска перед включением в продакшне можно сделать прямым запросом к Tavily API.
 

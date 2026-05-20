@@ -143,7 +143,8 @@ describeWithSqlite('DatabaseClient meme posts', () => {
       mediaArtifacts: 0,
       messages: 0,
       chats: 0,
-      memePosts: 1
+      memePosts: 1,
+      newsPosts: 0
     });
 
     expect(

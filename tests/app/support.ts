@@ -212,7 +212,9 @@ export function installAppTestHooks(): void {
     dbCleanupExpiredData.mockReturnValue({
       mediaArtifacts: 0,
       messages: 0,
-      chats: 0
+      chats: 0,
+      memePosts: 0,
+      newsPosts: 0
     });
     botGetMe.mockResolvedValue({
       id: 77,

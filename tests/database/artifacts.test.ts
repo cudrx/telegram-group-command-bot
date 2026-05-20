@@ -338,7 +338,8 @@ describeWithSqlite('DatabaseClient artifacts', () => {
       mediaArtifacts: 1,
       messages: 1,
       chats: 1,
-      memePosts: 0
+      memePosts: 0,
+      newsPosts: 0
     });
 
     db.close();
@@ -388,7 +389,8 @@ describeWithSqlite('DatabaseClient artifacts', () => {
       mediaArtifacts: 0,
       messages: 1,
       chats: 0,
-      memePosts: 0
+      memePosts: 0,
+      newsPosts: 0
     });
 
     db.close();

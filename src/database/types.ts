@@ -46,6 +46,16 @@ export type SaveMemePostInput = {
   sentAt: string;
 };
 
+export type NewsPostRecord = {
+  sourceSlug: string;
+  messageId: number;
+  publishedAt: string;
+  fetchedAt: string;
+  text: string;
+  url: string;
+  contentHash: string;
+};
+
 export type StoredMediaArtifact = {
   id: number;
   fileUniqueId: string | null;

@@ -1,6 +1,7 @@
 import { answerAction } from './answer/index.js';
 import { decideAction } from './decide/index.js';
 import { memeAction } from './meme/index.js';
+import { newsAction } from './news/index.js';
 import { readAction } from './read/index.js';
 import { createActionRegistry } from './registry.js';
 import { summarizeAction } from './summarize/index.js';
@@ -13,7 +14,8 @@ export const chatActions = [
   answerAction,
   translateAction,
   readAction,
-  memeAction
+  memeAction,
+  newsAction
 ] satisfies ChatAction[];
 
 export const chatActionRegistry = createActionRegistry(chatActions);

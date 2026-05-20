@@ -207,4 +207,35 @@ describe('chatActionRegistry command policy', () => {
 
     expect(resolved).toBeNull();
   });
+
+  test.each([
+    '/news',
+    '/news@fun_bot'
+  ] as const)('resolves %s command only in private admin mode', (commandText) => {
+    const resolved = chatActionRegistry.resolveCommand({
+      botUsername: 'fun_bot',
+      mode: 'private_admin',
+      text: `${commandText} ignored arguments`,
+      entities: [{ type: 'bot_command', offset: 0, length: commandText.length }]
+    });
+
+    expect(resolved).toMatchObject({
+      action: expect.objectContaining({ intent: 'news' }),
+      commandText
+    });
+  });
+
+  test.each([
+    '/news',
+    '/news@fun_bot'
+  ] as const)('returns none for %s command in chat mode', (commandText) => {
+    const resolved = chatActionRegistry.resolveCommand({
+      botUsername: 'fun_bot',
+      mode: 'chat',
+      text: `${commandText} ignored arguments`,
+      entities: [{ type: 'bot_command', offset: 0, length: commandText.length }]
+    });
+
+    expect(resolved).toBeNull();
+  });
 });

@@ -30,6 +30,9 @@ export function createOrchestrator(input: {
       intent: LookupIntent;
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createLookupPlanResult>>;
+    analyzeNews?: (input: {
+      prompt: string;
+    }) => Promise<ReturnType<typeof createReplyResult>>;
   };
   replyDispatcher: (input: {
     chatId: number;
@@ -128,7 +131,17 @@ export function createOrchestrator(input: {
             queries: [],
             confidence: 'low'
           })
-        )
+        ),
+      analyzeNews:
+        input.qwen.analyzeNews ??
+        vi.fn().mockResolvedValue({
+          text: 'news analysis',
+          model: 'test-model',
+          source: 'llm',
+          latencyMs: 1,
+          attemptCount: 1,
+          promptTokensEstimate: 1
+        })
     },
     lookupProvider: input.lookupProvider ?? null,
     speechToTextProvider: input.speechToTextProvider as never,
