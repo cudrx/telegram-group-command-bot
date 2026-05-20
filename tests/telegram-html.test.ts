@@ -49,6 +49,24 @@ describe('formatTelegramHtmlReply', () => {
     );
   });
 
+  test('keeps intent-specific formatting isolated between reply types', () => {
+    expect(formatTelegramHtmlReply('Следить дальше: 1) нефть; 2) курс.')).toBe(
+      'Следить дальше: 1) нефть; 2) курс.'
+    );
+
+    expect(
+      formatTelegramHtmlReply('Summary:\nИтог: всё работает', {
+        intent: 'summarize'
+      })
+    ).toBe('<b>Итог</b> — всё работает');
+
+    expect(
+      formatTelegramHtmlReply('Следить дальше: 1) нефть; 2) курс.', {
+        intent: 'news'
+      })
+    ).toBe('<b>Следить дальше:</b>\n\n1. нефть\n2. курс.');
+  });
+
   test('normalizes markdown headings as bold titles for news replies', () => {
     const formatted = formatTelegramHtmlReply(
       ['# Отчёт по новостям', '## 1. Общая картина', 'Текст'].join('\n'),

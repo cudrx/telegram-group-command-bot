@@ -17,52 +17,68 @@ export function formatTelegramHtmlReply(
   options: { intent?: TelegramReplyIntent } = {}
 ): string {
   return restoreMarkdownEscapes(
-    sanitizeTelegramHtml(normalizeReplyText(text, options))
+    sanitizeTelegramHtml(normalizeTelegramReplyText(text, options))
   );
 }
 
-function normalizeReplyText(
+function normalizeTelegramReplyText(
   text: string,
   options: { intent?: TelegramReplyIntent }
 ): string {
-  const normalizedLines = text
-    .replace(/\r\n/g, '\n')
-    .replace(/\r/g, '\n')
+  const lines = normalizeLineEndings(text)
     .split('\n')
-    .map((line) => normalizeLine(line.trimEnd(), options))
+    .map((line) => normalizeLineForTelegram(line.trimEnd(), options))
     .filter((line) => line !== null);
-  const spacedLines =
-    options.intent === 'news'
-      ? addNewsSpacing(normalizedLines)
-      : normalizedLines;
 
-  return spacedLines
+  return addIntentSpacing(lines, options)
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
 
-function normalizeLine(
+function normalizeLineEndings(text: string): string {
+  return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+function normalizeLineForTelegram(
   line: string,
   options: { intent?: TelegramReplyIntent }
 ): string | null {
-  const bulletLine = normalizeBulletLine(line);
+  const commonLine = normalizeCommonLine(line);
+  const intentLine = normalizeIntentLine(commonLine, options);
 
+  if (intentLine === null) return null;
+
+  return normalizeMarkdownLine(intentLine);
+}
+
+function normalizeCommonLine(line: string): string {
+  return normalizeBulletLine(line);
+}
+
+function normalizeIntentLine(
+  line: string,
+  options: { intent?: TelegramReplyIntent }
+): string | null {
+  switch (options.intent) {
+    case 'news':
+      return normalizeNewsLine(line);
+    case 'summarize':
+      return normalizeSummarizeLine(line);
+    default:
+      return line;
+  }
+}
+
+function addIntentSpacing(
+  lines: string[],
+  options: { intent?: TelegramReplyIntent }
+): string[] {
   if (options.intent === 'news') {
-    return normalizeMarkdownLine(normalizeNewsLine(bulletLine));
+    return addNewsSpacing(lines);
   }
 
-  if (options.intent === 'summarize') {
-    const summarizeLine = normalizeSummarizeLine(bulletLine);
-
-    if (summarizeLine === null) {
-      return null;
-    }
-
-    return normalizeMarkdownLine(summarizeLine);
-  }
-
-  return normalizeMarkdownLine(bulletLine);
+  return lines;
 }
 
 function normalizeNewsLine(line: string): string {
