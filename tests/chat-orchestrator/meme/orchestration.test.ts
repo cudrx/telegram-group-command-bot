@@ -85,12 +85,6 @@ describe('ChatOrchestrator /meme command', () => {
             };
           }
 
-          if (file === 'ffmpeg') {
-            await writeFile(args.at(-1) ?? '', new Uint8Array([1, 2, 3, 4, 5]));
-
-            return { stdout: '', stderr: '' };
-          }
-
           expect(file).toBe('yt-dlp');
           const outputIndex = args.indexOf('-o');
           const outputTemplate = args[outputIndex + 1] ?? '';
@@ -161,7 +155,7 @@ describe('ChatOrchestrator /meme command', () => {
           'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
         media: {
           kind: 'video',
-          filePath: expect.stringContaining('telegram-compatible.mp4')
+          filePath: expect.stringContaining('DYKAmhRu8g-.mp4')
         }
       })
     );

@@ -113,39 +113,14 @@ describe('downloadInstagramReelWithYtDlp', () => {
             };
           }
 
-          if (file === 'ffmpeg') {
-            expect(args).toEqual([
-              '-y',
-              '-i',
-              expect.stringContaining('DYKAmhRu8g-.mp4'),
-              '-map',
-              '0:v:0',
-              '-map',
-              '0:a?',
-              '-c:v',
-              'libx264',
-              '-pix_fmt',
-              'yuv420p',
-              '-profile:v',
-              'baseline',
-              '-level',
-              '3.1',
-              '-c:a',
-              'aac',
-              '-movflags',
-              '+faststart',
-              expect.stringContaining('telegram-compatible.mp4')
-            ]);
-            await writeFile(args.at(-1) ?? '', new Uint8Array([1, 2, 3, 4, 5]));
-
-            return { stdout: '', stderr: '' };
-          }
-
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--cookies');
           expect(args).toContain(cookiesPath);
           expect(args).toContain('--merge-output-format');
           expect(args).toContain('mp4');
+          expect(args).toContain(
+            'best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
+          );
 
           const outputIndex = args.indexOf('-o');
           const outputTemplate = args[outputIndex + 1] ?? '';
@@ -183,7 +158,12 @@ describe('downloadInstagramReelWithYtDlp', () => {
         })
       })
     );
-    expect(result?.downloaded.filePath).toContain('telegram-compatible.mp4');
+    expect(result?.downloaded.filePath).toContain('DYKAmhRu8g-.mp4');
+    expect(execFile).not.toHaveBeenCalledWith(
+      'ffmpeg',
+      expect.any(Array),
+      expect.anything()
+    );
 
     const filePath = result?.downloaded.filePath ?? '';
     expect(existsSync(filePath)).toBe(true);
@@ -221,12 +201,6 @@ describe('downloadInstagramReelWithYtDlp', () => {
             }),
             stderr: ''
           };
-        }
-
-        if (file === 'ffmpeg') {
-          await writeFile(args.at(-1) ?? '', new Uint8Array([1]));
-
-          return { stdout: '', stderr: '' };
         }
 
         expect(file).toBe('yt-dlp');
