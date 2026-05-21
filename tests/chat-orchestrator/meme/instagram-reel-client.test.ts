@@ -31,45 +31,36 @@ describe('formatInstagramReelCaption', () => {
   test('formats nickname, like count and visible linked Reel URL', () => {
     expect(
       formatInstagramReelCaption({
-        description: '<ОСТАЛОСЬ & 3 ДНЯ>',
-        title: 'Video by bookstasyaa',
         nickname: 'bookstasyaa',
         likeCount: 3597,
-        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
-        maxLength: 1024
+        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/'
       })
     ).toBe(
-      'inst: bookstasyaa · likes: 3597 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
+      'inst: bookstasyaa · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">3597</a>'
     );
   });
 
-  test('keeps the visible linked Reel URL when like count is unavailable', () => {
+  test('formats zero when like count is unavailable upstream', () => {
     expect(
       formatInstagramReelCaption({
-        description: '',
-        title: '',
         nickname: 'bookstasyaa',
-        likeCount: null,
-        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
-        maxLength: 1024
+        likeCount: 0,
+        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/'
       })
     ).toBe(
-      'inst: bookstasyaa · likes: (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
+      'inst: bookstasyaa · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">0</a>'
     );
   });
 
-  test('falls back to inst when nickname is unavailable', () => {
+  test('escapes nickname', () => {
     expect(
       formatInstagramReelCaption({
-        description: '',
-        title: '',
-        nickname: null,
+        nickname: '<book & stasyaa>',
         likeCount: 1,
-        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
-        maxLength: 1024
+        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/'
       })
     ).toBe(
-      'inst · likes: 1 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
+      'inst: &lt;book &amp; stasyaa&gt; · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">1</a>'
     );
   });
 });
@@ -147,7 +138,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
     expect(result).toEqual(
       expect.objectContaining({
         caption:
-          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)',
+          'inst: bookstasyaa · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">3478</a>',
         sourceUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
         downloaded: expect.objectContaining({
           kind: 'video',
@@ -226,7 +217,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
     await result?.downloaded.cleanup();
 
     expect(result?.caption).toBe(
-      'inst: bookstasyaa · likes: 1 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
+      'inst: bookstasyaa · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">1</a>'
     );
   });
 

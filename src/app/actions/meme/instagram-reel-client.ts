@@ -82,12 +82,9 @@ export async function downloadInstagramReelWithYtDlp(input: {
 
     return {
       caption: formatInstagramReelCaption({
-        description: metadata.description,
-        title: metadata.title,
-        nickname: metadata.channel,
-        likeCount: metadata.likeCount,
-        reelUrl: sourceUrl,
-        maxLength: input.captionMaxLength
+        nickname: metadata.channel ?? metadata.uploader ?? 'unknown',
+        likeCount: metadata.likeCount ?? 0,
+        reelUrl: sourceUrl
       }),
       sourceUrl,
       downloaded: {
@@ -107,23 +104,16 @@ export async function downloadInstagramReelWithYtDlp(input: {
 }
 
 export function formatInstagramReelCaption(input: {
-  description: string | null;
-  title: string | null;
-  nickname: string | null;
-  likeCount: number | null;
+  nickname: string;
+  likeCount: number;
   reelUrl: string;
-  maxLength: number;
 }): string {
-  const name = input.nickname ? `inst: ${input.nickname}` : 'inst';
-  const likesLabel =
-    input.likeCount === null
-      ? 'likes:'
-      : `likes: ${formatInteger(input.likeCount)}`;
-  const reelUrl = escapeAttribute(input.reelUrl);
+  const name = `inst: ${input.nickname}`;
+  const metadata = `likes: <a href="${escapeAttribute(input.reelUrl)}">${formatInteger(
+    input.likeCount
+  )}</a>`;
 
-  return `${escapeHtml(name)} · ${likesLabel} (<a href="${reelUrl}">${escapeHtml(
-    input.reelUrl
-  )}</a>)`;
+  return `${escapeHtml(name)} · ${metadata}`;
 }
 
 function parseInstagramReelUrl(value: string): string | null {
@@ -160,6 +150,7 @@ async function fetchInstagramMetadata(input: {
   title: string | null;
   description: string | null;
   channel: string | null;
+  uploader: string | null;
   likeCount: number | null;
   durationSeconds: number | null;
   webpageUrl: string | null;
@@ -177,6 +168,7 @@ async function fetchInstagramMetadata(input: {
     title: readString(payload, 'title'),
     description: readString(payload, 'description'),
     channel: readString(payload, 'channel'),
+    uploader: readString(payload, 'uploader'),
     likeCount: readNumber(payload, 'like_count'),
     durationSeconds: readNumber(payload, 'duration'),
     webpageUrl: readString(payload, 'webpage_url')

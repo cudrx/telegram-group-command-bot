@@ -292,7 +292,7 @@ LLM слой:
 - Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.
 - Caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
-- Reels caption не включает description/title и использует короткий формат `inst: <nickname> · likes: <N> (<reel-url>)`; если `like_count` недоступен, поле likes остается без числа.
+- Reels caption не включает description/title и использует короткий формат `inst: <nickname> · likes: <a href="<reel-url>"><N></a>`, как у Reddit metadata-ссылки.
 - После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.
 - Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих или недоступных ссылок.
 
