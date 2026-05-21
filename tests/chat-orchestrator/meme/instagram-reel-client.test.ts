@@ -35,11 +35,11 @@ describe('formatInstagramReelCaption', () => {
         title: 'Video by bookstasyaa',
         nickname: 'bookstasyaa',
         likeCount: 3597,
-        reelUrl: 'https://www.instagram.com/reels/DYKAmhRu8g-/',
+        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
         maxLength: 1024
       })
     ).toBe(
-      'inst: bookstasyaa · likes: 3597 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
+      'inst: bookstasyaa · likes: 3597 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
     );
   });
 
@@ -50,11 +50,11 @@ describe('formatInstagramReelCaption', () => {
         title: '',
         nickname: 'bookstasyaa',
         likeCount: null,
-        reelUrl: 'https://www.instagram.com/reels/DYKAmhRu8g-/',
+        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
         maxLength: 1024
       })
     ).toBe(
-      'inst: bookstasyaa · likes: (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
+      'inst: bookstasyaa · likes: (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
     );
   });
 
@@ -65,11 +65,11 @@ describe('formatInstagramReelCaption', () => {
         title: '',
         nickname: null,
         likeCount: 1,
-        reelUrl: 'https://www.instagram.com/reels/DYKAmhRu8g-/',
+        reelUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
         maxLength: 1024
       })
     ).toBe(
-      'inst · likes: 1 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
+      'inst · likes: 1 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
     );
   });
 });
@@ -119,7 +119,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
           expect(args).toContain('--merge-output-format');
           expect(args).toContain('mp4');
           expect(args).toContain(
-            'best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
+            'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
           );
 
           const outputIndex = args.indexOf('-o');
@@ -131,9 +131,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
           );
 
           expect(options?.cwd).toBe(tempDirectory);
-          expect(args).toContain(
-            'https://www.instagram.com/reels/DYKAmhRu8g-/'
-          );
+          expect(args).toContain('https://www.instagram.com/reel/DYKAmhRu8g-/');
           return { stdout: '', stderr: '' };
         }
       );
@@ -149,8 +147,8 @@ describe('downloadInstagramReelWithYtDlp', () => {
     expect(result).toEqual(
       expect.objectContaining({
         caption:
-          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
-        sourceUrl: 'https://www.instagram.com/reels/DYKAmhRu8g-/',
+          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)',
+        sourceUrl: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
         downloaded: expect.objectContaining({
           kind: 'video',
           extension: 'mp4',
@@ -228,7 +226,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
     await result?.downloaded.cleanup();
 
     expect(result?.caption).toBe(
-      'inst: bookstasyaa · likes: 1 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
+      'inst: bookstasyaa · likes: 1 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
     );
   });
 

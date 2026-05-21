@@ -48,7 +48,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
     cookiesPath,
     url: reelUrl
   });
-  const sourceUrl = metadata.webpageUrl ?? reelUrl;
+  const sourceUrl = reelUrl;
   const tempDirectory = await mkdtemp(
     path.join(os.tmpdir(), 'instagram-ytdlp-')
   );
@@ -65,7 +65,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
         '--merge-output-format',
         'mp4',
         '-f',
-        'best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
+        'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
         '-o',
         path.join(tempDirectory, '%(id)s.%(ext)s'),
         sourceUrl

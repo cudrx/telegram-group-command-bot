@@ -96,8 +96,9 @@ describe('ChatOrchestrator /meme command', () => {
 
           expect(options?.cwd).toBe(tempDirectory);
           expect(args).toContain(
-            'https://www.instagram.com/reels/DYKAmhRu8g-/'
+            'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
           );
+          expect(args).toContain('https://www.instagram.com/reel/DYKAmhRu8g-/');
           return { stdout: '', stderr: '' };
         }
       );
@@ -116,7 +117,7 @@ describe('ChatOrchestrator /meme command', () => {
           fileSize: 4,
           durationSeconds: 6.8,
           caption:
-            'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
+            'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
         }
       });
     });
@@ -152,7 +153,7 @@ describe('ChatOrchestrator /meme command', () => {
         replyToMessageId: null,
         reply: false,
         caption:
-          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
+          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)',
         media: {
           kind: 'video',
           filePath: expect.stringContaining('DYKAmhRu8g-.mp4')
@@ -165,12 +166,12 @@ describe('ChatOrchestrator /meme command', () => {
     });
     expect(db.savedMemePosts).toEqual([]);
     expect(db.getMessageByTelegramMessageId(1, 610)).toMatchObject({
-      text: 'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
+      text: 'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)',
       replyToMessageId: null,
       mediaSnapshot: expect.objectContaining({
         mediaKind: 'video',
         caption:
-          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
+          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reel/DYKAmhRu8g-/">https://www.instagram.com/reel/DYKAmhRu8g-/</a>)'
       })
     });
     expect(existsSync(dispatchedFilePath)).toBe(false);
