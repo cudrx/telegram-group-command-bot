@@ -5,6 +5,7 @@ import type {
   StoredMessage
 } from '../../../domain/models.js';
 import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
+import type { TelegramChatAction } from '../../typing-indicator.js';
 import { withChatActionIndicator } from '../../typing-indicator.js';
 import type { ChatOrchestratorDeps } from '../types.js';
 
@@ -82,19 +83,7 @@ export function runWithReplyTyping<T>(
   chatId: number,
   operation: () => Promise<T>
 ): Promise<T> {
-  return withChatActionIndicator(
-    {
-      chatId,
-      action: 'typing',
-      minVisibleMs: deps.env.replyMinTypingMs,
-      maxVisibleMs: deps.env.replyMaxTypingMs,
-      refreshMs: deps.env.replyTypingRefreshMs,
-      random: deps.random,
-      delay: deps.delay,
-      sendChatAction: deps.sendChatAction
-    },
-    operation
-  );
+  return runWithChatAction(deps, chatId, 'typing', operation);
 }
 
 export function runWithReplyVoiceRecording<T>(
@@ -105,10 +94,22 @@ export function runWithReplyVoiceRecording<T>(
   chatId: number,
   operation: () => Promise<T>
 ): Promise<T> {
+  return runWithChatAction(deps, chatId, 'record_voice', operation);
+}
+
+export function runWithChatAction<T>(
+  deps: Pick<
+    ChatOrchestratorDeps,
+    'delay' | 'env' | 'random' | 'sendChatAction'
+  >,
+  chatId: number,
+  action: TelegramChatAction,
+  operation: () => Promise<T>
+): Promise<T> {
   return withChatActionIndicator(
     {
       chatId,
-      action: 'record_voice',
+      action,
       minVisibleMs: deps.env.replyMinTypingMs,
       maxVisibleMs: deps.env.replyMaxTypingMs,
       refreshMs: deps.env.replyTypingRefreshMs,

@@ -1,38 +1,35 @@
 export const memeActionConfig = {
   subreddits: [
     'BatmanArkham',
-    // 'blursed_videos',
-    // 'dankvideos',
-    'hmm',
+    'blursed_videos',
+    'dankvideos',
     'marvelcirclejerk',
     'MarvelRivalsCirclejer',
     // 'nbacirclejerk',
-    'okbuddychicanery',
-    'okbuddycinephile',
+    // 'okbuddychicanery',
+    // 'okbuddycinephile',
     'OkBuddyFresca',
     'okbuddymimir',
     'okbuddyretard',
     'okbuddyviltrum',
-    // 'PeopleFuckingDying',
-    // 'perfectlycutscreams',
+    'PeopleFuckingDying',
+    'perfectlycutscreams',
     'shitposting',
     'ShittyMovieDetails',
-    // 'SipsTea',
-    'soccercirclejerk'
-    // 'TikTokCringe',
-    // 'Unexpected',
-    // 'WatchPeopleDieInside'
+    'SipsTea',
+    'soccercirclejerk',
+    'TikTokCringe',
+    'Unexpected',
+    'WatchPeopleDieInside'
   ],
   listing: {
     limit: 10,
     maxSourceAttempts: 3,
-    minUpvotes: 10
+    minUpvotes: 10,
+    timeRange: 'week'
   },
   historyRetentionDays: 14,
   fallbackText: 'Мемы закончились, идите трогайте траву.',
-  source: {
-    baseUrl: 'https://meme-api.com/gimme'
-  },
   media: {
     imageMaxBytes: 10_000_000,
     videoMaxBytes: 50_000_000,

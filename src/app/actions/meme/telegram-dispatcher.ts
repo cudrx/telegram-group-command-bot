@@ -4,15 +4,27 @@ import type { DownloadedMemeMedia, SentMemeMedia } from './types.js';
 export async function dispatchMemeMedia(input: {
   memeDispatcher: MemeDispatcher;
   chatId: number;
-  replyToMessageId: number;
+  replyToMessageId?: number | null;
+  reply?: boolean;
   caption: string;
   media: DownloadedMemeMedia;
 }): Promise<SentMemeMedia> {
-  const sent = await input.memeDispatcher({
+  const dispatchInput: Parameters<MemeDispatcher>[0] = {
     chatId: input.chatId,
-    replyToMessageId: input.replyToMessageId,
     caption: input.caption,
     media: toDispatchMedia(input.media)
+  };
+
+  if (input.replyToMessageId !== undefined) {
+    dispatchInput.replyToMessageId = input.replyToMessageId;
+  }
+
+  if (input.reply !== undefined) {
+    dispatchInput.reply = input.reply;
+  }
+
+  const sent = await input.memeDispatcher({
+    ...dispatchInput
   });
 
   return {

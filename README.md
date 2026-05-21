@@ -16,8 +16,8 @@ Telegram-бот на `Node.js`, `TypeScript`, `grammY` и `SQLite`.
   `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
 - `/read` озвучивает текст сообщения, на которое сделали reply, при наличии `YANDEX_SPEECHKIT_API_KEY`.
 - `/translate` переводит на русский текст, подпись, OCR, описание картинки или расшифровку аудио из сообщения, на которое сделали reply.
-- `/meme` берет случайный свежий image-мем через `meme-api.com` по hardcoded пулу сабреддитов, отправляет картинку с оригинальным title и сохраняет Telegram photo metadata для будущего контекста.
-- Reddit post-ссылки с Reddit-hosted video в рабочем чате и личке администратора разворачиваются автоматически: бот скачивает видео во временный файл, отправляет его с title, `r/<subreddit>` и апвоутами, затем пытается удалить исходное сообщение со ссылкой.
+- `/meme` берет случайный свежий пост из Reddit top-week по hardcoded пулу сабреддитов, отправляет картинку или видео с оригинальным title и сохраняет Telegram media metadata для будущего контекста.
+- Reddit post-ссылки с Reddit-hosted video в рабочем чате и личке администратора разворачиваются автоматически: бот скачивает видео во временный файл, отправляет его с title, `r/<subreddit>` и апвоутами без reply на исходное сообщение, затем пытается удалить сообщение со ссылкой.
 - `/publish` в личке администратора копирует reply-сообщение или последнее сообщение перед командой в рабочий чат без attribution исходного автора.
 - `/news` в личке администратора собирает text-only посты из configured публичных `t.me/s/<channel>` источников, кэширует их на неделю и отправляет LLM аналитический дайджест.
 - Локальные подсказки и fallback-сообщения бота отправляются только текстом, даже если исходящая озвучка включена.
@@ -167,7 +167,7 @@ docker compose down
 
 Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированной папке `data/`, а не внутри контейнера.
 
-Для direct Reddit video fallback standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком. Если Reddit anonymous JSON возвращает 403, бот использует cookies-файл `reddit-cookies.txt` из той же директории, где лежит SQLite база, например `/app/data/reddit-cookies.txt`.
+Для Reddit video standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком. Если Reddit anonymous JSON возвращает 403 или `/meme` выбирает video-пост из Reddit listing, бот использует cookies-файл `reddit-cookies.txt` из той же директории, где лежит SQLite база, например `/app/data/reddit-cookies.txt`.
 
 ## Документация
 

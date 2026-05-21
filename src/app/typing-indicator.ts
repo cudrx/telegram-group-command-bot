@@ -1,4 +1,8 @@
-export type TelegramChatAction = 'typing' | 'record_voice';
+export type TelegramChatAction =
+  | 'typing'
+  | 'record_voice'
+  | 'upload_photo'
+  | 'upload_video';
 
 type TypingIndicatorOptions = {
   chatId: number;

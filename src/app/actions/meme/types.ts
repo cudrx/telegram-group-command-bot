@@ -15,6 +15,7 @@ export interface ResolvedMemeVideo {
   mediaUrl: string;
   extension: 'mp4';
   durationSeconds?: number | null;
+  downloadStrategy?: 'direct' | 'yt-dlp';
 }
 
 export interface MemePostCandidate {

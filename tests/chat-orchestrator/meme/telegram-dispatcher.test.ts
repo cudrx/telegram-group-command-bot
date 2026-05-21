@@ -33,6 +33,38 @@ describe('dispatchMemeMedia', () => {
     });
   });
 
+  test('can disable reply when adapting meme dispatch', async () => {
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 100,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+
+    await dispatchMemeMedia({
+      memeDispatcher,
+      chatId: 1,
+      replyToMessageId: 10,
+      reply: false,
+      caption: 'caption',
+      media: {
+        kind: 'image',
+        filePath: '/tmp/1.jpg',
+        extension: 'jpg',
+        cleanup: vi.fn()
+      }
+    });
+
+    expect(memeDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 10,
+      reply: false,
+      caption: 'caption',
+      media: {
+        kind: 'image',
+        filePath: '/tmp/1.jpg'
+      }
+    });
+  });
+
   test('rejects unsupported gallery downloads before dispatching', async () => {
     const memeDispatcher = vi.fn();
 

@@ -47,7 +47,7 @@ describe('createApplication wiring', () => {
       | {
           sendChatAction?: (
             chatId: number,
-            action: 'typing' | 'record_voice'
+            action: 'typing' | 'record_voice' | 'upload_photo' | 'upload_video'
           ) => Promise<void>;
         }
       | undefined;

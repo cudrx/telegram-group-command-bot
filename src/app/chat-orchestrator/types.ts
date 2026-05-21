@@ -38,13 +38,15 @@ export type SentBotMessage = {
 
 export type ReplyDispatcher = (input: {
   chatId: number;
-  replyToMessageId: number;
+  replyToMessageId?: number | null;
+  reply?: boolean;
   text: string;
 }) => Promise<SentBotMessage>;
 
 export type VoiceDispatcher = (input: {
   chatId: number;
-  replyToMessageId: number;
+  replyToMessageId?: number | null;
+  reply?: boolean;
   audioBytes: Uint8Array;
   filename: string;
   mimeType: 'audio/ogg';
@@ -52,7 +54,8 @@ export type VoiceDispatcher = (input: {
 
 export type MemeMediaDispatchInput = {
   chatId: number;
-  replyToMessageId: number;
+  replyToMessageId?: number | null;
+  reply?: boolean;
   caption: string;
   media: { kind: 'image' | 'video'; filePath: string };
 };

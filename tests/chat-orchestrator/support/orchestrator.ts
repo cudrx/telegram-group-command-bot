@@ -36,12 +36,14 @@ export function createOrchestrator(input: {
   };
   replyDispatcher: (input: {
     chatId: number;
-    replyToMessageId: number;
+    replyToMessageId?: number | null;
+    reply?: boolean;
     text: string;
   }) => Promise<{ messageId: number; createdAt: string }>;
   memeDispatcher?: (input: {
     chatId: number;
-    replyToMessageId: number;
+    replyToMessageId?: number | null;
+    reply?: boolean;
     caption: string;
     media: { kind: 'image' | 'video'; filePath: string };
   }) => Promise<{ messageId: number; createdAt: string }>;
@@ -100,7 +102,8 @@ export function createOrchestrator(input: {
   } | null;
   voiceDispatcher?: (input: {
     chatId: number;
-    replyToMessageId: number;
+    replyToMessageId?: number | null;
+    reply?: boolean;
     audioBytes: Uint8Array;
     filename: string;
     mimeType: 'audio/ogg';

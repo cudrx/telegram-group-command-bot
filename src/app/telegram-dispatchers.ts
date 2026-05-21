@@ -100,14 +100,14 @@ export function createTelegramDispatchers(
   const memeDispatcher: MemeDispatcher = async ({
     chatId,
     replyToMessageId,
+    reply,
     caption,
     media
   }) => {
-    const replyParameters = {
-      reply_parameters: {
-        message_id: replyToMessageId
-      }
-    };
+    const replyParameters = createReplyParameters({
+      replyToMessageId,
+      reply
+    });
     const linkPreviewOptions = {
       link_preview_options: {
         is_disabled: true
@@ -136,12 +136,10 @@ export function createTelegramDispatchers(
   };
 
   return {
-    replyDispatcher: async ({ chatId, replyToMessageId, text }) => {
+    replyDispatcher: async ({ chatId, replyToMessageId, reply, text }) => {
       const sent = await api.sendMessage(chatId, text, {
         parse_mode: 'HTML',
-        reply_parameters: {
-          message_id: replyToMessageId
-        }
+        ...createReplyParameters({ replyToMessageId, reply })
       });
 
       return toSentBotMessage(sent);
@@ -149,17 +147,14 @@ export function createTelegramDispatchers(
     voiceDispatcher: async ({
       chatId,
       replyToMessageId,
+      reply,
       audioBytes,
       filename
     }) => {
       const sent = await api.sendVoice(
         chatId,
         new InputFile(audioBytes, filename),
-        {
-          reply_parameters: {
-            message_id: replyToMessageId
-          }
-        }
+        createReplyParameters({ replyToMessageId, reply })
       );
 
       return toSentBotMessage(sent);
@@ -198,6 +193,19 @@ export function createTelegramDispatchers(
       await api.sendChatAction(chatId, action);
     },
     sendHtmlMessage
+  };
+}
+
+function createReplyParameters(input: {
+  replyToMessageId: number | null | undefined;
+  reply: boolean | undefined;
+}): Record<string, unknown> {
+  if (input.reply === false || input.replyToMessageId == null) return {};
+
+  return {
+    reply_parameters: {
+      message_id: input.replyToMessageId
+    }
   };
 }
 

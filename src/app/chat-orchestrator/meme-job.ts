@@ -3,7 +3,7 @@ import { serializeError } from '../../logging/logger.js';
 import { formatMemeCaption } from '../actions/meme/caption.js';
 import { getRecentlySentMemeIds } from '../actions/meme/history-store.js';
 import { downloadMemeMediaToTemp } from '../actions/meme/media-downloader.js';
-import { fetchMemeApiCandidates } from '../actions/meme/meme-api-client.js';
+import { fetchRedditListingCandidates } from '../actions/meme/reddit-listing-client.js';
 import { fetchRedditVideoCandidate } from '../actions/meme/reddit-post-client.js';
 import { selectMemeSources } from '../actions/meme/source-selection.js';
 import { dispatchMemeMedia } from '../actions/meme/telegram-dispatcher.js';
@@ -14,7 +14,7 @@ import type {
 } from '../actions/meme/types.js';
 import { toMemeMediaKind } from '../actions/meme/types.js';
 import { downloadRedditVideoWithYtDlp } from '../actions/meme/yt-dlp-client.js';
-import { runWithReplyTyping } from './helpers/reply.js';
+import { runWithChatAction, runWithReplyTyping } from './helpers/reply.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
@@ -37,12 +37,18 @@ export async function runDirectRedditVideoMemeJob(input: {
     let fallback: Awaited<ReturnType<typeof downloadRedditVideoWithYtDlp>>;
 
     try {
-      fallback = await downloadRedditVideoWithYtDlp({
-        text: input.text,
-        sqlitePath: input.deps.env.sqlitePath,
-        maxBytes: memeActionConfig.media.videoMaxBytes,
-        ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
-      });
+      fallback = await runWithChatAction(
+        input.deps,
+        input.request.chatId,
+        'upload_video',
+        () =>
+          downloadRedditVideoWithYtDlp({
+            text: input.text,
+            sqlitePath: input.deps.env.sqlitePath,
+            maxBytes: memeActionConfig.media.videoMaxBytes,
+            ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+          })
+      );
     } catch (fallbackError) {
       input.logger.warn(
         'reddit_video_ytdlp_failed',
@@ -53,13 +59,14 @@ export async function runDirectRedditVideoMemeJob(input: {
 
     if (!fallback) return false;
 
-    await runWithReplyTyping(input.deps, input.request.chatId, async () => {
-      await sendDownloadedCandidate(
-        input,
-        fallback.candidate,
-        fallback.downloaded
-      );
-    });
+    await sendDownloadedCandidate(
+      input,
+      fallback.candidate,
+      fallback.downloaded,
+      {
+        reply: false
+      }
+    );
 
     await deleteSourceMessage(input);
     return true;
@@ -67,9 +74,7 @@ export async function runDirectRedditVideoMemeJob(input: {
 
   if (!candidate) return false;
 
-  await runWithReplyTyping(input.deps, input.request.chatId, async () => {
-    await sendCandidate(input, candidate);
-  });
+  await sendCandidate(input, candidate, { reply: false });
 
   await deleteSourceMessage(input);
   return true;
@@ -106,9 +111,7 @@ export async function runMemeJob(input: {
       replyToMessageId: request.triggerMessageId
     });
 
-    const sentMeme = await runWithReplyTyping(deps, request.chatId, async () =>
-      selectAndSendMeme({ deps, request, logger })
-    );
+    const sentMeme = await selectAndSendMeme({ deps, request, logger });
 
     if (sentMeme) {
       logger.debug('meme_job_completed', {
@@ -117,7 +120,9 @@ export async function runMemeJob(input: {
       return;
     }
 
-    await sendMemeFallback({ deps, request });
+    await runWithReplyTyping(deps, request.chatId, async () => {
+      await sendMemeFallback({ deps, request });
+    });
     logger.debug('meme_job_fallback_sent', {
       replyToMessageId: request.triggerMessageId
     });
@@ -140,18 +145,14 @@ async function selectAndSendMeme(input: {
 
   for (const subreddit of sources) {
     try {
-      const candidate = await selectCandidateFromSubreddit({
+      const sent = await selectAndSendFromSubreddit({
         deps: input.deps,
         request: input.request,
+        logger: input.logger,
         subreddit
       });
 
-      if (!candidate) {
-        continue;
-      }
-
-      await sendCandidate(input, candidate);
-      return true;
+      if (sent) return true;
     } catch (error) {
       input.logger.warn('meme_source_failed', {
         subreddit,
@@ -163,15 +164,16 @@ async function selectAndSendMeme(input: {
   return false;
 }
 
-async function selectCandidateFromSubreddit(input: {
+async function selectAndSendFromSubreddit(input: {
   deps: ChatOrchestratorDeps;
   request: ReplyRequest;
+  logger: ChatOrchestratorDeps['logger'];
   subreddit: string;
-}): Promise<MemePostCandidate | null> {
-  const candidates = await fetchMemeApiCandidates({
+}): Promise<boolean> {
+  const candidates = await fetchRedditListingCandidates({
     subreddit: input.subreddit,
     count: memeActionConfig.listing.limit,
-    baseUrl: memeActionConfig.source.baseUrl,
+    timeRange: memeActionConfig.listing.timeRange,
     ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
   });
   const seen = getRecentlySentMemeIds({
@@ -187,11 +189,21 @@ async function selectCandidateFromSubreddit(input: {
       !seen.has(candidate.redditPostId)
   );
 
-  if (fresh.length === 0) return null;
+  for (const candidate of shuffleCandidates(fresh, input.deps.random)) {
+    try {
+      await sendCandidate(input, candidate);
+      return true;
+    } catch (error) {
+      input.logger.warn('meme_candidate_failed', {
+        subreddit: candidate.subreddit,
+        redditPostId: candidate.redditPostId,
+        mediaKind: candidate.media.kind,
+        ...serializeError(error)
+      });
+    }
+  }
 
-  return (
-    fresh[Math.floor(input.deps.random() * fresh.length)] ?? fresh[0] ?? null
-  );
+  return false;
 }
 
 async function sendCandidate(
@@ -201,11 +213,22 @@ async function sendCandidate(
     mediaSupport?: ChatOrchestratorMediaSupport;
     logger: ChatOrchestratorDeps['logger'];
   },
-  candidate: MemePostCandidate
+  candidate: MemePostCandidate,
+  options: { reply?: boolean } = {}
 ): Promise<void> {
-  const downloaded = await downloadResolvedMedia(input.deps, candidate.media);
+  await runWithChatAction(
+    input.deps,
+    input.request.chatId,
+    getMemeChatAction(candidate.media),
+    async () => {
+      const downloaded = await downloadResolvedMedia(
+        input.deps,
+        candidate.media
+      );
 
-  await sendDownloadedCandidate(input, candidate, downloaded);
+      await sendDownloadedCandidate(input, candidate, downloaded, options);
+    }
+  );
 }
 
 async function sendDownloadedCandidate(
@@ -216,9 +239,12 @@ async function sendDownloadedCandidate(
     logger: ChatOrchestratorDeps['logger'];
   },
   candidate: MemePostCandidate,
-  downloaded: DownloadedMemeMedia
+  downloaded: DownloadedMemeMedia,
+  options: { reply?: boolean } = {}
 ): Promise<void> {
   try {
+    const reply = options.reply ?? true;
+    const replyToMessageId = reply ? input.request.triggerMessageId : null;
     const caption = formatMemeCaption({
       title: candidate.title,
       subreddit: candidate.subreddit,
@@ -231,6 +257,7 @@ async function sendDownloadedCandidate(
       memeDispatcher: input.deps.memeDispatcher,
       chatId: input.request.chatId,
       replyToMessageId: input.request.triggerMessageId,
+      reply,
       caption,
       media: downloaded
     });
@@ -244,7 +271,7 @@ async function sendDownloadedCandidate(
       userId: input.deps.bot.userId,
       username: input.deps.bot.username,
       displayName: input.deps.bot.displayName,
-      replyToMessageId: input.request.triggerMessageId,
+      replyToMessageId,
       outputMode: 'text',
       mediaSnapshot: sent.mediaSnapshot ?? null
     });
@@ -307,6 +334,23 @@ async function downloadResolvedMedia(
   deps: ChatOrchestratorDeps,
   media: ResolvedMemeMedia
 ): Promise<DownloadedMemeMedia> {
+  if (media.kind === 'video' && media.downloadStrategy === 'yt-dlp') {
+    const result = await downloadRedditVideoWithYtDlp({
+      text: media.mediaUrl,
+      sqlitePath: deps.env.sqlitePath,
+      maxBytes: memeActionConfig.media.videoMaxBytes,
+      ...(deps.execFile ? { execFile: deps.execFile } : {})
+    });
+
+    if (!result) {
+      throw new Error(
+        `yt-dlp could not resolve Reddit video: ${media.mediaUrl}`
+      );
+    }
+
+    return result.downloaded;
+  }
+
   const downloaded = await downloadMemeMediaToTemp({
     url: media.mediaUrl,
     filename: `meme-media.${media.extension}`,
@@ -336,4 +380,30 @@ async function downloadResolvedMedia(
 
 function getPrimaryMediaUrl(media: ResolvedMemeMedia): string | null {
   return media.mediaUrl;
+}
+
+function getMemeChatAction(
+  media: ResolvedMemeMedia
+): 'upload_photo' | 'upload_video' {
+  return media.kind === 'video' ? 'upload_video' : 'upload_photo';
+}
+
+function shuffleCandidates(
+  candidates: MemePostCandidate[],
+  random: () => number
+): MemePostCandidate[] {
+  const shuffled = [...candidates];
+
+  for (let index = 0; index < shuffled.length - 1; index += 1) {
+    const remaining = shuffled.length - index;
+    const swapIndex = index + Math.floor(random() * remaining);
+    const current = shuffled[index];
+    const target = shuffled[swapIndex];
+    if (current === undefined || target === undefined) continue;
+
+    shuffled[index] = target;
+    shuffled[swapIndex] = current;
+  }
+
+  return shuffled;
 }

@@ -176,7 +176,7 @@ LLM слой:
 7. Если action не найден, поток заканчивается.
 8. `ChatOrchestrator` строит request и вызывает `action.handle(...)`.
 9. Для `/read` action запускает локальный TTS-поток без LLM.
-10. Для `/meme` action запускает отдельный поток выбора image-мема через `meme-api.com`, скачивания картинки и отправки с локально отформатированной подписью.
+10. Для `/meme` action запускает отдельный поток выбора Reddit top-week поста, скачивания картинки или видео и отправки с локально отформатированной подписью.
 11. Для `/news` action fetch'ит configured публичные Telegram web-страницы, upsert'ит text-only посты в `news_posts`, выбирает посты по source policy, рендерит `llm/news/analysis.md` и вызывает отдельный LLM news-analysis метод.
 12. Для `/summarize`, `/decide`, `/answer`, `/translate` action использует общий LLM reply job: собирается контекст, добавляется текущая дата и время Москвы, при необходимости добавляется контекст поиска и медиа, затем вызывается LLM.
 13. Ответ форматируется для Telegram HTML.
@@ -217,7 +217,7 @@ LLM слой:
 - неуспешный auto-read сохраняет failed-артефакт с коротким `errorText`;
 - поток изображений может дать `vision_description`, `ocr_text_ru`, `ocr_text_default`, `vision_interpretation`;
 - поток audio/video-note дает transcript-артефакт;
-- image-мемы, отправленные самим ботом, сохраняют Telegram photo metadata и запускают тот же auto-read;
+- image/video-мемы, отправленные самим ботом, сохраняют Telegram media metadata и запускают тот же auto-read;
 - медиа-альбомы дедуплицируются по `chatId + mediaGroupId` через короткоживущее TTL-состояние.
 
 ## Контракты Команд
@@ -271,13 +271,14 @@ LLM слой:
 ### `/meme`
 
 - Доступен как обычная chat-команда.
-- Источник — `meme-api.com` wrapper из hardcoded пула сабреддитов.
-- На один запуск выбираются до трех разных сабреддитов; для каждого запрашивается `/gimme/<subreddit>/10`.
+- Источник — Reddit listing JSON из hardcoded пула сабреддитов.
+- На один запуск выбираются до трех разных сабреддитов; для каждого запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
 - Уже отправленные за последние 14 дней post ids отбрасываются по `meme_posts`.
-- Поддерживаются только image URL из wrapper; GIF/animation, galleries и Reddit video не поддерживаются.
-- `meme-api.com` 400-ответы вида `has no Posts with Images` считаются пустым сабреддитом, после чего поток пробует следующий источник.
-- Картинки скачиваются во временные файлы, отправляются в Telegram и чистятся в `finally`.
-- После успешной отправки image-мемы сохраняют Telegram photo metadata; дальнейшее распознавание идет через общий media auto-read поток.
+- Поддерживаются Reddit image URL из `i.redd.it` и Reddit video posts из `secure_media.reddit_video`/`media.reddit_video`.
+- NSFW, spoiler, external/self/galleries и неподдержанные посты пропускаются.
+- Если кандидат не скачался, слишком большой или Telegram dispatch упал, бот пишет `WARN` в logger/admin notifier и пробует другой shuffled кандидат из того же listing, затем следующий subreddit.
+- Картинки скачиваются напрямую во временные файлы; видео скачивается через `yt-dlp` с cookies-файлом рядом с SQLite базой. Временные файлы чистятся в `finally`.
+- После успешной отправки мемы сохраняют Telegram media metadata; дальнейшее распознавание идет через общий media auto-read поток.
 - Caption строится локально из оригинального title, `r/<subreddit>` и кликабельного счетчика апвоутов `↑N`, ведущего на оригинальный пост.
 - Если за попытки не найден отправляемый кандидат, бот отправляет локальный fallback без LLM: `Мемы закончились, идите трогайте траву.`
 
@@ -289,7 +290,7 @@ LLM слой:
 - Если anonymous Reddit JSON/API возвращает ошибку, flow использует standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.
 - Caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
-- После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; если Telegram отклоняет удаление из-за прав, media message не откатывается.
+- После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.
 - Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих Reddit-ссылок.
 
 ### `/news`

@@ -201,4 +201,24 @@ describe('withChatActionIndicator', () => {
 
     expect(sendChatAction).toHaveBeenCalledWith(42, 'record_voice');
   });
+
+  test('supports Telegram upload actions', async () => {
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
+
+    await withChatActionIndicator(
+      {
+        chatId: 42,
+        action: 'upload_video',
+        minVisibleMs: 0,
+        maxVisibleMs: 0,
+        refreshMs: 4000,
+        random: () => 0,
+        delay: vi.fn().mockResolvedValue(undefined),
+        sendChatAction
+      },
+      async () => 'ok'
+    );
+
+    expect(sendChatAction).toHaveBeenCalledWith(42, 'upload_video');
+  });
 });

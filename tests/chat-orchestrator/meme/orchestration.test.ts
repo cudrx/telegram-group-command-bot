@@ -8,27 +8,39 @@ import { createIncomingMessage } from '../../database/support.js';
 import { FakeDatabaseClient } from '../support/fake-database.js';
 import { createOrchestrator } from '../support/orchestrator.js';
 
-function memeApiListing(memes: unknown[]) {
+function redditListing(posts: Array<Record<string, unknown>>) {
   return new Response(
     JSON.stringify({
-      count: memes.length,
-      memes
+      data: {
+        children: posts.map((post) => {
+          const subreddit =
+            typeof post.subreddit === 'string' ? post.subreddit : 'memes';
+          const id = String(post.id ?? 'post');
+
+          return {
+            kind: 't3',
+            data: {
+              subreddit,
+              title: 'post title',
+              permalink: `/r/${subreddit}/comments/${id}/post_title/`,
+              ups: 10,
+              over_18: false,
+              spoiler: false,
+              ...post
+            }
+          };
+        })
+      }
     })
   );
 }
 
-function emptyMemeApiListing() {
-  return new Response(
-    JSON.stringify({
-      code: 400,
-      message: 'r/unexpected has no Posts with Images'
-    }),
-    { status: 400 }
-  );
+function blockedRedditListing() {
+  return new Response('blocked', { status: 403 });
 }
 
 describe('ChatOrchestrator /meme command', () => {
-  test('expands a direct Reddit video link and deletes the source message after sending', async () => {
+  test('expands a direct Reddit video link without replying to the deleted source message', async () => {
     const db = new FakeDatabaseClient();
     const fetchMock = vi
       .fn()
@@ -123,6 +135,7 @@ describe('ChatOrchestrator /meme command', () => {
       expect.objectContaining({
         chatId: 1,
         replyToMessageId: 42,
+        reply: false,
         caption:
           'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>',
         media: expect.objectContaining({ kind: 'video' })
@@ -144,7 +157,7 @@ describe('ChatOrchestrator /meme command', () => {
     expect(db.getMessageByTelegramMessageId(1, 510)).toMatchObject({
       text: 'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>',
       isBot: true,
-      replyToMessageId: 42,
+      replyToMessageId: null,
       mediaSnapshot: expect.objectContaining({
         mediaKind: 'video',
         fileId: 'telegram-video'
@@ -287,6 +300,7 @@ describe('ChatOrchestrator /meme command', () => {
       expect.objectContaining({
         chatId: 1,
         replyToMessageId: 44,
+        reply: false,
         caption:
           'AI vs Creativity from yt-dlp\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑661</a>',
         media: expect.objectContaining({ kind: 'video' })
@@ -313,14 +327,12 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/abc',
+            id: 'abc',
             subreddit: 'memes',
             title: "It's true.",
             url: 'https://i.redd.it/a.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 50592
           }
         ])
@@ -334,6 +346,7 @@ describe('ChatOrchestrator /meme command', () => {
       messageId: 500,
       createdAt: '2026-05-11T10:00:00.000Z'
     });
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
       fetch: fetchMock,
@@ -343,7 +356,8 @@ describe('ChatOrchestrator /meme command', () => {
         generateReply: vi.fn()
       },
       replyDispatcher: vi.fn(),
-      memeDispatcher
+      memeDispatcher,
+      sendChatAction
     });
 
     await orchestrator.handleIncomingMessage(
@@ -358,10 +372,11 @@ describe('ChatOrchestrator /meme command', () => {
       expect.objectContaining({
         chatId: 1,
         replyToMessageId: 10,
-        caption: `It's true.\n\nr/memes · <a href="https://redd.it/abc">↑50592</a>`,
+        caption: `It's true.\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/abc/post_title/">↑50592</a>`,
         media: expect.objectContaining({ kind: 'image' })
       })
     );
+    expect(sendChatAction).toHaveBeenCalledWith(1, 'upload_photo');
     expect(db.savedMemePosts).toHaveLength(1);
     expect(db.savedMemePosts[0]).toMatchObject({
       redditPostId: 'abc',
@@ -369,7 +384,7 @@ describe('ChatOrchestrator /meme command', () => {
       mediaKind: 'image'
     });
     expect(db.getMessageByTelegramMessageId(1, 500)).toMatchObject({
-      text: `It's true.\n\nr/memes · <a href="https://redd.it/abc">↑50592</a>`,
+      text: `It's true.\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/abc/post_title/">↑50592</a>`,
       isBot: true,
       replyToMessageId: 10
     });
@@ -392,27 +407,23 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/seen',
+            id: 'seen',
             subreddit: 'blursed_videos',
             title: 'seen',
             url: 'https://i.redd.it/seen.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 10
           }
         ])
       )
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/fresh',
+            id: 'fresh',
             subreddit: 'dankvideos',
             title: 'fresh',
             url: 'https://i.redd.it/fresh.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 20
           }
         ])
@@ -444,33 +455,138 @@ describe('ChatOrchestrator /meme command', () => {
     expect(db.savedMemePosts.at(-1)).toMatchObject({ redditPostId: 'fresh' });
   });
 
+  test('downloads Reddit listing video candidates through yt-dlp', async () => {
+    let dispatchedFilePath = '';
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      redditListing([
+        {
+          id: 'vidfresh',
+          subreddit: 'SipsTea',
+          title: 'fresh video',
+          url: 'https://v.redd.it/video-post',
+          ups: 111,
+          secure_media: {
+            reddit_video: {
+              fallback_url:
+                'https://v.redd.it/video-post/DASH_720.mp4?source=fallback',
+              duration: 12
+            }
+          }
+        }
+      ])
+    );
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            return {
+              stdout: JSON.stringify({
+                id: 'vidfresh',
+                title: 'fresh video',
+                like_count: 111,
+                duration: 12
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, 'vidfresh.mp4'),
+            new Uint8Array([1, 2, 3])
+          );
+
+          expect(args).toContain(
+            'https://www.reddit.com/r/SipsTea/comments/vidfresh/post_title/'
+          );
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 512,
+        createdAt: '2026-05-11T10:00:00.000Z'
+      });
+    });
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      env: {
+        sqlitePath: '/app/data/bot.sqlite'
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      sendChatAction
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/meme',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(execFile).toHaveBeenCalledTimes(2);
+    expect(sendChatAction).toHaveBeenCalledWith(1, 'upload_video');
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caption:
+          'fresh video\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/vidfresh/post_title/">↑111</a>',
+        media: expect.objectContaining({ kind: 'video' })
+      })
+    );
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: 'vidfresh',
+      mediaKind: 'video',
+      mediaUrl: 'https://www.reddit.com/r/SipsTea/comments/vidfresh/post_title/'
+    });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
   test('continues to the next source when sending a candidate fails', async () => {
     const db = new FakeDatabaseClient();
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/bad',
+            id: 'bad',
             subreddit: 'blursed_videos',
             title: 'bad',
             url: 'https://i.redd.it/bad.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 10
           }
         ])
       )
       .mockResolvedValueOnce(new Response('too large', { status: 413 }))
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/fresh',
+            id: 'fresh',
             subreddit: 'dankvideos',
             title: 'fresh',
             url: 'https://i.redd.it/fresh.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 20
           }
         ])
@@ -516,7 +632,7 @@ describe('ChatOrchestrator /meme command', () => {
       db,
       fetch: vi
         .fn()
-        .mockImplementation(() => Promise.resolve(emptyMemeApiListing())),
+        .mockImplementation(() => Promise.resolve(blockedRedditListing())),
       qwen: {
         generateReply: vi.fn()
       },
@@ -549,14 +665,12 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/cleanup',
+            id: 'cleanup',
             subreddit: 'memes',
             title: 'cleanup',
             url: 'https://i.redd.it/cleanup.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 10
           }
         ])
@@ -604,36 +718,30 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/zero',
+            id: 'zero',
             subreddit: 'hmm',
             title: 'zero',
             url: 'https://i.redd.it/zero.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 0
           },
           {
-            postLink: 'https://redd.it/low',
+            id: 'low',
             subreddit: 'hmm',
             title: 'low',
             url: 'https://i.redd.it/low.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 9
           }
         ])
       )
       .mockResolvedValueOnce(
-        memeApiListing([
+        redditListing([
           {
-            postLink: 'https://redd.it/fresh',
+            id: 'fresh',
             subreddit: 'marvelcirclejerk',
             title: 'fresh',
             url: 'https://i.redd.it/fresh.jpeg',
-            nsfw: false,
-            spoiler: false,
             ups: 10
           }
         ])
@@ -664,7 +772,7 @@ describe('ChatOrchestrator /meme command', () => {
 
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
-        caption: `fresh\n\nr/marvelcirclejerk · <a href="https://redd.it/fresh">↑10</a>`
+        caption: `fresh\n\nr/marvelcirclejerk · <a href="https://www.reddit.com/r/marvelcirclejerk/comments/fresh/post_title/">↑10</a>`
       })
     );
     expect(db.savedMemePosts).toHaveLength(1);
