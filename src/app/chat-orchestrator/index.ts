@@ -50,6 +50,41 @@ export class ChatOrchestrator {
       this.mediaSupport.startAutoReadForIncomingMessage(storedMessage, logger);
     }
 
+    const resolvedAction = chatActionRegistry.resolveCommand({
+      botUsername: this.deps.bot.username,
+      ...(message.authorizedMode ? { mode: message.authorizedMode } : {}),
+      text: message.text,
+      entities: message.entities
+    });
+
+    logger.debug('incoming_message_evaluated', {
+      commandText: resolvedAction?.commandText ?? null,
+      decision: resolvedAction ? 'command' : 'ignore',
+      intent: resolvedAction?.action.intent
+    });
+
+    if (resolvedAction) {
+      const request: ReplyRequest = {
+        chatId: message.chatId,
+        chatType: message.chatType,
+        chatTitle: message.chatTitle,
+        triggerMessageId: message.messageId,
+        fromDisplayName: message.fromDisplayName,
+        createdAt: message.createdAt,
+        intent: resolvedAction.action.intent,
+        replyToMessageSnapshot: message.replyToMessageSnapshot,
+        replyToMediaSnapshot: message.replyToMediaSnapshot
+      };
+
+      await resolvedAction.action.handle({
+        deps: this.deps,
+        mediaSupport: this.mediaSupport,
+        request,
+        logger
+      });
+      return;
+    }
+
     const directRedditVideoRequest: ReplyRequest = {
       chatId: message.chatId,
       chatType: message.chatType,
@@ -72,41 +107,5 @@ export class ChatOrchestrator {
     if (handledRedditVideo) {
       return;
     }
-
-    const resolvedAction = chatActionRegistry.resolveCommand({
-      botUsername: this.deps.bot.username,
-      ...(message.authorizedMode ? { mode: message.authorizedMode } : {}),
-      text: message.text,
-      entities: message.entities
-    });
-
-    logger.debug('incoming_message_evaluated', {
-      commandText: resolvedAction?.commandText ?? null,
-      decision: resolvedAction ? 'command' : 'ignore',
-      intent: resolvedAction?.action.intent
-    });
-
-    if (!resolvedAction) {
-      return;
-    }
-
-    const request: ReplyRequest = {
-      chatId: message.chatId,
-      chatType: message.chatType,
-      chatTitle: message.chatTitle,
-      triggerMessageId: message.messageId,
-      fromDisplayName: message.fromDisplayName,
-      createdAt: message.createdAt,
-      intent: resolvedAction.action.intent,
-      replyToMessageSnapshot: message.replyToMessageSnapshot,
-      replyToMediaSnapshot: message.replyToMediaSnapshot
-    };
-
-    await resolvedAction.action.handle({
-      deps: this.deps,
-      mediaSupport: this.mediaSupport,
-      request,
-      logger
-    });
   }
 }

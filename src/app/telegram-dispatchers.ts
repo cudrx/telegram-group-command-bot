@@ -102,6 +102,7 @@ export function createTelegramDispatchers(
     replyToMessageId,
     reply,
     caption,
+    hasSpoiler,
     media
   }) => {
     const replyParameters = createReplyParameters({
@@ -117,6 +118,7 @@ export function createTelegramDispatchers(
     const options = {
       caption,
       parse_mode: 'HTML',
+      ...(hasSpoiler ? { has_spoiler: true } : {}),
       ...linkPreviewOptions,
       ...replyParameters
     };

@@ -7,6 +7,7 @@ export async function dispatchMemeMedia(input: {
   replyToMessageId?: number | null;
   reply?: boolean;
   caption: string;
+  hasSpoiler?: boolean;
   media: DownloadedMemeMedia;
 }): Promise<SentMemeMedia> {
   const dispatchInput: Parameters<MemeDispatcher>[0] = {
@@ -21,6 +22,10 @@ export async function dispatchMemeMedia(input: {
 
   if (input.reply !== undefined) {
     dispatchInput.reply = input.reply;
+  }
+
+  if (input.hasSpoiler !== undefined) {
+    dispatchInput.hasSpoiler = input.hasSpoiler;
   }
 
   const sent = await input.memeDispatcher({

@@ -181,7 +181,6 @@ function toVideoCandidate(payload: unknown): MemePostCandidate | null {
   const post = getFirstPostData(payload);
 
   if (!post) return null;
-  if (post.over_18 === true || post.spoiler === true) return null;
 
   const redditVideo = getRedditVideo(post);
   const fallbackUrl = getRequiredString(redditVideo?.fallback_url);
@@ -206,7 +205,10 @@ function toVideoCandidate(payload: unknown): MemePostCandidate | null {
       mediaUrl: new URL(permalinkPath, 'https://www.reddit.com').toString(),
       extension: 'mp4',
       durationSeconds: getNumber(redditVideo?.duration) ?? null,
-      downloadStrategy: 'yt-dlp'
+      downloadStrategy: 'yt-dlp',
+      ...(post.over_18 === true || post.spoiler === true
+        ? { hasSpoiler: true }
+        : {})
     }
   };
 }

@@ -262,6 +262,7 @@ async function sendDownloadedCandidate(
       replyToMessageId,
       reply,
       caption,
+      ...(candidate.media.hasSpoiler ? { hasSpoiler: true } : {}),
       media: downloaded
     });
     input.deps.db.saveBotMessage({

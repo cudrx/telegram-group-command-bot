@@ -275,7 +275,7 @@ LLM слой:
 - На один запуск выбираются до трех разных сабреддитов; для каждого с `reddit-cookies.txt` рядом с SQLite базой запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
 - Уже отправленные за последние 14 дней post ids отбрасываются по `meme_posts`.
 - Поддерживаются Reddit image URL из `i.redd.it` и Reddit video posts из `secure_media.reddit_video`/`media.reddit_video`.
-- NSFW, spoiler, external/self/galleries и неподдержанные посты пропускаются.
+- NSFW и spoiler посты не отбрасываются; их media отправляется с Telegram spoiler flag. External/self/galleries и неподдержанные посты пропускаются.
 - Если кандидат не скачался, слишком большой или Telegram dispatch упал, бот пишет `WARN` в logger/admin notifier и пробует другой shuffled кандидат из того же listing, затем следующий subreddit.
 - Картинки скачиваются напрямую во временные файлы; любое Reddit-hosted video скачивается через `yt-dlp` с cookies-файлом рядом с SQLite базой. Прямые Reddit MP4/fallback URL не являются download path для видео. Временные файлы чистятся в `finally`.
 - После успешной отправки мемы сохраняют Telegram media metadata; дальнейшее распознавание идет через общий media auto-read поток.
@@ -285,9 +285,10 @@ LLM слой:
 
 ### Direct Reddit Video Links
 
-- Работает в авторизованном рабочем чате и в личке администратора без команды.
-- `ChatOrchestrator` проверяет входящий текст на Reddit post URL до command resolver, включая Reddit share-ссылки вида `/r/<subreddit>/s/<token>`.
-- Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает только публичные non-NSFW, non-spoiler посты с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
+- Работает в авторизованном рабочем чате и в личке администратора для обычных сообщений без команды.
+- `ChatOrchestrator` сначала отдает приоритет command resolver; если команда не найдена, проверяет входящий текст на Reddit post URL, включая Reddit share-ссылки вида `/r/<subreddit>/s/<token>`.
+- Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает публичные Reddit-hosted video posts с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
+- NSFW и spoiler direct video posts отправляются с Telegram spoiler flag.
 - Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой Reddit `fallback_url` используется только как признак video-поста, а не как download URL.
 - Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.

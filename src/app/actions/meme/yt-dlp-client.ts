@@ -84,7 +84,8 @@ export async function downloadRedditVideoWithYtDlp(input: {
           kind: 'video',
           mediaUrl: `yt-dlp:${metadata.id ?? reference.redditPostId}`,
           extension: 'mp4',
-          durationSeconds: metadata.durationSeconds ?? null
+          durationSeconds: metadata.durationSeconds ?? null,
+          ...(metadata.hasSpoiler ? { hasSpoiler: true } : {})
         }
       },
       downloaded: {
@@ -112,6 +113,7 @@ async function fetchYtDlpMetadata(input: {
   title: string | null;
   upvotes: number | null;
   durationSeconds: number | null;
+  hasSpoiler: boolean;
 }> {
   const result = await input.execFile(YT_DLP_BIN, [
     '--cookies',
@@ -126,7 +128,8 @@ async function fetchYtDlpMetadata(input: {
     id: readString(payload, 'id'),
     title: readString(payload, 'title'),
     upvotes: readNumber(payload, 'like_count') ?? readNumber(payload, 'ups'),
-    durationSeconds: readNumber(payload, 'duration')
+    durationSeconds: readNumber(payload, 'duration'),
+    hasSpoiler: (readNumber(payload, 'age_limit') ?? 0) > 0
   };
 }
 

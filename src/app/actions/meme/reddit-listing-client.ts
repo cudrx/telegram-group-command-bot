@@ -87,7 +87,6 @@ function toCandidate(child: unknown): MemePostCandidate | null {
   const post = isRecord(child) && isRecord(child.data) ? child.data : null;
 
   if (!post) return null;
-  if (post.over_18 === true || post.spoiler === true) return null;
 
   const id = getRequiredString(post.id);
   const subreddit = getRequiredString(post.subreddit);
@@ -100,6 +99,9 @@ function toCandidate(child: unknown): MemePostCandidate | null {
   const media = resolveMedia(post, permalink);
 
   if (!media) return null;
+  if (post.over_18 === true || post.spoiler === true) {
+    media.hasSpoiler = true;
+  }
 
   return {
     redditPostId: id,

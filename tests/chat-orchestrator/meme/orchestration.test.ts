@@ -75,8 +75,8 @@ describe('ChatOrchestrator /meme command', () => {
                     permalink:
                       '/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
                     ups: 24123,
-                    over_18: false,
-                    spoiler: false,
+                    over_18: true,
+                    spoiler: true,
                     secure_media: {
                       reddit_video: {
                         fallback_url:
@@ -185,6 +185,7 @@ describe('ChatOrchestrator /meme command', () => {
         chatId: 1,
         replyToMessageId: null,
         reply: false,
+        hasSpoiler: true,
         caption:
           'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>',
         media: expect.objectContaining({ kind: 'video' })
@@ -693,6 +694,61 @@ describe('ChatOrchestrator /meme command', () => {
     });
   });
 
+  test('handles /meme as a command even when the message also contains a Reddit URL', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditListing([
+          {
+            id: 'abc',
+            subreddit: 'memes',
+            title: 'command meme',
+            url: 'https://i.redd.it/a.jpeg',
+            ups: 20
+          }
+        ])
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])));
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 515,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/meme https://www.reddit.com/r/SipsTea/comments/1ti5fvt/title/',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://www.reddit.com/r/BatmanArkham/top/.json?t=week&limit=10',
+      expect.any(Object)
+    );
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        caption:
+          'command meme\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/abc/post_title/">↑20</a>'
+      })
+    );
+    expect(deleteMessageDispatcher).not.toHaveBeenCalled();
+  });
+
   test('tries another shuffled source when first source has only seen posts', async () => {
     const db = new FakeDatabaseClient();
     db.saveMemePost({
@@ -872,6 +928,54 @@ describe('ChatOrchestrator /meme command', () => {
     });
     expect(dispatchedFilePath).not.toBe('');
     expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
+  test('sends NSFW or spoiler Reddit listing media as Telegram spoiler media', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditListing([
+          {
+            id: 'nsfw',
+            subreddit: 'memes',
+            title: 'marked post',
+            url: 'https://i.redd.it/nsfw.jpeg',
+            ups: 20,
+            over_18: true
+          }
+        ])
+      )
+      .mockResolvedValueOnce(new Response(new Uint8Array([1, 2, 3])));
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 516,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/meme',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasSpoiler: true,
+        media: expect.objectContaining({ kind: 'image' })
+      })
+    );
   });
 
   test('continues to the next source when sending a candidate fails', async () => {

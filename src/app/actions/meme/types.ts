@@ -8,6 +8,7 @@ export interface ResolvedMemeImage {
   kind: 'image';
   mediaUrl: string;
   extension: 'jpg' | 'jpeg' | 'png' | 'webp';
+  hasSpoiler?: boolean;
 }
 
 export interface ResolvedMemeVideo {
@@ -16,6 +17,7 @@ export interface ResolvedMemeVideo {
   extension: 'mp4';
   durationSeconds?: number | null;
   downloadStrategy?: 'direct' | 'yt-dlp';
+  hasSpoiler?: boolean;
 }
 
 export interface MemePostCandidate {

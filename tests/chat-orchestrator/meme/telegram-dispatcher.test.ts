@@ -117,6 +117,40 @@ describe('dispatchMemeMedia', () => {
       }
     });
   });
+
+  test('passes Telegram spoiler flag to the meme dispatcher', async () => {
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 102,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+
+    await dispatchMemeMedia({
+      memeDispatcher,
+      chatId: 1,
+      replyToMessageId: null,
+      reply: false,
+      caption: 'caption',
+      hasSpoiler: true,
+      media: {
+        kind: 'video',
+        filePath: '/tmp/1.mp4',
+        extension: 'mp4',
+        cleanup: vi.fn()
+      }
+    });
+
+    expect(memeDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: null,
+      reply: false,
+      caption: 'caption',
+      hasSpoiler: true,
+      media: {
+        kind: 'video',
+        filePath: '/tmp/1.mp4'
+      }
+    });
+  });
 });
 
 function unsupportedDownloadedMedia(

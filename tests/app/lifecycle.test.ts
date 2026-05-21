@@ -182,6 +182,48 @@ describe('createApplication lifecycle', () => {
     });
   });
 
+  test('sends meme media with Telegram spoiler flag', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv());
+
+    botSendPhoto.mockResolvedValue({
+      message_id: 47,
+      date: 1_744_000_003
+    });
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          memeDispatcher?: (input: {
+            chatId: number;
+            caption: string;
+            hasSpoiler: boolean;
+            media: {
+              kind: 'image';
+              filePath: string;
+            };
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    await orchestratorDeps?.memeDispatcher?.({
+      chatId: -1001,
+      caption: '<b>Мем</b>',
+      hasSpoiler: true,
+      media: {
+        kind: 'image',
+        filePath: '/tmp/meme.jpg'
+      }
+    });
+
+    expect(botSendPhoto).toHaveBeenCalledWith(
+      -1001,
+      expect.objectContaining({ source: '/tmp/meme.jpg' }),
+      expect.objectContaining({
+        has_spoiler: true
+      })
+    );
+  });
+
   test('announces deploy updates before polling starts', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(createEnv());

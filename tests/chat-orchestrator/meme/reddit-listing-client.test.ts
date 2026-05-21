@@ -89,7 +89,7 @@ describe('fetchRedditListingCandidates', () => {
     ]);
   });
 
-  test('skips NSFW, spoiler and unsupported external posts', async () => {
+  test('marks NSFW and spoiler posts as Telegram spoilers and skips unsupported external posts', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -126,8 +126,19 @@ describe('fetchRedditListingCandidates', () => {
       fetch: fetchMock
     });
 
-    expect(candidates.map((candidate) => candidate.redditPostId)).toEqual([
-      'ok'
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        redditPostId: 'nsfw',
+        media: expect.objectContaining({ hasSpoiler: true })
+      }),
+      expect.objectContaining({
+        redditPostId: 'spoiler',
+        media: expect.objectContaining({ hasSpoiler: true })
+      }),
+      expect.objectContaining({
+        redditPostId: 'ok',
+        media: expect.not.objectContaining({ hasSpoiler: true })
+      })
     ]);
   });
 

@@ -57,6 +57,7 @@ export type MemeMediaDispatchInput = {
   replyToMessageId?: number | null;
   reply?: boolean;
   caption: string;
+  hasSpoiler?: boolean;
   media: { kind: 'image' | 'video'; filePath: string };
 };
 
