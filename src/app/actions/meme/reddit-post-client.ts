@@ -203,9 +203,10 @@ function toVideoCandidate(payload: unknown): MemePostCandidate | null {
     upvotes: getNumber(post.ups) ?? 0,
     media: {
       kind: 'video',
-      mediaUrl: decodeHtmlEntities(fallbackUrl),
+      mediaUrl: new URL(permalinkPath, 'https://www.reddit.com').toString(),
       extension: 'mp4',
-      durationSeconds: getNumber(redditVideo?.duration) ?? null
+      durationSeconds: getNumber(redditVideo?.duration) ?? null,
+      downloadStrategy: 'yt-dlp'
     }
   };
 }
@@ -259,10 +260,6 @@ function getNumber(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value)
     ? value
     : undefined;
-}
-
-function decodeHtmlEntities(value: string): string {
-  return value.replaceAll('&amp;', '&');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

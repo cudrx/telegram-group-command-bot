@@ -277,7 +277,7 @@ LLM слой:
 - Поддерживаются Reddit image URL из `i.redd.it` и Reddit video posts из `secure_media.reddit_video`/`media.reddit_video`.
 - NSFW, spoiler, external/self/galleries и неподдержанные посты пропускаются.
 - Если кандидат не скачался, слишком большой или Telegram dispatch упал, бот пишет `WARN` в logger/admin notifier и пробует другой shuffled кандидат из того же listing, затем следующий subreddit.
-- Картинки скачиваются напрямую во временные файлы; видео скачивается через `yt-dlp` с cookies-файлом рядом с SQLite базой. Временные файлы чистятся в `finally`.
+- Картинки скачиваются напрямую во временные файлы; любое Reddit-hosted video скачивается через `yt-dlp` с cookies-файлом рядом с SQLite базой. Прямые Reddit MP4/fallback URL не являются download path для видео. Временные файлы чистятся в `finally`.
 - После успешной отправки мемы сохраняют Telegram media metadata; дальнейшее распознавание идет через общий media auto-read поток.
 - Caption строится локально из оригинального title, `r/<subreddit>` и кликабельного счетчика апвоутов `↑N`, ведущего на оригинальный пост.
 - Media message отправляется без reply на исходную `/meme` команду.
@@ -288,7 +288,8 @@ LLM слой:
 - Работает в авторизованном рабочем чате и в личке администратора без команды.
 - `ChatOrchestrator` проверяет входящий текст на Reddit post URL до command resolver, включая Reddit share-ссылки вида `/r/<subreddit>/s/<token>`.
 - Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает только публичные non-NSFW, non-spoiler посты с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
-- Если anonymous Reddit JSON/API возвращает ошибку, flow использует standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком.
+- Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой Reddit `fallback_url` используется только как признак video-поста, а не как download URL.
+- Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.
 - Caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
 - После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.

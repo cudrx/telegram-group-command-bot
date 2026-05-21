@@ -49,68 +49,112 @@ function redirectedResponse(url: string): Response {
 
 describe('ChatOrchestrator /meme command', () => {
   test('expands a direct Reddit video link without replying to the deleted source message', async () => {
+    let dispatchedFilePath = '';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'direct-reddit-video-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'reddit-cookies.txt'),
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\treddit_session\tabc123'
+    );
     const db = new FakeDatabaseClient();
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify([
-            {},
-            {
-              data: {
-                children: [
-                  {
-                    data: {
-                      id: '1ti5fvt',
-                      subreddit: 'SipsTea',
-                      title: 'AI vs creativity from a pro-AI greedy corpo',
-                      permalink:
-                        '/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
-                      ups: 24123,
-                      over_18: false,
-                      spoiler: false,
-                      secure_media: {
-                        reddit_video: {
-                          fallback_url:
-                            'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
-                          duration: 42
-                        }
+    const canonicalUrl =
+      'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/';
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify([
+          {},
+          {
+            data: {
+              children: [
+                {
+                  data: {
+                    id: '1ti5fvt',
+                    subreddit: 'SipsTea',
+                    title: 'AI vs creativity from a pro-AI greedy corpo',
+                    permalink:
+                      '/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
+                    ups: 24123,
+                    over_18: false,
+                    spoiler: false,
+                    secure_media: {
+                      reddit_video: {
+                        fallback_url:
+                          'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
+                        duration: 42
                       }
                     }
                   }
-                ]
-              }
+                }
+              ]
             }
-          ])
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(new Uint8Array([1, 2, 3, 4]), {
-          headers: {
-            'Content-Length': '4',
-            'Content-Type': 'video/mp4'
           }
-        })
+        ])
+      )
+    );
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            expect(args).toContain(canonicalUrl);
+            return {
+              stdout: JSON.stringify({
+                id: '1ti5fvt',
+                title: 'AI vs creativity from a pro-AI greedy corpo',
+                like_count: 24123,
+                duration: 42
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, '1ti5fvt.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(args).toContain(canonicalUrl);
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
       );
-    const memeDispatcher = vi.fn().mockResolvedValue({
-      messageId: 510,
-      createdAt: '2026-05-20T10:00:00.000Z',
-      mediaSnapshot: {
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
         messageId: 510,
-        mediaKind: 'video',
-        fileId: 'telegram-video',
-        fileUniqueId: 'telegram-video-unique',
-        mimeType: 'video/mp4',
-        fileSize: 4,
-        durationSeconds: 42,
-        caption:
-          'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>'
-      }
+        createdAt: '2026-05-20T10:00:00.000Z',
+        mediaSnapshot: {
+          messageId: 510,
+          mediaKind: 'video',
+          fileId: 'telegram-video',
+          fileUniqueId: 'telegram-video-unique',
+          mimeType: 'video/mp4',
+          fileSize: 4,
+          durationSeconds: 42,
+          caption:
+            'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>'
+        }
+      });
     });
     const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
       fetch: fetchMock,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
       qwen: {
         generateReply: vi.fn()
       },
@@ -134,11 +178,8 @@ describe('ChatOrchestrator /meme command', () => {
       'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/.json',
       expect.any(Object)
     );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
-      expect.any(Object)
-    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(execFile).toHaveBeenCalledTimes(2);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -159,7 +200,7 @@ describe('ChatOrchestrator /meme command', () => {
       subreddit: 'SipsTea',
       telegramMessageId: 510,
       mediaKind: 'video',
-      mediaUrl: 'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
+      mediaUrl: canonicalUrl,
       upvotes: 24123
     });
     expect(db.getMessageByTelegramMessageId(1, 510)).toMatchObject({
@@ -171,6 +212,8 @@ describe('ChatOrchestrator /meme command', () => {
         fileId: 'telegram-video'
       })
     });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
   test('logs and ignores direct Reddit video expansion failures', async () => {
@@ -331,14 +374,13 @@ describe('ChatOrchestrator /meme command', () => {
   });
 
   test('expands a Reddit share link through its canonical post redirect', async () => {
+    let dispatchedFilePath = '';
     const db = new FakeDatabaseClient();
+    const canonicalUrl =
+      'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/';
     const fetchMock = vi
       .fn()
-      .mockResolvedValueOnce(
-        redirectedResponse(
-          'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/?share_id=abc'
-        )
-      )
+      .mockResolvedValueOnce(redirectedResponse(`${canonicalUrl}?share_id=abc`))
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify([
@@ -370,23 +412,56 @@ describe('ChatOrchestrator /meme command', () => {
             }
           ])
         )
-      )
-      .mockResolvedValueOnce(
-        new Response(new Uint8Array([1, 2, 3, 4]), {
-          headers: {
-            'Content-Length': '4',
-            'Content-Type': 'video/mp4'
-          }
-        })
       );
-    const memeDispatcher = vi.fn().mockResolvedValue({
-      messageId: 513,
-      createdAt: '2026-05-21T10:00:00.000Z'
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            expect(args).toContain(canonicalUrl);
+            return {
+              stdout: JSON.stringify({
+                id: '1tja210',
+                title: 'The Bubba Scrub invented under pressure',
+                like_count: 9001,
+                duration: 17
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, '1tja210.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(args).toContain(canonicalUrl);
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 513,
+        createdAt: '2026-05-21T10:00:00.000Z'
+      });
     });
     const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
       fetch: fetchMock,
+      execFile,
       qwen: {
         generateReply: vi.fn()
       },
@@ -414,6 +489,7 @@ describe('ChatOrchestrator /meme command', () => {
       'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/.json',
       expect.any(Object)
     );
+    expect(execFile).toHaveBeenCalledTimes(2);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -428,6 +504,8 @@ describe('ChatOrchestrator /meme command', () => {
       chatId: 1,
       messageId: 45
     });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
   test('falls back to yt-dlp when a Reddit share link resolves but JSON is blocked', async () => {
