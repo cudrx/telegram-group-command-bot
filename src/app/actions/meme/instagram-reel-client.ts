@@ -9,6 +9,7 @@ import type { YtDlpExecFile } from './yt-dlp-client.js';
 
 const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
+const FFMPEG_BIN = 'ffmpeg';
 
 export type InstagramReelDownloadResult = {
   caption: string;
@@ -62,6 +63,8 @@ export async function downloadInstagramReelWithYtDlp(input: {
         '--no-playlist',
         '--max-filesize',
         formatMaxFilesize(input.maxBytes),
+        '--merge-output-format',
+        'mp4',
         '-f',
         'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
         '-o',
@@ -71,7 +74,13 @@ export async function downloadInstagramReelWithYtDlp(input: {
       { cwd: tempDirectory }
     );
 
-    const filePath = await findDownloadedMp4(tempDirectory);
+    const downloadedFilePath = await findDownloadedMp4(tempDirectory);
+    const filePath = path.join(tempDirectory, 'telegram-compatible.mp4');
+    await convertToTelegramCompatibleMp4({
+      execFile,
+      inputPath: downloadedFilePath,
+      outputPath: filePath
+    });
     const fileStat = await stat(filePath);
 
     if (fileStat.size > input.maxBytes) {
@@ -112,25 +121,16 @@ export function formatInstagramReelCaption(input: {
   reelUrl: string;
   maxLength: number;
 }): string {
-  const name = input.nickname ? `inst:${input.nickname}` : 'inst';
+  const name = input.nickname ? `inst: ${input.nickname}` : 'inst';
   const likesLabel =
     input.likeCount === null
       ? 'likes:'
-      : `likes:${formatInteger(input.likeCount)}`;
-  const metadata = `${escapeHtml(name)} · <a href="${escapeAttribute(
+      : `likes: ${formatInteger(input.likeCount)}`;
+  const reelUrl = escapeAttribute(input.reelUrl);
+
+  return `${escapeHtml(name)} · ${likesLabel} (<a href="${reelUrl}">${escapeHtml(
     input.reelUrl
-  )}">${likesLabel}</a>`;
-  const rawTitle = (input.description || input.title || '').trim();
-  if (!rawTitle) return metadata;
-
-  const separator = '\n\n';
-  const titleBudget = Math.max(
-    0,
-    input.maxLength - separator.length - metadata.length
-  );
-  const escapedTitle = truncateAndEscape(rawTitle, titleBudget);
-
-  return `${escapedTitle}${separator}${metadata}`.trim();
+  )}</a>)`;
 }
 
 function parseInstagramReelUrl(value: string): string | null {
@@ -201,6 +201,35 @@ async function findDownloadedMp4(directory: string): Promise<string> {
   return path.join(directory, mp4);
 }
 
+async function convertToTelegramCompatibleMp4(input: {
+  execFile: YtDlpExecFile;
+  inputPath: string;
+  outputPath: string;
+}): Promise<void> {
+  await input.execFile(FFMPEG_BIN, [
+    '-y',
+    '-i',
+    input.inputPath,
+    '-map',
+    '0:v:0',
+    '-map',
+    '0:a?',
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-profile:v',
+    'baseline',
+    '-level',
+    '3.1',
+    '-c:a',
+    'aac',
+    '-movflags',
+    '+faststart',
+    input.outputPath
+  ]);
+}
+
 function isInstagramHost(hostname: string): boolean {
   return hostname === 'instagram.com' || hostname.endsWith('.instagram.com');
 }
@@ -219,34 +248,6 @@ function formatInteger(value: number): string {
   })
     .format(value)
     .replace(/\u00a0/g, '');
-}
-
-function truncateAndEscape(value: string, maxEscapedLength: number): string {
-  const trimmed = value.trim();
-  if (escapeHtml(trimmed).length <= maxEscapedLength) {
-    return escapeHtml(trimmed);
-  }
-
-  if (maxEscapedLength <= 0) {
-    return '';
-  }
-
-  let truncated = '';
-  for (const character of trimmed) {
-    const candidate = `${truncated}${character}`;
-    const escapedCandidate = escapeHtml(`${candidate.trimEnd()}…`);
-    if (escapedCandidate.length > maxEscapedLength) {
-      break;
-    }
-
-    truncated = candidate;
-  }
-
-  if (!truncated && maxEscapedLength >= '…'.length) {
-    return '…';
-  }
-
-  return escapeHtml(`${truncated.trimEnd()}…`);
 }
 
 function escapeHtml(value: string): string {

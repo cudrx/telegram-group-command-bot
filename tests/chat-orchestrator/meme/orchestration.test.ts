@@ -66,9 +66,7 @@ describe('ChatOrchestrator /meme command', () => {
           args: string[],
           options?: { cwd?: string | undefined }
         ) => {
-          expect(file).toBe('yt-dlp');
-
-          if (args.includes('--dump-single-json')) {
+          if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
             expect(args).toContain(
               'https://www.instagram.com/reel/DYKAmhRu8g-/'
             );
@@ -87,6 +85,13 @@ describe('ChatOrchestrator /meme command', () => {
             };
           }
 
+          if (file === 'ffmpeg') {
+            await writeFile(args.at(-1) ?? '', new Uint8Array([1, 2, 3, 4, 5]));
+
+            return { stdout: '', stderr: '' };
+          }
+
+          expect(file).toBe('yt-dlp');
           const outputIndex = args.indexOf('-o');
           const outputTemplate = args[outputIndex + 1] ?? '';
           const tempDirectory = path.dirname(outputTemplate);
@@ -117,7 +122,7 @@ describe('ChatOrchestrator /meme command', () => {
           fileSize: 4,
           durationSeconds: 6.8,
           caption:
-            'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>'
+            'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
         }
       });
     });
@@ -153,10 +158,10 @@ describe('ChatOrchestrator /meme command', () => {
         replyToMessageId: null,
         reply: false,
         caption:
-          'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>',
+          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
         media: {
           kind: 'video',
-          filePath: expect.stringContaining('DYKAmhRu8g-.mp4')
+          filePath: expect.stringContaining('telegram-compatible.mp4')
         }
       })
     );
@@ -166,12 +171,12 @@ describe('ChatOrchestrator /meme command', () => {
     });
     expect(db.savedMemePosts).toEqual([]);
     expect(db.getMessageByTelegramMessageId(1, 610)).toMatchObject({
-      text: 'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>',
+      text: 'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
       replyToMessageId: null,
       mediaSnapshot: expect.objectContaining({
         mediaKind: 'video',
         caption:
-          'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>'
+          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
       })
     });
     expect(existsSync(dispatchedFilePath)).toBe(false);

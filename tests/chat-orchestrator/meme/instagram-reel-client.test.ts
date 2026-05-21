@@ -28,22 +28,22 @@ describe('findInstagramReelUrl', () => {
 });
 
 describe('formatInstagramReelCaption', () => {
-  test('formats description, nickname and linked like count', () => {
+  test('formats nickname, like count and visible linked Reel URL', () => {
     expect(
       formatInstagramReelCaption({
         description: '<ОСТАЛОСЬ & 3 ДНЯ>',
         title: 'Video by bookstasyaa',
         nickname: 'bookstasyaa',
-        likeCount: 3478,
+        likeCount: 3597,
         reelUrl: 'https://www.instagram.com/reels/DYKAmhRu8g-/',
         maxLength: 1024
       })
     ).toBe(
-      '&lt;ОСТАЛОСЬ &amp; 3 ДНЯ&gt;\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>'
+      'inst: bookstasyaa · likes: 3597 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
     );
   });
 
-  test('keeps the Reel link on the likes label when like count is unavailable', () => {
+  test('keeps the visible linked Reel URL when like count is unavailable', () => {
     expect(
       formatInstagramReelCaption({
         description: '',
@@ -54,7 +54,7 @@ describe('formatInstagramReelCaption', () => {
         maxLength: 1024
       })
     ).toBe(
-      'inst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:</a>'
+      'inst: bookstasyaa · likes: (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
     );
   });
 
@@ -69,7 +69,7 @@ describe('formatInstagramReelCaption', () => {
         maxLength: 1024
       })
     ).toBe(
-      'inst · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:1</a>'
+      'inst · likes: 1 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
     );
   });
 });
@@ -92,11 +92,9 @@ describe('downloadInstagramReelWithYtDlp', () => {
           args: string[],
           options?: { cwd?: string | undefined }
         ) => {
-          expect(file).toBe('yt-dlp');
-          expect(args).toContain('--cookies');
-          expect(args).toContain(cookiesPath);
-
-          if (args.includes('--dump-single-json')) {
+          if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+            expect(args).toContain('--cookies');
+            expect(args).toContain(cookiesPath);
             expect(args).toContain(
               'https://www.instagram.com/reel/DYKAmhRu8g-/'
             );
@@ -114,6 +112,40 @@ describe('downloadInstagramReelWithYtDlp', () => {
               stderr: ''
             };
           }
+
+          if (file === 'ffmpeg') {
+            expect(args).toEqual([
+              '-y',
+              '-i',
+              expect.stringContaining('DYKAmhRu8g-.mp4'),
+              '-map',
+              '0:v:0',
+              '-map',
+              '0:a?',
+              '-c:v',
+              'libx264',
+              '-pix_fmt',
+              'yuv420p',
+              '-profile:v',
+              'baseline',
+              '-level',
+              '3.1',
+              '-c:a',
+              'aac',
+              '-movflags',
+              '+faststart',
+              expect.stringContaining('telegram-compatible.mp4')
+            ]);
+            await writeFile(args.at(-1) ?? '', new Uint8Array([1, 2, 3, 4, 5]));
+
+            return { stdout: '', stderr: '' };
+          }
+
+          expect(file).toBe('yt-dlp');
+          expect(args).toContain('--cookies');
+          expect(args).toContain(cookiesPath);
+          expect(args).toContain('--merge-output-format');
+          expect(args).toContain('mp4');
 
           const outputIndex = args.indexOf('-o');
           const outputTemplate = args[outputIndex + 1] ?? '';
@@ -142,7 +174,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
     expect(result).toEqual(
       expect.objectContaining({
         caption:
-          'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>',
+          'inst: bookstasyaa · likes: 3478 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)',
         sourceUrl: 'https://www.instagram.com/reels/DYKAmhRu8g-/',
         downloaded: expect.objectContaining({
           kind: 'video',
@@ -151,7 +183,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
         })
       })
     );
-    expect(result?.downloaded.filePath).toContain('DYKAmhRu8g-.mp4');
+    expect(result?.downloaded.filePath).toContain('telegram-compatible.mp4');
 
     const filePath = result?.downloaded.filePath ?? '';
     expect(existsSync(filePath)).toBe(true);
@@ -176,11 +208,9 @@ describe('downloadInstagramReelWithYtDlp', () => {
     const execFile = vi
       .fn()
       .mockImplementation(async (file: string, args: string[]) => {
-        expect(file).toBe('yt-dlp');
-        expect(args).toContain('--cookies');
-        expect(args).toContain(cookiesPath);
-
-        if (args.includes('--dump-single-json')) {
+        if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+          expect(args).toContain('--cookies');
+          expect(args).toContain(cookiesPath);
           return {
             stdout: JSON.stringify({
               id: 'DYKAmhRu8g-',
@@ -192,6 +222,16 @@ describe('downloadInstagramReelWithYtDlp', () => {
             stderr: ''
           };
         }
+
+        if (file === 'ffmpeg') {
+          await writeFile(args.at(-1) ?? '', new Uint8Array([1]));
+
+          return { stdout: '', stderr: '' };
+        }
+
+        expect(file).toBe('yt-dlp');
+        expect(args).toContain('--cookies');
+        expect(args).toContain(cookiesPath);
 
         const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
         await writeFile(
@@ -214,7 +254,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
     await result?.downloaded.cleanup();
 
     expect(result?.caption).toBe(
-      'Video by bookstasyaa\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:1</a>'
+      'inst: bookstasyaa · likes: 1 (<a href="https://www.instagram.com/reels/DYKAmhRu8g-/">https://www.instagram.com/reels/DYKAmhRu8g-/</a>)'
     );
   });
 

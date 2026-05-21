@@ -288,11 +288,11 @@ LLM слой:
 - Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает публичные Reddit-hosted video posts с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
 - NSFW и spoiler direct video posts отправляются с Telegram spoiler flag.
 - Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом из `REDDIT_COOKIES_PATH`. Если env-путь не задан, используется `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой Reddit `fallback_url` используется только как признак video-поста, а не как download URL.
-- Instagram Reels принимаются только как `/reel/<shortcode>/` или `/reels/<shortcode>/` URL и скачиваются через `yt-dlp` с cookies-файлом из `INSTAGRAM_COOKIES_PATH`. Если env-путь не задан, используется `instagram-cookies.txt` рядом с SQLite базой.
+- Instagram Reels принимаются только как `/reel/<shortcode>/` или `/reels/<shortcode>/` URL, скачиваются через `yt-dlp` с cookies-файлом из `INSTAGRAM_COOKIES_PATH`, затем перекодируются через `ffmpeg` в H.264/AAC mp4 с `yuv420p` и `+faststart` для совместимости с Telegram playback. Если env-путь не задан, используется `instagram-cookies.txt` рядом с SQLite базой.
 - Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.
 - Caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
-- Reels caption использует описание или title, `inst:<nickname>` без `@`, и кликабельный `likes:N`; если `like_count` недоступен, ссылка сохраняется на `likes:`.
+- Reels caption не включает description/title и использует короткий формат `inst: <nickname> · likes: <N> (<reel-url>)`; если `like_count` недоступен, поле likes остается без числа.
 - После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.
 - Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих или недоступных ссылок.
 
