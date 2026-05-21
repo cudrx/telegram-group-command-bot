@@ -297,7 +297,7 @@ describe('createApplication lifecycle', () => {
       messageRetentionDays: 3,
       mediaArtifactRetentionDays: 5,
       memeHistoryRetentionDays: 14,
-      newsPostRetentionDays: 7
+      legacyNewsPostRetentionDays: 7
     });
 
     vi.advanceTimersByTime(2 * 60 * 60 * 1000);

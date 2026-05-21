@@ -1,5 +1,7 @@
+import Database from 'better-sqlite3';
 import { describe, expect, test } from 'vitest';
 
+import { cleanupExpiredData } from '../../src/database/artifacts-cleanup.js';
 import { DatabaseClient } from '../../src/database/index.js';
 import { canUseBetterSqlite, createIncomingMessage } from './support.js';
 
@@ -40,6 +42,46 @@ describeWithSqlite('DatabaseClient artifacts', () => {
         'idx_media_artifacts_message_provider'
       ].sort()
     );
+    expect(db.getSchemaColumns('news_posts')).toEqual([]);
+
+    db.close();
+  });
+
+  test('skips legacy news cleanup when the removed news table is absent', () => {
+    const db = new Database(':memory:');
+    db.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE media_artifacts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE meme_posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        sent_at TEXT NOT NULL
+      );
+    `);
+
+    expect(
+      cleanupExpiredData(db, {
+        now: '2026-05-21T10:00:00.000Z',
+        messageRetentionDays: 30,
+        mediaArtifactRetentionDays: 7,
+        memeHistoryRetentionDays: 14
+      })
+    ).toMatchObject({ newsPosts: 0 });
 
     db.close();
   });

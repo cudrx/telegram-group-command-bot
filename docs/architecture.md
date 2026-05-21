@@ -13,7 +13,6 @@
 - `/read`
 - `/meme`
 - `/publish`
-- `/news`
 
 Обычное упоминание бота, обычный текст в личке, неавторизованные чаты и личные сообщения не от администратора не запускают поток ответа. Reddit video post-ссылка в авторизованном чате или личке администратора запускает локальный media flow без LLM.
 
@@ -28,7 +27,6 @@
 - `/meme` не сохраняет скачанные meme media на диск постоянно: файлы живут только во временной папке до отправки в Telegram, а anti-repeat хранит только metadata поста.
 - Direct Reddit video link flow использует тот же временный download/dispatch/cleanup подход, сохраняет отправленный пост в `meme_posts` и после успешной отправки пытается удалить исходное сообщение со ссылкой. Ошибка удаления только логируется.
 - `/publish` доступен только в личке администратора и копирует сообщения в рабочий `TELEGRAM_CHAT_ID` через Telegram `copyMessage`/`copyMessages`, чтобы не сохранять attribution исходного автора.
-- `/news` доступен только в личке администратора. Он читает только публичные `t.me/s/<channel>` страницы, не использует Bot API history, MTProto, приватные каналы, media download, OCR или vision.
 - TTS не решает содержание ответа: текст сначала генерируется или берется из сообщения, на которое сделали reply, затем локальная политика решает, можно ли отправить voice. Локальные usage/fallback-сообщения бота всегда отправляются текстом.
 
 ## Карта Компонентов
@@ -66,7 +64,7 @@
 - `src/config/env/` читает окружение, валидирует deploy-specific значения и
   секреты, а также применяет defaults.
 - `src/config/runtime/` хранит несекретные runtime defaults: настройки action
-  потоков (`answer`, `read`, `meme`, `news`, `summarize`, `decide`), внешних
+  потоков (`answer`, `read`, `meme`, `summarize`, `decide`), внешних
   провайдеров, хранения и локализации.
 
 Если значение должно отличаться между окружениями, оно проходит через env-схему.
@@ -127,9 +125,10 @@ SQLite слой:
 - `chats`;
 - `messages`;
 - `media_artifacts`;
-- `news_posts`;
 - `app_state`;
-- очистка устаревших данных.
+- `meme_posts`;
+- очистка устаревших данных, включая legacy-очистку старой таблицы `news_posts`,
+  если она осталась в существующей базе.
 
 ### `src/llm`
 
@@ -177,11 +176,10 @@ LLM слой:
 8. `ChatOrchestrator` строит request и вызывает `action.handle(...)`.
 9. Для `/read` action запускает локальный TTS-поток без LLM.
 10. Для `/meme` action запускает отдельный поток выбора Reddit top-week поста, скачивания картинки или видео и отправки с локально отформатированной подписью.
-11. Для `/news` action fetch'ит configured публичные Telegram web-страницы, upsert'ит text-only посты в `news_posts`, выбирает посты по source policy, рендерит `llm/news/analysis.md` и вызывает отдельный LLM news-analysis метод.
-12. Для `/summarize`, `/decide`, `/answer`, `/translate` action использует общий LLM reply job: собирается контекст, добавляется текущая дата и время Москвы, при необходимости добавляется контекст поиска и медиа, затем вызывается LLM.
-13. Ответ форматируется для Telegram HTML.
-14. `/answer` может быть отправлен voice, если проходит локальную TTS-политику; локальные плейсхолдеры и fallback-ответы не озвучиваются.
-15. Исходящее bot-сообщение сохраняется в SQLite с `output_mode`.
+11. Для `/summarize`, `/decide`, `/answer`, `/translate` action использует общий LLM reply job: собирается контекст, добавляется текущая дата и время Москвы, при необходимости добавляется контекст поиска и медиа, затем вызывается LLM.
+12. Ответ форматируется для Telegram HTML.
+13. `/answer` может быть отправлен voice, если проходит локальную TTS-политику; локальные плейсхолдеры и fallback-ответы не озвучиваются.
+14. Исходящее bot-сообщение сохраняется в SQLite с `output_mode`.
 
 ## Поток Редактирования Сообщения
 
@@ -296,16 +294,6 @@ LLM слой:
 - После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.
 - Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих Reddit-ссылок.
 
-### `/news`
-
-- Доступен только в `private_admin` режиме.
-- Источники задаются в `src/config/runtime/actions/news.ts` и меняются через деплой.
-- Fetch использует публичные страницы `https://t.me/s/<slug>`; Bot API history и MTProto не используются.
-- Первый этап сохраняет только текст поста, timestamp, ссылку, source slug, message id и content hash.
-- Все источники выбираются по своему `lookbackDays` и `maxPostsPerDigest`; посты могут повторно попадать в анализ, пока остаются в окне отбора.
-- Prompt строится из `llm/news/analysis.md` с переменными `current_datetime`, `analysis_period`, `sources_policy` и `posts_by_source`.
-- Если один источник временно недоступен, команда продолжает анализ по остальным источникам и добавляет локальную пометку в ответ.
-
 ## Поток Оповещения О Деплое
 
 1. Workflow деплоя записывает metadata в серверную папку данных.
@@ -334,10 +322,6 @@ LLM слой:
 ### `meme_posts`
 
 Хранит anti-repeat историю `/meme` и отправленных direct Reddit video links: `chat_id`, Reddit post id, сабреддит, Telegram message id, title, permalink, kind медиа, primary media URL, upvotes и время отправки. Очистка удаляет строки старше `memeHistoryRetentionDays`.
-
-### `news_posts`
-
-Хранит недельный text-only кэш `/news`: source slug, Telegram message id, timestamp публикации, timestamp fetch, текст, URL и content hash. Очистка удаляет строки старше `newsActionConfig.retentionDays`.
 
 ### `app_state`
 

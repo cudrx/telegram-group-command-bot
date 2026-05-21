@@ -2,10 +2,8 @@ import OpenAI from 'openai';
 
 import { formatDeployUpdate } from './deploy-update.js';
 import { planLookup } from './lookup.js';
-import { analyzeNews } from './news.js';
 import { generateReply } from './reply.js';
 import type {
-  AnalyzeNewsInput,
   ChatCompletionsCreate,
   GenerateReplyInput,
   LlmClientConfig,
@@ -16,7 +14,6 @@ import type {
 } from './types.js';
 
 export type {
-  AnalyzeNewsInput,
   GenerateReplyInput,
   LlmClientConfig,
   LlmClientOptions,
@@ -58,15 +55,6 @@ export class OpenAiCompatibleLlmClient {
 
   async generateReply(input: GenerateReplyInput): Promise<LlmReplyResult> {
     return generateReply({
-      config: this.config,
-      createCompletion: this.createCompletion,
-      options: this.options,
-      input
-    });
-  }
-
-  async analyzeNews(input: AnalyzeNewsInput): Promise<LlmReplyResult> {
-    return analyzeNews({
       config: this.config,
       createCompletion: this.createCompletion,
       options: this.options,

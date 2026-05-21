@@ -52,7 +52,7 @@
 
 Runtime-настройки, которые не являются секретами и не требуют deploy-specific
 переопределения, лежат в `src/config/runtime/`. Значения там сгруппированы по
-сценариям (`actions/answer`, `actions/read`, `actions/meme`, `actions/news`) и внешним
+сценариям (`actions/answer`, `actions/read`, `actions/meme`) и внешним
 провайдерам (`providers/llm`, `providers/media`, `providers/tts`,
 `providers/lookup`). Если настройка должна меняться между окружениями,
 добавляйте ее в `src/config/env/schema.ts`, а default берите из runtime config.
@@ -100,7 +100,6 @@ LOG_COLOR=true
 - `npm run eval:intents` — полный набор intent eval, отчеты в `.eval-runs/`.
 - `npm run eval:intents -- --id=<fixture-id>` — один fixture.
 - `npm run eval:intents -- --intent=<intent>` — fixtures одного intent.
-- `npm run eval:news` — live news eval: fetch публичных Telegram news-источников, сборка prompt и один LLM-вызов; отчет пишется в `.eval-runs/`.
 
 ## Проверки
 
@@ -124,12 +123,6 @@ npm run build
 npm run eval:intents
 ```
 
-Для изменений `/news`, source policy, parser или news prompt:
-
-```bash
-npm run eval:news
-```
-
 Prompt-контракт reply-моделей включает блок `CURRENT_DATETIME` с текущими датой
 и временем Москвы в простом текстовом формате. При изменениях сборки prompt
 держите это поле в тестах и intent fixtures, чтобы LLM могла корректно считать
@@ -146,8 +139,7 @@ Prompt-контракт reply-моделей включает блок `CURRENT_
 5. Если action использует LLM, prompt остается в `llm/`.
 
 Команды только для лички администратора регистрируйте с `modes:
-['private_admin']`. Например `/news` не должен резолвиться в обычном рабочем
-чате.
+['private_admin']`. Такие команды не должны резолвиться в обычном рабочем чате.
 
 `index.ts` в action-папке должен оставаться входной точкой. Если файл достигает
 250+ строк, логику нужно вынести в соседние файлы этой же папки.
@@ -231,7 +223,6 @@ Metadata деплоя пишется в серверный `data/deploy-metadata
 - Direct Reddit video link smoke: положите standalone `yt-dlp` zipapp в `data/bin/yt-dlp`, положите `reddit-cookies.txt` рядом с SQLite базой, отправьте Reddit post URL с `reddit_video` в рабочий чат или личку администратора обычным сообщением без команды. Бот должен отправить `sendVideo` со звуком без reply на исходное сообщение, с title, subreddit и апвоутами, сохранить post metadata, очистить temp file и попытаться удалить исходное сообщение со ссылкой. Reddit NSFW/spoiler videos должны уйти с Telegram spoiler flag. В группе для удаления нужны admin-права бота и выключенный BotFather privacy mode, если ссылка отправляется без команды/упоминания.
 - Для Reddit video не добавляйте прямое скачивание `fallback_url`/MP4 как shortcut или fallback: видео должно сразу идти через `yt-dlp`, иначе легко отправить mp4 без audio track. Для будущих Instagram Reels и YouTube Shorts используйте тот же принцип extractor-first.
 - `/publish` запускайте в личке администратора: проверьте reply, вариант без reply и media album; копия должна появиться в рабочем `TELEGRAM_CHAT_ID` как сообщение бота без attribution исходного автора.
-- `/news` запускайте в личке администратора; он делает внешние запросы к публичным `t.me/s/<channel>` страницам, сохраняет text-only кэш на неделю и отправляет один LLM-запрос.
 - Провайдеры медиа запускаются только при наличии соответствующих ключей.
 - Smoke-проверку поиска перед включением в продакшне можно сделать прямым запросом к Tavily API.
 

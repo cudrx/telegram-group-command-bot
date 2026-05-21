@@ -1,7 +1,6 @@
 import { answerActionConfig } from './actions/answer.js';
 import { decideActionConfig } from './actions/decide.js';
 import { memeActionConfig } from './actions/meme.js';
-import { newsActionConfig } from './actions/news.js';
 import { readActionConfig } from './actions/read.js';
 import { summarizeActionConfig } from './actions/summarize.js';
 import { localizationConfig } from './localization.js';
@@ -16,7 +15,6 @@ export const runtimeConfig = {
     answer: answerActionConfig,
     decide: decideActionConfig,
     meme: memeActionConfig,
-    news: newsActionConfig,
     read: readActionConfig,
     summarize: summarizeActionConfig
   },
@@ -33,7 +31,6 @@ export const runtimeConfig = {
 export { answerActionConfig } from './actions/answer.js';
 export { decideActionConfig } from './actions/decide.js';
 export { memeActionConfig } from './actions/meme.js';
-export { newsActionConfig } from './actions/news.js';
 export { readActionConfig } from './actions/read.js';
 export { summarizeActionConfig } from './actions/summarize.js';
 export { localizationConfig } from './localization.js';

@@ -7,7 +7,7 @@ export function cleanupExpiredData(
     messageRetentionDays: number;
     mediaArtifactRetentionDays: number;
     memeHistoryRetentionDays: number;
-    newsPostRetentionDays?: number;
+    legacyNewsPostRetentionDays?: number;
   }
 ): {
   mediaArtifacts: number;
@@ -49,17 +49,7 @@ export function cleanupExpiredData(
       .prepare(`DELETE FROM meme_posts WHERE sent_at < ?`)
       .run(memePostCutoff).changes;
 
-    const newsPostRetentionDays =
-      cleanupInput.newsPostRetentionDays ??
-      cleanupInput.memeHistoryRetentionDays;
-    const newsPostCutoff = new Date(
-      new Date(cleanupInput.now).getTime() -
-        newsPostRetentionDays * 24 * 60 * 60 * 1000
-    ).toISOString();
-
-    const newsPosts = db
-      .prepare(`DELETE FROM news_posts WHERE published_at < ?`)
-      .run(newsPostCutoff).changes;
+    const newsPosts = cleanupLegacyNewsPosts(db, cleanupInput);
 
     const chats = db
       .prepare(
@@ -76,4 +66,39 @@ export function cleanupExpiredData(
   });
 
   return transaction(input);
+}
+
+function cleanupLegacyNewsPosts(
+  db: Database.Database,
+  cleanupInput: {
+    now: string;
+    memeHistoryRetentionDays: number;
+    legacyNewsPostRetentionDays?: number;
+  }
+): number {
+  if (!tableExists(db, 'news_posts')) return 0;
+
+  const retentionDays =
+    cleanupInput.legacyNewsPostRetentionDays ??
+    cleanupInput.memeHistoryRetentionDays;
+  const cutoff = new Date(
+    new Date(cleanupInput.now).getTime() - retentionDays * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  return db.prepare(`DELETE FROM news_posts WHERE published_at < ?`).run(cutoff)
+    .changes;
+}
+
+function tableExists(db: Database.Database, tableName: string): boolean {
+  const row = db
+    .prepare(
+      `
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = ?
+      `
+    )
+    .get(tableName);
+
+  return row !== undefined;
 }

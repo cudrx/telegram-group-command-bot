@@ -8,7 +8,6 @@ import type {
   StoredMessage
 } from '../../domain/models.js';
 import type {
-  AnalyzeNewsInput,
   LlmReplyResult,
   LookupPlanResult
 } from '../../llm/openai-compatible-client/index.js';
@@ -100,7 +99,6 @@ export type LlmClient = {
     intent: LookupIntent;
     replyContext: ReplyContext;
   }): Promise<LookupPlanResult>;
-  analyzeNews(input: AnalyzeNewsInput): Promise<LlmReplyResult>;
 };
 
 export type ReplyRequest = {

@@ -111,7 +111,7 @@ describeWithSqlite('DatabaseClient migrations', () => {
     db.close();
   });
 
-  test('adds news_posts table and indexes when opening an existing database', () => {
+  test('does not add removed news_posts table when opening an existing database', () => {
     const directory = mkdtempSync(
       path.join(os.tmpdir(), 'chatbot-news-posts-db-')
     );
@@ -144,22 +144,7 @@ describeWithSqlite('DatabaseClient migrations', () => {
     legacyDb.close();
 
     const db = DatabaseClient.open(dbPath);
-    expect(db.getSchemaColumns('news_posts')).toEqual([
-      'id',
-      'source_slug',
-      'message_id',
-      'published_at',
-      'fetched_at',
-      'text',
-      'url',
-      'content_hash'
-    ]);
-    expect(db.getIndexNames('news_posts')).toEqual(
-      expect.arrayContaining([
-        'idx_news_posts_published_at',
-        'idx_news_posts_source_published_at'
-      ])
-    );
+    expect(db.getSchemaColumns('news_posts')).toEqual([]);
     db.close();
   });
 

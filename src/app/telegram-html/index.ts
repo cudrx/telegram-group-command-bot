@@ -1,4 +1,3 @@
-import { addNewsSpacing, normalizeNewsLine } from '../actions/news/format.js';
 import { escapeMarkdownTagContent, restoreMarkdownEscapes } from './escapes.js';
 
 const ALLOWED_TAGS = new Set(['b', 'i', 'code']);
@@ -9,8 +8,7 @@ type TelegramReplyIntent =
   | 'decide'
   | 'read'
   | 'answer'
-  | 'translate'
-  | 'news';
+  | 'translate';
 
 export function formatTelegramHtmlReply(
   text: string,
@@ -30,7 +28,7 @@ function normalizeTelegramReplyText(
     .map((line) => normalizeLineForTelegram(line.trimEnd(), options))
     .filter((line) => line !== null);
 
-  return addIntentSpacing(lines, options)
+  return addIntentSpacing(lines)
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -61,8 +59,6 @@ function normalizeIntentLine(
   options: { intent?: TelegramReplyIntent }
 ): string | null {
   switch (options.intent) {
-    case 'news':
-      return normalizeNewsLine(line);
     case 'summarize':
       return normalizeSummarizeLine(line);
     default:
@@ -70,14 +66,7 @@ function normalizeIntentLine(
   }
 }
 
-function addIntentSpacing(
-  lines: string[],
-  options: { intent?: TelegramReplyIntent }
-): string[] {
-  if (options.intent === 'news') {
-    return addNewsSpacing(lines);
-  }
-
+function addIntentSpacing(lines: string[]): string[] {
   return lines;
 }
 

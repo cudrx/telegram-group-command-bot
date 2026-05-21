@@ -1,7 +1,8 @@
 import type { AppEnv } from '../config/env/index.js';
-import { newsActionConfig } from '../config/runtime/index.js';
 import type { DatabaseClient } from '../database/index.js';
 import type { AppLogger } from '../logging/logger.js';
+
+const legacyNewsPostRetentionDays = 7;
 
 export type CleanupScheduler = {
   start(): void;
@@ -22,7 +23,7 @@ export function createCleanupScheduler(input: {
       messageRetentionDays: input.env.messageRetentionDays,
       mediaArtifactRetentionDays: input.env.mediaArtifactRetentionDays,
       memeHistoryRetentionDays: input.env.memeHistoryRetentionDays,
-      newsPostRetentionDays: newsActionConfig.retentionDays
+      legacyNewsPostRetentionDays
     });
 
     input.logger.debug('database_cleanup_completed', deleted);

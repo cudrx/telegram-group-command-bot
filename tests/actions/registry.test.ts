@@ -210,9 +210,7 @@ describe('chatActionRegistry command policy', () => {
 
   test.each([
     '/publish',
-    '/publish@fun_bot',
-    '/news',
-    '/news@fun_bot'
+    '/publish@fun_bot'
   ] as const)('resolves %s command only in private admin mode', (commandText) => {
     const resolved = chatActionRegistry.resolveCommand({
       botUsername: 'fun_bot',
@@ -223,7 +221,7 @@ describe('chatActionRegistry command policy', () => {
 
     expect(resolved).toMatchObject({
       action: expect.objectContaining({
-        intent: commandText.startsWith('/publish') ? 'publish' : 'news'
+        intent: 'publish'
       }),
       commandText
     });
@@ -231,13 +229,25 @@ describe('chatActionRegistry command policy', () => {
 
   test.each([
     '/publish',
-    '/publish@fun_bot',
-    '/news',
-    '/news@fun_bot'
+    '/publish@fun_bot'
   ] as const)('returns none for %s command in chat mode', (commandText) => {
     const resolved = chatActionRegistry.resolveCommand({
       botUsername: 'fun_bot',
       mode: 'chat',
+      text: `${commandText} ignored arguments`,
+      entities: [{ type: 'bot_command', offset: 0, length: commandText.length }]
+    });
+
+    expect(resolved).toBeNull();
+  });
+
+  test.each([
+    '/news',
+    '/news@fun_bot'
+  ] as const)('returns none for removed %s command in private admin mode', (commandText) => {
+    const resolved = chatActionRegistry.resolveCommand({
+      botUsername: 'fun_bot',
+      mode: 'private_admin',
       text: `${commandText} ignored arguments`,
       entities: [{ type: 'bot_command', offset: 0, length: commandText.length }]
     });

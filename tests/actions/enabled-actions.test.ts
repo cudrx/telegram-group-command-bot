@@ -11,8 +11,7 @@ describe('chatActions', () => {
       'translate',
       'read',
       'meme',
-      'publish',
-      'news'
+      'publish'
     ]);
 
     expect(chatActions.map((action) => action.commands)).toEqual([
@@ -22,20 +21,16 @@ describe('chatActions', () => {
       ['translate'],
       ['read'],
       ['meme'],
-      ['publish'],
-      ['news']
+      ['publish']
     ]);
 
     expect(
       chatActions
-        .filter((action) => !['publish', 'news'].includes(action.intent))
+        .filter((action) => action.intent !== 'publish')
         .every((action) => action.modes.includes('chat'))
     ).toBe(true);
     expect(
       chatActions.find((action) => action.intent === 'publish')?.modes
-    ).toEqual(['private_admin']);
-    expect(
-      chatActions.find((action) => action.intent === 'news')?.modes
     ).toEqual(['private_admin']);
   });
 });

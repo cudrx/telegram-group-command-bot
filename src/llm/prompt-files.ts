@@ -18,8 +18,7 @@ export const PROMPT_FILE_PATHS = {
   cloudflareVisionImageRawUser: 'llm/vision/cloudflare-image-raw-user.md',
   lookup: 'llm/planner/lookup.md',
   lookupContext: 'llm/reply/lookup-context.md',
-  updateAnnouncement: 'llm/deploy/update-announcement.md',
-  newsAnalysis: 'llm/news/analysis.md'
+  updateAnnouncement: 'llm/deploy/update-announcement.md'
 } as const;
 
 export type PromptName = keyof typeof PROMPT_FILE_PATHS;

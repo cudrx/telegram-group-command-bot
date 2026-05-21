@@ -89,18 +89,6 @@ CREATE TABLE IF NOT EXISTS meme_posts (
   UNIQUE (chat_id, reddit_post_id)
 );
 
-CREATE TABLE IF NOT EXISTS news_posts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source_slug TEXT NOT NULL,
-  message_id INTEGER NOT NULL,
-  published_at TEXT NOT NULL,
-  fetched_at TEXT NOT NULL,
-  text TEXT NOT NULL,
-  url TEXT NOT NULL,
-  content_hash TEXT NOT NULL,
-  UNIQUE (source_slug, message_id)
-);
-
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at
   ON messages(chat_id, created_at);
 
@@ -118,10 +106,4 @@ CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_sent_at
 
 CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_post
   ON meme_posts(chat_id, reddit_post_id);
-
-CREATE INDEX IF NOT EXISTS idx_news_posts_source_published_at
-  ON news_posts(source_slug, published_at);
-
-CREATE INDEX IF NOT EXISTS idx_news_posts_published_at
-  ON news_posts(published_at);
 `;

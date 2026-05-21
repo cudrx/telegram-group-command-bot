@@ -14,12 +14,11 @@ export type AssistantIntent =
   | 'answer'
   | 'translate'
   | 'meme'
-  | 'publish'
-  | 'news';
+  | 'publish';
 
 export type ReplyGenerationIntent = Exclude<
   AssistantIntent,
-  'meme' | 'publish' | 'news'
+  'meme' | 'publish'
 >;
 
 export type BotOutputMode = 'text' | 'voice';

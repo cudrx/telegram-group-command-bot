@@ -39,37 +39,6 @@ export function migrateExistingSchema(db: Database.Database): void {
     'INTEGER NOT NULL DEFAULT 0'
   );
   ensureMemePosts(db);
-  ensureNewsPosts(db);
-}
-
-function ensureNewsPosts(db: Database.Database): void {
-  db.prepare(
-    `
-      CREATE TABLE IF NOT EXISTS news_posts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        source_slug TEXT NOT NULL,
-        message_id INTEGER NOT NULL,
-        published_at TEXT NOT NULL,
-        fetched_at TEXT NOT NULL,
-        text TEXT NOT NULL,
-        url TEXT NOT NULL,
-        content_hash TEXT NOT NULL,
-        UNIQUE (source_slug, message_id)
-      )
-    `
-  ).run();
-  db.prepare(
-    `
-      CREATE INDEX IF NOT EXISTS idx_news_posts_source_published_at
-      ON news_posts(source_slug, published_at)
-    `
-  ).run();
-  db.prepare(
-    `
-      CREATE INDEX IF NOT EXISTS idx_news_posts_published_at
-      ON news_posts(published_at)
-    `
-  ).run();
 }
 
 function ensureMemePosts(db: Database.Database): void {
