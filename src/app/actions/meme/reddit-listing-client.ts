@@ -10,7 +10,7 @@ export interface FetchRedditListingCandidatesInput
   extends FetchMemeSourceCandidatesInput {
   timeRange?: RedditListingTimeRange;
   sqlitePath?: string;
-  redditCookiesPath?: string;
+  redditCookiesPath?: string | null;
   fetch?: typeof fetch;
 }
 

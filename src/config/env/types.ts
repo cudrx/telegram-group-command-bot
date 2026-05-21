@@ -12,8 +12,8 @@ export type ParsedEnv = {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   logColor: boolean;
   sqlitePath: string;
-  redditCookiesPath: string;
-  instagramCookiesPath: string;
+  redditCookiesPath: string | null;
+  instagramCookiesPath: string | null;
   answerContextLimit: number;
   summarizeContextLimit: number;
   decideContextLimit: number;

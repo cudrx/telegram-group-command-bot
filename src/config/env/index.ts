@@ -47,10 +47,10 @@ export function parseEnv(
     sqlitePath: parsed.SQLITE_PATH,
     redditCookiesPath:
       parsed.REDDIT_COOKIES_PATH ??
-      path.join(path.dirname(parsed.SQLITE_PATH), 'reddit-cookies.txt'),
+      resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'reddit-cookies.txt'),
     instagramCookiesPath:
       parsed.INSTAGRAM_COOKIES_PATH ??
-      path.join(path.dirname(parsed.SQLITE_PATH), 'instagram-cookies.txt'),
+      resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'instagram-cookies.txt'),
     answerContextLimit: parsed.ANSWER_CONTEXT_LIMIT,
     summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
     decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
@@ -82,4 +82,13 @@ export function parseEnv(
 
 export function getEnv(): AppEnv {
   return parseEnv();
+}
+
+function resolveDefaultCookiesPath(
+  sqlitePath: string,
+  filename: string
+): string | null {
+  if (sqlitePath === ':memory:') return null;
+
+  return path.join(path.dirname(sqlitePath), filename);
 }

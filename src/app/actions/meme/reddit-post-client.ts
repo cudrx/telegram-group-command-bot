@@ -30,7 +30,7 @@ export function findRedditPostReference(
 export async function resolveRedditPostReference(input: {
   text: string;
   sqlitePath?: string | undefined;
-  redditCookiesPath?: string | undefined;
+  redditCookiesPath?: string | null | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<RedditPostReference | null> {
   const direct = findRedditPostReference(input.text);
@@ -68,7 +68,7 @@ export async function resolveRedditPostReference(input: {
 export async function fetchRedditVideoCandidate(input: {
   text: string;
   sqlitePath?: string | undefined;
-  redditCookiesPath?: string | undefined;
+  redditCookiesPath?: string | null | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<MemePostCandidate | null> {
   const reference = await resolveRedditPostReference(input);

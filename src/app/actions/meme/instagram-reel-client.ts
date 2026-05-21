@@ -31,7 +31,7 @@ export function findInstagramReelUrl(text: string): string | null {
 export async function downloadInstagramReelWithYtDlp(input: {
   text: string;
   sqlitePath: string;
-  instagramCookiesPath?: string | undefined;
+  instagramCookiesPath?: string | null | undefined;
   maxBytes: number;
   captionMaxLength: number;
   execFile?: YtDlpExecFile | undefined;

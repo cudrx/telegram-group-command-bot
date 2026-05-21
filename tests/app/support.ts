@@ -260,10 +260,10 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     sqlitePath,
     redditCookiesPath:
       overrides.redditCookiesPath ??
-      path.join(path.dirname(sqlitePath), 'reddit-cookies.txt'),
+      resolveDefaultCookiesPath(sqlitePath, 'reddit-cookies.txt'),
     instagramCookiesPath:
       overrides.instagramCookiesPath ??
-      path.join(path.dirname(sqlitePath), 'instagram-cookies.txt'),
+      resolveDefaultCookiesPath(sqlitePath, 'instagram-cookies.txt'),
     answerContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,
@@ -293,4 +293,13 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     telegramLinkUserIds: [],
     ...overrides
   };
+}
+
+function resolveDefaultCookiesPath(
+  sqlitePath: string,
+  filename: string
+): string | null {
+  if (sqlitePath === ':memory:') return null;
+
+  return path.join(path.dirname(sqlitePath), filename);
 }

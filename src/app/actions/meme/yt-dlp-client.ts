@@ -23,7 +23,7 @@ export type YtDlpRedditVideoResult = {
 export async function downloadRedditVideoWithYtDlp(input: {
   text: string;
   sqlitePath: string;
-  redditCookiesPath?: string | undefined;
+  redditCookiesPath?: string | null | undefined;
   maxBytes: number;
   fetch?: typeof fetch | undefined;
   execFile?: YtDlpExecFile | undefined;

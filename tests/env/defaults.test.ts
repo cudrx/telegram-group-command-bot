@@ -95,6 +95,20 @@ describe('parseEnv defaults', () => {
     expect(env.instagramCookiesPath).toBe('/run/secrets/instagram-cookies.txt');
   });
 
+  test('does not infer media cookies paths for in-memory sqlite', () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
+      TELEGRAM_CHAT_ID: '-1002155313986',
+      TELEGRAM_ADMIN_ID: '-1002155313987',
+      SQLITE_PATH: ':memory:'
+    });
+
+    expect(env.redditCookiesPath).toBeNull();
+    expect(env.instagramCookiesPath).toBeNull();
+  });
+
   test('parses telegram link-only user ids', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',

@@ -6,7 +6,7 @@ export async function readRedditCookieHeader(
     | string
     | {
         sqlitePath?: string | undefined;
-        redditCookiesPath?: string | undefined;
+        redditCookiesPath?: string | null | undefined;
       }
     | undefined
 ): Promise<string | null> {
@@ -40,7 +40,7 @@ function resolveRedditCookiesPath(
     | string
     | {
         sqlitePath?: string | undefined;
-        redditCookiesPath?: string | undefined;
+        redditCookiesPath?: string | null | undefined;
       }
     | undefined
 ): string | null {
