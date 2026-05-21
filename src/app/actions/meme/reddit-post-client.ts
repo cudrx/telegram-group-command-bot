@@ -1,3 +1,4 @@
+import { readRedditCookieHeader } from './reddit-cookies.js';
 import type { MemePostCandidate } from './types.js';
 
 type RedditPostReference = {
@@ -28,6 +29,7 @@ export function findRedditPostReference(
 
 export async function resolveRedditPostReference(input: {
   text: string;
+  sqlitePath?: string | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<RedditPostReference | null> {
   const direct = findRedditPostReference(input.text);
@@ -37,12 +39,13 @@ export async function resolveRedditPostReference(input: {
   if (!shareUrl) return null;
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
+  const cookieHeader = await readRedditCookieHeader(input.sqlitePath);
   let response: Response;
 
   try {
     response = await fetchImpl(shareUrl, {
       redirect: 'follow',
-      headers: REDDIT_HEADERS
+      headers: createRedditHeaders(cookieHeader)
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -60,6 +63,7 @@ export async function resolveRedditPostReference(input: {
 
 export async function fetchRedditVideoCandidate(input: {
   text: string;
+  sqlitePath?: string | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<MemePostCandidate | null> {
   const reference = await resolveRedditPostReference(input);
@@ -67,11 +71,12 @@ export async function fetchRedditVideoCandidate(input: {
   if (!reference) return null;
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
+  const cookieHeader = await readRedditCookieHeader(input.sqlitePath);
   let response: Response;
 
   try {
     response = await fetchImpl(reference.jsonUrl, {
-      headers: REDDIT_HEADERS
+      headers: createRedditHeaders(cookieHeader)
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -88,6 +93,13 @@ export async function fetchRedditVideoCandidate(input: {
   }
 
   return toVideoCandidate(await response.json());
+}
+
+function createRedditHeaders(cookieHeader: string | null): HeadersInit {
+  return {
+    ...REDDIT_HEADERS,
+    ...(cookieHeader ? { Cookie: cookieHeader } : {})
+  };
 }
 
 function findRedditShareUrl(text: string): string | null {

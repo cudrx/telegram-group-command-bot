@@ -142,7 +142,7 @@ describe('ChatOrchestrator /meme command', () => {
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
-        replyToMessageId: 42,
+        replyToMessageId: null,
         reply: false,
         caption:
           'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>',
@@ -307,7 +307,7 @@ describe('ChatOrchestrator /meme command', () => {
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
-        replyToMessageId: 44,
+        replyToMessageId: null,
         reply: false,
         caption:
           'AI vs Creativity from yt-dlp\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑661</a>',
@@ -417,7 +417,7 @@ describe('ChatOrchestrator /meme command', () => {
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
-        replyToMessageId: 45,
+        replyToMessageId: null,
         reply: false,
         caption:
           'The Bubba Scrub invented under pressure\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑9001</a>',
@@ -432,6 +432,13 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('falls back to yt-dlp when a Reddit share link resolves but JSON is blocked', async () => {
     let dispatchedFilePath = '';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'reddit-share-ytdlp-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'reddit-cookies.txt'),
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\treddit_session\tabc123'
+    );
     const db = new FakeDatabaseClient();
     const canonicalUrl =
       'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/';
@@ -492,7 +499,7 @@ describe('ChatOrchestrator /meme command', () => {
       fetch: fetchMock,
       execFile,
       env: {
-        sqlitePath: '/app/data/bot.sqlite'
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
       },
       qwen: {
         generateReply: vi.fn()
@@ -512,10 +519,19 @@ describe('ChatOrchestrator /meme command', () => {
     );
 
     expect(execFile).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      'https://www.reddit.com/r/nextfuckinglevel/s/WKonIxZF1P',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Cookie: 'reddit_session=abc123'
+        })
+      })
+    );
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
-        replyToMessageId: 46,
+        replyToMessageId: null,
         reply: false,
         caption:
           'The Bubba Scrub from yt-dlp\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑777</a>',
@@ -579,7 +595,8 @@ describe('ChatOrchestrator /meme command', () => {
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
-        replyToMessageId: 10,
+        replyToMessageId: null,
+        reply: false,
         caption: `It's true.\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/abc/post_title/">↑50592</a>`,
         media: expect.objectContaining({ kind: 'image' })
       })
@@ -594,7 +611,7 @@ describe('ChatOrchestrator /meme command', () => {
     expect(db.getMessageByTelegramMessageId(1, 500)).toMatchObject({
       text: `It's true.\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/abc/post_title/">↑50592</a>`,
       isBot: true,
-      replyToMessageId: 10
+      replyToMessageId: null
     });
   });
 

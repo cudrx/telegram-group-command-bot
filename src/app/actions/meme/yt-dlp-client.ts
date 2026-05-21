@@ -30,6 +30,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
 }): Promise<YtDlpRedditVideoResult | null> {
   const reference = await resolveRedditPostReference({
     text: input.text,
+    sqlitePath: input.sqlitePath,
     ...(input.fetch ? { fetch: input.fetch } : {})
   });
 

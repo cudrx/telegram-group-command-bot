@@ -30,6 +30,7 @@ export async function runDirectRedditVideoMemeJob(input: {
   try {
     candidate = await fetchRedditVideoCandidate({
       text: input.text,
+      sqlitePath: input.deps.env.sqlitePath,
       ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
     });
   } catch (error) {
@@ -193,7 +194,7 @@ async function selectAndSendFromSubreddit(input: {
 
   for (const candidate of shuffleCandidates(fresh, input.deps.random)) {
     try {
-      await sendCandidate(input, candidate);
+      await sendCandidate(input, candidate, { reply: false });
       return true;
     } catch (error) {
       input.logger.warn('meme_candidate_failed', {
@@ -258,7 +259,7 @@ async function sendDownloadedCandidate(
     const sent = await dispatchMemeMedia({
       memeDispatcher: input.deps.memeDispatcher,
       chatId: input.request.chatId,
-      replyToMessageId: input.request.triggerMessageId,
+      replyToMessageId,
       reply,
       caption,
       media: downloaded
