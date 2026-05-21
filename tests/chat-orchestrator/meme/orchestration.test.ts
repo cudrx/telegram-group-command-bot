@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
@@ -37,6 +38,13 @@ function redditListing(posts: Array<Record<string, unknown>>) {
 
 function blockedRedditListing() {
   return new Response('blocked', { status: 403 });
+}
+
+function redirectedResponse(url: string): Response {
+  const response = new Response('', { status: 200 });
+  Object.defineProperty(response, 'url', { value: url });
+
+  return response;
 }
 
 describe('ChatOrchestrator /meme command', () => {
@@ -322,6 +330,206 @@ describe('ChatOrchestrator /meme command', () => {
     expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
+  test('expands a Reddit share link through its canonical post redirect', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redirectedResponse(
+          'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/?share_id=abc'
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify([
+            {},
+            {
+              data: {
+                children: [
+                  {
+                    data: {
+                      id: '1tja210',
+                      subreddit: 'nextfuckinglevel',
+                      title: 'The Bubba Scrub invented under pressure',
+                      permalink:
+                        '/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/',
+                      ups: 9001,
+                      over_18: false,
+                      spoiler: false,
+                      secure_media: {
+                        reddit_video: {
+                          fallback_url:
+                            'https://v.redd.it/bubba/DASH_720.mp4?source=fallback',
+                          duration: 17
+                        }
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          ])
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3, 4]), {
+          headers: {
+            'Content-Length': '4',
+            'Content-Type': 'video/mp4'
+          }
+        })
+      );
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 513,
+      createdAt: '2026-05-21T10:00:00.000Z'
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/nextfuckinglevel/s/WKonIxZF1P',
+        entities: [],
+        messageId: 45,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://www.reddit.com/r/nextfuckinglevel/s/WKonIxZF1P',
+      expect.any(Object)
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/.json',
+      expect.any(Object)
+    );
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: 45,
+        reply: false,
+        caption:
+          'The Bubba Scrub invented under pressure\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑9001</a>',
+        media: expect.objectContaining({ kind: 'video' })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 45
+    });
+  });
+
+  test('falls back to yt-dlp when a Reddit share link resolves but JSON is blocked', async () => {
+    let dispatchedFilePath = '';
+    const db = new FakeDatabaseClient();
+    const canonicalUrl =
+      'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/';
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(redirectedResponse(`${canonicalUrl}?share_id=abc`))
+      .mockResolvedValueOnce(new Response('blocked', { status: 403 }))
+      .mockResolvedValueOnce(
+        redirectedResponse(`${canonicalUrl}?share_id=abc`)
+      );
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            expect(args).toContain(canonicalUrl);
+            return {
+              stdout: JSON.stringify({
+                id: '1tja210',
+                title: 'The Bubba Scrub from yt-dlp',
+                like_count: 777,
+                duration: 18
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, '1tja210.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(args).toContain(canonicalUrl);
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 514,
+        createdAt: '2026-05-21T10:00:00.000Z'
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile,
+      env: {
+        sqlitePath: '/app/data/bot.sqlite'
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/nextfuckinglevel/s/WKonIxZF1P',
+        entities: [],
+        messageId: 46,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(execFile).toHaveBeenCalledTimes(2);
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: 46,
+        reply: false,
+        caption:
+          'The Bubba Scrub from yt-dlp\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑777</a>',
+        media: expect.objectContaining({ kind: 'video' })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 46
+    });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
   test('fetches a meme, sends original caption, saves history and bot message without LLM captioning', async () => {
     const db = new FakeDatabaseClient();
     const fetchMock = vi
@@ -457,6 +665,13 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('downloads Reddit listing video candidates through yt-dlp', async () => {
     let dispatchedFilePath = '';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'reddit-listing-video-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'reddit-cookies.txt'),
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\tsession\tabc123'
+    );
     const db = new FakeDatabaseClient();
     const fetchMock = vi.fn().mockResolvedValueOnce(
       redditListing([
@@ -529,7 +744,7 @@ describe('ChatOrchestrator /meme command', () => {
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
       env: {
-        sqlitePath: '/app/data/bot.sqlite'
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
       },
       qwen: {
         generateReply: vi.fn()

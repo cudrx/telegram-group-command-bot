@@ -272,7 +272,7 @@ LLM слой:
 
 - Доступен как обычная chat-команда.
 - Источник — Reddit listing JSON из hardcoded пула сабреддитов.
-- На один запуск выбираются до трех разных сабреддитов; для каждого запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
+- На один запуск выбираются до трех разных сабреддитов; для каждого с `reddit-cookies.txt` рядом с SQLite базой запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
 - Уже отправленные за последние 14 дней post ids отбрасываются по `meme_posts`.
 - Поддерживаются Reddit image URL из `i.redd.it` и Reddit video posts из `secure_media.reddit_video`/`media.reddit_video`.
 - NSFW, spoiler, external/self/galleries и неподдержанные посты пропускаются.
@@ -285,7 +285,7 @@ LLM слой:
 ### Direct Reddit Video Links
 
 - Работает в авторизованном рабочем чате и в личке администратора без команды.
-- `ChatOrchestrator` проверяет входящий текст на Reddit post URL до command resolver.
+- `ChatOrchestrator` проверяет входящий текст на Reddit post URL до command resolver, включая Reddit share-ссылки вида `/r/<subreddit>/s/<token>`.
 - Resolver запрашивает Reddit post JSON через `/.json` и принимает только публичные non-NSFW, non-spoiler посты с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
 - Если anonymous Reddit JSON/API возвращает ошибку, flow использует standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.

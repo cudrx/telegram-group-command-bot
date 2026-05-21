@@ -3,7 +3,7 @@ import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { findRedditPostReference } from './reddit-post-client.js';
+import { resolveRedditPostReference } from './reddit-post-client.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 
 const execFileDefault = promisify(execFileCallback);
@@ -25,9 +25,13 @@ export async function downloadRedditVideoWithYtDlp(input: {
   text: string;
   sqlitePath: string;
   maxBytes: number;
+  fetch?: typeof fetch | undefined;
   execFile?: YtDlpExecFile | undefined;
 }): Promise<YtDlpRedditVideoResult | null> {
-  const reference = findRedditPostReference(input.text);
+  const reference = await resolveRedditPostReference({
+    text: input.text,
+    ...(input.fetch ? { fetch: input.fetch } : {})
+  });
 
   if (!reference) return null;
 

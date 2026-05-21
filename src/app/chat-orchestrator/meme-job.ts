@@ -46,6 +46,7 @@ export async function runDirectRedditVideoMemeJob(input: {
             text: input.text,
             sqlitePath: input.deps.env.sqlitePath,
             maxBytes: memeActionConfig.media.videoMaxBytes,
+            ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
             ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
           })
       );
@@ -174,6 +175,7 @@ async function selectAndSendFromSubreddit(input: {
     subreddit: input.subreddit,
     count: memeActionConfig.listing.limit,
     timeRange: memeActionConfig.listing.timeRange,
+    sqlitePath: input.deps.env.sqlitePath,
     ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
   });
   const seen = getRecentlySentMemeIds({
@@ -339,6 +341,7 @@ async function downloadResolvedMedia(
       text: media.mediaUrl,
       sqlitePath: deps.env.sqlitePath,
       maxBytes: memeActionConfig.media.videoMaxBytes,
+      ...(deps.fetch ? { fetch: deps.fetch } : {}),
       ...(deps.execFile ? { execFile: deps.execFile } : {})
     });
 

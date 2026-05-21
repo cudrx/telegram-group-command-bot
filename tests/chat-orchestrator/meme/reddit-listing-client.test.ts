@@ -1,3 +1,7 @@
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+
 import { describe, expect, test, vi } from 'vitest';
 
 import { fetchRedditListingCandidates } from '../../../src/app/actions/meme/reddit-listing-client.js';
@@ -140,6 +144,44 @@ describe('fetchRedditListingCandidates', () => {
         fetch: fetchMock
       })
     ).resolves.toEqual([]);
+  });
+
+  test('sends Reddit cookies from the SQLite data directory', async () => {
+    const tempDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'reddit-cookies-test-')
+    );
+    await writeFile(
+      path.join(tempDirectory, 'reddit-cookies.txt'),
+      [
+        '# Netscape HTTP Cookie File',
+        '.reddit.com\tTRUE\t/\tTRUE\t2147483647\tsession\tabc123',
+        'reddit.com\tFALSE\t/\tTRUE\t2147483647\tcsv\t2'
+      ].join('\n')
+    );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { children: [] }
+        })
+      )
+    );
+
+    await fetchRedditListingCandidates({
+      subreddit: 'SipsTea',
+      count: 10,
+      timeRange: 'week',
+      sqlitePath: path.join(tempDirectory, 'bot.sqlite'),
+      fetch: fetchMock
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.reddit.com/r/SipsTea/top/.json?t=week&limit=10',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Cookie: 'session=abc123; csv=2'
+        })
+      })
+    );
   });
 });
 

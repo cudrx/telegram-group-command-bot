@@ -7,6 +7,11 @@ type RedditPostReference = {
   subreddit: string;
 };
 
+const REDDIT_HEADERS = {
+  Accept: 'application/json',
+  'User-Agent': 'test-chatbot/0.1 by /u/local-test'
+};
+
 export function findRedditPostReference(
   text: string
 ): RedditPostReference | null {
@@ -21,11 +26,43 @@ export function findRedditPostReference(
   return null;
 }
 
+export async function resolveRedditPostReference(input: {
+  text: string;
+  fetch?: typeof fetch | undefined;
+}): Promise<RedditPostReference | null> {
+  const direct = findRedditPostReference(input.text);
+  if (direct) return direct;
+
+  const shareUrl = findRedditShareUrl(input.text);
+  if (!shareUrl) return null;
+
+  const fetchImpl = input.fetch ?? globalThis.fetch;
+  let response: Response;
+
+  try {
+    response = await fetchImpl(shareUrl, {
+      redirect: 'follow',
+      headers: REDDIT_HEADERS
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+
+    throw new Error(
+      `Reddit share link resolution failed for ${shareUrl}: ${message}`
+    );
+  }
+
+  const redirectedUrl = response.url;
+  if (!redirectedUrl) return null;
+
+  return parseRedditPostUrl(redirectedUrl);
+}
+
 export async function fetchRedditVideoCandidate(input: {
   text: string;
   fetch?: typeof fetch | undefined;
 }): Promise<MemePostCandidate | null> {
-  const reference = findRedditPostReference(input.text);
+  const reference = await resolveRedditPostReference(input);
 
   if (!reference) return null;
 
@@ -34,10 +71,7 @@ export async function fetchRedditVideoCandidate(input: {
 
   try {
     response = await fetchImpl(reference.jsonUrl, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'test-chatbot/0.1 by /u/local-test'
-      }
+      headers: REDDIT_HEADERS
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -54,6 +88,46 @@ export async function fetchRedditVideoCandidate(input: {
   }
 
   return toVideoCandidate(await response.json());
+}
+
+function findRedditShareUrl(text: string): string | null {
+  const matches = text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
+
+  for (const match of matches) {
+    const parsed = parseRedditShareUrl(match);
+
+    if (parsed) return parsed;
+  }
+
+  return null;
+}
+
+function parseRedditShareUrl(value: string): string | null {
+  let parsed: URL;
+
+  try {
+    parsed = new URL(stripTrailingPunctuation(value));
+  } catch {
+    return null;
+  }
+
+  if (!isRedditHost(parsed.hostname)) return null;
+
+  const parts = parsed.pathname.split('/').filter(Boolean);
+  const subredditIndex = parts.findIndex((part) => part.toLowerCase() === 'r');
+
+  if (
+    subredditIndex < 0 ||
+    parts[subredditIndex + 1] === undefined ||
+    parts[subredditIndex + 2]?.toLowerCase() !== 's' ||
+    parts[subredditIndex + 3] === undefined
+  ) {
+    return null;
+  }
+
+  parsed.hash = '';
+
+  return parsed.toString();
 }
 
 function parseRedditPostUrl(value: string): RedditPostReference | null {
