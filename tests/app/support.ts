@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { afterEach, beforeEach, vi } from 'vitest';
 
 import type { AppEnv } from '../../src/config/env/index.js';
@@ -242,6 +243,8 @@ export async function importCreateApplication() {
 }
 
 export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
+  const sqlitePath = overrides.sqlitePath ?? ':memory:';
+
   return {
     nodeEnv: 'test',
     telegramBotToken: 'telegram-token',
@@ -254,7 +257,13 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLlmText: false,
     logLevel: 'info',
     logColor: true,
-    sqlitePath: ':memory:',
+    sqlitePath,
+    redditCookiesPath:
+      overrides.redditCookiesPath ??
+      path.join(path.dirname(sqlitePath), 'reddit-cookies.txt'),
+    instagramCookiesPath:
+      overrides.instagramCookiesPath ??
+      path.join(path.dirname(sqlitePath), 'instagram-cookies.txt'),
     answerContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,
@@ -281,6 +290,7 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     databaseCleanupIntervalHours: 24,
     telegramChatId: -1002155313986,
     telegramAdminId: 84626969,
+    telegramLinkUserIds: [],
     ...overrides
   };
 }

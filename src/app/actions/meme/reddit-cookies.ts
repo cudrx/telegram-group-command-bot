@@ -1,14 +1,18 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const COOKIES_FILENAME = 'reddit-cookies.txt';
-
 export async function readRedditCookieHeader(
-  sqlitePath: string | undefined
+  input:
+    | string
+    | {
+        sqlitePath?: string | undefined;
+        redditCookiesPath?: string | undefined;
+      }
+    | undefined
 ): Promise<string | null> {
-  if (!sqlitePath || sqlitePath === ':memory:') return null;
+  const cookiesPath = resolveRedditCookiesPath(input);
+  if (!cookiesPath) return null;
 
-  const cookiesPath = path.join(path.dirname(sqlitePath), COOKIES_FILENAME);
   let contents: string;
 
   try {
@@ -29,6 +33,27 @@ export async function readRedditCookieHeader(
     .filter((cookie): cookie is string => Boolean(cookie));
 
   return cookies.length > 0 ? cookies.join('; ') : null;
+}
+
+function resolveRedditCookiesPath(
+  input:
+    | string
+    | {
+        sqlitePath?: string | undefined;
+        redditCookiesPath?: string | undefined;
+      }
+    | undefined
+): string | null {
+  if (typeof input === 'string') {
+    if (input === ':memory:') return null;
+
+    return path.join(path.dirname(input), 'reddit-cookies.txt');
+  }
+
+  if (input?.redditCookiesPath) return input.redditCookiesPath;
+  if (!input?.sqlitePath || input.sqlitePath === ':memory:') return null;
+
+  return path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt');
 }
 
 function parseNetscapeCookieLine(line: string): string | null {

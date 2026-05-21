@@ -10,6 +10,34 @@ import {
 } from '../runtime/index.js';
 import { stringBooleanSchema } from './boolean.js';
 
+const commaSeparatedIntListSchema = z
+  .string()
+  .optional()
+  .transform((value, context) => {
+    if (value === undefined || value.trim().length === 0) return [];
+
+    const ids: number[] = [];
+
+    for (const rawPart of value.split(',')) {
+      const part = rawPart.trim();
+      if (part.length === 0) continue;
+
+      const parsed = Number(part);
+
+      if (!Number.isInteger(parsed)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Expected comma-separated integer Telegram user ids'
+        });
+        return z.NEVER;
+      }
+
+      ids.push(parsed);
+    }
+
+    return ids;
+  });
+
 export const envSchema = z.object({
   NODE_ENV: z
     .enum(['development', 'test', 'production'])
@@ -45,6 +73,8 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
   SQLITE_PATH: z.string().min(1).default(storageConfig.sqlitePath),
+  REDDIT_COOKIES_PATH: z.string().min(1).optional(),
+  INSTAGRAM_COOKIES_PATH: z.string().min(1).optional(),
   ANSWER_CONTEXT_LIMIT: z.coerce
     .number()
     .int()
@@ -87,7 +117,8 @@ export const envSchema = z.object({
   CLOUDFLARE_AI_API_KEY: z.string().min(1).optional(),
   CLOUDFLARE_ACCOUNT_ID: z.string().min(1).optional(),
   TELEGRAM_CHAT_ID: z.coerce.number().int(),
-  TELEGRAM_ADMIN_ID: z.coerce.number().int()
+  TELEGRAM_ADMIN_ID: z.coerce.number().int(),
+  TELEGRAM_LINK_USER_IDS: commaSeparatedIntListSchema
 });
 
 export type ParsedRawEnv = z.infer<typeof envSchema>;

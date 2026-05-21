@@ -21,5 +21,13 @@ export function resolveAuthorizedMode(input: {
     return 'private_admin';
   }
 
+  if (
+    input.chatType === 'private' &&
+    input.fromUserId !== null &&
+    input.env.telegramLinkUserIds.includes(input.fromUserId)
+  ) {
+    return 'private_link_sender';
+  }
+
   return null;
 }

@@ -5,7 +5,7 @@ export type ChatType =
   | 'channel'
   | 'unknown';
 
-export type AuthorizedMode = 'chat' | 'private_admin';
+export type AuthorizedMode = 'chat' | 'private_admin' | 'private_link_sender';
 
 export type AssistantIntent =
   | 'summarize'

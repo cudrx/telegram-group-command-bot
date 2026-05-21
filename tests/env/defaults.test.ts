@@ -69,10 +69,54 @@ describe('parseEnv defaults', () => {
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
       TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '-1002155313987'
+      TELEGRAM_ADMIN_ID: '-1002155313987',
+      SQLITE_PATH: '/app/data/bot.sqlite'
     });
 
     expect(env.telegramChatId).toBe(-1002155313986);
     expect(env.telegramAdminId).toBe(-1002155313987);
+    expect(env.redditCookiesPath).toBe('/app/data/reddit-cookies.txt');
+    expect(env.instagramCookiesPath).toBe('/app/data/instagram-cookies.txt');
+  });
+
+  test('parses explicit media cookies paths', () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
+      TELEGRAM_CHAT_ID: '-1002155313986',
+      TELEGRAM_ADMIN_ID: '-1002155313987',
+      SQLITE_PATH: '/app/data/bot.sqlite',
+      REDDIT_COOKIES_PATH: '/run/secrets/reddit-cookies.txt',
+      INSTAGRAM_COOKIES_PATH: '/run/secrets/instagram-cookies.txt'
+    });
+
+    expect(env.redditCookiesPath).toBe('/run/secrets/reddit-cookies.txt');
+    expect(env.instagramCookiesPath).toBe('/run/secrets/instagram-cookies.txt');
+  });
+
+  test('parses telegram link-only user ids', () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
+      TELEGRAM_CHAT_ID: '-1002155313986',
+      TELEGRAM_ADMIN_ID: '84626969',
+      TELEGRAM_LINK_USER_IDS: '111, 222,333'
+    });
+
+    expect(env.telegramLinkUserIds).toEqual([111, 222, 333]);
+  });
+
+  test('defaults telegram link-only user ids to an empty list', () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
+      TELEGRAM_CHAT_ID: '-1002155313986',
+      TELEGRAM_ADMIN_ID: '84626969'
+    });
+
+    expect(env.telegramLinkUserIds).toEqual([]);
   });
 });

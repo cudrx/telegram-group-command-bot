@@ -30,6 +30,7 @@ export function findRedditPostReference(
 export async function resolveRedditPostReference(input: {
   text: string;
   sqlitePath?: string | undefined;
+  redditCookiesPath?: string | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<RedditPostReference | null> {
   const direct = findRedditPostReference(input.text);
@@ -39,7 +40,10 @@ export async function resolveRedditPostReference(input: {
   if (!shareUrl) return null;
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
-  const cookieHeader = await readRedditCookieHeader(input.sqlitePath);
+  const cookieHeader = await readRedditCookieHeader({
+    sqlitePath: input.sqlitePath,
+    redditCookiesPath: input.redditCookiesPath
+  });
   let response: Response;
 
   try {
@@ -64,6 +68,7 @@ export async function resolveRedditPostReference(input: {
 export async function fetchRedditVideoCandidate(input: {
   text: string;
   sqlitePath?: string | undefined;
+  redditCookiesPath?: string | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<MemePostCandidate | null> {
   const reference = await resolveRedditPostReference(input);
@@ -71,7 +76,10 @@ export async function fetchRedditVideoCandidate(input: {
   if (!reference) return null;
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
-  const cookieHeader = await readRedditCookieHeader(input.sqlitePath);
+  const cookieHeader = await readRedditCookieHeader({
+    sqlitePath: input.sqlitePath,
+    redditCookiesPath: input.redditCookiesPath
+  });
   let response: Response;
 
   try {

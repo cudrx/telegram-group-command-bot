@@ -2,7 +2,7 @@
 
 ## Область Ответственности
 
-Проект — один процесс Telegram-бота с long polling через `grammY`, локальной SQLite-базой, OpenAI-compatible LLM-клиентом, дополнительными провайдерами поиска, распознавания медиа и озвучки, а также явными командными потоками. Единственный auto-trigger без команды — разворачивание Reddit post-ссылок с Reddit-hosted video.
+Проект — один процесс Telegram-бота с long polling через `grammY`, локальной SQLite-базой, OpenAI-compatible LLM-клиентом, дополнительными провайдерами поиска, распознавания медиа и озвучки, а также явными командными потоками. Auto-trigger без команды ограничен разворачиванием Reddit post-ссылок с Reddit-hosted video и Instagram Reel-ссылок.
 
 Бот отвечает только на команды:
 
@@ -14,7 +14,7 @@
 - `/meme`
 - `/publish`
 
-Обычное упоминание бота, обычный текст в личке, неавторизованные чаты и личные сообщения не от администратора не запускают поток ответа. Reddit video post-ссылка в авторизованном чате или личке администратора запускает локальный media flow без LLM.
+Обычное упоминание бота, обычный текст в личке, неавторизованные чаты и личные сообщения не от администратора или link-only пользователя не запускают поток ответа. Reddit video post-ссылка или Instagram Reel-ссылка в авторизованном чате, личке администратора или личке link-only пользователя запускает локальный media flow без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` не получают доступ к командам.
 
 ## Инварианты
 
@@ -25,7 +25,7 @@
 - Контекст поиска добавляется как недоверенное свидетельство, а не как инструкция.
 - Результаты распознавания медиа сохраняются как артефакты с TTL; исходные файлы не сохраняются.
 - `/meme` не сохраняет скачанные meme media на диск постоянно: файлы живут только во временной папке до отправки в Telegram, а anti-repeat хранит только metadata поста.
-- Direct Reddit video link flow использует тот же временный download/dispatch/cleanup подход, сохраняет отправленный пост в `meme_posts` и после успешной отправки пытается удалить исходное сообщение со ссылкой. Ошибка удаления только логируется.
+- Direct Reddit video link flow использует тот же временный download/dispatch/cleanup подход, сохраняет отправленный пост в `meme_posts` и после успешной отправки пытается удалить исходное сообщение со ссылкой. Direct Instagram Reels используют тот же временный media flow, но сохраняются только как обычные bot media messages, без записи в `meme_posts`. Ошибка удаления только логируется.
 - `/publish` доступен только в личке администратора и копирует сообщения в рабочий `TELEGRAM_CHAT_ID` через Telegram `copyMessage`/`copyMessages`, чтобы не сохранять attribution исходного автора.
 - TTS не решает содержание ответа: текст сначала генерируется или берется из сообщения, на которое сделали reply, затем локальная политика решает, можно ли отправить voice. Локальные usage/fallback-сообщения бота всегда отправляются текстом.
 
@@ -281,18 +281,20 @@ LLM слой:
 - Media message отправляется без reply на исходную `/meme` команду.
 - Если за попытки не найден отправляемый кандидат, бот отправляет локальный fallback без LLM: `Мемы закончились, идите трогайте траву.`
 
-### Direct Reddit Video Links
+### Direct Media Links
 
-- Работает в авторизованном рабочем чате и в личке администратора для обычных сообщений без команды.
-- `ChatOrchestrator` сначала отдает приоритет command resolver; если команда не найдена, проверяет входящий текст на Reddit post URL, включая Reddit share-ссылки вида `/r/<subreddit>/s/<token>`.
+- Работает в авторизованном рабочем чате, в личке администратора и в личке link-only пользователей для обычных сообщений без команды.
+- `ChatOrchestrator` сначала отдает приоритет command resolver для обычных режимов; для `private_link_sender` bot command entity в начале сообщения стопорит обработку целиком. Если команда не обработана, входящий текст проверяется на Reddit post URL, Reddit share-ссылки вида `/r/<subreddit>/s/<token>` и Instagram Reel URL.
 - Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает публичные Reddit-hosted video posts с `secure_media.reddit_video.fallback_url` или `media.reddit_video.fallback_url`.
 - NSFW и spoiler direct video posts отправляются с Telegram spoiler flag.
-- Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой Reddit `fallback_url` используется только как признак video-поста, а не как download URL.
+- Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом из `REDDIT_COOKIES_PATH`. Если env-путь не задан, используется `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой Reddit `fallback_url` используется только как признак video-поста, а не как download URL.
+- Instagram Reels принимаются только как `/reel/<shortcode>/` или `/reels/<shortcode>/` URL и скачиваются через `yt-dlp` с cookies-файлом из `INSTAGRAM_COOKIES_PATH`. Если env-путь не задан, используется `instagram-cookies.txt` рядом с SQLite базой.
 - Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
 - Видео скачивается во временный mp4 с отдельным size limit, отправляется через Telegram `sendVideo`, затем временная директория чистится.
 - Caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
+- Reels caption использует описание или title, `inst:<nickname>` без `@`, и кликабельный `likes:N`; если `like_count` недоступен, ссылка сохраняется на `likes:`.
 - После успешного `sendVideo` бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.
-- Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих Reddit-ссылок.
+- Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих или недоступных ссылок.
 
 ## Поток Оповещения О Деплое
 

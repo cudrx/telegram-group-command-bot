@@ -194,6 +194,41 @@ describe('fetchRedditListingCandidates', () => {
       })
     );
   });
+
+  test('sends Reddit cookies from an explicit cookies path', async () => {
+    const tempDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'reddit-explicit-cookies-test-')
+    );
+    const cookiesPath = path.join(tempDirectory, 'custom-reddit-cookies.txt');
+    await writeFile(
+      cookiesPath,
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\tsession\texplicit'
+    );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { children: [] }
+        })
+      )
+    );
+
+    await fetchRedditListingCandidates({
+      subreddit: 'SipsTea',
+      count: 10,
+      timeRange: 'week',
+      redditCookiesPath: cookiesPath,
+      fetch: fetchMock
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.reddit.com/r/SipsTea/top/.json?t=week&limit=10',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Cookie: 'session=explicit'
+        })
+      })
+    );
+  });
 });
 
 function redditChild(data: Record<string, unknown>) {

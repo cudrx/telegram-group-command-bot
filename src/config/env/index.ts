@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 
 import {
@@ -44,6 +45,12 @@ export function parseEnv(
     logLevel: parsed.LOG_LEVEL,
     logColor: parsed.LOG_COLOR,
     sqlitePath: parsed.SQLITE_PATH,
+    redditCookiesPath:
+      parsed.REDDIT_COOKIES_PATH ??
+      path.join(path.dirname(parsed.SQLITE_PATH), 'reddit-cookies.txt'),
+    instagramCookiesPath:
+      parsed.INSTAGRAM_COOKIES_PATH ??
+      path.join(path.dirname(parsed.SQLITE_PATH), 'instagram-cookies.txt'),
     answerContextLimit: parsed.ANSWER_CONTEXT_LIMIT,
     summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
     decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
@@ -68,7 +75,8 @@ export function parseEnv(
     databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
     yandexSpeechKitApiKey: parsed.YANDEX_SPEECHKIT_API_KEY ?? null,
     telegramChatId: parsed.TELEGRAM_CHAT_ID,
-    telegramAdminId: parsed.TELEGRAM_ADMIN_ID
+    telegramAdminId: parsed.TELEGRAM_ADMIN_ID,
+    telegramLinkUserIds: parsed.TELEGRAM_LINK_USER_IDS
   };
 }
 

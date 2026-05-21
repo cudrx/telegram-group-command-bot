@@ -48,6 +48,135 @@ function redirectedResponse(url: string): Response {
 }
 
 describe('ChatOrchestrator /meme command', () => {
+  test('expands a direct Instagram Reel link for private link-only users without saving meme history', async () => {
+    let dispatchedFilePath = '';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'direct-instagram-reel-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'instagram-cookies.txt'),
+      '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
+    );
+    const db = new FakeDatabaseClient();
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options?: { cwd?: string | undefined }
+        ) => {
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            expect(args).toContain(
+              'https://www.instagram.com/reel/DYKAmhRu8g-/'
+            );
+
+            return {
+              stdout: JSON.stringify({
+                id: 'DYKAmhRu8g-',
+                title: 'Video by bookstasyaa',
+                description: 'ОСТАЛОСЬ 3 ДНЯ',
+                channel: 'bookstasyaa',
+                like_count: 3478,
+                duration: 6.8,
+                webpage_url: 'https://www.instagram.com/reels/DYKAmhRu8g-/'
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, 'DYKAmhRu8g-.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(options?.cwd).toBe(tempDirectory);
+          expect(args).toContain(
+            'https://www.instagram.com/reels/DYKAmhRu8g-/'
+          );
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 610,
+        createdAt: '2026-05-21T10:00:00.000Z',
+        mediaSnapshot: {
+          messageId: 610,
+          mediaKind: 'video',
+          fileId: 'telegram-instagram-video',
+          fileUniqueId: 'telegram-instagram-video-unique',
+          mimeType: 'video/mp4',
+          fileSize: 4,
+          durationSeconds: 6.8,
+          caption:
+            'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>'
+        }
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=abc',
+        entities: [],
+        messageId: 43
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: null,
+        reply: false,
+        caption:
+          'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>',
+        media: {
+          kind: 'video',
+          filePath: expect.stringContaining('DYKAmhRu8g-.mp4')
+        }
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 43
+    });
+    expect(db.savedMemePosts).toEqual([]);
+    expect(db.getMessageByTelegramMessageId(1, 610)).toMatchObject({
+      text: 'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>',
+      replyToMessageId: null,
+      mediaSnapshot: expect.objectContaining({
+        mediaKind: 'video',
+        caption:
+          'ОСТАЛОСЬ 3 ДНЯ\n\ninst:bookstasyaa · <a href="https://www.instagram.com/reels/DYKAmhRu8g-/">likes:3478</a>'
+      })
+    });
+    expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
   test('expands a direct Reddit video link without replying to the deleted source message', async () => {
     let dispatchedFilePath = '';
     const dataDirectory = await mkdtemp(

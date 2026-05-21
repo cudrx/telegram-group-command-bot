@@ -322,6 +322,83 @@ describe('createApplication wiring', () => {
     );
   });
 
+  test('forwards private messages from configured link-only users without admin mode', async () => {
+    const { createApplication } = await importCreateApplication();
+    const app = await createApplication(
+      createEnv({
+        telegramChatId: -1001,
+        telegramAdminId: 84626969,
+        telegramLinkUserIds: [555]
+      })
+    );
+
+    await app.start();
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 14,
+        date: 1_744_000_000,
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
+        from: {
+          id: 555,
+          is_bot: false,
+          username: 'link_user',
+          first_name: 'Link'
+        },
+        chat: {
+          id: 555,
+          type: 'private'
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 555,
+        authorizedMode: 'private_link_sender'
+      })
+    );
+  });
+
+  test('keeps private admin mode when admin is also listed as link-only user', async () => {
+    const { createApplication } = await importCreateApplication();
+    const app = await createApplication(
+      createEnv({
+        telegramChatId: -1001,
+        telegramAdminId: 84626969,
+        telegramLinkUserIds: [84626969]
+      })
+    );
+
+    await app.start();
+
+    await botState.messageHandler?.({
+      message: {
+        message_id: 15,
+        date: 1_744_000_000,
+        text: '/summarize',
+        entities: [{ type: 'bot_command', offset: 0, length: 10 }],
+        from: {
+          id: 84626969,
+          is_bot: false,
+          username: 'artyom',
+          first_name: 'Artyom'
+        },
+        chat: {
+          id: 84626969,
+          type: 'private'
+        }
+      }
+    });
+
+    expect(handleIncomingMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 84626969,
+        authorizedMode: 'private_admin'
+      })
+    );
+  });
+
   test('drops private messages from non-admin users before the orchestrator', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(

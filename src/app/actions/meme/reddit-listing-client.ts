@@ -10,6 +10,7 @@ export interface FetchRedditListingCandidatesInput
   extends FetchMemeSourceCandidatesInput {
   timeRange?: RedditListingTimeRange;
   sqlitePath?: string;
+  redditCookiesPath?: string;
   fetch?: typeof fetch;
 }
 
@@ -53,7 +54,10 @@ export async function fetchRedditListingCandidates(
   );
   url.searchParams.set('t', input.timeRange ?? DEFAULT_TIME_RANGE);
   url.searchParams.set('limit', String(input.count));
-  const cookieHeader = await readRedditCookieHeader(input.sqlitePath);
+  const cookieHeader = await readRedditCookieHeader({
+    sqlitePath: input.sqlitePath,
+    redditCookiesPath: input.redditCookiesPath
+  });
 
   const response = await fetchImpl(url.toString(), {
     headers: {

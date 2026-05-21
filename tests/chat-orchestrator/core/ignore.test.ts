@@ -73,4 +73,66 @@ describe('ChatOrchestrator ignore paths', () => {
     expect(generateReply).not.toHaveBeenCalled();
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
+
+  test('ignores commands from private link-only users', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
+    const replyDispatcher = vi.fn();
+    const fetchMock = vi.fn();
+    const memeDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      fetch: fetchMock,
+      memeDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: '/meme',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(memeDispatcher).not.toHaveBeenCalled();
+  });
+
+  test('ignores commands with supported URLs from private link-only users', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
+    const replyDispatcher = vi.fn();
+    const fetchMock = vi.fn();
+    const memeDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      fetch: fetchMock,
+      memeDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: '/meme https://www.reddit.com/r/SipsTea/comments/1ti5fvt/title/',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(memeDispatcher).not.toHaveBeenCalled();
+  });
 });

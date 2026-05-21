@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { NormalizedMessage } from '../../domain/models.js';
 import { chatActionRegistry } from '../actions/index.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
-import { runDirectRedditVideoMemeJob } from './meme-job.js';
+import { runDirectMediaMemeJob } from './meme-job.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export type {
@@ -63,6 +63,13 @@ export class ChatOrchestrator {
       intent: resolvedAction?.action.intent
     });
 
+    if (
+      message.authorizedMode === 'private_link_sender' &&
+      hasLeadingBotCommand(message)
+    ) {
+      return;
+    }
+
     if (resolvedAction) {
       const request: ReplyRequest = {
         chatId: message.chatId,
@@ -96,7 +103,7 @@ export class ChatOrchestrator {
       replyToMessageSnapshot: message.replyToMessageSnapshot,
       replyToMediaSnapshot: message.replyToMediaSnapshot
     };
-    const handledRedditVideo = await runDirectRedditVideoMemeJob({
+    const handledDirectMedia = await runDirectMediaMemeJob({
       deps: this.deps,
       mediaSupport: this.mediaSupport,
       request: directRedditVideoRequest,
@@ -104,8 +111,14 @@ export class ChatOrchestrator {
       logger
     });
 
-    if (handledRedditVideo) {
+    if (handledDirectMedia) {
       return;
     }
   }
+}
+
+function hasLeadingBotCommand(message: NormalizedMessage): boolean {
+  return message.entities.some(
+    (entity) => entity.type === 'bot_command' && entity.offset === 0
+  );
 }

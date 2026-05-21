@@ -2,6 +2,7 @@ import { memeActionConfig } from '../../config/runtime/index.js';
 import { serializeError } from '../../logging/logger.js';
 import { formatMemeCaption } from '../actions/meme/caption.js';
 import { getRecentlySentMemeIds } from '../actions/meme/history-store.js';
+import { downloadInstagramReelWithYtDlp } from '../actions/meme/instagram-reel-client.js';
 import { downloadMemeMediaToTemp } from '../actions/meme/media-downloader.js';
 import { fetchRedditListingCandidates } from '../actions/meme/reddit-listing-client.js';
 import { fetchRedditVideoCandidate } from '../actions/meme/reddit-post-client.js';
@@ -18,6 +19,19 @@ import { runWithChatAction, runWithReplyTyping } from './helpers/reply.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
+export async function runDirectMediaMemeJob(input: {
+  deps: ChatOrchestratorDeps;
+  request: ReplyRequest;
+  text: string;
+  mediaSupport?: ChatOrchestratorMediaSupport;
+  logger: ChatOrchestratorDeps['logger'];
+}): Promise<boolean> {
+  const handledRedditVideo = await runDirectRedditVideoMemeJob(input);
+  if (handledRedditVideo) return true;
+
+  return runDirectInstagramReelMemeJob(input);
+}
+
 export async function runDirectRedditVideoMemeJob(input: {
   deps: ChatOrchestratorDeps;
   request: ReplyRequest;
@@ -31,6 +45,7 @@ export async function runDirectRedditVideoMemeJob(input: {
     candidate = await fetchRedditVideoCandidate({
       text: input.text,
       sqlitePath: input.deps.env.sqlitePath,
+      redditCookiesPath: input.deps.env.redditCookiesPath,
       ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
     });
   } catch (error) {
@@ -46,6 +61,7 @@ export async function runDirectRedditVideoMemeJob(input: {
           downloadRedditVideoWithYtDlp({
             text: input.text,
             sqlitePath: input.deps.env.sqlitePath,
+            redditCookiesPath: input.deps.env.redditCookiesPath,
             maxBytes: memeActionConfig.media.videoMaxBytes,
             ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
             ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
@@ -77,6 +93,84 @@ export async function runDirectRedditVideoMemeJob(input: {
   if (!candidate) return false;
 
   await sendCandidate(input, candidate, { reply: false });
+
+  await deleteSourceMessage(input);
+  return true;
+}
+
+async function runDirectInstagramReelMemeJob(input: {
+  deps: ChatOrchestratorDeps;
+  request: ReplyRequest;
+  text: string;
+  mediaSupport?: ChatOrchestratorMediaSupport;
+  logger: ChatOrchestratorDeps['logger'];
+}): Promise<boolean> {
+  let reel: Awaited<ReturnType<typeof downloadInstagramReelWithYtDlp>>;
+
+  try {
+    reel = await runWithChatAction(
+      input.deps,
+      input.request.chatId,
+      'upload_video',
+      () =>
+        downloadInstagramReelWithYtDlp({
+          text: input.text,
+          sqlitePath: input.deps.env.sqlitePath,
+          instagramCookiesPath: input.deps.env.instagramCookiesPath,
+          maxBytes: memeActionConfig.media.videoMaxBytes,
+          captionMaxLength: memeActionConfig.caption.maxLength,
+          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+        })
+    );
+  } catch (error) {
+    input.logger.warn('instagram_reel_ytdlp_failed', serializeError(error));
+    return false;
+  }
+
+  if (!reel) return false;
+
+  try {
+    const sent = await dispatchMemeMedia({
+      memeDispatcher: input.deps.memeDispatcher,
+      chatId: input.request.chatId,
+      replyToMessageId: null,
+      reply: false,
+      caption: reel.caption,
+      media: reel.downloaded
+    });
+
+    input.deps.db.saveBotMessage({
+      chatId: input.request.chatId,
+      chatType: input.request.chatType,
+      chatTitle: input.request.chatTitle,
+      messageId: sent.messageId,
+      text: reel.caption,
+      createdAt: sent.createdAt,
+      userId: input.deps.bot.userId,
+      username: input.deps.bot.username,
+      displayName: input.deps.bot.displayName,
+      replyToMessageId: null,
+      outputMode: 'text',
+      mediaSnapshot: sent.mediaSnapshot ?? null
+    });
+
+    const storedMessage = input.deps.db.getMessageByTelegramMessageId(
+      input.request.chatId,
+      sent.messageId
+    );
+
+    if (storedMessage) {
+      input.mediaSupport?.startAutoReadForIncomingMessage(
+        storedMessage,
+        input.logger
+      );
+    }
+  } catch (error) {
+    input.logger.warn('instagram_reel_dispatch_failed', serializeError(error));
+    return true;
+  } finally {
+    await reel.downloaded.cleanup();
+  }
 
   await deleteSourceMessage(input);
   return true;
@@ -177,6 +271,7 @@ async function selectAndSendFromSubreddit(input: {
     count: memeActionConfig.listing.limit,
     timeRange: memeActionConfig.listing.timeRange,
     sqlitePath: input.deps.env.sqlitePath,
+    redditCookiesPath: input.deps.env.redditCookiesPath,
     ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
   });
   const seen = getRecentlySentMemeIds({
@@ -342,6 +437,7 @@ async function downloadResolvedMedia(
     const result = await downloadRedditVideoWithYtDlp({
       text: media.mediaUrl,
       sqlitePath: deps.env.sqlitePath,
+      redditCookiesPath: deps.env.redditCookiesPath,
       maxBytes: memeActionConfig.media.videoMaxBytes,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
       ...(deps.execFile ? { execFile: deps.execFile } : {})

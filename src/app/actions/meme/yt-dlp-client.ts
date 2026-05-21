@@ -8,7 +8,6 @@ import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 
 const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
-const COOKIES_FILENAME = 'reddit-cookies.txt';
 
 export type YtDlpExecFile = (
   file: string,
@@ -24,6 +23,7 @@ export type YtDlpRedditVideoResult = {
 export async function downloadRedditVideoWithYtDlp(input: {
   text: string;
   sqlitePath: string;
+  redditCookiesPath?: string | undefined;
   maxBytes: number;
   fetch?: typeof fetch | undefined;
   execFile?: YtDlpExecFile | undefined;
@@ -31,16 +31,16 @@ export async function downloadRedditVideoWithYtDlp(input: {
   const reference = await resolveRedditPostReference({
     text: input.text,
     sqlitePath: input.sqlitePath,
+    redditCookiesPath: input.redditCookiesPath,
     ...(input.fetch ? { fetch: input.fetch } : {})
   });
 
   if (!reference) return null;
 
   const execFile = input.execFile ?? execFileDefault;
-  const cookiesPath = path.join(
-    path.dirname(input.sqlitePath),
-    COOKIES_FILENAME
-  );
+  const cookiesPath =
+    input.redditCookiesPath ??
+    path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt');
   const metadata = await fetchYtDlpMetadata({
     execFile,
     cookiesPath,

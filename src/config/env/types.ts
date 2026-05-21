@@ -12,6 +12,8 @@ export type ParsedEnv = {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   logColor: boolean;
   sqlitePath: string;
+  redditCookiesPath: string;
+  instagramCookiesPath: string;
   answerContextLimit: number;
   summarizeContextLimit: number;
   decideContextLimit: number;
@@ -37,6 +39,7 @@ export type ParsedEnv = {
   databaseCleanupIntervalHours: number;
   telegramChatId: number;
   telegramAdminId: number;
+  telegramLinkUserIds: number[];
 };
 
 export type AppEnv = ParsedEnv;
