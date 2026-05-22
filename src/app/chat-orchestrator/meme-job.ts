@@ -15,6 +15,7 @@ import type {
 } from '../actions/meme/types.js';
 import { toMemeMediaKind } from '../actions/meme/types.js';
 import { downloadRedditVideoWithYtDlp } from '../actions/meme/yt-dlp-client.js';
+import type { DirectMediaLinkKind } from './direct-media-link.js';
 import { runWithChatAction, runWithReplyTyping } from './helpers/reply.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
@@ -22,12 +23,14 @@ import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 export async function runDirectMediaMemeJob(input: {
   deps: ChatOrchestratorDeps;
   request: ReplyRequest;
+  kind: DirectMediaLinkKind;
   text: string;
   mediaSupport?: ChatOrchestratorMediaSupport;
   logger: ChatOrchestratorDeps['logger'];
 }): Promise<boolean> {
-  const handledRedditVideo = await runDirectRedditVideoMemeJob(input);
-  if (handledRedditVideo) return true;
+  if (input.kind === 'reddit') {
+    return runDirectRedditVideoMemeJob(input);
+  }
 
   return runDirectInstagramReelMemeJob(input);
 }

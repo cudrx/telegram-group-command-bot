@@ -110,7 +110,7 @@ function createRedditHeaders(cookieHeader: string | null): HeadersInit {
   };
 }
 
-function findRedditShareUrl(text: string): string | null {
+export function findRedditShareUrl(text: string): string | null {
   const matches = text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
 
   for (const match of matches) {

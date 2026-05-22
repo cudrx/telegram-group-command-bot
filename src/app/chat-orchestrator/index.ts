@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { NormalizedMessage } from '../../domain/models.js';
 import { chatActionRegistry } from '../actions/index.js';
+import { detectDirectMediaLink } from './direct-media-link.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
 import { runDirectMediaMemeJob } from './meme-job.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
@@ -92,6 +93,11 @@ export class ChatOrchestrator {
       return;
     }
 
+    const directMediaLink = detectDirectMediaLink(message.text);
+    if (!directMediaLink) {
+      return;
+    }
+
     const directRedditVideoRequest: ReplyRequest = {
       chatId: message.chatId,
       chatType: message.chatType,
@@ -107,6 +113,7 @@ export class ChatOrchestrator {
       deps: this.deps,
       mediaSupport: this.mediaSupport,
       request: directRedditVideoRequest,
+      kind: directMediaLink.kind,
       text: message.text,
       logger
     });

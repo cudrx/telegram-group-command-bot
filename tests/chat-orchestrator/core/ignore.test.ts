@@ -14,10 +14,12 @@ describe('ChatOrchestrator ignore paths', () => {
       .fn()
       .mockResolvedValue(createReplyResult('не надо'));
     const replyDispatcher = vi.fn();
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
-      replyDispatcher
+      replyDispatcher,
+      sendChatAction
     });
 
     await orchestrator.handleIncomingMessage(
@@ -26,6 +28,64 @@ describe('ChatOrchestrator ignore paths', () => {
 
     expect(generateReply).not.toHaveBeenCalled();
     expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(sendChatAction).not.toHaveBeenCalled();
+  });
+
+  test('ignores unsupported links without showing upload status', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
+    const replyDispatcher = vi.fn();
+    const fetchMock = vi.fn();
+    const execFile = vi.fn();
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      fetch: fetchMock,
+      execFile,
+      sendChatAction
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({ text: 'смотри https://example.com/video' })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(execFile).not.toHaveBeenCalled();
+    expect(sendChatAction).not.toHaveBeenCalled();
+  });
+
+  test('ignores unsupported Instagram links without showing upload status', async () => {
+    const db = new FakeDatabaseClient();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('не надо'));
+    const replyDispatcher = vi.fn();
+    const execFile = vi.fn();
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      qwen: { generateReply },
+      replyDispatcher,
+      execFile,
+      sendChatAction
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'инста https://www.instagram.com/bookstasyaa/'
+      })
+    );
+
+    expect(generateReply).not.toHaveBeenCalled();
+    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(execFile).not.toHaveBeenCalled();
+    expect(sendChatAction).not.toHaveBeenCalled();
   });
 
   test('ignores ordinary mentions and does not call the LLM', async () => {
