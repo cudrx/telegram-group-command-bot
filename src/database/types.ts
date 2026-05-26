@@ -8,7 +8,7 @@ import type {
 
 export type MediaArtifactStatus = 'success' | 'failed' | 'partial';
 
-export type MemeMediaKind = 'image' | 'video';
+export type MemeMediaKind = 'image' | 'video' | 'gallery';
 
 export type SaveMediaArtifactInput = {
   fileUniqueId: string | null;

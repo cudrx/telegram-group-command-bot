@@ -1,4 +1,5 @@
 import { InputFile } from 'grammy';
+import type { InputMediaPhoto } from 'grammy/types';
 import type { MediaMessageSnapshot } from '../domain/models.js';
 import type {
   CopiedBotMessage,
@@ -54,6 +55,11 @@ type TelegramApi = {
     file: InputFile,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
+  sendMediaGroup(
+    chatId: number,
+    media: ReadonlyArray<InputMediaPhoto>,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage[]>;
   copyMessage(
     chatId: number,
     fromChatId: number,
@@ -114,6 +120,23 @@ export function createTelegramDispatchers(
         is_disabled: true
       }
     };
+
+    if (media.kind === 'gallery') {
+      const sent = await api.sendMediaGroup(
+        chatId,
+        toTelegramGalleryMedia(media.items, caption),
+        replyParameters
+      );
+      const firstSent = sent[0];
+      const mediaSnapshot = firstSent
+        ? toSentPhotoSnapshot(firstSent, caption)
+        : null;
+
+      return {
+        ...toSentBotMessage(firstSent ?? { message_id: 0, date: 0 }),
+        ...(mediaSnapshot ? { mediaSnapshot } : {})
+      };
+    }
 
     const options = {
       caption,
@@ -196,6 +219,18 @@ export function createTelegramDispatchers(
     },
     sendHtmlMessage
   };
+}
+
+function toTelegramGalleryMedia(
+  items: Array<{ filePath: string; hasSpoiler?: boolean }>,
+  caption: string
+): InputMediaPhoto[] {
+  return items.map((item, index) => ({
+    type: 'photo',
+    media: new InputFile(item.filePath),
+    ...(index === 0 ? { caption, parse_mode: 'HTML' } : {}),
+    ...(item.hasSpoiler ? { has_spoiler: true } : {})
+  }));
 }
 
 function createReplyParameters(input: {

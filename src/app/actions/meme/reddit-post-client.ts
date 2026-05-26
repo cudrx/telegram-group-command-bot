@@ -1,4 +1,5 @@
 import { readRedditCookieHeader } from './reddit-cookies.js';
+import { resolveRedditPostMedia } from './reddit-post-resolver.js';
 import type { MemePostCandidate } from './types.js';
 
 type RedditPostReference = {
@@ -71,6 +72,15 @@ export async function fetchRedditVideoCandidate(input: {
   redditCookiesPath?: string | null | undefined;
   fetch?: typeof fetch | undefined;
 }): Promise<MemePostCandidate | null> {
+  return fetchRedditPostCandidate(input);
+}
+
+export async function fetchRedditPostCandidate(input: {
+  text: string;
+  sqlitePath?: string | undefined;
+  redditCookiesPath?: string | null | undefined;
+  fetch?: typeof fetch | undefined;
+}): Promise<MemePostCandidate | null> {
   const reference = await resolveRedditPostReference(input);
 
   if (!reference) return null;
@@ -100,7 +110,7 @@ export async function fetchRedditVideoCandidate(input: {
     );
   }
 
-  return toVideoCandidate(await response.json());
+  return toPostCandidate(await response.json());
 }
 
 function createRedditHeaders(cookieHeader: string | null): HeadersInit {
@@ -185,40 +195,12 @@ function parseRedditPostUrl(value: string): RedditPostReference | null {
   };
 }
 
-function toVideoCandidate(payload: unknown): MemePostCandidate | null {
+function toPostCandidate(payload: unknown): MemePostCandidate | null {
   const post = getFirstPostData(payload);
 
   if (!post) return null;
 
-  const redditVideo = getRedditVideo(post);
-  const fallbackUrl = getRequiredString(redditVideo?.fallback_url);
-
-  if (!fallbackUrl) return null;
-
-  const id = getRequiredString(post.id);
-  const subreddit = getRequiredString(post.subreddit);
-  const title = getRequiredString(post.title);
-  const permalinkPath = getRequiredString(post.permalink);
-
-  if (!id || !subreddit || !title || !permalinkPath) return null;
-
-  return {
-    redditPostId: id,
-    subreddit,
-    title,
-    permalink: new URL(permalinkPath, 'https://www.reddit.com').toString(),
-    upvotes: getNumber(post.ups) ?? 0,
-    media: {
-      kind: 'video',
-      mediaUrl: new URL(permalinkPath, 'https://www.reddit.com').toString(),
-      extension: 'mp4',
-      durationSeconds: getNumber(redditVideo?.duration) ?? null,
-      downloadStrategy: 'yt-dlp',
-      ...(post.over_18 === true || post.spoiler === true
-        ? { hasSpoiler: true }
-        : {})
-    }
-  };
+  return resolveRedditPostMedia(post);
 }
 
 function getFirstPostData(payload: unknown): Record<string, unknown> | null {
@@ -236,40 +218,12 @@ function getFirstPostData(payload: unknown): Record<string, unknown> | null {
   return null;
 }
 
-function getRedditVideo(
-  post: Record<string, unknown>
-): Record<string, unknown> | null {
-  const secureMedia = isRecord(post.secure_media) ? post.secure_media : null;
-  const secureVideo = isRecord(secureMedia?.reddit_video)
-    ? secureMedia.reddit_video
-    : null;
-
-  if (secureVideo) return secureVideo;
-
-  const media = isRecord(post.media) ? post.media : null;
-  const mediaVideo = isRecord(media?.reddit_video) ? media.reddit_video : null;
-
-  return mediaVideo;
-}
-
 function isRedditHost(hostname: string): boolean {
   return hostname === 'reddit.com' || hostname.endsWith('.reddit.com');
 }
 
 function stripTrailingPunctuation(value: string): string {
   return value.replace(/[),.]+$/u, '');
-}
-
-function getRequiredString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : undefined;
-}
-
-function getNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value
-    : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

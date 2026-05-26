@@ -1,4 +1,4 @@
-import { runMemeJob } from '../../chat-orchestrator/meme-job.js';
+import { runMemeJob } from '../../chat-orchestrator/meme-job/listing.js';
 import type { ActionContext, ChatAction } from '../types.js';
 
 export const memeAction: ChatAction = {

@@ -147,14 +147,20 @@ describe('downloadInstagramReelWithYtDlp', () => {
         })
       })
     );
-    expect(result?.downloaded.filePath).toContain('DYKAmhRu8g-.mp4');
+    if (!result || result.downloaded.kind !== 'video') {
+      throw new Error(
+        'Expected Instagram Reel download to return video media.'
+      );
+    }
+
+    expect(result.downloaded.filePath).toContain('DYKAmhRu8g-.mp4');
     expect(execFile).not.toHaveBeenCalledWith(
       'ffmpeg',
       expect.any(Array),
       expect.anything()
     );
 
-    const filePath = result?.downloaded.filePath ?? '';
+    const filePath = result.downloaded.filePath;
     expect(existsSync(filePath)).toBe(true);
 
     await result?.downloaded.cleanup();

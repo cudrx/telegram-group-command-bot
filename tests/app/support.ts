@@ -25,6 +25,7 @@ export const botSendMessage = vi.fn();
 export const botSendVoice = vi.fn();
 export const botSendPhoto = vi.fn();
 export const botSendVideo = vi.fn();
+export const botSendMediaGroup = vi.fn();
 export const botSendAnimation = vi.fn();
 export const botCopyMessage = vi.fn();
 export const botCopyMessages = vi.fn();
@@ -63,6 +64,7 @@ vi.mock('grammy', () => {
       sendVoice: botSendVoice,
       sendPhoto: botSendPhoto,
       sendVideo: botSendVideo,
+      sendMediaGroup: botSendMediaGroup,
       sendAnimation: botSendAnimation,
       copyMessage: botCopyMessage,
       copyMessages: botCopyMessages,

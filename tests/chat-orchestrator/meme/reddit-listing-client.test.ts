@@ -142,6 +142,75 @@ describe('fetchRedditListingCandidates', () => {
     ]);
   });
 
+  test('maps gallery candidates and skips self text posts', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: {
+            children: [
+              redditChild({
+                id: 'gallery',
+                title: 'gallery post',
+                is_gallery: true,
+                gallery_data: {
+                  items: [{ media_id: 'a1' }, { media_id: 'b2' }]
+                },
+                media_metadata: {
+                  a1: {
+                    status: 'valid',
+                    m: 'image/jpg',
+                    s: {
+                      u: 'https://preview.redd.it/a1.jpg?width=640&amp;format=pjpg'
+                    }
+                  },
+                  b2: {
+                    status: 'valid',
+                    m: 'image/webp',
+                    s: {
+                      u: 'https://preview.redd.it/b2.webp?width=640&amp;format=webp'
+                    }
+                  }
+                }
+              }),
+              redditChild({
+                id: 'self',
+                is_self: true,
+                selftext: 'text post',
+                url: 'https://www.reddit.com/r/memes/comments/self/text/'
+              })
+            ]
+          }
+        })
+      )
+    );
+
+    const candidates = await fetchRedditListingCandidates({
+      subreddit: 'memes',
+      count: 10,
+      timeRange: 'week',
+      fetch: fetchMock
+    });
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        redditPostId: 'gallery',
+        media: {
+          kind: 'gallery',
+          items: [
+            {
+              mediaUrl: 'https://preview.redd.it/a1.jpg?width=640&format=pjpg',
+              extension: 'jpg'
+            },
+            {
+              mediaUrl: 'https://preview.redd.it/b2.webp?width=640&format=webp',
+              extension: 'webp'
+            }
+          ]
+        }
+      })
+    ]);
+  });
+
   test('returns an empty list for private or missing subreddit listings', async () => {
     const fetchMock = vi
       .fn()

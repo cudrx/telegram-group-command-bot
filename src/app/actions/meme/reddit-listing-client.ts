@@ -1,9 +1,9 @@
 import { readRedditCookieHeader } from './reddit-cookies.js';
+import { resolveRedditPostMedia } from './reddit-post-resolver.js';
 import type {
   FetchMemeSourceCandidatesInput,
   MemePostCandidate,
-  MemeSourceClient,
-  ResolvedMemeMedia
+  MemeSourceClient
 } from './types.js';
 
 export interface FetchRedditListingCandidatesInput
@@ -29,7 +29,6 @@ type RedditListingTimeRange =
 
 const DEFAULT_TIME_RANGE: RedditListingTimeRange = 'week';
 const REDDIT_BASE_URL = 'https://www.reddit.com';
-const IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp']);
 
 export function createRedditListingSourceClient(
   options: RedditListingSourceClientOptions = {}
@@ -91,126 +90,7 @@ function toCandidate(child: unknown): MemePostCandidate | null {
   const post = isRecord(child) && isRecord(child.data) ? child.data : null;
 
   if (!post) return null;
-
-  const id = getRequiredString(post.id);
-  const subreddit = getRequiredString(post.subreddit);
-  const title = getRequiredString(post.title);
-  const permalinkPath = getRequiredString(post.permalink);
-
-  if (!id || !subreddit || !title || !permalinkPath) return null;
-
-  const permalink = new URL(permalinkPath, REDDIT_BASE_URL).toString();
-  const media = resolveMedia(post, permalink);
-
-  if (!media) return null;
-  if (post.over_18 === true || post.spoiler === true) {
-    media.hasSpoiler = true;
-  }
-
-  return {
-    redditPostId: id,
-    subreddit,
-    title,
-    permalink,
-    upvotes: getNumber(post.ups) ?? 0,
-    media
-  };
-}
-
-function resolveMedia(
-  post: Record<string, unknown>,
-  permalink: string
-): ResolvedMemeMedia | null {
-  const redditVideo = getRedditVideo(post);
-
-  if (redditVideo) {
-    return {
-      kind: 'video',
-      mediaUrl: permalink,
-      extension: 'mp4',
-      durationSeconds: getNumber(redditVideo.duration) ?? null,
-      downloadStrategy: 'yt-dlp'
-    };
-  }
-
-  const directUrl = getRequiredString(post.url);
-  const imageMedia = directUrl ? resolveImage(directUrl) : null;
-
-  if (imageMedia) return imageMedia;
-
-  return resolvePreviewImage(post);
-}
-
-function resolveImage(url: string): ResolvedMemeMedia | null {
-  const mediaUrl = decodeHtmlEntities(url);
-  const parsed = parseUrl(mediaUrl);
-
-  if (!parsed || parsed.hostname !== 'i.redd.it') return null;
-
-  const extension = getExtension(parsed);
-  if (!IMAGE_EXTENSIONS.has(extension)) return null;
-
-  return {
-    kind: 'image',
-    mediaUrl,
-    extension: extension as 'jpg' | 'jpeg' | 'png' | 'webp'
-  };
-}
-
-function resolvePreviewImage(
-  post: Record<string, unknown>
-): ResolvedMemeMedia | null {
-  const preview = isRecord(post.preview) ? post.preview : null;
-  const images = Array.isArray(preview?.images) ? preview.images : [];
-  const firstImage = isRecord(images[0]) ? images[0] : null;
-  const source = isRecord(firstImage?.source) ? firstImage.source : null;
-  const sourceUrl = getRequiredString(source?.url);
-
-  return sourceUrl ? resolveImage(sourceUrl) : null;
-}
-
-function getRedditVideo(
-  post: Record<string, unknown>
-): Record<string, unknown> | null {
-  const secureMedia = isRecord(post.secure_media) ? post.secure_media : null;
-  const secureVideo = isRecord(secureMedia?.reddit_video)
-    ? secureMedia.reddit_video
-    : null;
-
-  if (secureVideo) return secureVideo;
-
-  const media = isRecord(post.media) ? post.media : null;
-  const mediaVideo = isRecord(media?.reddit_video) ? media.reddit_video : null;
-
-  return mediaVideo;
-}
-
-function getRequiredString(value: unknown): string | undefined {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
-    : undefined;
-}
-
-function getNumber(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value)
-    ? value
-    : undefined;
-}
-
-function parseUrl(url: string): URL | null {
-  try {
-    return new URL(url);
-  } catch {
-    return null;
-  }
-}
-
-function getExtension(url: URL): string {
-  return url.pathname.split('.').at(-1)?.toLowerCase() ?? '';
-}
-
-function decodeHtmlEntities(value: string): string {
-  return value.replaceAll('&amp;', '&');
+  return resolveRedditPostMedia(post);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
