@@ -16,11 +16,31 @@ async function writeNormalizedVideo(args: string[]): Promise<{
   stderr: string;
 }> {
   const outputPath = args.at(-1) ?? '';
+  expect(args).toContain('ffmpeg');
   expect(args).toContain('-vf');
   expect(args).toContain('libx264');
+  expect(args).toContain('veryfast');
   expect(args).toContain('yuv420p');
   await writeFile(outputPath, new Uint8Array([1, 2, 3]));
   return { stdout: '', stderr: '' };
+}
+
+function unsafeVideoProbeResult(): { stdout: string; stderr: string } {
+  return {
+    stdout: JSON.stringify({
+      streams: [
+        {
+          codec_name: 'h264',
+          width: 720,
+          height: 1280,
+          sample_aspect_ratio: 'N/A',
+          display_aspect_ratio: 'N/A',
+          pix_fmt: 'yuv420p'
+        }
+      ]
+    }),
+    stderr: ''
+  };
 }
 
 describe('findYoutubeShortUrl', () => {
@@ -109,7 +129,9 @@ describe('downloadYoutubeShortWithYtDlp', () => {
             };
           }
 
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--js-runtimes');

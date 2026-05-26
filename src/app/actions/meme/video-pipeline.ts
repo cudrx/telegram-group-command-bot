@@ -11,7 +11,9 @@ import type { DownloadedMemeMedia } from './types.js';
 
 export const MEDIA_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
 const YT_DLP_BIN = 'yt-dlp';
+const NICE_BIN = 'nice';
 const FFMPEG_BIN = 'ffmpeg';
+const FFPROBE_BIN = 'ffprobe';
 const TELEGRAM_SAFE_VIDEO_FILTER =
   "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))':out_range=tv,setsar=1,format=yuv420p";
 
@@ -48,6 +50,8 @@ export type DownloadTelegramSafeVideoInput = {
   execFile?: MediaExecFile | undefined;
 };
 
+let normalizationQueue: Promise<void> = Promise.resolve();
+
 export async function downloadTelegramSafeVideoWithYtDlp(
   input: DownloadTelegramSafeVideoInput
 ): Promise<DownloadedMemeMedia> {
@@ -74,18 +78,28 @@ export async function downloadTelegramSafeVideoWithYtDlp(
     const downloadedPath = await findDownloadedMp4(tempDirectory);
     await assertWithinMaxBytes(downloadedPath, input.maxBytes);
 
-    const normalizedPath = path.join(tempDirectory, 'normalized.mp4');
-    await normalizeVideoForTelegram({
+    const safeVideo = await isTelegramSafeVideo({
       execFile,
-      inputPath: downloadedPath,
-      outputPath: normalizedPath,
+      filePath: downloadedPath,
       cwd: tempDirectory
     });
-    await assertWithinMaxBytes(normalizedPath, input.maxBytes);
+    const filePath = safeVideo
+      ? downloadedPath
+      : await runWithNormalizationLock(async () => {
+          const normalizedPath = path.join(tempDirectory, 'normalized.mp4');
+          await normalizeVideoForTelegram({
+            execFile,
+            inputPath: downloadedPath,
+            outputPath: normalizedPath,
+            cwd: tempDirectory
+          });
+          await assertWithinMaxBytes(normalizedPath, input.maxBytes);
+          return normalizedPath;
+        });
 
     return {
       kind: 'video',
-      filePath: normalizedPath,
+      filePath,
       extension: 'mp4',
       ...(input.durationSeconds !== undefined
         ? { durationSeconds: input.durationSeconds }
@@ -100,6 +114,52 @@ export async function downloadTelegramSafeVideoWithYtDlp(
   }
 }
 
+async function isTelegramSafeVideo(input: {
+  execFile: MediaExecFile;
+  filePath: string;
+  cwd: string;
+}): Promise<boolean> {
+  try {
+    const result = await input.execFile(
+      FFPROBE_BIN,
+      [
+        '-v',
+        'error',
+        '-select_streams',
+        'v:0',
+        '-show_entries',
+        'stream=codec_name,width,height,sample_aspect_ratio,display_aspect_ratio,pix_fmt:stream_tags=rotate:side_data=rotation',
+        '-of',
+        'json',
+        input.filePath
+      ],
+      { cwd: input.cwd, maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+    );
+    const payload = JSON.parse(result.stdout) as unknown;
+    const stream = readFirstStream(payload);
+
+    if (!stream) return false;
+
+    const width = readNumber(stream, 'width');
+    const height = readNumber(stream, 'height');
+    const rotation = readRotation(stream);
+
+    return (
+      readString(stream, 'codec_name') === 'h264' &&
+      readString(stream, 'pix_fmt') === 'yuv420p' &&
+      readString(stream, 'sample_aspect_ratio') === '1:1' &&
+      hasDisplayAspectRatio(readString(stream, 'display_aspect_ratio')) &&
+      typeof width === 'number' &&
+      width % 2 === 0 &&
+      typeof height === 'number' &&
+      height % 2 === 0 &&
+      !rotation
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function normalizeVideoForTelegram(input: {
   execFile: MediaExecFile;
   inputPath: string;
@@ -107,8 +167,11 @@ async function normalizeVideoForTelegram(input: {
   cwd: string;
 }): Promise<void> {
   await input.execFile(
-    FFMPEG_BIN,
+    NICE_BIN,
     [
+      '-n',
+      '10',
+      FFMPEG_BIN,
       '-y',
       '-i',
       input.inputPath,
@@ -118,6 +181,8 @@ async function normalizeVideoForTelegram(input: {
       '-1',
       '-c:v',
       'libx264',
+      '-preset',
+      'veryfast',
       '-pix_fmt',
       'yuv420p',
       '-color_range',
@@ -132,6 +197,26 @@ async function normalizeVideoForTelegram(input: {
     ],
     { cwd: input.cwd }
   );
+}
+
+async function runWithNormalizationLock<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = normalizationQueue;
+  let release = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  normalizationQueue = previous.then(
+    () => current,
+    () => current
+  );
+
+  try {
+    await previous.catch(() => {});
+    return await fn();
+  } finally {
+    release();
+  }
 }
 
 async function findDownloadedMp4(directory: string): Promise<string> {
@@ -158,4 +243,69 @@ async function assertWithinMaxBytes(
 
 function formatMaxFilesize(maxBytes: number): string {
   return `${Math.floor(maxBytes / 1_000_000)}M`;
+}
+
+function readFirstStream(value: unknown): Record<string, unknown> | null {
+  const streams = readArray(value, 'streams');
+  const first = streams?.[0];
+
+  return isRecord(first) ? first : null;
+}
+
+function readArray(value: unknown, key: string): unknown[] | null {
+  if (!isRecord(value)) return null;
+
+  const field = value[key];
+  return Array.isArray(field) ? field : null;
+}
+
+function readRecord(
+  value: unknown,
+  key: string
+): Record<string, unknown> | null {
+  if (!isRecord(value)) return null;
+
+  const field = value[key];
+  return isRecord(field) ? field : null;
+}
+
+function readString(value: unknown, key: string): string | null {
+  if (!isRecord(value)) return null;
+
+  const field = value[key];
+  return typeof field === 'string' && field.trim().length > 0
+    ? field.trim()
+    : null;
+}
+
+function readNumber(value: unknown, key: string): number | null {
+  if (!isRecord(value)) return null;
+
+  const field = value[key];
+  return typeof field === 'number' && Number.isFinite(field) ? field : null;
+}
+
+function hasDisplayAspectRatio(value: string | null): boolean {
+  return Boolean(value && value !== 'N/A' && value !== '0:1');
+}
+
+function readRotation(stream: Record<string, unknown>): string | null {
+  const directRotation =
+    readString(stream, 'rotation') ??
+    readString(readRecord(stream, 'tags'), 'rotate');
+
+  if (directRotation) return directRotation;
+
+  const sideData = readArray(stream, 'side_data_list') ?? [];
+
+  for (const item of sideData) {
+    const rotation = readString(item, 'rotation');
+    if (rotation) return rotation;
+  }
+
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
 }

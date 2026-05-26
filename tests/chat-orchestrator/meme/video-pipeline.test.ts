@@ -7,7 +7,7 @@ import { describe, expect, test, vi } from 'vitest';
 import { downloadTelegramSafeVideoWithYtDlp } from '../../../src/app/actions/meme/video-pipeline.js';
 
 describe('downloadTelegramSafeVideoWithYtDlp', () => {
-  test('downloads with yt-dlp, normalizes with ffmpeg and cleans temp files', async () => {
+  test('downloads with yt-dlp, normalizes unsafe video and cleans temp files', async () => {
     const execFile = vi
       .fn()
       .mockImplementation(
@@ -43,15 +43,39 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
             return { stdout: '', stderr: '' };
           }
 
-          expect(file).toBe('ffmpeg');
+          if (file === 'ffprobe') {
+            expect(args).toContain('-show_entries');
+            return {
+              stdout: JSON.stringify({
+                streams: [
+                  {
+                    codec_name: 'h264',
+                    width: 720,
+                    height: 1280,
+                    sample_aspect_ratio: 'N/A',
+                    display_aspect_ratio: 'N/A',
+                    pix_fmt: 'yuv420p'
+                  }
+                ]
+              }),
+              stderr: ''
+            };
+          }
+
+          expect(file).toBe('nice');
           expect(args).toEqual(
             expect.arrayContaining([
+              '-n',
+              '10',
+              'ffmpeg',
               '-vf',
               "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))':out_range=tv,setsar=1,format=yuv420p",
               '-map_metadata',
               '-1',
               '-c:v',
               'libx264',
+              '-preset',
+              'veryfast',
               '-pix_fmt',
               'yuv420p',
               '-color_range',
@@ -98,11 +122,67 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
     expect(result.filePath).toContain('normalized.mp4');
     const filePath = result.filePath;
     expect(existsSync(filePath)).toBe(true);
-    expect(execFile).toHaveBeenCalledTimes(2);
+    expect(execFile).toHaveBeenCalledTimes(3);
 
     await result.cleanup();
 
     expect(existsSync(filePath)).toBe(false);
+  });
+
+  test('skips normalization when ffprobe reports a Telegram-safe video', async () => {
+    const execFile = vi
+      .fn()
+      .mockImplementation(async (file: string, args: string[]) => {
+        if (file === 'yt-dlp') {
+          const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+          await writeFile(
+            path.join(path.dirname(outputTemplate), 'source.mp4'),
+            new Uint8Array([1, 2, 3])
+          );
+          return { stdout: '', stderr: '' };
+        }
+
+        expect(file).toBe('ffprobe');
+        return {
+          stdout: JSON.stringify({
+            streams: [
+              {
+                codec_name: 'h264',
+                width: 720,
+                height: 1280,
+                sample_aspect_ratio: '1:1',
+                display_aspect_ratio: '9:16',
+                pix_fmt: 'yuv420p'
+              }
+            ]
+          }),
+          stderr: ''
+        };
+      });
+
+    const result = await downloadTelegramSafeVideoWithYtDlp({
+      execFile,
+      url: 'https://example.com/video',
+      tempPrefix: 'pipeline-safe-test-',
+      maxBytes: 50_000_000,
+      ytDlpArgs: []
+    });
+
+    if (result.kind !== 'video') {
+      throw new Error('Expected video media.');
+    }
+
+    expect(result.filePath).toContain('source.mp4');
+    expect(execFile).toHaveBeenCalledTimes(2);
+    expect(execFile).not.toHaveBeenCalledWith(
+      'nice',
+      expect.any(Array),
+      expect.anything()
+    );
+
+    await result.cleanup();
+
+    expect(existsSync(result.filePath)).toBe(false);
   });
 
   test('removes temp files when normalization fails', async () => {
@@ -126,6 +206,24 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
           return { stdout: '', stderr: '' };
         }
 
+        if (file === 'ffprobe') {
+          return {
+            stdout: JSON.stringify({
+              streams: [
+                {
+                  codec_name: 'h264',
+                  width: 720,
+                  height: 1280,
+                  sample_aspect_ratio: 'N/A',
+                  display_aspect_ratio: 'N/A',
+                  pix_fmt: 'yuv420p'
+                }
+              ]
+            }),
+            stderr: ''
+          };
+        }
+
         throw new Error('ffmpeg failed');
       }
     );
@@ -142,5 +240,74 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
 
     expect(tempDirectory).not.toBe('');
     expect(existsSync(tempDirectory)).toBe(false);
+  });
+
+  test('runs only one normalization at a time', async () => {
+    let activeNormalizations = 0;
+    let maxActiveNormalizations = 0;
+    const execFile = vi
+      .fn()
+      .mockImplementation(async (file: string, args: string[]) => {
+        if (file === 'yt-dlp') {
+          const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+          await writeFile(
+            path.join(path.dirname(outputTemplate), 'source.mp4'),
+            new Uint8Array([1, 2, 3])
+          );
+          return { stdout: '', stderr: '' };
+        }
+
+        if (file === 'ffprobe') {
+          return {
+            stdout: JSON.stringify({
+              streams: [
+                {
+                  codec_name: 'h264',
+                  width: 720,
+                  height: 1280,
+                  sample_aspect_ratio: 'N/A',
+                  display_aspect_ratio: 'N/A',
+                  pix_fmt: 'yuv420p'
+                }
+              ]
+            }),
+            stderr: ''
+          };
+        }
+
+        expect(file).toBe('nice');
+        activeNormalizations += 1;
+        maxActiveNormalizations = Math.max(
+          maxActiveNormalizations,
+          activeNormalizations
+        );
+        await new Promise((resolve) => setTimeout(resolve, 20));
+        await writeFile(args.at(-1) ?? '', new Uint8Array([1, 2, 3]));
+        activeNormalizations -= 1;
+
+        return { stdout: '', stderr: '' };
+      });
+
+    const [first, second] = await Promise.all([
+      downloadTelegramSafeVideoWithYtDlp({
+        execFile,
+        url: 'https://example.com/one',
+        tempPrefix: 'pipeline-lock-one-',
+        maxBytes: 50_000_000,
+        ytDlpArgs: []
+      }),
+      downloadTelegramSafeVideoWithYtDlp({
+        execFile,
+        url: 'https://example.com/two',
+        tempPrefix: 'pipeline-lock-two-',
+        maxBytes: 50_000_000,
+        ytDlpArgs: []
+      })
+    ]);
+
+    expect(maxActiveNormalizations).toBe(1);
+
+    await first.cleanup();
+    await second.cleanup();
   });
 });

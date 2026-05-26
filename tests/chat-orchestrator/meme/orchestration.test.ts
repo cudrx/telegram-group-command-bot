@@ -14,11 +14,31 @@ async function writeNormalizedVideo(args: string[]): Promise<{
   stderr: string;
 }> {
   const outputPath = args.at(-1) ?? '';
+  expect(args).toContain('ffmpeg');
   expect(args).toContain('-vf');
   expect(args).toContain('libx264');
+  expect(args).toContain('veryfast');
   expect(args).toContain('yuv420p');
   await writeFile(outputPath, new Uint8Array([1, 2, 3]));
   return { stdout: '', stderr: '' };
+}
+
+function unsafeVideoProbeResult(): { stdout: string; stderr: string } {
+  return {
+    stdout: JSON.stringify({
+      streams: [
+        {
+          codec_name: 'h264',
+          width: 720,
+          height: 1280,
+          sample_aspect_ratio: 'N/A',
+          display_aspect_ratio: 'N/A',
+          pix_fmt: 'yuv420p'
+        }
+      ]
+    }),
+    stderr: ''
+  };
 }
 
 function redditListing(posts: Array<Record<string, unknown>>) {
@@ -128,7 +148,9 @@ describe('ChatOrchestrator /meme command', () => {
             };
           }
 
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
           const outputIndex = args.indexOf('-o');
@@ -260,7 +282,9 @@ describe('ChatOrchestrator /meme command', () => {
             };
           }
 
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--js-runtimes');
@@ -410,7 +434,9 @@ describe('ChatOrchestrator /meme command', () => {
           args: string[],
           options: { cwd?: string | undefined }
         ) => {
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
 
@@ -491,7 +517,7 @@ describe('ChatOrchestrator /meme command', () => {
       expect.any(Object)
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(4);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -808,7 +834,9 @@ describe('ChatOrchestrator /meme command', () => {
           args: string[],
           options: { cwd?: string | undefined }
         ) => {
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
 
@@ -878,7 +906,7 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(4);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -953,7 +981,9 @@ describe('ChatOrchestrator /meme command', () => {
           args: string[],
           options: { cwd?: string | undefined }
         ) => {
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
 
@@ -1023,7 +1053,7 @@ describe('ChatOrchestrator /meme command', () => {
       'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/.json',
       expect.any(Object)
     );
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(4);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -1069,7 +1099,9 @@ describe('ChatOrchestrator /meme command', () => {
           args: string[],
           options: { cwd?: string | undefined }
         ) => {
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
 
@@ -1132,7 +1164,7 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(4);
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       'https://www.reddit.com/r/nextfuckinglevel/s/WKonIxZF1P',
@@ -1385,7 +1417,9 @@ describe('ChatOrchestrator /meme command', () => {
           args: string[],
           options: { cwd?: string | undefined }
         ) => {
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return unsafeVideoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
 
@@ -1449,7 +1483,7 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(4);
     expect(sendChatAction).toHaveBeenCalledWith(1, 'upload_video');
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
