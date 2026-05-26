@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import type { DownloadedMemeMedia } from './types.js';
 import {
+  DIRECT_VIDEO_MAX_DURATION_SECONDS,
   downloadTelegramSafeVideoWithYtDlp,
   execMediaFileDefault,
   MEDIA_EXEC_MAX_BUFFER,
@@ -11,7 +12,7 @@ import {
 const YT_DLP_BIN = 'yt-dlp';
 const YOUTUBE_JS_RUNTIME_ARGS = ['--js-runtimes', 'node'] as const;
 const YOUTUBE_FORMAT_SELECTOR =
-  'bv*[ext=mp4][vcodec^=avc1][height<=1280]+ba[ext=m4a]/b[ext=mp4][vcodec^=avc1][height<=1280]/b[ext=mp4][height<=1280]/b[ext=mp4]';
+  'bv*[ext=mp4][vcodec^=avc1][height<=854]+ba[ext=m4a]/b[ext=mp4][vcodec^=avc1][height<=854]/b[ext=mp4][height<=854]/b[ext=mp4]';
 
 export type YoutubeShortDownloadResult = {
   caption: string;
@@ -51,11 +52,19 @@ export async function downloadYoutubeShortWithYtDlp(input: {
     cookiesPath,
     url: shortUrl
   });
+  if (
+    metadata.durationSeconds !== null &&
+    metadata.durationSeconds > DIRECT_VIDEO_MAX_DURATION_SECONDS
+  ) {
+    return null;
+  }
+
   const downloaded = await downloadTelegramSafeVideoWithYtDlp({
     execFile,
     url: shortUrl,
     tempPrefix: 'youtube-ytdlp-',
     maxBytes: input.maxBytes,
+    maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds,
     ytDlpArgs: [
       ...YOUTUBE_JS_RUNTIME_ARGS,

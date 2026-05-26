@@ -23,6 +23,13 @@ async function writeNormalizedVideo(args: string[]): Promise<{
   return { stdout: '', stderr: '' };
 }
 
+function videoProbeResult(duration = 12): { stdout: string; stderr: string } {
+  return {
+    stdout: JSON.stringify({ format: { duration: String(duration) } }),
+    stderr: ''
+  };
+}
+
 describe('findYoutubeShortUrl', () => {
   test('normalizes supported YouTube URL formats', () => {
     expect(findYoutubeShortUrl('https://youtu.be/5sMdQW_YYOo')).toBe(
@@ -109,7 +116,9 @@ describe('downloadYoutubeShortWithYtDlp', () => {
             };
           }
 
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return videoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--js-runtimes');
@@ -119,7 +128,7 @@ describe('downloadYoutubeShortWithYtDlp', () => {
           expect(args).toContain('--merge-output-format');
           expect(args).toContain('mp4');
           expect(args).toContain(
-            'bv*[ext=mp4][vcodec^=avc1][height<=1280]+ba[ext=m4a]/b[ext=mp4][vcodec^=avc1][height<=1280]/b[ext=mp4][height<=1280]/b[ext=mp4]'
+            'bv*[ext=mp4][vcodec^=avc1][height<=854]+ba[ext=m4a]/b[ext=mp4][vcodec^=avc1][height<=854]/b[ext=mp4][height<=854]/b[ext=mp4]'
           );
           expect(args).toContain('-S');
           expect(args).toContain('vcodec:h264,res,ext:mp4:m4a');
@@ -169,6 +178,30 @@ describe('downloadYoutubeShortWithYtDlp', () => {
     await result.downloaded.cleanup();
 
     expect(existsSync(filePath)).toBe(false);
+  });
+
+  test('returns null for Shorts longer than the duration cap before downloading', async () => {
+    const execFile = vi.fn().mockResolvedValueOnce({
+      stdout: JSON.stringify({
+        id: 'RsEXmvAefDg',
+        channel: 'Lunchb0xGaming',
+        like_count: 5035,
+        duration: 179
+      }),
+      stderr: ''
+    });
+
+    await expect(
+      downloadYoutubeShortWithYtDlp({
+        text: 'https://www.youtube.com/shorts/RsEXmvAefDg',
+        sqlitePath: '/tmp/bot.sqlite',
+        maxBytes: 50_000_000,
+        captionMaxLength: 1024,
+        execFile
+      })
+    ).resolves.toBeNull();
+
+    expect(execFile).toHaveBeenCalledTimes(1);
   });
 
   test('returns null when no supported YouTube URL is present', async () => {

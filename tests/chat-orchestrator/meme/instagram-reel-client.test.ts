@@ -23,6 +23,13 @@ async function writeNormalizedVideo(args: string[]): Promise<{
   return { stdout: '', stderr: '' };
 }
 
+function videoProbeResult(duration = 12): { stdout: string; stderr: string } {
+  return {
+    stdout: JSON.stringify({ format: { duration: String(duration) } }),
+    stderr: ''
+  };
+}
+
 describe('findInstagramReelUrl', () => {
   test('extracts Instagram Reel URLs and strips query params', () => {
     expect(
@@ -117,7 +124,9 @@ describe('downloadInstagramReelWithYtDlp', () => {
             };
           }
 
-          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+          if (file === 'ffprobe') return videoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--cookies');
@@ -208,7 +217,9 @@ describe('downloadInstagramReelWithYtDlp', () => {
           };
         }
 
-        if (file === 'ffmpeg') return writeNormalizedVideo(args);
+        if (file === 'ffprobe') return videoProbeResult();
+
+        if (file === 'nice') return writeNormalizedVideo(args);
 
         expect(file).toBe('yt-dlp');
         expect(args).toContain('--cookies');

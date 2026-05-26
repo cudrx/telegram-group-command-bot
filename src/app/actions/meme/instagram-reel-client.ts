@@ -2,6 +2,7 @@ import path from 'node:path';
 
 import type { DownloadedMemeMedia } from './types.js';
 import {
+  DIRECT_VIDEO_MAX_DURATION_SECONDS,
   downloadTelegramSafeVideoWithYtDlp,
   execMediaFileDefault,
   MEDIA_EXEC_MAX_BUFFER,
@@ -50,12 +51,20 @@ export async function downloadInstagramReelWithYtDlp(input: {
     cookiesPath,
     url: reelUrl
   });
+  if (
+    metadata.durationSeconds !== null &&
+    metadata.durationSeconds > DIRECT_VIDEO_MAX_DURATION_SECONDS
+  ) {
+    return null;
+  }
+
   const sourceUrl = reelUrl;
   const downloaded = await downloadTelegramSafeVideoWithYtDlp({
     execFile,
     url: sourceUrl,
     tempPrefix: 'instagram-ytdlp-',
     maxBytes: input.maxBytes,
+    maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds,
     ytDlpArgs: ['--cookies', cookiesPath, '-f', INSTAGRAM_FORMAT_SELECTOR]
   });

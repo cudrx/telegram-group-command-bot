@@ -10,8 +10,11 @@ import { promisify } from 'node:util';
 import type { DownloadedMemeMedia } from './types.js';
 
 export const MEDIA_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
+export const DIRECT_VIDEO_MAX_DURATION_SECONDS = 120;
 const YT_DLP_BIN = 'yt-dlp';
+const NICE_BIN = 'nice';
 const FFMPEG_BIN = 'ffmpeg';
+const FFPROBE_BIN = 'ffprobe';
 const TELEGRAM_SAFE_VIDEO_FILTER =
   "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))':out_range=tv,setsar=1,format=yuv420p";
 
@@ -43,10 +46,13 @@ export type DownloadTelegramSafeVideoInput = {
   url: string;
   tempPrefix: string;
   maxBytes: number;
+  maxDurationSeconds?: number | undefined;
   ytDlpArgs: string[];
   durationSeconds?: number | null;
   execFile?: MediaExecFile | undefined;
 };
+
+let normalizationQueue: Promise<void> = Promise.resolve();
 
 export async function downloadTelegramSafeVideoWithYtDlp(
   input: DownloadTelegramSafeVideoInput
@@ -73,13 +79,22 @@ export async function downloadTelegramSafeVideoWithYtDlp(
 
     const downloadedPath = await findDownloadedMp4(tempDirectory);
     await assertWithinMaxBytes(downloadedPath, input.maxBytes);
-
-    const normalizedPath = path.join(tempDirectory, 'normalized.mp4');
-    await normalizeVideoForTelegram({
+    const probe = await probeVideo({
       execFile,
-      inputPath: downloadedPath,
-      outputPath: normalizedPath,
+      filePath: downloadedPath,
       cwd: tempDirectory
+    });
+    assertWithinMaxDuration(probe.durationSeconds, input.maxDurationSeconds);
+
+    const normalizedPath = await runWithNormalizationLock(async () => {
+      const outputPath = path.join(tempDirectory, 'normalized.mp4');
+      await normalizeVideoForTelegram({
+        execFile,
+        inputPath: downloadedPath,
+        outputPath,
+        cwd: tempDirectory
+      });
+      return outputPath;
     });
     await assertWithinMaxBytes(normalizedPath, input.maxBytes);
 
@@ -100,6 +115,31 @@ export async function downloadTelegramSafeVideoWithYtDlp(
   }
 }
 
+async function probeVideo(input: {
+  execFile: MediaExecFile;
+  filePath: string;
+  cwd: string;
+}): Promise<{ durationSeconds: number | null }> {
+  const result = await input.execFile(
+    FFPROBE_BIN,
+    [
+      '-v',
+      'error',
+      '-show_entries',
+      'format=duration:stream=codec_type,codec_name,width,height',
+      '-of',
+      'json',
+      input.filePath
+    ],
+    { cwd: input.cwd, maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+  );
+  const payload = JSON.parse(result.stdout) as unknown;
+
+  return {
+    durationSeconds: readDurationSeconds(payload)
+  };
+}
+
 async function normalizeVideoForTelegram(input: {
   execFile: MediaExecFile;
   inputPath: string;
@@ -107,8 +147,11 @@ async function normalizeVideoForTelegram(input: {
   cwd: string;
 }): Promise<void> {
   await input.execFile(
-    FFMPEG_BIN,
+    NICE_BIN,
     [
+      '-n',
+      '19',
+      FFMPEG_BIN,
       '-y',
       '-i',
       input.inputPath,
@@ -118,6 +161,8 @@ async function normalizeVideoForTelegram(input: {
       '-1',
       '-c:v',
       'libx264',
+      '-preset',
+      'veryfast',
       '-pix_fmt',
       'yuv420p',
       '-color_range',
@@ -132,6 +177,26 @@ async function normalizeVideoForTelegram(input: {
     ],
     { cwd: input.cwd }
   );
+}
+
+async function runWithNormalizationLock<T>(fn: () => Promise<T>): Promise<T> {
+  const previous = normalizationQueue;
+  let release = () => {};
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+
+  normalizationQueue = previous.then(
+    () => current,
+    () => current
+  );
+
+  try {
+    await previous.catch(() => {});
+    return await fn();
+  } finally {
+    release();
+  }
 }
 
 async function findDownloadedMp4(directory: string): Promise<string> {
@@ -156,6 +221,40 @@ async function assertWithinMaxBytes(
   }
 }
 
+function assertWithinMaxDuration(
+  durationSeconds: number | null,
+  maxDurationSeconds: number | undefined
+): void {
+  if (
+    maxDurationSeconds !== undefined &&
+    durationSeconds !== null &&
+    durationSeconds > maxDurationSeconds
+  ) {
+    throw new Error(`Media duration is too long: ${durationSeconds} seconds.`);
+  }
+}
+
 function formatMaxFilesize(maxBytes: number): string {
   return `${Math.floor(maxBytes / 1_000_000)}M`;
+}
+
+function readDurationSeconds(value: unknown): number | null {
+  if (!isRecord(value)) return null;
+
+  const format = value.format;
+  if (!isRecord(format)) return null;
+
+  const duration = format.duration;
+  if (typeof duration === 'number' && Number.isFinite(duration)) {
+    return duration;
+  }
+
+  if (typeof duration !== 'string') return null;
+
+  const parsed = Number(duration);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
 }

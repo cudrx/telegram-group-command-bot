@@ -2,6 +2,7 @@ import path from 'node:path';
 import { resolveRedditPostReference } from './reddit-post-client.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 import {
+  DIRECT_VIDEO_MAX_DURATION_SECONDS,
   downloadTelegramSafeVideoWithYtDlp,
   execMediaFileDefault,
   MEDIA_EXEC_MAX_BUFFER,
@@ -43,11 +44,19 @@ export async function downloadRedditVideoWithYtDlp(input: {
     cookiesPath,
     url: reference.permalink
   });
+  if (
+    metadata.durationSeconds !== null &&
+    metadata.durationSeconds > DIRECT_VIDEO_MAX_DURATION_SECONDS
+  ) {
+    return null;
+  }
+
   const downloaded = await downloadTelegramSafeVideoWithYtDlp({
     execFile,
     url: reference.permalink,
     tempPrefix: 'reddit-ytdlp-',
     maxBytes: input.maxBytes,
+    maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds ?? null,
     ytDlpArgs: ['--cookies', cookiesPath, '-f', REDDIT_FORMAT_SELECTOR]
   });
