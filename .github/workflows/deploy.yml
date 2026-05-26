@@ -1,6 +1,7 @@
 name: Deploy
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -82,7 +83,7 @@ jobs:
         run: npm run deploy:metadata
         env:
           DEPLOY_METADATA_DEPLOYED_SHA: ${{ steps.deployed.outputs.sha }}
-          DEPLOY_METADATA_BEFORE_SHA: ${{ github.event.before }}
+          DEPLOY_METADATA_BEFORE_SHA: ${{ github.event.before || '' }}
           DEPLOY_METADATA_SHA: ${{ github.sha }}
           DEPLOY_METADATA_BRANCH: ${{ github.ref_name }}
           DEPLOY_METADATA_OUTPUT: deploy/generated/deploy-metadata.json

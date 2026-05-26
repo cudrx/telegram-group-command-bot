@@ -169,16 +169,22 @@ SQLite сохраняется в локальной `data/`.
 
 Workflow CI: `.github/workflows/ci.yml`.
 
-На `push` и `pull_request` выполняются:
+На `push`, `pull_request` и ручной `workflow_dispatch` выполняются:
 
 1. `npm ci`
-2. `npm run typecheck`
-3. `npm test`
-4. `npm run build`
+2. `npm run lint`
+3. `npm run typecheck`
+4. `npm test`
+5. `npm run build`
 
 ## Продакшн-Деплой
 
 Workflow деплоя: `.github/workflows/deploy.yml`.
+
+Деплой запускается автоматически на `push` в `main` и вручную через GitHub
+Actions `Run workflow`. Серверная папка деплоя не является git-репозиторием:
+workflow загружает compose/assets, публикует Docker image в GHCR и на сервере
+выполняет pull/up через `deploy/remote-deploy.sh`.
 
 GitHub Secrets:
 
