@@ -77,6 +77,7 @@ describe('parseEnv defaults', () => {
     expect(env.telegramAdminId).toBe(-1002155313987);
     expect(env.redditCookiesPath).toBe('/app/data/reddit-cookies.txt');
     expect(env.instagramCookiesPath).toBe('/app/data/instagram-cookies.txt');
+    expect(env.youtubeCookiesPath).toBe('/app/data/youtube-cookies.txt');
   });
 
   test('parses explicit media cookies paths', () => {
@@ -88,11 +89,13 @@ describe('parseEnv defaults', () => {
       TELEGRAM_ADMIN_ID: '-1002155313987',
       SQLITE_PATH: '/app/data/bot.sqlite',
       REDDIT_COOKIES_PATH: '/run/secrets/reddit-cookies.txt',
-      INSTAGRAM_COOKIES_PATH: '/run/secrets/instagram-cookies.txt'
+      INSTAGRAM_COOKIES_PATH: '/run/secrets/instagram-cookies.txt',
+      YOUTUBE_COOKIES_PATH: '/run/secrets/youtube-cookies.txt'
     });
 
     expect(env.redditCookiesPath).toBe('/run/secrets/reddit-cookies.txt');
     expect(env.instagramCookiesPath).toBe('/run/secrets/instagram-cookies.txt');
+    expect(env.youtubeCookiesPath).toBe('/run/secrets/youtube-cookies.txt');
   });
 
   test('does not infer media cookies paths for in-memory sqlite', () => {
@@ -107,6 +110,7 @@ describe('parseEnv defaults', () => {
 
     expect(env.redditCookiesPath).toBeNull();
     expect(env.instagramCookiesPath).toBeNull();
+    expect(env.youtubeCookiesPath).toBeNull();
   });
 
   test('parses telegram link-only user ids', () => {

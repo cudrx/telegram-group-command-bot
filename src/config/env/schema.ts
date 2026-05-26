@@ -75,6 +75,7 @@ export const envSchema = z.object({
   SQLITE_PATH: z.string().min(1).default(storageConfig.sqlitePath),
   REDDIT_COOKIES_PATH: z.string().min(1).optional(),
   INSTAGRAM_COOKIES_PATH: z.string().min(1).optional(),
+  YOUTUBE_COOKIES_PATH: z.string().min(1).optional(),
   ANSWER_CONTEXT_LIMIT: z.coerce
     .number()
     .int()

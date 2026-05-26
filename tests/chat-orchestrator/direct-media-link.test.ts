@@ -22,6 +22,18 @@ describe('detectDirectMediaLink', () => {
     ).toEqual({ kind: 'instagram_reel' });
   });
 
+  test('detects YouTube Shorts-compatible links', () => {
+    expect(detectDirectMediaLink('https://youtu.be/5sMdQW_YYOo')).toEqual({
+      kind: 'youtube_short'
+    });
+    expect(
+      detectDirectMediaLink('https://www.youtube.com/watch?v=5sMdQW_YYOo')
+    ).toEqual({ kind: 'youtube_short' });
+    expect(
+      detectDirectMediaLink('https://www.youtube.com/shorts/5sMdQW_YYOo')
+    ).toEqual({ kind: 'youtube_short' });
+  });
+
   test('ignores ordinary text and unsupported links', () => {
     expect(detectDirectMediaLink('обычно болтаем')).toBeNull();
     expect(detectDirectMediaLink('https://example.com/video')).toBeNull();

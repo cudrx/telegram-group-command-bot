@@ -23,6 +23,9 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     instagramCookiesPath:
       overrides.instagramCookiesPath ??
       resolveDefaultCookiesPath(sqlitePath, 'instagram-cookies.txt'),
+    youtubeCookiesPath:
+      overrides.youtubeCookiesPath ??
+      resolveDefaultCookiesPath(sqlitePath, 'youtube-cookies.txt'),
     answerContextLimit: 50,
     summarizeContextLimit: 200,
     decideContextLimit: 100,

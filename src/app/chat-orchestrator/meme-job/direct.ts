@@ -4,6 +4,7 @@ import { downloadInstagramReelWithYtDlp } from '../../actions/meme/instagram-ree
 import { fetchRedditPostCandidate } from '../../actions/meme/reddit-post-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
+import { downloadYoutubeShortWithYtDlp } from '../../actions/meme/youtube-short-client.js';
 import { downloadRedditVideoWithYtDlp } from '../../actions/meme/yt-dlp-client.js';
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
 import { runWithChatAction } from '../helpers/reply.js';
@@ -21,6 +22,10 @@ export async function runDirectMediaMemeJob(
 ): Promise<boolean> {
   if (input.kind === 'reddit') {
     return runDirectRedditVideoMemeJob(input);
+  }
+
+  if (input.kind === 'youtube_short') {
+    return runDirectYoutubeShortMemeJob(input);
   }
 
   return runDirectInstagramReelMemeJob(input);
@@ -83,6 +88,80 @@ async function runDirectRedditVideoMemeJob(
   if (!candidate) return false;
 
   await sendCandidate(input, candidate, { reply: false });
+
+  await deleteSourceMessage(input);
+  return true;
+}
+
+async function runDirectYoutubeShortMemeJob(
+  input: MemeJobInput & { text: string }
+): Promise<boolean> {
+  let short: Awaited<ReturnType<typeof downloadYoutubeShortWithYtDlp>>;
+
+  try {
+    short = await runWithChatAction(
+      input.deps,
+      input.request.chatId,
+      'upload_video',
+      () =>
+        downloadYoutubeShortWithYtDlp({
+          text: input.text,
+          sqlitePath: input.deps.env.sqlitePath,
+          youtubeCookiesPath: input.deps.env.youtubeCookiesPath,
+          maxBytes: memeActionConfig.media.videoMaxBytes,
+          captionMaxLength: memeActionConfig.caption.maxLength,
+          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+        })
+    );
+  } catch (error) {
+    input.logger.warn('youtube_short_ytdlp_failed', serializeError(error));
+    return false;
+  }
+
+  if (!short) return false;
+
+  try {
+    const sent = await dispatchMemeMedia({
+      memeDispatcher: input.deps.memeDispatcher,
+      chatId: input.request.chatId,
+      replyToMessageId: null,
+      reply: false,
+      caption: short.caption,
+      media: short.downloaded
+    });
+
+    input.deps.db.saveBotMessage({
+      chatId: input.request.chatId,
+      chatType: input.request.chatType,
+      chatTitle: input.request.chatTitle,
+      messageId: sent.messageId,
+      text: short.caption,
+      createdAt: sent.createdAt,
+      userId: input.deps.bot.userId,
+      username: input.deps.bot.username,
+      displayName: input.deps.bot.displayName,
+      replyToMessageId: null,
+      outputMode: 'text',
+      mediaSnapshot: sent.mediaSnapshot ?? null
+    });
+
+    const storedMessage = input.deps.db.getMessageByTelegramMessageId(
+      input.request.chatId,
+      sent.messageId
+    );
+
+    if (storedMessage) {
+      input.mediaSupport?.startAutoReadForIncomingMessage(
+        storedMessage,
+        input.logger
+      );
+    }
+  } catch (error) {
+    input.logger.warn('youtube_short_dispatch_failed', serializeError(error));
+    return true;
+  } finally {
+    await short.downloaded.cleanup();
+  }
 
   await deleteSourceMessage(input);
   return true;

@@ -208,6 +208,134 @@ describe('ChatOrchestrator /meme command', () => {
     expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
+  test('expands a direct YouTube Short link like Reels without saving meme history', async () => {
+    let dispatchedFilePath = '';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'direct-youtube-short-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'youtube-cookies.txt'),
+      '.youtube.com\tTRUE\t/\tTRUE\t2147483647\tVISITOR_INFO1_LIVE\tabc123'
+    );
+    const db = new FakeDatabaseClient();
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options?: { cwd?: string | undefined }
+        ) => {
+          if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+            expect(args).toContain(
+              'https://www.youtube.com/shorts/5sMdQW_YYOo'
+            );
+
+            return {
+              stdout: JSON.stringify({
+                id: '5sMdQW_YYOo',
+                title: 'Short title',
+                channel: 'cartaxi',
+                like_count: 444,
+                duration: 11,
+                webpage_url: 'https://www.youtube.com/watch?v=5sMdQW_YYOo'
+              }),
+              stderr: ''
+            };
+          }
+
+          expect(file).toBe('yt-dlp');
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, '5sMdQW_YYOo.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(options?.cwd).toBe(tempDirectory);
+          expect(args).toContain(
+            'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best'
+          );
+          expect(args).toContain('https://www.youtube.com/shorts/5sMdQW_YYOo');
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 611,
+        createdAt: '2026-05-21T10:00:00.000Z',
+        mediaSnapshot: {
+          messageId: 611,
+          mediaKind: 'video',
+          fileId: 'telegram-youtube-video',
+          fileUniqueId: 'telegram-youtube-video-unique',
+          mimeType: 'video/mp4',
+          fileSize: 4,
+          durationSeconds: 11,
+          caption:
+            'yt: cartaxi · likes: <a href="https://www.youtube.com/shorts/5sMdQW_YYOo">444</a>'
+        }
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://youtu.be/5sMdQW_YYOo',
+        entities: [],
+        messageId: 44
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: null,
+        reply: false,
+        caption:
+          'yt: cartaxi · likes: <a href="https://www.youtube.com/shorts/5sMdQW_YYOo">444</a>',
+        media: {
+          kind: 'video',
+          filePath: expect.stringContaining('5sMdQW_YYOo.mp4')
+        }
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 44
+    });
+    expect(db.savedMemePosts).toEqual([]);
+    expect(db.getMessageByTelegramMessageId(1, 611)).toMatchObject({
+      text: 'yt: cartaxi · likes: <a href="https://www.youtube.com/shorts/5sMdQW_YYOo">444</a>',
+      replyToMessageId: null,
+      mediaSnapshot: expect.objectContaining({
+        mediaKind: 'video',
+        caption:
+          'yt: cartaxi · likes: <a href="https://www.youtube.com/shorts/5sMdQW_YYOo">444</a>'
+      })
+    });
+    expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
   test('expands a direct Reddit video link without replying to the deleted source message', async () => {
     let dispatchedFilePath = '';
     const dataDirectory = await mkdtemp(

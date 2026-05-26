@@ -14,6 +14,7 @@ export type ParsedEnv = {
   sqlitePath: string;
   redditCookiesPath: string | null;
   instagramCookiesPath: string | null;
+  youtubeCookiesPath: string | null;
   answerContextLimit: number;
   summarizeContextLimit: number;
   decideContextLimit: number;

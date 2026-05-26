@@ -17,13 +17,13 @@ Telegram-бот на `Node.js`, `TypeScript`, `grammY` и `SQLite`.
 - `/read` озвучивает текст сообщения, на которое сделали reply, при наличии `YANDEX_SPEECHKIT_API_KEY`.
 - `/translate` переводит на русский текст, подпись, OCR, описание картинки или расшифровку аудио из сообщения, на которое сделали reply.
 - `/meme` берет случайный свежий пост из Reddit top-week по hardcoded пулу сабреддитов, отправляет картинку или видео с оригинальным title без reply на команду и сохраняет Telegram media metadata для будущего контекста. Reddit NSFW/spoiler posts отправляются с Telegram spoiler flag.
-- Reddit post-ссылки с поддержанными image/gallery/video media и Instagram Reel-ссылки в обычных сообщениях рабочего чата, лички администратора и личек link-only пользователей разворачиваются автоматически: бот скачивает media во временные файлы, отправляет без reply на исходное сообщение, затем пытается удалить сообщение со ссылкой. Reddit captions используют title, `r/<subreddit>` и кликабельные апвоуты; Reels captions используют только `inst: <nickname> · likes: <linked count>`. Reddit NSFW/spoiler media отправляется с Telegram spoiler flag.
+- Reddit post-ссылки с поддержанными image/gallery/video media, Instagram Reel-ссылки и YouTube Shorts-ссылки в обычных сообщениях рабочего чата, лички администратора и личек link-only пользователей разворачиваются автоматически: бот скачивает media во временные файлы, отправляет без reply на исходное сообщение, затем пытается удалить сообщение со ссылкой. Reddit captions используют title, `r/<subreddit>` и кликабельные апвоуты; Reels/Shorts captions используют только `<source>: <nickname> · likes: <linked count>`. Reddit NSFW/spoiler media отправляется с Telegram spoiler flag.
 - `/publish` в личке администратора копирует reply-сообщение или последнее сообщение перед командой в рабочий чат без attribution исходного автора.
 - Локальные подсказки и fallback-сообщения бота отправляются только текстом, даже если исходящая озвучка включена.
 - Безопасное HTML-форматирование ответов для Telegram.
 - Оповещение о продакшн-деплое, дедуплицированное через SQLite.
 
-Обычное упоминание бота и обычный текст в личке не запускают LLM. Исключение — явная Reddit post-ссылка с поддержанным image/gallery/video media или Instagram Reel-ссылка, которую бот обрабатывает локально без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` в личке могут отправлять только поддержанные ссылки; их команды игнорируются. В проекте нет самостоятельных вмешательств, памяти о пользователях, профилей, алиасов, настроек по чатам и фоновых LLM-задач.
+Обычное упоминание бота и обычный текст в личке не запускают LLM. Исключение — явная Reddit post-ссылка с поддержанным image/gallery/video media, Instagram Reel-ссылка или YouTube Shorts-ссылка, которую бот обрабатывает локально без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` в личке могут отправлять только поддержанные ссылки; их команды игнорируются. В проекте нет самостоятельных вмешательств, памяти о пользователях, профилей, алиасов, настроек по чатам и фоновых LLM-задач.
 Если пользователь редактирует уже сохраненное входящее сообщение, бот обновляет его текст и `edited_at` в SQLite для будущего контекста, но не пересчитывает уже отправленные ответы.
 
 ## Команды
@@ -109,6 +109,7 @@ npm run dev
 - `SQLITE_PATH`
 - `REDDIT_COOKIES_PATH`
 - `INSTAGRAM_COOKIES_PATH`
+- `YOUTUBE_COOKIES_PATH`
 
 Остальные настройки времени выполнения разделены на два слоя: deploy-specific
 значения и секреты описаны в `src/config/env/`, а несекретные defaults поведения
@@ -167,7 +168,7 @@ docker compose down
 
 Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированной папке `data/`, а не внутри контейнера.
 
-Для Reddit video и Instagram Reels standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком. Любое Reddit-hosted video и Instagram Reel скачивается через `yt-dlp` сразу; Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. Для Reels `yt-dlp` предпочитает HLS/m3u8 video + m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео, без отдельного перекодирования. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, а Reels используют `INSTAGRAM_COOKIES_PATH`; если пути не заданы, defaults строятся как `reddit-cookies.txt` и `instagram-cookies.txt` рядом с SQLite.
+Для Reddit video, Instagram Reels и YouTube Shorts standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком. Любое Reddit-hosted video, Instagram Reel и YouTube Short скачивается через `yt-dlp` сразу; Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. Для Reels `yt-dlp` предпочитает HLS/m3u8 video + m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео, без отдельного перекодирования. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, Reels используют `INSTAGRAM_COOKIES_PATH`, Shorts используют `YOUTUBE_COOKIES_PATH`; если пути не заданы, defaults строятся как `reddit-cookies.txt`, `instagram-cookies.txt` и `youtube-cookies.txt` рядом с SQLite.
 
 ## Документация
 

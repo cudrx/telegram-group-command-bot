@@ -51,6 +51,9 @@ export function parseEnv(
     instagramCookiesPath:
       parsed.INSTAGRAM_COOKIES_PATH ??
       resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'instagram-cookies.txt'),
+    youtubeCookiesPath:
+      parsed.YOUTUBE_COOKIES_PATH ??
+      resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'youtube-cookies.txt'),
     answerContextLimit: parsed.ANSWER_CONTEXT_LIMIT,
     summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
     decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
