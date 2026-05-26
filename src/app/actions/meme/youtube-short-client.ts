@@ -9,6 +9,7 @@ import type { YtDlpExecFile } from './yt-dlp-client.js';
 
 const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
+const YOUTUBE_JS_RUNTIME_ARGS = ['--js-runtimes', 'node'] as const;
 const YOUTUBE_FORMAT_SELECTOR =
   'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best';
 
@@ -56,6 +57,7 @@ export async function downloadYoutubeShortWithYtDlp(input: {
     await execFile(
       YT_DLP_BIN,
       [
+        ...YOUTUBE_JS_RUNTIME_ARGS,
         '--cookies',
         cookiesPath,
         '--no-playlist',
@@ -160,6 +162,7 @@ async function fetchYoutubeMetadata(input: {
   durationSeconds: number | null;
 }> {
   const result = await input.execFile(YT_DLP_BIN, [
+    ...YOUTUBE_JS_RUNTIME_ARGS,
     '--cookies',
     input.cookiesPath,
     '--dump-single-json',

@@ -75,6 +75,8 @@ describe('downloadYoutubeShortWithYtDlp', () => {
           options?: { cwd?: string | undefined }
         ) => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+            expect(args).toContain('--js-runtimes');
+            expect(args).toContain('node');
             expect(args).toContain('--cookies');
             expect(args).toContain(cookiesPath);
             expect(args).toContain(
@@ -95,6 +97,8 @@ describe('downloadYoutubeShortWithYtDlp', () => {
           }
 
           expect(file).toBe('yt-dlp');
+          expect(args).toContain('--js-runtimes');
+          expect(args).toContain('node');
           expect(args).toContain('--cookies');
           expect(args).toContain(cookiesPath);
           expect(args).toContain('--merge-output-format');

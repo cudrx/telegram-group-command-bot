@@ -2,7 +2,7 @@
 
 ## Требования
 
-- Node.js `20` или `22` LTS
+- Node.js `22` LTS
 - npm `11+`
 - токен Telegram-бота
 - ключ OpenAI-compatible LLM API
@@ -233,6 +233,7 @@ Metadata деплоя пишется в серверный `data/deploy-metadata
 - Direct Reddit media link smoke: положите standalone `yt-dlp` zipapp в `data/bin/yt-dlp`, настройте `REDDIT_COOKIES_PATH`, отправьте Reddit post URL с image, gallery или `reddit_video` в рабочий чат или личку администратора обычным сообщением без команды. Бот должен отправить `sendPhoto`, `sendMediaGroup` или `sendVideo` без reply на исходное сообщение, с title, subreddit и апвоутами, сохранить post metadata, очистить temp files и попытаться удалить исходное сообщение со ссылкой. Reddit NSFW/spoiler media должны уйти с Telegram spoiler flag; для gallery он должен стоять на всех элементах. В группе для удаления нужны admin-права бота и выключенный BotFather privacy mode, если ссылка отправляется без команды/упоминания.
 - Direct Instagram Reels smoke: настройте `INSTAGRAM_COOKIES_PATH`, отправьте `https://www.instagram.com/reel/<shortcode>/` в рабочий чат, личку администратора или личку пользователя из `TELEGRAM_LINK_USER_IDS`. Бот должен скачать Reel через `yt-dlp` с предпочтением HLS/m3u8 video + m4a audio merge без отдельного перекодирования, отправить `sendVideo` без reply, подписать `inst: <nickname> · likes: <linked count>`, очистить temp file и попытаться удалить исходное сообщение.
 - Direct YouTube Shorts smoke: настройте `YOUTUBE_COOKIES_PATH`, отправьте `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>` или `https://www.youtube.com/shorts/<id>` в рабочий чат, личку администратора или личку пользователя из `TELEGRAM_LINK_USER_IDS`. Бот должен скачать Short через `yt-dlp`, отправить `sendVideo` без reply, подписать `yt: <channel> · likes: <linked count>`, очистить temp file и попытаться удалить исходное сообщение.
+- YouTube Shorts требуют runtime image с Node.js 22+: `yt-dlp` запускается с `--js-runtimes node`, чтобы решать YouTube EJS challenges.
 - Для Reddit video, Instagram Reels и YouTube Shorts не добавляйте прямое скачивание `fallback_url`/MP4 как shortcut или fallback: видео должно сразу идти через `yt-dlp`, иначе легко отправить mp4 без audio track. Для Instagram Reels закрепленный selector policy — сначала предпочитать HLS/m3u8 video + m4a audio merge, как у Reddit video, чтобы мобильные Telegram-клиенты не ломали геометрию ролика. Для YouTube Shorts используйте тот же extractor-first принцип.
 - `/publish` запускайте в личке администратора: проверьте reply, вариант без reply и media album; копия должна появиться в рабочем `TELEGRAM_CHAT_ID` как сообщение бота без attribution исходного автора.
 - Провайдеры медиа запускаются только при наличии соответствующих ключей.

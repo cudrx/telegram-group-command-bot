@@ -38,7 +38,7 @@ Telegram-бот на `Node.js`, `TypeScript`, `grammY` и `SQLite`.
 
 ## Требования
 
-- Node.js `20` или `22` LTS
+- Node.js `22` LTS
 - npm `11+`
 - токен Telegram-бота
 - ключ OpenAI-compatible LLM API
@@ -168,7 +168,7 @@ docker compose down
 
 Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированной папке `data/`, а не внутри контейнера.
 
-Для Reddit video, Instagram Reels и YouTube Shorts standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком. Любое Reddit-hosted video, Instagram Reel и YouTube Short скачивается через `yt-dlp` сразу; Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. Для Reels `yt-dlp` предпочитает HLS/m3u8 video + m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео, без отдельного перекодирования. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, Reels используют `INSTAGRAM_COOKIES_PATH`, Shorts используют `YOUTUBE_COOKIES_PATH`; если пути не заданы, defaults строятся как `reddit-cookies.txt`, `instagram-cookies.txt` и `youtube-cookies.txt` рядом с SQLite.
+Для Reddit video, Instagram Reels и YouTube Shorts standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3`, `ffmpeg` и Node.js 22, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком и решать YouTube EJS challenges через `--js-runtimes node`. Любое Reddit-hosted video, Instagram Reel и YouTube Short скачивается через `yt-dlp` сразу; Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. Для Reels `yt-dlp` предпочитает HLS/m3u8 video + m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео, без отдельного перекодирования. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, Reels используют `INSTAGRAM_COOKIES_PATH`, Shorts используют `YOUTUBE_COOKIES_PATH`; если пути не заданы, defaults строятся как `reddit-cookies.txt`, `instagram-cookies.txt` и `youtube-cookies.txt` рядом с SQLite.
 
 ## Документация
 

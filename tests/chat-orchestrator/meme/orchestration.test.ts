@@ -227,6 +227,8 @@ describe('ChatOrchestrator /meme command', () => {
           options?: { cwd?: string | undefined }
         ) => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+            expect(args).toContain('--js-runtimes');
+            expect(args).toContain('node');
             expect(args).toContain(
               'https://www.youtube.com/shorts/5sMdQW_YYOo'
             );
@@ -245,6 +247,8 @@ describe('ChatOrchestrator /meme command', () => {
           }
 
           expect(file).toBe('yt-dlp');
+          expect(args).toContain('--js-runtimes');
+          expect(args).toContain('node');
           const outputIndex = args.indexOf('-o');
           const outputTemplate = args[outputIndex + 1] ?? '';
           const tempDirectory = path.dirname(outputTemplate);
