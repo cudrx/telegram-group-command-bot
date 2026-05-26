@@ -1,4 +1,7 @@
-import { execFile as execFileCallback } from 'node:child_process';
+import {
+  type ExecFileOptions,
+  execFile as execFileCallback
+} from 'node:child_process';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,7 +9,7 @@ import { promisify } from 'node:util';
 
 import type { DownloadedMemeMedia } from './types.js';
 
-const execFileDefault = promisify(execFileCallback);
+export const MEDIA_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
 const YT_DLP_BIN = 'yt-dlp';
 const FFMPEG_BIN = 'ffmpeg';
 const TELEGRAM_SAFE_VIDEO_FILTER =
@@ -15,8 +18,26 @@ const TELEGRAM_SAFE_VIDEO_FILTER =
 export type MediaExecFile = (
   file: string,
   args: string[],
-  options?: { cwd?: string | undefined }
+  options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
 ) => Promise<{ stdout: string; stderr: string }>;
+
+const execFileAsync = promisify(execFileCallback);
+
+export const execMediaFileDefault: MediaExecFile = async (
+  file,
+  args,
+  options
+) => {
+  const result = await execFileAsync(file, args, {
+    ...options,
+    maxBuffer: options?.maxBuffer ?? MEDIA_EXEC_MAX_BUFFER
+  } satisfies ExecFileOptions);
+
+  return {
+    stdout: result.stdout,
+    stderr: result.stderr
+  };
+};
 
 export type DownloadTelegramSafeVideoInput = {
   url: string;
@@ -30,7 +51,7 @@ export type DownloadTelegramSafeVideoInput = {
 export async function downloadTelegramSafeVideoWithYtDlp(
   input: DownloadTelegramSafeVideoInput
 ): Promise<DownloadedMemeMedia> {
-  const execFile = input.execFile ?? execFileDefault;
+  const execFile = input.execFile ?? execMediaFileDefault;
   const tempDirectory = await mkdtemp(path.join(os.tmpdir(), input.tempPrefix));
 
   try {

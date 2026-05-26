@@ -107,7 +107,7 @@ describe('ChatOrchestrator /meme command', () => {
         async (
           file: string,
           args: string[],
-          options?: { cwd?: string | undefined }
+          options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
         ) => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
             expect(args).toContain(
@@ -238,7 +238,7 @@ describe('ChatOrchestrator /meme command', () => {
         async (
           file: string,
           args: string[],
-          options?: { cwd?: string | undefined }
+          options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
         ) => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
             expect(args).toContain('--js-runtimes');

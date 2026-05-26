@@ -14,7 +14,7 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
         async (
           file: string,
           args: string[],
-          options?: { cwd?: string | undefined }
+          options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
         ) => {
           if (file === 'yt-dlp') {
             expect(args).toEqual(
@@ -107,27 +107,28 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
 
   test('removes temp files when normalization fails', async () => {
     let tempDirectory = '';
-    const execFile = vi
-      .fn()
-      .mockImplementation(
-        async (
-          file: string,
-          args: string[],
-          _options?: { cwd?: string | undefined }
-        ) => {
-          if (file === 'yt-dlp') {
-            const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
-            tempDirectory = path.dirname(outputTemplate);
-            await writeFile(
-              path.join(tempDirectory, 'source.mp4'),
-              new Uint8Array([1])
-            );
-            return { stdout: '', stderr: '' };
-          }
-
-          throw new Error('ffmpeg failed');
+    const execFile = vi.fn().mockImplementation(
+      async (
+        file: string,
+        args: string[],
+        _options?: {
+          cwd?: string | undefined;
+          maxBuffer?: number | undefined;
         }
-      );
+      ) => {
+        if (file === 'yt-dlp') {
+          const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+          tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, 'source.mp4'),
+            new Uint8Array([1])
+          );
+          return { stdout: '', stderr: '' };
+        }
+
+        throw new Error('ffmpeg failed');
+      }
+    );
 
     await expect(
       downloadTelegramSafeVideoWithYtDlp({

@@ -1,14 +1,13 @@
-import { execFile as execFileCallback } from 'node:child_process';
 import path from 'node:path';
-import { promisify } from 'node:util';
 import { resolveRedditPostReference } from './reddit-post-client.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 import {
   downloadTelegramSafeVideoWithYtDlp,
+  execMediaFileDefault,
+  MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from './video-pipeline.js';
 
-const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
 const REDDIT_FORMAT_SELECTOR =
   'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best';
@@ -35,7 +34,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
 
   if (!reference) return null;
 
-  const execFile = input.execFile ?? execFileDefault;
+  const execFile = input.execFile ?? execMediaFileDefault;
   const cookiesPath =
     input.redditCookiesPath ??
     path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt');
@@ -83,13 +82,17 @@ async function fetchYtDlpMetadata(input: {
   durationSeconds: number | null;
   hasSpoiler: boolean;
 }> {
-  const result = await input.execFile(YT_DLP_BIN, [
-    '--cookies',
-    input.cookiesPath,
-    '--dump-single-json',
-    '--no-playlist',
-    input.url
-  ]);
+  const result = await input.execFile(
+    YT_DLP_BIN,
+    [
+      '--cookies',
+      input.cookiesPath,
+      '--dump-single-json',
+      '--no-playlist',
+      input.url
+    ],
+    { maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+  );
   const payload = JSON.parse(result.stdout) as unknown;
 
   return {

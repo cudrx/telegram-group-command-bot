@@ -1,14 +1,13 @@
-import { execFile as execFileCallback } from 'node:child_process';
 import path from 'node:path';
-import { promisify } from 'node:util';
 
 import type { DownloadedMemeMedia } from './types.js';
 import {
   downloadTelegramSafeVideoWithYtDlp,
+  execMediaFileDefault,
+  MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from './video-pipeline.js';
 
-const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
 const INSTAGRAM_FORMAT_SELECTOR =
   'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
@@ -42,7 +41,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
   const reelUrl = findInstagramReelUrl(input.text);
   if (!reelUrl) return null;
 
-  const execFile = input.execFile ?? execFileDefault;
+  const execFile = input.execFile ?? execMediaFileDefault;
   const cookiesPath =
     input.instagramCookiesPath ??
     path.join(path.dirname(input.sqlitePath), 'instagram-cookies.txt');
@@ -124,13 +123,17 @@ async function fetchInstagramMetadata(input: {
   durationSeconds: number | null;
   webpageUrl: string | null;
 }> {
-  const result = await input.execFile(YT_DLP_BIN, [
-    '--cookies',
-    input.cookiesPath,
-    '--dump-single-json',
-    '--no-playlist',
-    input.url
-  ]);
+  const result = await input.execFile(
+    YT_DLP_BIN,
+    [
+      '--cookies',
+      input.cookiesPath,
+      '--dump-single-json',
+      '--no-playlist',
+      input.url
+    ],
+    { maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+  );
   const payload = JSON.parse(result.stdout) as unknown;
 
   return {

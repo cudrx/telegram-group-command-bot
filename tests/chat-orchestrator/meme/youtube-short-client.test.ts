@@ -84,9 +84,10 @@ describe('downloadYoutubeShortWithYtDlp', () => {
         async (
           file: string,
           args: string[],
-          options?: { cwd?: string | undefined }
+          options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
         ) => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+            expect(options?.maxBuffer).toBeGreaterThan(1024 * 1024);
             expect(args).toContain('--js-runtimes');
             expect(args).toContain('node');
             expect(args).toContain('--cookies');

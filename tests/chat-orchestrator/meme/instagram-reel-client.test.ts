@@ -93,9 +93,10 @@ describe('downloadInstagramReelWithYtDlp', () => {
         async (
           file: string,
           args: string[],
-          options?: { cwd?: string | undefined }
+          options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
         ) => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+            expect(options?.maxBuffer).toBeGreaterThan(1024 * 1024);
             expect(args).toContain('--cookies');
             expect(args).toContain(cookiesPath);
             expect(args).toContain(

@@ -1,14 +1,13 @@
-import { execFile as execFileCallback } from 'node:child_process';
 import path from 'node:path';
-import { promisify } from 'node:util';
 
 import type { DownloadedMemeMedia } from './types.js';
 import {
   downloadTelegramSafeVideoWithYtDlp,
+  execMediaFileDefault,
+  MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from './video-pipeline.js';
 
-const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
 const YOUTUBE_JS_RUNTIME_ARGS = ['--js-runtimes', 'node'] as const;
 const YOUTUBE_FORMAT_SELECTOR =
@@ -43,7 +42,7 @@ export async function downloadYoutubeShortWithYtDlp(input: {
   const shortUrl = findYoutubeShortUrl(input.text);
   if (!shortUrl) return null;
 
-  const execFile = input.execFile ?? execFileDefault;
+  const execFile = input.execFile ?? execMediaFileDefault;
   const cookiesPath =
     input.youtubeCookiesPath ??
     path.join(path.dirname(input.sqlitePath), 'youtube-cookies.txt');
@@ -137,14 +136,18 @@ async function fetchYoutubeMetadata(input: {
   likeCount: number | null;
   durationSeconds: number | null;
 }> {
-  const result = await input.execFile(YT_DLP_BIN, [
-    ...YOUTUBE_JS_RUNTIME_ARGS,
-    '--cookies',
-    input.cookiesPath,
-    '--dump-single-json',
-    '--no-playlist',
-    input.url
-  ]);
+  const result = await input.execFile(
+    YT_DLP_BIN,
+    [
+      ...YOUTUBE_JS_RUNTIME_ARGS,
+      '--cookies',
+      input.cookiesPath,
+      '--dump-single-json',
+      '--no-playlist',
+      input.url
+    ],
+    { maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+  );
   const payload = JSON.parse(result.stdout) as unknown;
 
   return {

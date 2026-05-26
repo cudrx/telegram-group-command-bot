@@ -84,7 +84,7 @@ export function createOrchestrator(input: {
   execFile?: (
     file: string,
     args: string[],
-    options?: { cwd?: string | undefined }
+    options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
   ) => Promise<{ stdout: string; stderr: string }>;
   env?: Partial<AppEnv>;
   logger?: AppLogger;
