@@ -11,7 +11,6 @@ import type { DownloadedMemeMedia } from './types.js';
 
 export const MEDIA_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
 const YT_DLP_BIN = 'yt-dlp';
-const NICE_BIN = 'nice';
 const FFMPEG_BIN = 'ffmpeg';
 const TELEGRAM_SAFE_VIDEO_FILTER =
   "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))':out_range=tv,setsar=1,format=yuv420p";
@@ -49,8 +48,6 @@ export type DownloadTelegramSafeVideoInput = {
   execFile?: MediaExecFile | undefined;
 };
 
-let normalizationQueue: Promise<void> = Promise.resolve();
-
 export async function downloadTelegramSafeVideoWithYtDlp(
   input: DownloadTelegramSafeVideoInput
 ): Promise<DownloadedMemeMedia> {
@@ -77,21 +74,18 @@ export async function downloadTelegramSafeVideoWithYtDlp(
     const downloadedPath = await findDownloadedMp4(tempDirectory);
     await assertWithinMaxBytes(downloadedPath, input.maxBytes);
 
-    const filePath = await runWithNormalizationLock(async () => {
-      const normalizedPath = path.join(tempDirectory, 'normalized.mp4');
-      await normalizeVideoForTelegram({
-        execFile,
-        inputPath: downloadedPath,
-        outputPath: normalizedPath,
-        cwd: tempDirectory
-      });
-      await assertWithinMaxBytes(normalizedPath, input.maxBytes);
-      return normalizedPath;
+    const normalizedPath = path.join(tempDirectory, 'normalized.mp4');
+    await normalizeVideoForTelegram({
+      execFile,
+      inputPath: downloadedPath,
+      outputPath: normalizedPath,
+      cwd: tempDirectory
     });
+    await assertWithinMaxBytes(normalizedPath, input.maxBytes);
 
     return {
       kind: 'video',
-      filePath,
+      filePath: normalizedPath,
       extension: 'mp4',
       ...(input.durationSeconds !== undefined
         ? { durationSeconds: input.durationSeconds }
@@ -113,11 +107,8 @@ async function normalizeVideoForTelegram(input: {
   cwd: string;
 }): Promise<void> {
   await input.execFile(
-    NICE_BIN,
+    FFMPEG_BIN,
     [
-      '-n',
-      '10',
-      FFMPEG_BIN,
       '-y',
       '-i',
       input.inputPath,
@@ -127,8 +118,6 @@ async function normalizeVideoForTelegram(input: {
       '-1',
       '-c:v',
       'libx264',
-      '-preset',
-      'veryfast',
       '-pix_fmt',
       'yuv420p',
       '-color_range',
@@ -143,26 +132,6 @@ async function normalizeVideoForTelegram(input: {
     ],
     { cwd: input.cwd }
   );
-}
-
-async function runWithNormalizationLock<T>(fn: () => Promise<T>): Promise<T> {
-  const previous = normalizationQueue;
-  let release = () => {};
-  const current = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-
-  normalizationQueue = previous.then(
-    () => current,
-    () => current
-  );
-
-  try {
-    await previous.catch(() => {});
-    return await fn();
-  } finally {
-    release();
-  }
 }
 
 async function findDownloadedMp4(directory: string): Promise<string> {

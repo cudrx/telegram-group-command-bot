@@ -16,10 +16,8 @@ async function writeNormalizedVideo(args: string[]): Promise<{
   stderr: string;
 }> {
   const outputPath = args.at(-1) ?? '';
-  expect(args).toContain('ffmpeg');
   expect(args).toContain('-vf');
   expect(args).toContain('libx264');
-  expect(args).toContain('veryfast');
   expect(args).toContain('yuv420p');
   await writeFile(outputPath, new Uint8Array([1, 2, 3]));
   return { stdout: '', stderr: '' };
@@ -118,7 +116,8 @@ describe('downloadInstagramReelWithYtDlp', () => {
               stderr: ''
             };
           }
-          if (file === 'nice') return writeNormalizedVideo(args);
+
+          if (file === 'ffmpeg') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--cookies');
@@ -208,7 +207,8 @@ describe('downloadInstagramReelWithYtDlp', () => {
             stderr: ''
           };
         }
-        if (file === 'nice') return writeNormalizedVideo(args);
+
+        if (file === 'ffmpeg') return writeNormalizedVideo(args);
 
         expect(file).toBe('yt-dlp');
         expect(args).toContain('--cookies');
