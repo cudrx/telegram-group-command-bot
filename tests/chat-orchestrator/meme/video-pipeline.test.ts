@@ -43,25 +43,6 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
             return { stdout: '', stderr: '' };
           }
 
-          if (file === 'ffprobe') {
-            expect(args).toContain('-show_entries');
-            return {
-              stdout: JSON.stringify({
-                streams: [
-                  {
-                    codec_name: 'h264',
-                    width: 720,
-                    height: 1280,
-                    sample_aspect_ratio: 'N/A',
-                    display_aspect_ratio: 'N/A',
-                    pix_fmt: 'yuv420p'
-                  }
-                ]
-              }),
-              stderr: ''
-            };
-          }
-
           expect(file).toBe('nice');
           expect(args).toEqual(
             expect.arrayContaining([
@@ -122,67 +103,11 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
     expect(result.filePath).toContain('normalized.mp4');
     const filePath = result.filePath;
     expect(existsSync(filePath)).toBe(true);
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(2);
 
     await result.cleanup();
 
     expect(existsSync(filePath)).toBe(false);
-  });
-
-  test('skips normalization when ffprobe reports a Telegram-safe video', async () => {
-    const execFile = vi
-      .fn()
-      .mockImplementation(async (file: string, args: string[]) => {
-        if (file === 'yt-dlp') {
-          const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
-          await writeFile(
-            path.join(path.dirname(outputTemplate), 'source.mp4'),
-            new Uint8Array([1, 2, 3])
-          );
-          return { stdout: '', stderr: '' };
-        }
-
-        expect(file).toBe('ffprobe');
-        return {
-          stdout: JSON.stringify({
-            streams: [
-              {
-                codec_name: 'h264',
-                width: 720,
-                height: 1280,
-                sample_aspect_ratio: '1:1',
-                display_aspect_ratio: '9:16',
-                pix_fmt: 'yuv420p'
-              }
-            ]
-          }),
-          stderr: ''
-        };
-      });
-
-    const result = await downloadTelegramSafeVideoWithYtDlp({
-      execFile,
-      url: 'https://example.com/video',
-      tempPrefix: 'pipeline-safe-test-',
-      maxBytes: 50_000_000,
-      ytDlpArgs: []
-    });
-
-    if (result.kind !== 'video') {
-      throw new Error('Expected video media.');
-    }
-
-    expect(result.filePath).toContain('source.mp4');
-    expect(execFile).toHaveBeenCalledTimes(2);
-    expect(execFile).not.toHaveBeenCalledWith(
-      'nice',
-      expect.any(Array),
-      expect.anything()
-    );
-
-    await result.cleanup();
-
-    expect(existsSync(result.filePath)).toBe(false);
   });
 
   test('removes temp files when normalization fails', async () => {
@@ -204,24 +129,6 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
             new Uint8Array([1])
           );
           return { stdout: '', stderr: '' };
-        }
-
-        if (file === 'ffprobe') {
-          return {
-            stdout: JSON.stringify({
-              streams: [
-                {
-                  codec_name: 'h264',
-                  width: 720,
-                  height: 1280,
-                  sample_aspect_ratio: 'N/A',
-                  display_aspect_ratio: 'N/A',
-                  pix_fmt: 'yuv420p'
-                }
-              ]
-            }),
-            stderr: ''
-          };
         }
 
         throw new Error('ffmpeg failed');
@@ -255,24 +162,6 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
             new Uint8Array([1, 2, 3])
           );
           return { stdout: '', stderr: '' };
-        }
-
-        if (file === 'ffprobe') {
-          return {
-            stdout: JSON.stringify({
-              streams: [
-                {
-                  codec_name: 'h264',
-                  width: 720,
-                  height: 1280,
-                  sample_aspect_ratio: 'N/A',
-                  display_aspect_ratio: 'N/A',
-                  pix_fmt: 'yuv420p'
-                }
-              ]
-            }),
-            stderr: ''
-          };
         }
 
         expect(file).toBe('nice');

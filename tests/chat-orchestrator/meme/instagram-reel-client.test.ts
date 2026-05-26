@@ -25,24 +25,6 @@ async function writeNormalizedVideo(args: string[]): Promise<{
   return { stdout: '', stderr: '' };
 }
 
-function unsafeVideoProbeResult(): { stdout: string; stderr: string } {
-  return {
-    stdout: JSON.stringify({
-      streams: [
-        {
-          codec_name: 'h264',
-          width: 720,
-          height: 1280,
-          sample_aspect_ratio: 'N/A',
-          display_aspect_ratio: 'N/A',
-          pix_fmt: 'yuv420p'
-        }
-      ]
-    }),
-    stderr: ''
-  };
-}
-
 describe('findInstagramReelUrl', () => {
   test('extracts Instagram Reel URLs and strips query params', () => {
     expect(
@@ -136,9 +118,6 @@ describe('downloadInstagramReelWithYtDlp', () => {
               stderr: ''
             };
           }
-
-          if (file === 'ffprobe') return unsafeVideoProbeResult();
-
           if (file === 'nice') return writeNormalizedVideo(args);
 
           expect(file).toBe('yt-dlp');
@@ -229,9 +208,6 @@ describe('downloadInstagramReelWithYtDlp', () => {
             stderr: ''
           };
         }
-
-        if (file === 'ffprobe') return unsafeVideoProbeResult();
-
         if (file === 'nice') return writeNormalizedVideo(args);
 
         expect(file).toBe('yt-dlp');
