@@ -65,27 +65,75 @@ describe('dispatchMemeMedia', () => {
     });
   });
 
-  test('rejects unsupported gallery downloads before dispatching', async () => {
-    const memeDispatcher = vi.fn();
+  test('adapts gallery downloads to the meme dispatcher', async () => {
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 103,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
 
-    await expect(
-      dispatchMemeMedia({
-        memeDispatcher,
-        chatId: 1,
-        replyToMessageId: 10,
-        caption: 'caption',
-        media: unsupportedDownloadedMedia({
+    await dispatchMemeMedia({
+      memeDispatcher,
+      chatId: 1,
+      replyToMessageId: 10,
+      caption: 'caption',
+      hasSpoiler: true,
+      media: {
+        kind: 'gallery',
+        items: [
+          { filePath: '/tmp/1.jpg', extension: 'jpg', hasSpoiler: true },
+          { filePath: '/tmp/2.png', extension: 'png', hasSpoiler: true }
+        ],
+        cleanup: vi.fn()
+      }
+    });
+
+    expect(memeDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 10,
+      caption: 'caption',
+      hasSpoiler: true,
+      media: {
+        kind: 'gallery',
+        items: [
+          { filePath: '/tmp/1.jpg', hasSpoiler: true },
+          { filePath: '/tmp/2.png', hasSpoiler: true }
+        ]
+      }
+    });
+  });
+
+  test('preserves per-item spoiler flags for gallery downloads', async () => {
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 104,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+
+    await dispatchMemeMedia({
+      memeDispatcher,
+      chatId: 1,
+      replyToMessageId: 10,
+      caption: 'caption',
+      media: {
+        kind: 'gallery',
+        items: [
+          { filePath: '/tmp/1.jpg', extension: 'jpg', hasSpoiler: true },
+          { filePath: '/tmp/2.png', extension: 'png', hasSpoiler: true }
+        ],
+        cleanup: vi.fn()
+      }
+    });
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        media: {
           kind: 'gallery',
-          files: [
-            { filePath: '/tmp/1.jpg', cleanup: vi.fn() },
-            { filePath: '/tmp/2.jpg', cleanup: vi.fn() }
-          ],
-          cleanup: vi.fn()
-        })
+          items: [
+            { filePath: '/tmp/1.jpg', hasSpoiler: true },
+            { filePath: '/tmp/2.png', hasSpoiler: true }
+          ]
+        }
       })
-    ).rejects.toThrow('Unsupported meme media kind for Telegram dispatch');
-
-    expect(memeDispatcher).not.toHaveBeenCalled();
+    );
   });
 
   test('adapts video downloads to the meme dispatcher', async () => {
@@ -152,9 +200,3 @@ describe('dispatchMemeMedia', () => {
     });
   });
 });
-
-function unsupportedDownloadedMedia(
-  media: unknown
-): Parameters<typeof dispatchMemeMedia>[0]['media'] {
-  return media as Parameters<typeof dispatchMemeMedia>[0]['media'];
-}

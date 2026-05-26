@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
+import type { MemeMediaDispatchInput } from '../../../src/app/chat-orchestrator/types.js';
 import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
 import type { AssistantIntent, ChatState } from '../../../src/domain/models.js';
@@ -37,13 +38,9 @@ export function createOrchestrator(input: {
     reply?: boolean;
     text: string;
   }) => Promise<{ messageId: number; createdAt: string }>;
-  memeDispatcher?: (input: {
-    chatId: number;
-    replyToMessageId?: number | null;
-    reply?: boolean;
-    caption: string;
-    media: { kind: 'image' | 'video'; filePath: string };
-  }) => Promise<{ messageId: number; createdAt: string }>;
+  memeDispatcher?: (
+    input: MemeMediaDispatchInput
+  ) => Promise<{ messageId: number; createdAt: string }>;
   copyMessageDispatcher?: (input: {
     targetChatId: number;
     sourceChatId: number;

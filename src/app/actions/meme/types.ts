@@ -1,8 +1,11 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
 
-export type MemeMediaKind = 'image' | 'video';
+export type MemeMediaKind = 'image' | 'video' | 'gallery';
 
-export type ResolvedMemeMedia = ResolvedMemeImage | ResolvedMemeVideo;
+export type ResolvedMemeMedia =
+  | ResolvedMemeImage
+  | ResolvedMemeVideo
+  | ResolvedMemeGallery;
 
 export interface ResolvedMemeImage {
   kind: 'image';
@@ -17,6 +20,18 @@ export interface ResolvedMemeVideo {
   extension: 'mp4';
   durationSeconds?: number | null;
   downloadStrategy?: 'direct' | 'yt-dlp';
+  hasSpoiler?: boolean;
+}
+
+export interface ResolvedMemeGalleryItem {
+  mediaUrl: string;
+  extension: ResolvedMemeImage['extension'];
+  hasSpoiler?: boolean;
+}
+
+export interface ResolvedMemeGallery {
+  kind: 'gallery';
+  items: ResolvedMemeGalleryItem[];
   hasSpoiler?: boolean;
 }
 
@@ -52,6 +67,15 @@ export type DownloadedMemeMedia =
       filePath: string;
       extension: ResolvedMemeVideo['extension'];
       durationSeconds?: number | null;
+      cleanup: () => Promise<void>;
+    }
+  | {
+      kind: 'gallery';
+      items: Array<{
+        filePath: string;
+        extension: ResolvedMemeImage['extension'];
+        hasSpoiler?: boolean;
+      }>;
       cleanup: () => Promise<void>;
     };
 

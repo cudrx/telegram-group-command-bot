@@ -57,7 +57,12 @@ export type MemeMediaDispatchInput = {
   reply?: boolean;
   caption: string;
   hasSpoiler?: boolean;
-  media: { kind: 'image' | 'video'; filePath: string };
+  media:
+    | { kind: 'image' | 'video'; filePath: string }
+    | {
+        kind: 'gallery';
+        items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+      };
 };
 
 export type MemeDispatcher = (

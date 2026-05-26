@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+  botSendMediaGroup,
   botSendMessage,
   botSendPhoto,
   botSendVideo,
@@ -222,6 +223,93 @@ describe('createApplication lifecycle', () => {
         has_spoiler: true
       })
     );
+  });
+
+  test('sends meme galleries as Telegram media groups with spoiler on every item', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv());
+
+    botSendMediaGroup.mockResolvedValue([
+      {
+        message_id: 48,
+        date: 1_744_000_004,
+        photo: [
+          {
+            file_id: 'gallery-file',
+            file_unique_id: 'gallery-unique',
+            file_size: 123
+          }
+        ]
+      },
+      {
+        message_id: 49,
+        date: 1_744_000_004
+      }
+    ]);
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          memeDispatcher?: (input: {
+            chatId: number;
+            replyToMessageId: number;
+            caption: string;
+            media: {
+              kind: 'gallery';
+              items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+            };
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    const sent = await orchestratorDeps?.memeDispatcher?.({
+      chatId: -1001,
+      replyToMessageId: 11,
+      caption: '<b>Галерея</b>',
+      media: {
+        kind: 'gallery',
+        items: [
+          { filePath: '/tmp/one.jpg', hasSpoiler: true },
+          { filePath: '/tmp/two.png', hasSpoiler: true }
+        ]
+      }
+    });
+
+    expect(botSendMediaGroup).toHaveBeenCalledWith(
+      -1001,
+      [
+        {
+          type: 'photo',
+          media: expect.objectContaining({ source: '/tmp/one.jpg' }),
+          caption: '<b>Галерея</b>',
+          parse_mode: 'HTML',
+          has_spoiler: true
+        },
+        {
+          type: 'photo',
+          media: expect.objectContaining({ source: '/tmp/two.png' }),
+          has_spoiler: true
+        }
+      ],
+      {
+        reply_parameters: {
+          message_id: 11
+        }
+      }
+    );
+    expect(sent).toEqual({
+      messageId: 48,
+      createdAt: '2025-04-07T04:26:44.000Z',
+      mediaSnapshot: {
+        messageId: 48,
+        mediaKind: 'photo',
+        fileId: 'gallery-file',
+        fileUniqueId: 'gallery-unique',
+        mimeType: 'image/jpeg',
+        fileSize: 123,
+        durationSeconds: null,
+        caption: '<b>Галерея</b>'
+      }
+    });
   });
 
   test('announces deploy updates before polling starts', async () => {

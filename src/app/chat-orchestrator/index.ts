@@ -4,7 +4,7 @@ import type { NormalizedMessage } from '../../domain/models.js';
 import { chatActionRegistry } from '../actions/index.js';
 import { detectDirectMediaLink } from './direct-media-link.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
-import { runDirectMediaMemeJob } from './meme-job.js';
+import { runDirectMediaMemeJob } from './meme-job/direct.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
 
 export type {

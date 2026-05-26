@@ -39,16 +39,23 @@ export async function dispatchMemeMedia(input: {
   };
 }
 
-function toDispatchMedia(media: DownloadedMemeMedia): {
-  kind: 'image' | 'video';
-  filePath: string;
-} {
-  if (media.kind !== 'image' && media.kind !== 'video') {
-    const unsupported = media as { kind?: string };
-
-    throw new Error(
-      `Unsupported meme media kind for Telegram dispatch: ${unsupported.kind}.`
-    );
+function toDispatchMedia(media: DownloadedMemeMedia):
+  | {
+      kind: 'image' | 'video';
+      filePath: string;
+    }
+  | {
+      kind: 'gallery';
+      items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+    } {
+  if (media.kind === 'gallery') {
+    return {
+      kind: 'gallery',
+      items: media.items.map((item) => ({
+        filePath: item.filePath,
+        ...(item.hasSpoiler ? { hasSpoiler: true } : {})
+      }))
+    };
   }
 
   return {

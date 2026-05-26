@@ -47,6 +47,37 @@ function redirectedResponse(url: string): Response {
   return response;
 }
 
+function redditPostResponse(post: Record<string, unknown>) {
+  const subreddit =
+    typeof post.subreddit === 'string' ? post.subreddit : 'memes';
+  const id = String(post.id ?? 'post');
+
+  return new Response(
+    JSON.stringify([
+      {},
+      {
+        data: {
+          children: [
+            {
+              kind: 't3',
+              data: {
+                id,
+                subreddit,
+                title: 'post title',
+                permalink: `/r/${subreddit}/comments/${id}/post_title/`,
+                ups: 10,
+                over_18: false,
+                spoiler: false,
+                ...post
+              }
+            }
+          ]
+        }
+      }
+    ])
+  );
+}
+
 describe('ChatOrchestrator /meme command', () => {
   test('expands a direct Instagram Reel link for private link-only users without saving meme history', async () => {
     let dispatchedFilePath = '';
@@ -392,6 +423,223 @@ describe('ChatOrchestrator /meme command', () => {
           'Reddit post request failed for https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/.json with status 429'
       })
     );
+  });
+
+  test('expands a direct Reddit image link with the standard meme caption', async () => {
+    let dispatchedFilePath = '';
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditPostResponse({
+          id: 'imgdirect',
+          subreddit: 'memes',
+          title: 'direct image',
+          permalink: '/r/memes/comments/imgdirect/direct_image/',
+          ups: 1234,
+          url: 'https://i.redd.it/direct-image.jpeg'
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Length': '3' }
+        })
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 515,
+        createdAt: '2026-05-22T10:00:00.000Z'
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/memes/comments/imgdirect/direct_image/',
+        entities: [],
+        messageId: 47,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: null,
+        reply: false,
+        caption:
+          'direct image\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/imgdirect/direct_image/">↑1234</a>',
+        media: expect.objectContaining({ kind: 'image' })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 47
+    });
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: 'imgdirect',
+      mediaKind: 'image',
+      mediaUrl: 'https://i.redd.it/direct-image.jpeg'
+    });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
+  test('expands a direct Reddit gallery link and marks every item as spoiler', async () => {
+    const dispatchedFilePaths: string[] = [];
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditPostResponse({
+          id: 'galdirect',
+          subreddit: 'pics',
+          title: 'direct gallery',
+          permalink: '/r/pics/comments/galdirect/direct_gallery/',
+          ups: 4321,
+          spoiler: true,
+          is_gallery: true,
+          gallery_data: {
+            items: [{ media_id: 'a1' }, { media_id: 'b2' }]
+          },
+          media_metadata: {
+            a1: {
+              status: 'valid',
+              m: 'image/jpg',
+              s: {
+                u: 'https://preview.redd.it/a1.jpg?width=640&amp;format=pjpg'
+              }
+            },
+            b2: {
+              status: 'valid',
+              m: 'image/png',
+              s: {
+                u: 'https://preview.redd.it/b2.png?width=640&amp;format=png'
+              }
+            }
+          }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Length': '3' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([4, 5, 6]), {
+          headers: { 'Content-Length': '3' }
+        })
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePaths.push(
+        ...input.media.items.map((item: { filePath: string }) => item.filePath)
+      );
+
+      return Promise.resolve({
+        messageId: 516,
+        createdAt: '2026-05-22T10:00:00.000Z'
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/pics/comments/galdirect/direct_gallery/',
+        entities: [],
+        messageId: 48,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: null,
+        reply: false,
+        hasSpoiler: true,
+        caption:
+          'direct gallery\n\nr/pics · <a href="https://www.reddit.com/r/pics/comments/galdirect/direct_gallery/">↑4321</a>',
+        media: {
+          kind: 'gallery',
+          items: [
+            expect.objectContaining({ hasSpoiler: true }),
+            expect.objectContaining({ hasSpoiler: true })
+          ]
+        }
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 48
+    });
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: 'galdirect',
+      mediaKind: 'gallery',
+      mediaUrl: null
+    });
+    expect(dispatchedFilePaths).toHaveLength(2);
+    expect(dispatchedFilePaths.every((filePath) => !existsSync(filePath))).toBe(
+      true
+    );
+  });
+
+  test('ignores direct Reddit self text links without deleting the source message', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      redditPostResponse({
+        id: 'selfdirect',
+        is_self: true,
+        selftext: 'text only',
+        url: 'https://www.reddit.com/r/memes/comments/selfdirect/text_only/'
+      })
+    );
+    const memeDispatcher = vi.fn();
+    const deleteMessageDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/memes/comments/selfdirect/text_only/',
+        entities: [],
+        messageId: 49,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(memeDispatcher).not.toHaveBeenCalled();
+    expect(deleteMessageDispatcher).not.toHaveBeenCalled();
+    expect(db.savedMemePosts).toEqual([]);
   });
 
   test('falls back to yt-dlp with cookies when Reddit JSON is blocked', async () => {
