@@ -11,6 +11,18 @@ import {
   formatInstagramReelCaption
 } from '../../../src/app/actions/meme/instagram-reel-client.js';
 
+async function writeNormalizedVideo(args: string[]): Promise<{
+  stdout: string;
+  stderr: string;
+}> {
+  const outputPath = args.at(-1) ?? '';
+  expect(args).toContain('-vf');
+  expect(args).toContain('libx264');
+  expect(args).toContain('yuv420p');
+  await writeFile(outputPath, new Uint8Array([1, 2, 3]));
+  return { stdout: '', stderr: '' };
+}
+
 describe('findInstagramReelUrl', () => {
   test('extracts Instagram Reel URLs and strips query params', () => {
     expect(
@@ -104,6 +116,8 @@ describe('downloadInstagramReelWithYtDlp', () => {
             };
           }
 
+          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--cookies');
           expect(args).toContain(cookiesPath);
@@ -153,12 +167,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
       );
     }
 
-    expect(result.downloaded.filePath).toContain('DYKAmhRu8g-.mp4');
-    expect(execFile).not.toHaveBeenCalledWith(
-      'ffmpeg',
-      expect.any(Array),
-      expect.anything()
-    );
+    expect(result.downloaded.filePath).toContain('normalized.mp4');
 
     const filePath = result.downloaded.filePath;
     expect(existsSync(filePath)).toBe(true);
@@ -197,6 +206,8 @@ describe('downloadInstagramReelWithYtDlp', () => {
             stderr: ''
           };
         }
+
+        if (file === 'ffmpeg') return writeNormalizedVideo(args);
 
         expect(file).toBe('yt-dlp');
         expect(args).toContain('--cookies');

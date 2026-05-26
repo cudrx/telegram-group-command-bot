@@ -11,6 +11,18 @@ import {
   formatYoutubeShortCaption
 } from '../../../src/app/actions/meme/youtube-short-client.js';
 
+async function writeNormalizedVideo(args: string[]): Promise<{
+  stdout: string;
+  stderr: string;
+}> {
+  const outputPath = args.at(-1) ?? '';
+  expect(args).toContain('-vf');
+  expect(args).toContain('libx264');
+  expect(args).toContain('yuv420p');
+  await writeFile(outputPath, new Uint8Array([1, 2, 3]));
+  return { stdout: '', stderr: '' };
+}
+
 describe('findYoutubeShortUrl', () => {
   test('normalizes supported YouTube URL formats', () => {
     expect(findYoutubeShortUrl('https://youtu.be/5sMdQW_YYOo')).toBe(
@@ -96,6 +108,8 @@ describe('downloadYoutubeShortWithYtDlp', () => {
             };
           }
 
+          if (file === 'ffmpeg') return writeNormalizedVideo(args);
+
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--js-runtimes');
           expect(args).toContain('node');
@@ -104,8 +118,10 @@ describe('downloadYoutubeShortWithYtDlp', () => {
           expect(args).toContain('--merge-output-format');
           expect(args).toContain('mp4');
           expect(args).toContain(
-            'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best[ext=mp4]/best'
+            'bv*[ext=mp4][vcodec^=avc1][height<=1280]+ba[ext=m4a]/b[ext=mp4][vcodec^=avc1][height<=1280]/b[ext=mp4][height<=1280]/b[ext=mp4]'
           );
+          expect(args).toContain('-S');
+          expect(args).toContain('vcodec:h264,res,ext:mp4:m4a');
 
           const outputIndex = args.indexOf('-o');
           const outputTemplate = args[outputIndex + 1] ?? '';
@@ -145,7 +161,7 @@ describe('downloadYoutubeShortWithYtDlp', () => {
       throw new Error('Expected YouTube Short download to return video media.');
     }
 
-    expect(result.downloaded.filePath).toContain('5sMdQW_YYOo.mp4');
+    expect(result.downloaded.filePath).toContain('normalized.mp4');
     const filePath = result.downloaded.filePath;
     expect(existsSync(filePath)).toBe(true);
 

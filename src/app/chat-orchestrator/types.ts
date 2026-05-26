@@ -20,7 +20,7 @@ import type {
   TextToSpeechProvider,
   VisionProvider
 } from '../../media/types.js';
-import type { YtDlpExecFile } from '../actions/meme/yt-dlp-client.js';
+import type { MediaExecFile } from '../actions/meme/video-pipeline.js';
 import type { TelegramChatAction } from '../typing-indicator.js';
 
 export type BotIdentity = {
@@ -135,7 +135,7 @@ export type ChatOrchestratorDeps = {
     getFile(fileId: string): Promise<{ file_path?: string | null }>;
   } | null;
   fetch?: typeof fetch | undefined;
-  execFile?: YtDlpExecFile | undefined;
+  execFile?: MediaExecFile | undefined;
   bot: BotIdentity;
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;

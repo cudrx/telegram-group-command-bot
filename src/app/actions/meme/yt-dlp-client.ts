@@ -1,19 +1,17 @@
 import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { resolveRedditPostReference } from './reddit-post-client.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
+import {
+  downloadTelegramSafeVideoWithYtDlp,
+  type MediaExecFile
+} from './video-pipeline.js';
 
 const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
-
-export type YtDlpExecFile = (
-  file: string,
-  args: string[],
-  options?: { cwd?: string | undefined }
-) => Promise<{ stdout: string; stderr: string }>;
+const REDDIT_FORMAT_SELECTOR =
+  'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best';
 
 export type YtDlpRedditVideoResult = {
   candidate: MemePostCandidate;
@@ -26,7 +24,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
   redditCookiesPath?: string | null | undefined;
   maxBytes: number;
   fetch?: typeof fetch | undefined;
-  execFile?: YtDlpExecFile | undefined;
+  execFile?: MediaExecFile | undefined;
 }): Promise<YtDlpRedditVideoResult | null> {
   const reference = await resolveRedditPostReference({
     text: input.text,
@@ -46,66 +44,36 @@ export async function downloadRedditVideoWithYtDlp(input: {
     cookiesPath,
     url: reference.permalink
   });
-  const tempDirectory = await mkdtemp(path.join(os.tmpdir(), 'reddit-ytdlp-'));
+  const downloaded = await downloadTelegramSafeVideoWithYtDlp({
+    execFile,
+    url: reference.permalink,
+    tempPrefix: 'reddit-ytdlp-',
+    maxBytes: input.maxBytes,
+    durationSeconds: metadata.durationSeconds ?? null,
+    ytDlpArgs: ['--cookies', cookiesPath, '-f', REDDIT_FORMAT_SELECTOR]
+  });
 
-  try {
-    await execFile(
-      YT_DLP_BIN,
-      [
-        '--cookies',
-        cookiesPath,
-        '--no-playlist',
-        '--max-filesize',
-        formatMaxFilesize(input.maxBytes),
-        '-f',
-        'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio/best',
-        '-o',
-        path.join(tempDirectory, '%(id)s.%(ext)s'),
-        reference.permalink
-      ],
-      { cwd: tempDirectory }
-    );
-
-    const filePath = await findDownloadedMp4(tempDirectory);
-    const fileStat = await stat(filePath);
-
-    if (fileStat.size > input.maxBytes) {
-      throw new Error(`Media file is too large: ${fileStat.size} bytes.`);
-    }
-
-    return {
-      candidate: {
-        redditPostId: reference.redditPostId,
-        subreddit: reference.subreddit,
-        title: metadata.title ?? 'Reddit video',
-        permalink: reference.permalink,
-        upvotes: metadata.upvotes ?? 0,
-        media: {
-          kind: 'video',
-          mediaUrl: `yt-dlp:${metadata.id ?? reference.redditPostId}`,
-          extension: 'mp4',
-          durationSeconds: metadata.durationSeconds ?? null,
-          ...(metadata.hasSpoiler ? { hasSpoiler: true } : {})
-        }
-      },
-      downloaded: {
+  return {
+    candidate: {
+      redditPostId: reference.redditPostId,
+      subreddit: reference.subreddit,
+      title: metadata.title ?? 'Reddit video',
+      permalink: reference.permalink,
+      upvotes: metadata.upvotes ?? 0,
+      media: {
         kind: 'video',
-        filePath,
+        mediaUrl: `yt-dlp:${metadata.id ?? reference.redditPostId}`,
         extension: 'mp4',
         durationSeconds: metadata.durationSeconds ?? null,
-        cleanup: async () => {
-          await rm(tempDirectory, { recursive: true, force: true });
-        }
+        ...(metadata.hasSpoiler ? { hasSpoiler: true } : {})
       }
-    };
-  } catch (error) {
-    await rm(tempDirectory, { recursive: true, force: true });
-    throw error;
-  }
+    },
+    downloaded
+  };
 }
 
 async function fetchYtDlpMetadata(input: {
-  execFile: YtDlpExecFile;
+  execFile: MediaExecFile;
   cookiesPath: string;
   url: string;
 }): Promise<{
@@ -131,21 +99,6 @@ async function fetchYtDlpMetadata(input: {
     durationSeconds: readNumber(payload, 'duration'),
     hasSpoiler: (readNumber(payload, 'age_limit') ?? 0) > 0
   };
-}
-
-async function findDownloadedMp4(directory: string): Promise<string> {
-  const entries = await readdir(directory);
-  const mp4 = entries.find((entry) => entry.toLowerCase().endsWith('.mp4'));
-
-  if (!mp4) {
-    throw new Error('yt-dlp did not produce an mp4 file.');
-  }
-
-  return path.join(directory, mp4);
-}
-
-function formatMaxFilesize(maxBytes: number): string {
-  return `${Math.floor(maxBytes / 1_000_000)}M`;
 }
 
 function readString(value: unknown, key: string): string | null {

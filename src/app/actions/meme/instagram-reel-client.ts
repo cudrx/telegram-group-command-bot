@@ -1,14 +1,17 @@
 import { execFile as execFileCallback } from 'node:child_process';
-import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
-import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 import type { DownloadedMemeMedia } from './types.js';
-import type { YtDlpExecFile } from './yt-dlp-client.js';
+import {
+  downloadTelegramSafeVideoWithYtDlp,
+  type MediaExecFile
+} from './video-pipeline.js';
 
 const execFileDefault = promisify(execFileCallback);
 const YT_DLP_BIN = 'yt-dlp';
+const INSTAGRAM_FORMAT_SELECTOR =
+  'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best';
 
 export type InstagramReelDownloadResult = {
   caption: string;
@@ -34,7 +37,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
   instagramCookiesPath?: string | null | undefined;
   maxBytes: number;
   captionMaxLength: number;
-  execFile?: YtDlpExecFile | undefined;
+  execFile?: MediaExecFile | undefined;
 }): Promise<InstagramReelDownloadResult | null> {
   const reelUrl = findInstagramReelUrl(input.text);
   if (!reelUrl) return null;
@@ -49,58 +52,24 @@ export async function downloadInstagramReelWithYtDlp(input: {
     url: reelUrl
   });
   const sourceUrl = reelUrl;
-  const tempDirectory = await mkdtemp(
-    path.join(os.tmpdir(), 'instagram-ytdlp-')
-  );
+  const downloaded = await downloadTelegramSafeVideoWithYtDlp({
+    execFile,
+    url: sourceUrl,
+    tempPrefix: 'instagram-ytdlp-',
+    maxBytes: input.maxBytes,
+    durationSeconds: metadata.durationSeconds,
+    ytDlpArgs: ['--cookies', cookiesPath, '-f', INSTAGRAM_FORMAT_SELECTOR]
+  });
 
-  try {
-    await execFile(
-      YT_DLP_BIN,
-      [
-        '--cookies',
-        cookiesPath,
-        '--no-playlist',
-        '--max-filesize',
-        formatMaxFilesize(input.maxBytes),
-        '--merge-output-format',
-        'mp4',
-        '-f',
-        'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
-        '-o',
-        path.join(tempDirectory, '%(id)s.%(ext)s'),
-        sourceUrl
-      ],
-      { cwd: tempDirectory }
-    );
-
-    const filePath = await findDownloadedMp4(tempDirectory);
-    const fileStat = await stat(filePath);
-
-    if (fileStat.size > input.maxBytes) {
-      throw new Error(`Media file is too large: ${fileStat.size} bytes.`);
-    }
-
-    return {
-      caption: formatInstagramReelCaption({
-        nickname: metadata.channel ?? metadata.uploader ?? 'unknown',
-        likeCount: metadata.likeCount ?? 0,
-        reelUrl: sourceUrl
-      }),
-      sourceUrl,
-      downloaded: {
-        kind: 'video',
-        filePath,
-        extension: 'mp4',
-        durationSeconds: metadata.durationSeconds,
-        cleanup: async () => {
-          await rm(tempDirectory, { recursive: true, force: true });
-        }
-      }
-    };
-  } catch (error) {
-    await rm(tempDirectory, { recursive: true, force: true });
-    throw error;
-  }
+  return {
+    caption: formatInstagramReelCaption({
+      nickname: metadata.channel ?? metadata.uploader ?? 'unknown',
+      likeCount: metadata.likeCount ?? 0,
+      reelUrl: sourceUrl
+    }),
+    sourceUrl,
+    downloaded
+  };
 }
 
 export function formatInstagramReelCaption(input: {
@@ -143,7 +112,7 @@ function parseInstagramReelUrl(value: string): string | null {
 }
 
 async function fetchInstagramMetadata(input: {
-  execFile: YtDlpExecFile;
+  execFile: MediaExecFile;
   cookiesPath: string;
   url: string;
 }): Promise<{
@@ -175,27 +144,12 @@ async function fetchInstagramMetadata(input: {
   };
 }
 
-async function findDownloadedMp4(directory: string): Promise<string> {
-  const entries = await readdir(directory);
-  const mp4 = entries.find((entry) => entry.toLowerCase().endsWith('.mp4'));
-
-  if (!mp4) {
-    throw new Error('yt-dlp did not produce an mp4 file.');
-  }
-
-  return path.join(directory, mp4);
-}
-
 function isInstagramHost(hostname: string): boolean {
   return hostname === 'instagram.com' || hostname.endsWith('.instagram.com');
 }
 
 function stripTrailingPunctuation(value: string): string {
   return value.replace(/[),.]+$/u, '');
-}
-
-function formatMaxFilesize(maxBytes: number): string {
-  return `${Math.floor(maxBytes / 1_000_000)}M`;
 }
 
 function formatInteger(value: number): string {
