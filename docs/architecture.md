@@ -211,7 +211,7 @@ Behavior:
 
 ### `/translate`
 
-- Runs as a reply to a target message and always translates into Russian.
+- Runs as a reply to a target message and always translates into the target language.
 - Text after the command is ignored.
 - Can translate this bot's own messages; this exception supports the `/answer` -> `/translate` chain.
 - Translates only target-message blocks: text, caption, image OCR text, audio/video-note transcript, or image description.

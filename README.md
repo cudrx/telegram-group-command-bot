@@ -15,7 +15,7 @@ The bot is primarily command-driven. It stores a message log, can call an OpenAI
 - Automatic recognition for supported media when provider keys are present:
   `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
 - `/read` speaks the text of the replied-to message when `YANDEX_SPEECHKIT_API_KEY` is set.
-- `/translate` translates into Russian the text, caption, OCR text, image description, or audio transcript from the replied-to message.
+- `/translate` translates into the target language the text, caption, OCR text, image description, or audio transcript from the replied-to message.
 - `/meme` picks a random fresh post from Reddit top-week listings across a hardcoded subreddit pool, sends an image or video with the original title without replying to the command, and stores Telegram media metadata for future context. Reddit NSFW/spoiler posts are sent with Telegram's spoiler flag.
 - Supported Reddit image/gallery/video post links, Instagram Reel links, and YouTube Shorts links in regular messages are expanded automatically in the work chat, the admin private chat, and link-only private chats. The bot downloads media to temporary files, sends it without replying to the source message, then tries to delete the link message. Reddit captions use the title, `r/<subreddit>`, and linked upvotes; Reels/Shorts captions use `<source>: <nickname> · likes: <linked count>`. Reddit NSFW/spoiler media is sent with Telegram's spoiler flag.
 - `/publish` in the admin private chat copies the replied-to message, or the latest message before the command, into the work chat without source-author attribution.
@@ -31,7 +31,7 @@ When a user edits an already stored incoming message, the bot updates its text a
 - `/summarize` - summarize recent human messages in the chat.
 - `/decide` - judge the current dispute; with lookup configured, it can verify external facts through Tavily.
 - `/answer` - answer the replied-to message or the latest message before the command.
-- `/translate` - translate the content of the replied-to message into Russian.
+- `/translate` - translate the content of the replied-to message into the target language.
 - `/read` - speak a replied-to text message; text after the command is ignored.
 - `/meme` - send a random image/gallery/video meme that was not repeated in the last 14 days.
 - `/publish` - in the admin private chat, copy the replied-to message or the latest message before the command into the work chat; albums are copied as a group when every album item was stored by the bot.
