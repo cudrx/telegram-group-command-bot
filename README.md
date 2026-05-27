@@ -1,64 +1,65 @@
 # Telegram Chat Assistant
 
-Telegram-бот на `Node.js`, `TypeScript`, `grammY` и `SQLite`.
+A Telegram bot built with `Node.js`, `TypeScript`, `grammY`, and `SQLite`.
 
-Бот в основном работает от явных команд, хранит журнал сообщений, умеет обращаться к OpenAI-compatible LLM, при необходимости использует поиск через Tavily, кэширует результаты распознавания медиа и озвучивает ответы через Yandex SpeechKit.
+The bot is primarily command-driven. It stores a message log, can call an OpenAI-compatible LLM, optionally uses Tavily for web lookup, caches media recognition results, and can send voice replies through Yandex SpeechKit.
 
-## Возможности
+## Features
 
-- Получение обновлений из Telegram через long polling в `grammY`.
-- Проверка доступа: рабочая группа задается через `TELEGRAM_CHAT_ID`, режим администратора в личке — через `TELEGRAM_ADMIN_ID`, link-only пользователи для лички — через `TELEGRAM_LINK_USER_IDS`.
-- SQLite хранит чаты, сообщения, данные отправителей, reply-связи, отметки редактирования, артефакты медиа, историю отправленных мемов и небольшой `app_state`.
-- Команды: `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/meme`, `/publish`.
-- Поиск для `/decide` и `/answer` включается только при наличии `TAVILY_API_KEY`.
-- Reply prompt для LLM получает текущие дату и время Москвы простым текстом, чтобы ответы корректно разрешали “сегодня”, “завтра” и “вчера”.
-- Автоматическое распознавание поддержанных медиа при наличии ключей провайдеров:
+- Telegram update handling through `grammY` long polling.
+- Access control: the main work chat is configured with `TELEGRAM_CHAT_ID`, private admin mode with `TELEGRAM_ADMIN_ID`, and link-only private users with `TELEGRAM_LINK_USER_IDS`.
+- SQLite stores chats, messages, sender metadata, reply relationships, edit markers, media artifacts, sent meme history, and a small `app_state`.
+- Commands: `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/meme`, `/publish`.
+- Lookup for `/decide` and `/answer` is enabled when `TAVILY_API_KEY` is set.
+- Reply prompts receive the current Moscow date and time as plain text so the model can resolve "today", "tomorrow", and "yesterday".
+- Automatic recognition for supported media when provider keys are present:
   `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
-- `/read` озвучивает текст сообщения, на которое сделали reply, при наличии `YANDEX_SPEECHKIT_API_KEY`.
-- `/translate` переводит на русский текст, подпись, OCR, описание картинки или расшифровку аудио из сообщения, на которое сделали reply.
-- `/meme` берет случайный свежий пост из Reddit top-week по hardcoded пулу сабреддитов, отправляет картинку или видео с оригинальным title без reply на команду и сохраняет Telegram media metadata для будущего контекста. Reddit NSFW/spoiler posts отправляются с Telegram spoiler flag.
-- Reddit post-ссылки с поддержанными image/gallery/video media, Instagram Reel-ссылки и YouTube Shorts-ссылки в обычных сообщениях рабочего чата, лички администратора и личек link-only пользователей разворачиваются автоматически: бот скачивает media во временные файлы, отправляет без reply на исходное сообщение, затем пытается удалить сообщение со ссылкой. Reddit captions используют title, `r/<subreddit>` и кликабельные апвоуты; Reels/Shorts captions используют только `<source>: <nickname> · likes: <linked count>`. Reddit NSFW/spoiler media отправляется с Telegram spoiler flag.
-- `/publish` в личке администратора копирует reply-сообщение или последнее сообщение перед командой в рабочий чат без attribution исходного автора.
-- Локальные подсказки и fallback-сообщения бота отправляются только текстом, даже если исходящая озвучка включена.
-- Безопасное HTML-форматирование ответов для Telegram.
-- Оповещение о продакшн-деплое, дедуплицированное через SQLite.
+- `/read` speaks the text of the replied-to message when `YANDEX_SPEECHKIT_API_KEY` is set.
+- `/translate` translates into Russian the text, caption, OCR text, image description, or audio transcript from the replied-to message.
+- `/meme` picks a random fresh post from Reddit top-week listings across a hardcoded subreddit pool, sends an image or video with the original title without replying to the command, and stores Telegram media metadata for future context. Reddit NSFW/spoiler posts are sent with Telegram's spoiler flag.
+- Supported Reddit image/gallery/video post links, Instagram Reel links, and YouTube Shorts links in regular messages are expanded automatically in the work chat, the admin private chat, and link-only private chats. The bot downloads media to temporary files, sends it without replying to the source message, then tries to delete the link message. Reddit captions use the title, `r/<subreddit>`, and linked upvotes; Reels/Shorts captions use `<source>: <nickname> · likes: <linked count>`. Reddit NSFW/spoiler media is sent with Telegram's spoiler flag.
+- `/publish` in the admin private chat copies the replied-to message, or the latest message before the command, into the work chat without source-author attribution.
+- Local usage hints and fallback messages are sent as text even when outbound voice is enabled.
+- Safe Telegram HTML formatting for bot replies.
+- Deduplicated production deploy announcements through SQLite.
 
-Обычное упоминание бота и обычный текст в личке не запускают LLM. Исключение — явная Reddit post-ссылка с поддержанным image/gallery/video media, Instagram Reel-ссылка или YouTube Shorts-ссылка, которую бот обрабатывает локально без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` в личке могут отправлять поддержанные ссылки; их команды игнорируются.
-Если пользователь редактирует уже сохраненное входящее сообщение, бот обновляет его текст и `edited_at` в SQLite для будущего контекста, но не пересчитывает уже отправленные ответы.
+Regular mentions of the bot and regular private-chat text do not trigger the LLM. The exception is an explicit supported Reddit post, Instagram Reel, or YouTube Shorts link, which is handled locally without the LLM. Link-only users from `TELEGRAM_LINK_USER_IDS` can send supported links in private chat; their commands are ignored.
+When a user edits an already stored incoming message, the bot updates its text and `edited_at` in SQLite for future context, but existing bot replies are not recalculated.
 
-## Команды
+## Commands
 
-- `/summarize` — кратко суммировать последние сообщения людей в чате.
-- `/decide` — оценить текущий спор; при настроенном поиске может проверять внешние факты через Tavily.
-- `/answer` — ответить на reply-сообщение или последнее сообщение перед командой.
-- `/translate` — перевести на русский содержимое сообщения, на которое пользователь сделал reply командой.
-- `/read` — озвучить текстовое сообщение, на которое сделали reply; текст после команды игнорируется.
-- `/meme` — отправить случайный неповторявшийся за последние 14 дней image/gallery/video мем из Reddit.
-- `/publish` — в личке администратора скопировать reply-сообщение или последнее сообщение перед командой в рабочий чат; альбомы копируются целиком, если все элементы альбома были сохранены ботом.
+- `/summarize` - summarize recent human messages in the chat.
+- `/decide` - judge the current dispute; with lookup configured, it can verify external facts through Tavily.
+- `/answer` - answer the replied-to message or the latest message before the command.
+- `/translate` - translate the content of the replied-to message into Russian.
+- `/read` - speak a replied-to text message; text after the command is ignored.
+- `/meme` - send a random image/gallery/video meme that was not repeated in the last 14 days.
+- `/publish` - in the admin private chat, copy the replied-to message or the latest message before the command into the work chat; albums are copied as a group when every album item was stored by the bot.
 
-## Требования
+## Requirements
 
 - Node.js `22` LTS
 - npm `11+`
-- токен Telegram-бота
-- ключ OpenAI-compatible LLM API
-Ключи дополнительных провайдеров нужны только для соответствующих возможностей.
+- Telegram bot token
+- OpenAI-compatible LLM API key
 
-## Локальный запуск
+Optional provider keys are needed only for the matching features.
 
-1. Установить зависимости:
+## Local Setup
+
+1. Install dependencies:
 
 ```bash
 npm install
 ```
 
-2. Создать `.env`:
+2. Create `.env`:
 
 ```bash
 cp .env.example .env
 ```
 
-Замените обязательные плейсхолдеры:
+Replace the required placeholders:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
@@ -66,9 +67,9 @@ cp .env.example .env
 - `TELEGRAM_LINK_USER_IDS`
 - `LLM_API_KEY`
 
-Ключи дополнительных провайдеров в `.env.example` тоже выглядят как плейсхолдеры. Если провайдер не нужен, удалите или закомментируйте его строку; если нужен — замените на реальный ключ. Проверка окружения специально не дает стартовать с `your-*` значениями.
+Optional provider keys in `.env.example` are placeholders too. Replace the key when you need the provider, or remove/comment out that line. Environment validation rejects `your-*` placeholder values.
 
-3. При необходимости поменять провайдера или модель LLM:
+3. Change the LLM provider or model if needed:
 
 ```dotenv
 LLM_BASE_URL=https://api.deepseek.com
@@ -76,19 +77,19 @@ LLM_REPLY_MODEL=deepseek-v4-flash
 LLM_PLANNER_MODEL=deepseek-v4-flash
 ```
 
-4. Создать или обновить SQLite-схему:
+4. Create or update the SQLite schema:
 
 ```bash
 npm run migrate
 ```
 
-5. Запустить режим разработки:
+5. Start development mode:
 
 ```bash
 npm run dev
 ```
 
-## Основные переменные окружения
+## Main Environment Variables
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
@@ -111,12 +112,9 @@ npm run dev
 - `INSTAGRAM_COOKIES_PATH`
 - `YOUTUBE_COOKIES_PATH`
 
-Остальные настройки времени выполнения разделены на два слоя: deploy-specific
-значения и секреты описаны в `src/config/env/`, а несекретные defaults поведения
-и провайдеров сгруппированы в `src/config/runtime/`. Переопределять через
-окружение можно только значения, добавленные в env-схему.
+Runtime settings are split into two layers: deploy-specific values and secrets live in `src/config/env/`, while non-secret behavior and provider defaults live in `src/config/runtime/`. Only values added to the env schema can be overridden through the environment.
 
-## Проверки
+## Checks
 
 ```bash
 npm run lint
@@ -125,7 +123,7 @@ npm test
 npm run build
 ```
 
-Дополнительно:
+Additional eval commands:
 
 ```bash
 npm run eval:intents
@@ -133,29 +131,29 @@ npm run eval:intents -- --id=decide-laptop-value-dispute
 npm run eval:intents -- --intent=summarize
 ```
 
-Eval-отчеты пишутся в локальную служебную папку.
+Eval reports are written to a local working directory.
 
-## Структура
+## Structure
 
-- `src/index.ts` — точка входа процесса.
-- `src/app.ts` — сборка приложения.
-- `src/app/` — оркестрация, отправка сообщений в Telegram, HTML-форматирование, оповещения о деплое.
-- `src/app/actions/` — модульные action-команды, registry команд и action-local helpers.
-- `src/app/chat-orchestrator/` — жизненный цикл входящего сообщения, сохранение, media auto-read и запуск action через registry.
-- `src/config/env/` — схема окружения, значения по умолчанию и проверки.
-- `src/database/` — схема SQLite, миграции, преобразование строк и запросы.
-- `src/domain/` — общие доменные типы сообщений, чатов и intent.
-- `src/llm/` — сборка prompt, планировщик поиска, OpenAI-compatible клиент.
-- `src/media/` — Telegram media download, Gladia, Cloudflare Vision, OCR.space.
-- `src/tts/` — подготовка текста к речи, политика озвучки, Yandex SpeechKit.
-- `src/transport/` — нормализация сообщений Telegram.
-- `llm/` — статические prompt-файлы.
-- `scripts/` — миграции, metadata для деплоя и eval-скрипты.
-- `docs/` — карта документации, архитектура, руководство по разработке.
+- `src/index.ts` - process entry point.
+- `src/app.ts` - application assembly.
+- `src/app/` - orchestration, Telegram message sending, HTML formatting, deploy announcements.
+- `src/app/actions/` - modular action commands, command registry, and action-local helpers.
+- `src/app/chat-orchestrator/` - incoming message lifecycle, persistence, media auto-read, and action dispatch through the registry.
+- `src/config/env/` - environment schema, defaults, and validation.
+- `src/database/` - SQLite schema, migrations, row mapping, and queries.
+- `src/domain/` - shared domain types for messages, chats, and intents.
+- `src/llm/` - prompt assembly, lookup planner, OpenAI-compatible client.
+- `src/media/` - Telegram media download, Gladia, Cloudflare Vision, OCR.space.
+- `src/tts/` - speech cleanup, voice policy, Yandex SpeechKit.
+- `src/transport/` - Telegram message normalization.
+- `llm/` - static prompt files.
+- `scripts/` - migrations, deploy metadata, and eval scripts.
+- `docs/` - documentation map, architecture, development guide.
 
 ## Docker
 
-Локальная smoke-проверка использует корневой `compose.yml`:
+The root `compose.yml` is used for a local smoke check:
 
 ```bash
 npm run build
@@ -166,12 +164,12 @@ docker compose logs bot --tail=100 -f
 docker compose down
 ```
 
-Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированном persistent storage, а не внутри контейнера.
+Production deploys are built in GitHub Actions, published to GHCR, and applied on the server with `docker compose pull` + `docker compose up -d`. SQLite lives in mounted persistent storage rather than inside the container.
 
-Для Reddit video, Instagram Reels и YouTube Shorts standalone `yt-dlp` zipapp пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3`, `ffmpeg`/`ffprobe` и Node.js 22, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком, решать YouTube EJS challenges через `--js-runtimes node`, а затем нормализовать видео для Telegram. Любое Reddit-hosted video, Instagram Reel и YouTube Short проходит единый pipeline `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> sendVideo`: ролики длиннее 120 секунд не скачиваются/не конвертируются, а скачанные файлы повторно проверяются через `ffprobe`. Нормализация запускается только одним процессом за раз через `nice -n 19 ffmpeg -preset veryfast`, выставляет H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, удаляет metadata и переносит moov atom в начало файла. YouTube Shorts выбирают H.264 MP4 не выше `height<=854`, чтобы не брать слишком тяжелые 720p/1080p варианты для длинных Shorts. Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, Reels используют `INSTAGRAM_COOKIES_PATH`, Shorts используют `YOUTUBE_COOKIES_PATH`; если пути не заданы, defaults строятся рядом с SQLite.
+For Reddit video, Instagram Reels, and YouTube Shorts, a standalone `yt-dlp` zipapp is mounted into the container as `/usr/local/bin/yt-dlp`. The runtime image includes `python3`, `ffmpeg`/`ffprobe`, and Node.js 22 so `yt-dlp` can merge video/audio tracks into MP4 with audio, solve YouTube EJS challenges through `--js-runtimes node`, and then normalize video for Telegram. Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> sendVideo`. Videos longer than 120 seconds are not downloaded or converted, and downloaded files are checked again with `ffprobe`. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and moves the moov atom to the beginning. YouTube Shorts use H.264 MP4 at `height<=854` to avoid oversized 720p/1080p variants for long Shorts. Reddit `fallback_url` and similar direct MP4 URLs are used only as metadata/video-post signals, not as download paths. `/meme` Reddit listings and direct Reddit links use `REDDIT_COOKIES_PATH`, Reels use `INSTAGRAM_COOKIES_PATH`, Shorts use `YOUTUBE_COOKIES_PATH`; when paths are not set, defaults are resolved next to SQLite.
 
-## Документация
+## Documentation
 
-- `docs/README.md` — карта Markdown-файлов.
-- `docs/architecture.md` — архитектура, инварианты и основные потоки.
-- `docs/development.md` — локальная разработка, проверки, CI/CD и заметки по продакшну.
+- `docs/README.md` - Markdown file map.
+- `docs/architecture.md` - architecture, invariants, and main flows.
+- `docs/development.md` - local development, checks, CI/CD, and production notes.

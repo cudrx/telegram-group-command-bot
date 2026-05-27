@@ -1,40 +1,40 @@
-# Руководство По Разработке
+# Development Guide
 
-## Требования
+## Requirements
 
 - Node.js `22` LTS
 - npm `11+`
-- токен Telegram-бота
-- ключ OpenAI-compatible LLM API
+- Telegram bot token
+- OpenAI-compatible LLM API key
 
-## Основные Файлы
+## Main Files
 
-- `README.md` — обзор и быстрый старт.
-- `docs/README.md` — структура Markdown-документации.
-- `docs/architecture.md` — архитектура и потоки.
-- `docs/development.md` — это руководство.
-- `llm/assistant/base.md` — базовый prompt ассистента.
-- `llm/` — статические prompt-файлы.
-- `src/app/actions/` — action-модули команд и command registry.
-- `src/llm/current-datetime.ts` — форматирование текущей даты и времени Москвы для reply prompt.
-- `src/config/env/` — схема окружения, значения по умолчанию и проверки.
-- `src/config/runtime/` — типизированные runtime defaults, сгруппированные по action и provider.
-- `scripts/` — миграции, eval-скрипты и metadata для деплоя.
+- `README.md` - overview and quick start.
+- `docs/README.md` - Markdown documentation structure.
+- `docs/architecture.md` - architecture and flows.
+- `docs/development.md` - this guide.
+- `llm/assistant/base.md` - base assistant prompt.
+- `llm/` - static prompt files.
+- `src/app/actions/` - command action modules and command registry.
+- `src/llm/current-datetime.ts` - current Moscow date/time formatting for reply prompts.
+- `src/config/env/` - environment schema, defaults, and validation.
+- `src/config/runtime/` - typed runtime defaults grouped by action and provider.
+- `scripts/` - migrations, eval scripts, and deploy metadata.
 
-## Окружение
+## Environment
 
-Обязательные переменные:
+Required variables:
 
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `TELEGRAM_ADMIN_ID`
-- `TELEGRAM_LINK_USER_IDS` — optional comma-separated Telegram user ids allowed to DM only supported direct media links; their commands are ignored.
+- `TELEGRAM_LINK_USER_IDS` - optional comma-separated Telegram user ids allowed to DM only supported direct media links; their commands are ignored.
 - `LLM_API_KEY`
-- `REDDIT_COOKIES_PATH` — optional path to Netscape cookies for Reddit listing/direct video requests.
-- `INSTAGRAM_COOKIES_PATH` — optional path to Netscape cookies for Instagram Reels.
-- `YOUTUBE_COOKIES_PATH` — optional path to Netscape cookies for YouTube Shorts.
+- `REDDIT_COOKIES_PATH` - optional path to Netscape cookies for Reddit listing/direct video requests.
+- `INSTAGRAM_COOKIES_PATH` - optional path to Netscape cookies for Instagram Reels.
+- `YOUTUBE_COOKIES_PATH` - optional path to Netscape cookies for YouTube Shorts.
 
-Часто используемые:
+Common variables:
 
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
@@ -44,24 +44,19 @@
 - `LOG_LLM_TEXT`
 - `SQLITE_PATH`
 
-Дополнительные провайдеры:
+Optional providers:
 
-- `TAVILY_API_KEY` — поиск для `/decide` и `/answer`.
-- `GLADIA_API_KEY` — транскрибация audio/video-note.
-- `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` — описание изображений.
-- `OCR_SPACE_API_KEY` — OCR.
-- `YANDEX_SPEECHKIT_API_KEY` — исходящая озвучка.
+- `TAVILY_API_KEY` - lookup for `/decide` and `/answer`.
+- `GLADIA_API_KEY` - audio/video-note transcription.
+- `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` - image description.
+- `OCR_SPACE_API_KEY` - OCR.
+- `YANDEX_SPEECHKIT_API_KEY` - outbound voice.
 
-`.env.example` содержит плейсхолдеры. Проверка окружения отклоняет `your-*` значения, поэтому ключи дополнительных провайдеров нужно либо заменить, либо удалить/закомментировать.
+`.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
 
-Runtime-настройки, которые не являются секретами и не требуют deploy-specific
-переопределения, лежат в `src/config/runtime/`. Значения там сгруппированы по
-сценариям (`actions/answer`, `actions/read`, `actions/meme`) и внешним
-провайдерам (`providers/llm`, `providers/media`, `providers/tts`,
-`providers/lookup`). Настройки, которые меняются между окружениями, проходят
-через `src/config/env/schema.ts`; defaults берутся из runtime config.
+Runtime settings that are not secrets and do not require deploy-specific overrides live in `src/config/runtime/`. Values are grouped by scenario (`actions/answer`, `actions/read`, `actions/meme`) and external provider (`providers/llm`, `providers/media`, `providers/tts`, `providers/lookup`). Settings that differ between environments go through `src/config/env/schema.ts`; defaults come from runtime config.
 
-## Локальный Запуск
+## Local Run
 
 ```bash
 npm install
@@ -70,9 +65,9 @@ npm run migrate
 npm run dev
 ```
 
-Перед запуском замените обязательные значения в `.env`.
+Replace required values in `.env` before starting.
 
-Если используете другого OpenAI-compatible провайдера, поменяйте:
+If you use a different OpenAI-compatible provider, change:
 
 ```dotenv
 LLM_BASE_URL=https://api.deepseek.com
@@ -80,7 +75,7 @@ LLM_REPLY_MODEL=deepseek-v4-flash
 LLM_PLANNER_MODEL=deepseek-v4-flash
 ```
 
-Для подробной отладки:
+For detailed debugging:
 
 ```dotenv
 LOG_LEVEL=debug
@@ -88,26 +83,26 @@ LOG_LLM_TEXT=true
 LOG_COLOR=true
 ```
 
-`LOG_LLM_TEXT=true` пишет компактный trace и короткий preview, но не полный prompt/response.
+`LOG_LLM_TEXT=true` writes a compact trace and short preview, but not the full prompt/response.
 
-## NPM-Скрипты
+## NPM Scripts
 
-- `npm run dev` — локальный запуск через `tsx watch`.
-- `npm run migrate` — создает или обновляет схему SQLite.
-- `npm run lint` — `biome check`.
-- `npm run lint:fix` — `biome check --write`.
-- `npm run format` — `biome format --write`.
-- `npm run typecheck` — `tsc --noEmit`.
-- `npm test` — `vitest run`.
-- `npm run build` — сборка TypeScript-проекта.
-- `npm start` — запуск собранного приложения.
-- `npm run eval:intents` — полный набор intent eval.
-- `npm run eval:intents -- --id=<fixture-id>` — один fixture.
-- `npm run eval:intents -- --intent=<intent>` — fixtures одного intent.
+- `npm run dev` - local run through `tsx watch`.
+- `npm run migrate` - create or update the SQLite schema.
+- `npm run lint` - `biome check`.
+- `npm run lint:fix` - `biome check --write`.
+- `npm run format` - `biome format --write`.
+- `npm run typecheck` - `tsc --noEmit`.
+- `npm test` - `vitest run`.
+- `npm run build` - build the TypeScript project.
+- `npm start` - run the built application.
+- `npm run eval:intents` - full intent eval suite.
+- `npm run eval:intents -- --id=<fixture-id>` - one fixture.
+- `npm run eval:intents -- --intent=<intent>` - fixtures for one intent.
 
-## Проверки
+## Checks
 
-Для обычных изменений:
+For regular changes:
 
 ```bash
 npm run lint
@@ -115,25 +110,23 @@ npm run typecheck
 npm test
 ```
 
-Для изменений времени выполнения, сборки или деплоя:
+For runtime, build, or deploy changes:
 
 ```bash
 npm run build
 ```
 
-Для изменений маршрутизации intent или prompt-контракта:
+For intent routing or prompt-contract changes:
 
 ```bash
 npm run eval:intents
 ```
 
-Prompt-контракт reply-моделей включает блок `CURRENT_DATETIME` с текущими датой
-и временем Москвы в простом текстовом формате. Это помогает LLM корректно
-считать относительные даты.
+The reply-model prompt contract includes a `CURRENT_DATETIME` block with current Moscow date and time in plain text. This helps the LLM resolve relative dates correctly.
 
-## Локальный Docker
+## Local Docker
 
-Корневой `compose.yml` запускает локальный контейнер с bind mounts.
+The root `compose.yml` starts a local container with bind mounts.
 
 ```bash
 npm run build
@@ -144,15 +137,15 @@ docker compose logs bot --tail=100 -f
 docker compose down
 ```
 
-SQLite сохраняется в примонтированном persistent storage.
+SQLite is stored in mounted persistent storage.
 
-Если Docker отвечает `permission denied`, используйте `sudo` или добавьте пользователя в группу `docker` и заново войдите в сессию.
+If Docker returns `permission denied`, use `sudo` or add the user to the `docker` group and start a new session.
 
 ## CI
 
-Workflow CI: `.github/workflows/ci.yml`.
+CI workflow: `.github/workflows/ci.yml`.
 
-На `push`, `pull_request` и ручной `workflow_dispatch` выполняются:
+On `push`, `pull_request`, and manual `workflow_dispatch`, it runs:
 
 1. `npm ci`
 2. `npm run lint`
@@ -160,13 +153,11 @@ Workflow CI: `.github/workflows/ci.yml`.
 4. `npm test`
 5. `npm run build`
 
-## Продакшн-Деплой
+## Production Deploy
 
-Workflow деплоя: `.github/workflows/deploy.yml`.
+Deploy workflow: `.github/workflows/deploy.yml`.
 
-Деплой запускается автоматически на `push` в `main` и вручную через GitHub
-Actions `Run workflow`. Workflow загружает compose/assets, публикует Docker
-image в GHCR и на сервере выполняет pull/up через `deploy/remote-deploy.sh`.
+Deploys run automatically on `push` to `main` and manually through GitHub Actions `Run workflow`. The workflow uploads compose/assets, publishes the Docker image to GHCR, and runs pull/up on the server through `deploy/remote-deploy.sh`.
 
 GitHub Secrets:
 
@@ -180,10 +171,9 @@ GitHub Secrets:
 - `TELEGRAM_CHAT_ID`
 - `TELEGRAM_ADMIN_ID`
 
-На сервере рядом с compose-файлом деплоя должны быть файл окружения и persistent
-storage directory.
+The server directory next to the deploy compose file should contain an environment file and persistent storage directory.
 
-Минимальные значения на сервере:
+Minimum server values:
 
 ```dotenv
 GHCR_IMAGE=ghcr.io/<github-owner>/test-chatbot
@@ -193,32 +183,30 @@ TELEGRAM_CHAT_ID=-1001234567890
 TELEGRAM_ADMIN_ID=123456789
 ```
 
-Ключи дополнительных провайдеров добавляются туда же.
+Optional provider keys are added there as well.
 
-Metadata деплоя пишется в persistent storage; внутри контейнера бот читает его
-как `/app/data/deploy-metadata.json`.
-Оповещение отправляется один раз на новый `sha` и дедуплицируется через SQLite `app_state`.
+Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. The announcement is sent once per new `sha` and deduplicated through SQLite `app_state`.
 
-Откат:
+Rollback:
 
-1. На сервере выставить старый `IMAGE_TAG` в `.env`.
-2. Выполнить `docker compose --env-file .env -f compose.yml pull bot`.
-3. Выполнить `docker compose --env-file .env -f compose.yml up -d bot`.
+1. Set the old `IMAGE_TAG` in the server `.env`.
+2. Run `docker compose --env-file .env -f compose.yml pull bot`.
+3. Run `docker compose --env-file .env -f compose.yml up -d bot`.
 
-## Ручные Smoke-Проверки
+## Manual Smoke Checks
 
-- Для Telegram smoke используйте отдельного тестового бота и тестовую группу.
-- Сначала проверяйте явные `/answer`, `/translate`, `/summarize`, `/decide`, `/read`.
-- `/answer` проверяйте как reply и без reply: без reply он отвечает на последнее сообщение перед командой.
-- `/translate` и `/read` требуют reply на целевое сообщение.
-- `/translate` должен возвращать локальный fallback для уже русского target и переводить на русский нерусские текстовые/media-блоки с заголовками источников.
-- Редактирование уже сохраненного сообщения должно обновлять будущий контекст, но не отправлять новый ответ само по себе.
-- `/meme` делает внешний запрос к Reddit top-week listing с cookies из `REDDIT_COOKIES_PATH`, выбирает свежий supported image/gallery/video post, отправляет media без reply на команду, скачивает media во временные файлы и должен чистить их после успешной отправки и после ошибок Telegram. Для video-постов также нужны `yt-dlp` и `ffmpeg`. Reddit NSFW/spoiler posts не отбрасываются, но отправляются с Telegram spoiler flag; для gallery spoiler flag должен стоять на каждом элементе.
-- Direct Reddit media link smoke: сделайте standalone `yt-dlp` zipapp доступным в контейнере как `/usr/local/bin/yt-dlp`, настройте `REDDIT_COOKIES_PATH`, отправьте Reddit post URL с image, gallery или `reddit_video` в рабочий чат или личку администратора обычным сообщением без команды. Бот должен отправить `sendPhoto`, `sendMediaGroup` или `sendVideo` без reply на исходное сообщение, с title, subreddit и апвоутами, сохранить post metadata, очистить temp files и попытаться удалить исходное сообщение со ссылкой. Reddit NSFW/spoiler media должны уйти с Telegram spoiler flag; для gallery он должен стоять на всех элементах. В группе для удаления нужны admin-права бота и выключенный BotFather privacy mode, если ссылка отправляется без команды/упоминания.
-- Direct Instagram Reels smoke: настройте `INSTAGRAM_COOKIES_PATH`, отправьте `https://www.instagram.com/reel/<shortcode>/` в рабочий чат, личку администратора или личку пользователя из `TELEGRAM_LINK_USER_IDS`. Бот должен получить metadata через `yt-dlp`, не трогать ролики длиннее 120 секунд, скачать Reel через `yt-dlp`, проверить mp4 через `ffprobe`, нормализовать через `nice -n 19 ffmpeg -preset veryfast`, отправить `sendVideo` без reply, подписать `inst: <nickname> · likes: <linked count>`, очистить temp files и попытаться удалить исходное сообщение.
-- Direct YouTube Shorts smoke: настройте `YOUTUBE_COOKIES_PATH`, отправьте `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>` или `https://www.youtube.com/shorts/<id>` в рабочий чат, личку администратора или личку пользователя из `TELEGRAM_LINK_USER_IDS`. Бот должен получить metadata через `yt-dlp`, не трогать ролики длиннее 120 секунд, скачать Short через `yt-dlp` в H.264 MP4 не выше `height<=854`, проверить mp4 через `ffprobe`, нормализовать через `nice -n 19 ffmpeg -preset veryfast`, отправить `sendVideo` без reply, подписать `yt: <channel> · likes: <linked count>`, очистить temp files и попытаться удалить исходное сообщение.
-- YouTube Shorts требуют runtime image с Node.js 22+: `yt-dlp` запускается с `--js-runtimes node`, чтобы решать YouTube EJS challenges.
-- Для Reddit video, Instagram Reels и YouTube Shorts используется единый pipeline `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> sendVideo`. Ролики длиннее 120 секунд не скачиваются/не конвертируются. Нормализация запускается одним процессом за раз через `nice -n 19 ffmpeg -preset veryfast`, приводит файл к H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, удаляет metadata и применяет `+faststart`.
-- `/publish` запускайте в личке администратора: проверьте reply, вариант без reply и media album; копия должна появиться в рабочем `TELEGRAM_CHAT_ID` как сообщение бота без attribution исходного автора.
-- Провайдеры медиа запускаются только при наличии соответствующих ключей.
-- Smoke-проверку поиска перед включением в продакшне можно сделать прямым запросом к Tavily API.
+- Use a separate test bot and test group for Telegram smoke checks.
+- Start with explicit `/answer`, `/translate`, `/summarize`, `/decide`, `/read`.
+- Check `/answer` both as a reply and without a reply: without a reply, it answers the latest message before the command.
+- `/translate` and `/read` require a reply to the target message.
+- `/translate` should return a local fallback for an already-Russian target and translate non-Russian text/media blocks into Russian with source headings.
+- Editing an already stored message should update future context without sending a new reply by itself.
+- `/meme` makes an external request to a Reddit top-week listing with cookies from `REDDIT_COOKIES_PATH`, selects a fresh supported image/gallery/video post, sends media without replying to the command, downloads media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts also need `yt-dlp` and `ffmpeg`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
+- Direct Reddit media link smoke: make the standalone `yt-dlp` zipapp available inside the container as `/usr/local/bin/yt-dlp`, configure `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, gallery, or `reddit_video` in the work chat or admin private chat as a regular non-command message. The bot should send `sendPhoto`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
+- Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in the work chat, admin private chat, or a private chat with a user from `TELEGRAM_LINK_USER_IDS`. The bot should get metadata through `yt-dlp`, skip videos longer than 120 seconds, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, send `sendVideo` without a reply, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message.
+- Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in the work chat, admin private chat, or a private chat with a user from `TELEGRAM_LINK_USER_IDS`. The bot should get metadata through `yt-dlp`, skip videos longer than 120 seconds, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, send `sendVideo` without a reply, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message.
+- YouTube Shorts require a runtime image with Node.js 22+: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
+- Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> sendVideo`. Videos longer than 120 seconds are not downloaded or converted. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`.
+- Run `/publish` in the admin private chat: check reply mode, no-reply mode, and media albums; the copy should appear in `TELEGRAM_CHAT_ID` as a bot message without source-author attribution.
+- Media providers run only when matching keys are configured.
+- Lookup smoke before production rollout can be done with a direct request to the Tavily API.

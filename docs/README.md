@@ -1,12 +1,12 @@
-# Структура Документации
+# Documentation Structure
 
-Карта Markdown-документов в репозитории.
+Map of Markdown documents in this repository.
 
-## Основные документы
+## Main Documents
 
-- `README.md` — обзор проекта, быстрый старт, переменные окружения и команды.
-- `docs/README.md` — эта карта документации.
-- `docs/architecture.md` — архитектура, инварианты, основные потоки и модель данных.
-- `docs/development.md` — локальная разработка, проверки, CI/CD, Docker и заметки по продакшну.
-- `llm/` — статические prompt-файлы.
-- `llm/assistant/base.md` — базовый prompt ассистента.
+- `README.md` - project overview, quick start, environment variables, and commands.
+- `docs/README.md` - this documentation map.
+- `docs/architecture.md` - architecture, invariants, main flows, and data model.
+- `docs/development.md` - local development, checks, CI/CD, Docker, and production notes.
+- `llm/` - static prompt files.
+- `llm/assistant/base.md` - base assistant prompt.

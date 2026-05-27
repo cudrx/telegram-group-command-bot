@@ -1,10 +1,10 @@
-# Архитектура
+# Architecture
 
-## Область Ответственности
+## Scope
 
-Проект — один процесс Telegram-бота с long polling через `grammY`, локальной SQLite-базой, OpenAI-compatible LLM-клиентом, дополнительными провайдерами поиска, распознавания медиа и озвучки, а также явными командными потоками. Auto-trigger без команды ограничен разворачиванием Reddit post-ссылок с поддержанным image/gallery/video media, Instagram Reel-ссылок и YouTube Shorts-ссылок.
+The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, and explicit command flows. The only automatic trigger outside commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, and YouTube Shorts links.
 
-Бот отвечает только на команды:
+The bot responds to these commands:
 
 - `/summarize`
 - `/decide`
@@ -14,43 +14,43 @@
 - `/meme`
 - `/publish`
 
-Обычное упоминание бота, обычный текст в личке, неавторизованные чаты и личные сообщения не от администратора или link-only пользователя не запускают поток ответа. Reddit post-ссылка с поддержанным image/gallery/video media, Instagram Reel-ссылка или YouTube Shorts-ссылка в авторизованном чате, личке администратора или личке link-only пользователя запускает локальный media flow без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` не получают доступ к командам.
+Regular bot mentions, regular private-chat text, unauthorized chats, and private messages from users other than the admin or link-only users do not start a reply flow. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `TELEGRAM_LINK_USER_IDS` can use only the direct-link flow.
 
-## Инварианты
+## Invariants
 
-- Проверка доступа выполняется на уровне приложения до `ChatOrchestrator` и до записи в SQLite.
-- Главный источник истины — журнал сообщений в `messages`.
-- Контекст для prompt не содержит предыдущие сообщения этого бота.
-- Сообщения других ботов сохраняются и могут быть reply-якорем для `/answer` и `/translate`, но не попадают в контекст последних человеческих сообщений.
-- Контекст поиска добавляется как недоверенное свидетельство, а не как инструкция.
-- Результаты распознавания медиа сохраняются как артефакты с TTL; исходные файлы не сохраняются.
-- `/meme` не сохраняет скачанные meme media на диск постоянно: файлы живут только во временной папке до отправки в Telegram, а anti-repeat хранит только metadata поста.
-- Direct Reddit media link flow использует тот же временный download/dispatch/cleanup подход, сохраняет отправленный пост в `meme_posts` и после успешной отправки пытается удалить исходное сообщение со ссылкой. Direct Instagram Reels и YouTube Shorts используют тот же временный media flow, но сохраняются только как обычные bot media messages, без записи в `meme_posts`. Ошибка удаления только логируется.
-- `/publish` доступен только в личке администратора и копирует сообщения в рабочий `TELEGRAM_CHAT_ID` через Telegram `copyMessage`/`copyMessages`, чтобы не сохранять attribution исходного автора.
-- TTS не решает содержание ответа: текст сначала генерируется или берется из сообщения, на которое сделали reply, затем локальная политика решает, можно ли отправить voice. Локальные usage/fallback-сообщения бота всегда отправляются текстом.
+- Access checks run at the application layer before `ChatOrchestrator` and before SQLite writes.
+- The message log in `messages` is the main source of truth.
+- Prompt context excludes previous messages from this bot.
+- Messages from other bots are stored and can be reply anchors for `/answer` and `/translate`, but they are excluded from recent human-message context.
+- Lookup context is added as untrusted evidence, not as instructions.
+- Media recognition results are stored as TTL artifacts; source files are temporary.
+- `/meme` keeps downloaded media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
+- Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels and YouTube Shorts use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
+- `/publish` is available only in the admin private chat and copies messages into `TELEGRAM_CHAT_ID` through Telegram `copyMessage`/`copyMessages`, preserving content without source-author attribution.
+- TTS does not decide reply content: text is generated or read from the replied-to message first, then a local policy decides whether voice can be sent. Local usage/fallback messages are always sent as text.
 
-## Карта Компонентов
+## Component Map
 
 ### `src/index.ts`
 
-Загружает окружение и запускает жизненный цикл приложения.
+Loads the environment and starts the application lifecycle.
 
 ### `src/app.ts`
 
-Сборка приложения:
+Application assembly:
 
-- открывает SQLite;
-- создает логгер и уведомления администратора;
-- создает `Bot`;
-- получает данные бота;
-- создает провайдеры LLM, медиа, поиска и TTS;
-- создает отправители сообщений в Telegram;
-- собирает `ChatOrchestrator`;
-- регистрирует Telegram middleware, обработчик ошибок и обработчик сообщений;
-- регистрирует отдельный обработчик редактированных сообщений;
-- управляет очисткой при старте, оповещением о деплое, polling и остановкой.
+- opens SQLite;
+- creates the logger and admin notifier;
+- creates the `Bot`;
+- loads bot metadata;
+- creates LLM, media, lookup, and TTS providers;
+- creates Telegram message dispatchers;
+- builds `ChatOrchestrator`;
+- registers Telegram middleware, error handling, and message handling;
+- registers a separate edited-message handler;
+- manages startup cleanup, deploy announcements, polling, and shutdown.
 
-Часть сборки вынесена в:
+Assembly helpers live in:
 
 - `src/app/access-policy.ts`
 - `src/app/database-cleanup.ts`
@@ -59,280 +59,254 @@
 
 ### `src/config`
 
-Конфигурация разделена на два слоя:
+Configuration is split into two layers:
 
-- `src/config/env/` читает окружение, валидирует deploy-specific значения и
-  секреты, а также применяет defaults.
-- `src/config/runtime/` хранит несекретные runtime defaults: настройки action
-  потоков (`answer`, `read`, `meme`, `summarize`, `decide`), внешних
-  провайдеров, хранения и локализации.
+- `src/config/env/` reads the environment, validates deploy-specific values and secrets, and applies defaults.
+- `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `summarize`, `decide`), external provider settings, storage settings, and localization.
 
-Если значение должно отличаться между окружениями, оно проходит через env-схему.
-Если значение описывает локальную политику бота или контракт провайдера, оно
-живет в runtime config и импортируется потребителями напрямую.
+Values that differ between environments go through the env schema. Values that describe local bot policy or provider contracts live in runtime config and are imported directly by consumers.
 
 ### `src/transport`
 
-Нормализация Telegram-сообщений:
+Telegram message normalization:
 
-- берет исходный контекст `grammY`;
-- строит локальный `NormalizedMessage`;
-- извлекает текст, подпись, entities, reply-снимок и media-снимок.
+- takes the raw `grammY` context;
+- builds a local `NormalizedMessage`;
+- extracts text, caption, entities, reply snapshot, and media snapshot.
 
 ### `src/domain`
 
-Общие доменные типы сообщений, чатов, intent, сохраненных сообщений и
-media-снимков. Команды регистрируются action-модулями.
+Shared domain types for messages, chats, intents, stored messages, and media snapshots. Commands are registered by action modules.
 
 ### `src/app/actions`
 
-Модульный слой команд:
+Modular command layer:
 
-- каждая команда живет в своей папке `src/app/actions/<name>/`;
-- `index.ts` в папке команды экспортирует `ChatAction` с metadata команды и
-  handler;
-- `registry.ts` строит command lookup из metadata actions, учитывает Telegram
-  bot suffix и режим доступа;
-- `shared/` хранит устойчивые общие helper'ы для action-потоков;
-- статические prompt-файлы живут в `llm/`.
+- each command lives in `src/app/actions/<name>/`;
+- the command folder's `index.ts` exports a `ChatAction` with command metadata and a handler;
+- `registry.ts` builds command lookup from action metadata, including Telegram bot suffix handling and access mode checks;
+- `shared/` contains stable helpers shared by action flows;
+- static prompt files live in `llm/`.
 
 ### `src/app/chat-orchestrator`
 
-Оркестратор командного потока:
+Command-flow orchestrator:
 
-- сохраняет входящее сообщение;
-- стартует auto-read для поддержанных медиа;
-- просит action registry найти команду;
-- строит общий request для найденного action;
-- запускает `action.handle(...)`;
-- игнорирует сообщение, если action не найден.
+- stores the incoming message;
+- starts auto-read for supported media;
+- asks the action registry to resolve a command;
+- builds a shared request for the resolved action;
+- runs `action.handle(...)`;
+- ignores the message when no action is resolved.
 
-`index.ts` принимает нормализованные входящие сообщения. `reply-job.ts`
-управляет выполнением LLM reply job, а `reply-generation.ts` собирает
-LLM-контекст и вызывает модель.
-Тематические вспомогательные модули лежат в `src/app/chat-orchestrator/helpers/`.
+`index.ts` accepts normalized incoming messages. `reply-job.ts` manages LLM reply job execution, and `reply-generation.ts` builds LLM context and calls the model. Topical helper modules live in `src/app/chat-orchestrator/helpers/`.
 
 ### `src/database`
 
-SQLite слой:
+SQLite layer:
 
-- схема и миграции;
+- schema and migrations;
 - `chats`;
 - `messages`;
 - `media_artifacts`;
 - `app_state`;
 - `meme_posts`;
-- очистка устаревших данных, включая legacy-очистку старой таблицы `news_posts`,
-  если она осталась в существующей базе.
+- stale-data cleanup, including legacy cleanup for the old `news_posts` table if it still exists in an existing database.
 
 ### `src/llm`
 
-LLM слой:
+LLM layer:
 
-- реестр prompt-файлов;
-- сборка и очистка prompt;
-- планировщик поиска;
+- prompt file registry;
+- prompt assembly and sanitization;
+- lookup planner;
 - OpenAI-compatible client;
-- повторные попытки, timeout и логирование;
-- форматирование оповещений о деплое;
-- генерация ответов.
+- retries, timeouts, and logging;
+- deploy announcement formatting;
+- reply generation.
 
-Статический текст prompt живет в `llm/`. Общий reply shell также получает
-`CURRENT_DATETIME` с текущими датой и временем Москвы в простом текстовом
-формате, чтобы все reply intents одинаково разрешали относительные даты.
+Static prompt text lives in `llm/`. The shared reply shell also receives `CURRENT_DATETIME` with current Moscow date and time in plain text so all reply intents resolve relative dates consistently.
 
 ### `src/media`
 
-Провайдеры и поддержка Telegram-медиа:
+Providers and Telegram media support:
 
-- получение metadata и скачивание файлов Telegram;
-- транскрибация через Gladia;
+- Telegram media metadata and file download;
+- Gladia transcription;
 - Cloudflare Vision;
 - OCR.space;
-- типы для нормализации артефактов.
+- artifact normalization types.
 
 ### `src/tts`
 
-Исходящая озвучка:
+Outbound voice:
 
-- очистка текста для речи;
-- локальная политика озвучки;
-- провайдер Yandex SpeechKit.
+- speech cleanup;
+- local voice policy;
+- Yandex SpeechKit provider.
 
-## Основной Поток Сообщения
+## Main Message Flow
 
-1. `grammY` получает обновление с сообщением.
-2. `normalizeTextMessage` строит `NormalizedMessage`.
-3. Проверка доступа на уровне приложения определяет `authorizedMode` или отбрасывает update.
-4. `ChatOrchestrator` сохраняет сообщение в SQLite.
-5. Если у сообщения есть поддержанный media-снимок, запускается auto-read coordinator.
-6. Action registry определяет команду по metadata подключенных actions.
-7. Если action не найден, поток заканчивается.
-8. `ChatOrchestrator` строит request и вызывает `action.handle(...)`.
-9. Для `/read` action запускает локальный TTS-поток без LLM.
-10. Для `/meme` action запускает отдельный поток выбора Reddit top-week поста, скачивания картинки или видео и отправки с локально отформатированной подписью.
-11. Для `/summarize`, `/decide`, `/answer`, `/translate` action использует общий LLM reply job: собирается контекст, добавляется текущая дата и время Москвы, при необходимости добавляется контекст поиска и медиа, затем вызывается LLM.
-12. Ответ форматируется для Telegram HTML.
-13. `/answer` может быть отправлен voice, если проходит локальную TTS-политику; локальные плейсхолдеры и fallback-ответы не озвучиваются.
-14. Исходящее bot-сообщение сохраняется в SQLite с `output_mode`.
+1. `grammY` receives a message update.
+2. `normalizeTextMessage` builds a `NormalizedMessage`.
+3. The application access policy determines `authorizedMode` or rejects the update.
+4. `ChatOrchestrator` stores the message in SQLite.
+5. If the message has a supported media snapshot, the auto-read coordinator starts.
+6. The action registry resolves a command from registered action metadata.
+7. When no action is resolved, the flow ends.
+8. `ChatOrchestrator` builds a request and calls `action.handle(...)`.
+9. `/read` runs a local TTS flow without the LLM.
+10. `/meme` runs a separate flow that selects a Reddit top-week post, downloads image/video media, and sends it with a locally formatted caption.
+11. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job: context is assembled, current Moscow date/time is added, lookup/media context is added when needed, and the LLM is called.
+12. The reply is formatted for Telegram HTML.
+13. `/answer` may be sent as voice when it passes the local TTS policy; local placeholder and fallback replies are text-only.
+14. The outgoing bot message is stored in SQLite with `output_mode`.
 
-## Поток Редактирования Сообщения
+## Edited Message Flow
 
-1. `grammY` получает `edited_message`.
-2. `normalizeEditedTextMessage` извлекает актуальный текст или подпись и время `edit_date`.
-3. Проверка доступа выполняется так же, как для обычных сообщений.
-4. SQLite обновляет только существующую человеческую строку по `chat_id + telegram_message_id`: меняются `text` и `edited_at`.
-5. Если строки нет или это bot-сообщение, update игнорируется. `ChatOrchestrator` не вызывается, поэтому edit не запускает новый ответ и не пересчитывает уже отправленные ответы.
+1. `grammY` receives `edited_message`.
+2. `normalizeEditedTextMessage` extracts the current text or caption and `edit_date`.
+3. Access checks run the same way as for regular messages.
+4. SQLite updates the existing human row by `chat_id + telegram_message_id`, changing `text` and `edited_at`.
+5. Missing rows and bot-message rows are ignored. `ChatOrchestrator` is not called, so edits do not trigger new replies or recalculate existing replies.
 
-## Поток Поиска
+## Lookup Flow
 
-- Поиск доступен только когда задан `TAVILY_API_KEY`.
-- LLM-планировщик решает, нужен ли поиск для `/decide` или `/answer`; `/translate` поиск не использует.
-- Провайдер ограничен timeout, максимальным числом запросов и максимальным числом результатов.
-- При отсутствии провайдера или при fallback ответ остается основанным только на чате.
-- В prompt результаты поиска попадают отдельным блоком внешних свидетельств.
+- Lookup is available when `TAVILY_API_KEY` is set.
+- The LLM planner decides whether lookup is useful for `/decide` or `/answer`; `/translate` does not use lookup.
+- The provider has timeouts, maximum query count, and maximum result count.
+- Without a provider, or after fallback, replies are based only on chat context.
+- Lookup results enter the prompt as a separate external-evidence block.
 
-## Поток Медиа
+## Media Flow
 
-Поддержанные входы:
+Supported inputs:
 
 - `photo`
-- изображение в `document`
+- image `document`
 - `voice`
 - `audio`
 - Telegram `video_note`
 
-Поведение:
+Behavior:
 
-- обращения к провайдерам запускаются только при наличии соответствующих ключей;
-- скачивание из Telegram ограничено по размеру и времени;
-- устойчивый результат сохраняется в `media_artifacts`;
-- неуспешный auto-read сохраняет failed-артефакт с коротким `errorText`;
-- поток изображений может дать `vision_description`, `ocr_text_ru`, `ocr_text_default`, `vision_interpretation`;
-- поток audio/video-note дает transcript-артефакт;
-- image/video-мемы, отправленные самим ботом, сохраняют Telegram media metadata и запускают тот же auto-read;
-- медиа-альбомы дедуплицируются по `chatId + mediaGroupId` через короткоживущее TTL-состояние.
+- provider calls run only when matching keys are present;
+- Telegram downloads are bounded by size and time;
+- durable results are stored in `media_artifacts`;
+- failed auto-read attempts store a failed artifact with a short `errorText`;
+- image flow can produce `vision_description`, `ocr_text_ru`, `ocr_text_default`, and `vision_interpretation`;
+- audio/video-note flow produces transcript artifacts;
+- image/video memes sent by the bot store Telegram media metadata and run through the same auto-read flow;
+- media albums are deduplicated by `chatId + mediaGroupId` through short-lived TTL state.
 
-## Контракты Команд
+## Command Contracts
 
 ### `/answer`
 
-- Работает с reply на целевое сообщение; без reply целевым считается последнее сообщение перед командой.
-- Текст после команды игнорируется.
-- Reply-якорь может быть человеческим сообщением или сообщением другого бота, но не сообщением этого бота.
-- Может использовать поиск и медиа-контекст целевого сообщения.
+- Uses the replied-to target message; without a reply, the target is the latest message before the command.
+- Text after the command is ignored.
+- The reply anchor can be a human message or another bot's message, but not this bot's own message.
+- Can use lookup and media context from the target message.
 
 ### `/translate`
 
-- Работает как reply на целевое сообщение и всегда переводит на русский.
-- Текст после команды игнорируется.
-- Может переводить сообщения этого же бота; это исключение из общего запрета self-reply-якорей нужно для цепочки `/answer` → `/translate`.
-- Переводит только блоки целевого сообщения: текст, подпись, OCR-текст картинки, расшифровку audio/video-note или описание изображения.
-- Каждый блок проверяется локально; уже русские блоки не отправляются в LLM и не дублируются в ответе.
-- Если все найденные блоки уже выглядят русскими, отправляется локальный fallback без LLM.
-- Не использует внешний поиск.
-- Ответ помечает источник блоков заголовками `Текст сообщения`, `Подпись`, `Текст на картинке`, `Расшифровка аудио`, `Описание изображения`.
+- Runs as a reply to a target message and always translates into Russian.
+- Text after the command is ignored.
+- Can translate this bot's own messages; this exception supports the `/answer` -> `/translate` chain.
+- Translates only target-message blocks: text, caption, image OCR text, audio/video-note transcript, or image description.
+- Each block is checked locally; already-Russian blocks are not sent to the LLM and are not duplicated in the reply.
+- If all found blocks already look Russian, the bot sends a local fallback without the LLM.
+- Does not use external lookup.
+- The reply labels source blocks with `Текст сообщения`, `Подпись`, `Текст на картинке`, `Расшифровка аудио`, `Описание изображения`.
 
 ### `/read`
 
-- Работает как reply на текстовое сообщение.
-- LLM не вызывается.
-- Распознавание медиа не запускается.
-- Текст чистится локально, ограничен и проходит cooldown/policy.
-- При отсутствии TTS-провайдера или ошибке отправляется fallback-текст.
+- Runs as a reply to a text message.
+- Does not call the LLM.
+- Does not start media recognition.
+- Text is cleaned locally, bounded, and checked against cooldown/policy.
+- If the TTS provider is missing or fails, the bot sends fallback text.
 
 ### `/publish`
 
-- Работает только в личке администратора.
-- Копирует reply-сообщение в рабочий `TELEGRAM_CHAT_ID`; без reply копирует последнее сообщение перед командой.
-- Использует Telegram `copyMessage`, поэтому текст, медиа и подпись копируются без пересборки и без ссылки на исходное сообщение.
-- Если целевое сообщение входит в сохраненный `media_group_id`, использует `copyMessages` с отсортированными message id и сохраняет альбомную группировку.
-- Если целевое сообщение или тип сообщения нельзя скопировать через Telegram API, отправляет локальную подсказку в личку администратора.
+- Runs only in the admin private chat.
+- Copies the replied-to message into `TELEGRAM_CHAT_ID`; without a reply, it copies the latest message before the command.
+- Uses Telegram `copyMessage`, so text, media, and captions are copied without rebuilding and without a source-message link.
+- If the target message belongs to a stored `media_group_id`, it uses `copyMessages` with sorted message ids and preserves album grouping.
+- If Telegram cannot copy the target message or message type, the bot sends a local hint in the admin private chat.
 
 ### `/summarize`
 
-- Суммирует последние человеческие сообщения.
-- Не использует интернет.
-- Не включает предыдущие сообщения бота и сообщения других ботов в контекст последних человеческих сообщений.
+- Summarizes recent human messages.
+- Does not use the internet.
+- Excludes previous bot messages and other bots' messages from recent human-message context.
 
 ### `/decide`
 
-- Оценивает спор в видимом контексте последних сообщений.
-- При настроенном поиске может проверять факты, свежесть, ссылки или внешние сущности.
-- Должен честно говорить, когда контекста или критериев недостаточно.
+- Judges a dispute in the visible recent-message context.
+- With lookup configured, it can verify facts, freshness, links, or external entities.
+- Should say when context or criteria are insufficient.
 
 ### `/meme`
 
-- Доступен как обычная chat-команда.
-- Источник — Reddit listing JSON из hardcoded пула сабреддитов.
-- На один запуск выбираются до трех разных сабреддитов; для каждого с Reddit
-  cookies запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
-- Уже отправленные за последние 14 дней post ids отбрасываются по `meme_posts`.
-- Поддерживаются Reddit image URL из `i.redd.it`, Reddit galleries из `gallery_data`/`media_metadata` и Reddit video posts из `secure_media.reddit_video`/`media.reddit_video`.
-- NSFW и spoiler посты не отбрасываются; их media отправляется с Telegram spoiler flag. Для gallery spoiler flag применяется ко всем элементам альбома. External/self/text и неподдержанные посты пропускаются.
-- Если кандидат не скачался, слишком большой или Telegram dispatch упал, бот пишет `WARN` в logger/admin notifier и пробует другой shuffled кандидат из того же listing, затем следующий subreddit.
-- Картинки и элементы gallery скачиваются напрямую во временные файлы; любое Reddit-hosted video скачивается через `yt-dlp` с cookies-файлом рядом с SQLite базой. Прямые Reddit MP4/fallback URL не являются download path для видео. Временные файлы чистятся в `finally`.
-- После успешной отправки мемы сохраняют Telegram media metadata; дальнейшее распознавание идет через общий media auto-read поток.
-- Caption строится локально из оригинального title, `r/<subreddit>` и кликабельного счетчика апвоутов `↑N`, ведущего на оригинальный пост.
-- Media message отправляется без reply на исходную `/meme` команду.
-- Если за попытки не найден отправляемый кандидат, бот отправляет локальный fallback без LLM: `Мемы закончились, идите трогайте траву.`
+- Available as a regular chat command.
+- Source is Reddit listing JSON from a hardcoded subreddit pool.
+- Each run selects up to three subreddits; for each one, Reddit cookies are used to request `/r/<subreddit>/top/.json?t=week&limit=10`.
+- Post ids sent in the last 14 days are filtered through `meme_posts`.
+- Supports Reddit image URLs from `i.redd.it`, Reddit galleries from `gallery_data`/`media_metadata`, and Reddit video posts from `secure_media.reddit_video`/`media.reddit_video`.
+- NSFW and spoiler posts are allowed and sent with Telegram's spoiler flag. For galleries, the spoiler flag is applied to every album item. External/self/text and unsupported posts are skipped.
+- If a candidate fails to download, is too large, or Telegram dispatch fails, the bot logs `WARN` through the logger/admin notifier and tries another shuffled candidate from the same listing, then the next subreddit.
+- Images and gallery items are downloaded directly into temporary files; Reddit-hosted video is downloaded through `yt-dlp` with cookies. Direct Reddit MP4/fallback URLs are not download paths for video. Temporary files are cleaned up in `finally`.
+- After successful dispatch, memes store Telegram media metadata; later recognition uses the shared media auto-read flow.
+- Captions are built locally from the original title, `r/<subreddit>`, and a linked upvote counter `↑N` that points to the original post.
+- The media message is sent without replying to the `/meme` command.
+- If no sendable candidate is found, the bot sends a local fallback without the LLM: `Мемы закончились, идите трогайте траву.`
 
 ### Direct Media Links
 
-- Работает в авторизованном рабочем чате, в личке администратора и в личке link-only пользователей для обычных сообщений без команды.
-- `ChatOrchestrator` сначала отдает приоритет command resolver для обычных режимов; для `private_link_sender` bot command entity в начале сообщения стопорит обработку целиком. Если команда не обработана, входящий текст проверяется на Reddit post URL, Reddit share-ссылки вида `/r/<subreddit>/s/<token>`, Instagram Reel URL и YouTube Shorts-compatible URL.
-- Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает публичные Reddit image, gallery и Reddit-hosted video posts. Self/text posts распознаются как неподдержанные и игнорируются.
-- NSFW и spoiler direct Reddit media отправляются с Telegram spoiler flag; для gallery flag применяется ко всем элементам альбома.
-- Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp,
-  доступный в контейнере как `/usr/local/bin/yt-dlp`, с cookies-файлом из
-  `REDDIT_COOKIES_PATH`. Runtime image содержит `python3` и `ffmpeg`, чтобы
-  `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой
-  Reddit `fallback_url` используется только как признак video-поста, а не как
-  download URL.
-- Instagram Reels принимаются только как `/reel/<shortcode>/` или
-  `/reels/<shortcode>/` URL и скачиваются через `yt-dlp` с cookies-файлом из
-  `INSTAGRAM_COOKIES_PATH`. Для Reels `yt-dlp` предпочитает HLS/m3u8 video +
-  m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео,
-  без отдельного CPU-heavy перекодирования.
-- YouTube Shorts принимаются как `youtu.be/<id>`, `youtube.com/watch?v=<id>` и
-  `youtube.com/shorts/<id>`, нормализуются в `/shorts/<id>` и скачиваются через
-  `yt-dlp` с cookies-файлом из `YOUTUBE_COOKIES_PATH`.
-- Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
-- Image media скачивается во временный файл и отправляется через Telegram `sendPhoto`; gallery скачивается в набор временных файлов и отправляется через `sendMediaGroup`; видео скачивается во временный mp4 с отдельным size limit и отправляется через `sendVideo`. После отправки временные директории чистятся.
-- Reddit caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
-- Reels/Shorts caption не включает description/title и использует короткий формат `<source>: <nickname> · likes: <a href="<source-url>"><N></a>`, как у Reddit metadata-ссылки.
-- После успешной отправки direct Reddit/Reels/Shorts media бот вызывает Telegram `deleteMessage` для исходного сообщения со ссылкой; media message отправляется без reply на исходное сообщение, чтобы не ссылаться на удаленный message. Если Telegram отклоняет удаление из-за прав, media message не откатывается.
-- Flow не вызывает LLM и не отправляет текстовый fallback для неподходящих или недоступных ссылок.
+- Works in the authorized work chat, admin private chat, and link-only private chats for regular non-command messages.
+- `ChatOrchestrator` gives command resolution priority in regular modes; for `private_link_sender`, a bot-command entity at the beginning of the message stops processing entirely. If no command is handled, the text is checked for Reddit post URLs, Reddit share links like `/r/<subreddit>/s/<token>`, Instagram Reel URLs, and YouTube Shorts-compatible URLs.
+- The resolver fetches Reddit post JSON through `/.json` with cookies and accepts public Reddit image, gallery, and Reddit-hosted video posts. Self/text posts are recognized as unsupported and ignored.
+- NSFW and spoiler direct Reddit media are sent with Telegram's spoiler flag; for galleries, the flag is applied to every album item.
+- Direct Reddit video links are downloaded through a standalone `yt-dlp` zipapp available in the container as `/usr/local/bin/yt-dlp`, using the cookie file from `REDDIT_COOKIES_PATH`. The runtime image contains `python3` and `ffmpeg` so `yt-dlp` can merge Reddit video/audio tracks into MP4 with audio; Reddit `fallback_url` is used only as a video-post signal, not as a download URL.
+- Instagram Reels are accepted only as `/reel/<shortcode>/` or `/reels/<shortcode>/` URLs and are downloaded through `yt-dlp` with the cookie file from `INSTAGRAM_COOKIES_PATH`. For Reels, `yt-dlp` prefers HLS/m3u8 video + m4a audio merge so mobile Telegram clients preserve video geometry without a separate CPU-heavy transcode.
+- YouTube Shorts are accepted as `youtu.be/<id>`, `youtube.com/watch?v=<id>`, and `youtube.com/shorts/<id>`, normalized to `/shorts/<id>`, and downloaded through `yt-dlp` with the cookie file from `YOUTUBE_COOKIES_PATH`.
+- All video-source integrations use the same rule: video from Reddit, Instagram Reels, YouTube Shorts, or similar sites must use `yt-dlp` or an equivalent extractor as the primary download path so video and audio are assembled together; direct MP4 URLs do not bypass that path.
+- Image media is downloaded to a temporary file and sent through Telegram `sendPhoto`; galleries are downloaded into temporary files and sent through `sendMediaGroup`; video is downloaded to a temporary MP4 with a separate size limit and sent through `sendVideo`. Temporary directories are cleaned after dispatch.
+- Reddit captions use the same local format as `/meme`: title, `r/<subreddit>`, and linked upvotes.
+- Reels/Shorts captions omit description/title and use the short format `<source>: <nickname> · likes: <a href="<source-url>"><N></a>`, matching the Reddit metadata-link style.
+- After successful direct Reddit/Reels/Shorts dispatch, the bot calls Telegram `deleteMessage` for the source link message; media is sent without replying to the source message so it does not point back to a deleted message. If Telegram rejects deletion because of permissions, the media message remains.
+- The flow does not call the LLM and does not send text fallback for unsupported or unavailable links.
 
-## Поток Оповещения О Деплое
+## Deploy Announcement Flow
 
-1. Workflow деплоя записывает metadata в серверную папку данных.
-2. Контейнер видит файл как `/app/data/deploy-metadata.json`.
-3. Старт приложения пропускает оповещение, если metadata отсутствует, невалидна или уже объявлена.
-4. Новый `sha` форматируется через LLM.
-5. Бот отправляет Telegram HTML-оповещение в `TELEGRAM_CHAT_ID`.
-6. После успешной отправки `sha` сохраняется в `app_state`.
+1. The deploy workflow writes metadata to server persistent storage.
+2. The container sees the file as `/app/data/deploy-metadata.json`.
+3. Application startup skips the announcement when metadata is missing, invalid, or already announced.
+4. The new `sha` is formatted through the LLM.
+5. The bot sends a Telegram HTML announcement to `TELEGRAM_CHAT_ID`.
+6. After successful dispatch, the `sha` is stored in `app_state`.
 
-Ошибки оповещения не блокируют long polling.
+Announcement errors do not block long polling.
 
-## Модель Данных
+## Data Model
 
 ### `chats`
 
-Хранит metadata чата, timestamps последних сообщений/ответов и состояние исходящего TTS.
+Stores chat metadata, last message/reply timestamps, and outbound TTS state.
 
 ### `messages`
 
-Хранит входящие и исходящие сообщения, `reply_to`-связи, metadata отправителей, признак бота, `output_mode` и `edited_at` для отредактированных входящих сообщений.
+Stores incoming and outgoing messages, `reply_to` relationships, sender metadata, bot flag, `output_mode`, and `edited_at` for edited incoming messages.
 
 ### `media_artifacts`
 
-Хранит нормализованные артефакты провайдеров, raw response JSON, metadata источника, статус, текст ошибки и TTL.
+Stores normalized provider artifacts, raw response JSON, source metadata, status, error text, and TTL.
 
 ### `meme_posts`
 
-Хранит anti-repeat историю `/meme` и отправленных direct Reddit media links: `chat_id`, Reddit post id, сабреддит, Telegram message id, title, permalink, kind медиа, primary media URL, upvotes и время отправки. Для gallery primary media URL сохраняется как `NULL`. Очистка удаляет строки старше `memeHistoryRetentionDays`.
+Stores anti-repeat history for `/meme` and sent direct Reddit media links: `chat_id`, Reddit post id, subreddit, Telegram message id, title, permalink, media kind, primary media URL, upvotes, and sent timestamp. For galleries, primary media URL is stored as `NULL`. Cleanup deletes rows older than `memeHistoryRetentionDays`.
 
 ### `app_state`
 
-Состояние в формате ключ-значение для маленьких маркеров времени выполнения, например `last_announced_deploy_sha`.
+Small runtime key-value state, such as `last_announced_deploy_sha`.
