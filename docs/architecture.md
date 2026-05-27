@@ -19,7 +19,7 @@
 ## Инварианты
 
 - Проверка доступа выполняется на уровне приложения до `ChatOrchestrator` и до записи в SQLite.
-- Главный источник истины — журнал сообщений в `messages`; слоев summary, memory и profile нет.
+- Главный источник истины — журнал сообщений в `messages`.
 - Контекст для prompt не содержит предыдущие сообщения этого бота.
 - Сообщения других ботов сохраняются и могут быть reply-якорем для `/answer` и `/translate`, но не попадают в контекст последних человеческих сообщений.
 - Контекст поиска добавляется как недоверенное свидетельство, а не как инструкция.
@@ -82,8 +82,7 @@
 ### `src/domain`
 
 Общие доменные типы сообщений, чатов, intent, сохраненных сообщений и
-media-снимков. Распознавание команд не живет в `domain`: команды регистрируются
-action-модулями.
+media-снимков. Команды регистрируются action-модулями.
 
 ### `src/app/actions`
 
@@ -95,11 +94,7 @@ action-модулями.
 - `registry.ts` строит command lookup из metadata actions, учитывает Telegram
   bot suffix и режим доступа;
 - `shared/` хранит устойчивые общие helper'ы для action-потоков;
-- prompt-файлы не переезжают в actions и остаются в `llm/`.
-
-Action `index.ts` должен оставаться входной точкой и сборщиком. Если
-реализация команды дорастает до 250+ строк, логику нужно выносить в соседние
-файлы внутри той же action-папки.
+- статические prompt-файлы живут в `llm/`.
 
 ### `src/app/chat-orchestrator`
 
@@ -112,9 +107,9 @@ Action `index.ts` должен оставаться входной точкой 
 - запускает `action.handle(...)`;
 - игнорирует сообщение, если action не найден.
 
-`index.ts` принимает нормализованные входящие сообщения и не содержит веток по
-конкретным intent. `reply-job.ts` управляет выполнением LLM reply job, а
-`reply-generation.ts` собирает LLM-контекст и вызывает модель.
+`index.ts` принимает нормализованные входящие сообщения. `reply-job.ts`
+управляет выполнением LLM reply job, а `reply-generation.ts` собирает
+LLM-контекст и вызывает модель.
 Тематические вспомогательные модули лежат в `src/app/chat-orchestrator/helpers/`.
 
 ### `src/database`
@@ -270,7 +265,8 @@ LLM слой:
 
 - Доступен как обычная chat-команда.
 - Источник — Reddit listing JSON из hardcoded пула сабреддитов.
-- На один запуск выбираются до трех разных сабреддитов; для каждого с `reddit-cookies.txt` рядом с SQLite базой запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
+- На один запуск выбираются до трех разных сабреддитов; для каждого с Reddit
+  cookies запрашивается `/r/<subreddit>/top/.json?t=week&limit=10`.
 - Уже отправленные за последние 14 дней post ids отбрасываются по `meme_posts`.
 - Поддерживаются Reddit image URL из `i.redd.it`, Reddit galleries из `gallery_data`/`media_metadata` и Reddit video posts из `secure_media.reddit_video`/`media.reddit_video`.
 - NSFW и spoiler посты не отбрасываются; их media отправляется с Telegram spoiler flag. Для gallery spoiler flag применяется ко всем элементам альбома. External/self/text и неподдержанные посты пропускаются.
@@ -287,9 +283,20 @@ LLM слой:
 - `ChatOrchestrator` сначала отдает приоритет command resolver для обычных режимов; для `private_link_sender` bot command entity в начале сообщения стопорит обработку целиком. Если команда не обработана, входящий текст проверяется на Reddit post URL, Reddit share-ссылки вида `/r/<subreddit>/s/<token>`, Instagram Reel URL и YouTube Shorts-compatible URL.
 - Resolver запрашивает Reddit post JSON через `/.json` с cookies-файлом рядом с SQLite базой и принимает публичные Reddit image, gallery и Reddit-hosted video posts. Self/text posts распознаются как неподдержанные и игнорируются.
 - NSFW и spoiler direct Reddit media отправляются с Telegram spoiler flag; для gallery flag применяется ко всем элементам альбома.
-- Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp, проброшенный из `data/bin/yt-dlp`, с cookies-файлом из `REDDIT_COOKIES_PATH`. Если env-путь не задан, используется `reddit-cookies.txt` рядом с SQLite базой. Runtime image содержит `python3` и `ffmpeg`, чтобы `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой Reddit `fallback_url` используется только как признак video-поста, а не как download URL.
-- Instagram Reels принимаются только как `/reel/<shortcode>/` или `/reels/<shortcode>/` URL и скачиваются через `yt-dlp` с cookies-файлом из `INSTAGRAM_COOKIES_PATH`. Для Reels `yt-dlp` предпочитает HLS/m3u8 video + m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео, без отдельного CPU-heavy перекодирования. Если env-путь не задан, используется `instagram-cookies.txt` рядом с SQLite базой.
-- YouTube Shorts принимаются как `youtu.be/<id>`, `youtube.com/watch?v=<id>` и `youtube.com/shorts/<id>`, нормализуются в `/shorts/<id>` и скачиваются через `yt-dlp` с cookies-файлом из `YOUTUBE_COOKIES_PATH`. Если env-путь не задан, используется `youtube-cookies.txt` рядом с SQLite базой.
+- Видео direct Reddit links скачиваются через standalone `yt-dlp` zipapp,
+  доступный в контейнере как `/usr/local/bin/yt-dlp`, с cookies-файлом из
+  `REDDIT_COOKIES_PATH`. Runtime image содержит `python3` и `ffmpeg`, чтобы
+  `yt-dlp` мог склеивать Reddit video/audio tracks в mp4 со звуком; прямой
+  Reddit `fallback_url` используется только как признак video-поста, а не как
+  download URL.
+- Instagram Reels принимаются только как `/reel/<shortcode>/` или
+  `/reels/<shortcode>/` URL и скачиваются через `yt-dlp` с cookies-файлом из
+  `INSTAGRAM_COOKIES_PATH`. Для Reels `yt-dlp` предпочитает HLS/m3u8 video +
+  m4a audio merge, чтобы мобильные Telegram-клиенты сохраняли геометрию видео,
+  без отдельного CPU-heavy перекодирования.
+- YouTube Shorts принимаются как `youtu.be/<id>`, `youtube.com/watch?v=<id>` и
+  `youtube.com/shorts/<id>`, нормализуются в `/shorts/<id>` и скачиваются через
+  `yt-dlp` с cookies-файлом из `YOUTUBE_COOKIES_PATH`.
 - Для всех video-source integrations правило одинаковое: если media является видео с Reddit, Instagram Reels, YouTube Shorts или похожего сайта, primary download path должен идти через `yt-dlp` или эквивалентный extractor, который собирает видео и аудио; прямой MP4 URL не должен обходить этот путь.
 - Image media скачивается во временный файл и отправляется через Telegram `sendPhoto`; gallery скачивается в набор временных файлов и отправляется через `sendMediaGroup`; видео скачивается во временный mp4 с отдельным size limit и отправляется через `sendVideo`. После отправки временные директории чистятся.
 - Reddit caption использует тот же локальный формат, что и `/meme`: title, `r/<subreddit>` и кликабельные апвоуты.
@@ -329,12 +336,3 @@ LLM слой:
 ### `app_state`
 
 Состояние в формате ключ-значение для маленьких маркеров времени выполнения, например `last_announced_deploy_sha`.
-
-## Текущие Ограничения
-
-- Один процесс и один SQLite-файл.
-- Нет веб-интерфейса.
-- Нет устойчивой очереди задач.
-- Нет интеграционных тестов с реальным Telegram API.
-- Нет слоев memory/profile/aliases/social-QA.
-- Нет самостоятельных вмешательств в чат.

@@ -23,7 +23,7 @@ Telegram-бот на `Node.js`, `TypeScript`, `grammY` и `SQLite`.
 - Безопасное HTML-форматирование ответов для Telegram.
 - Оповещение о продакшн-деплое, дедуплицированное через SQLite.
 
-Обычное упоминание бота и обычный текст в личке не запускают LLM. Исключение — явная Reddit post-ссылка с поддержанным image/gallery/video media, Instagram Reel-ссылка или YouTube Shorts-ссылка, которую бот обрабатывает локально без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` в личке могут отправлять только поддержанные ссылки; их команды игнорируются. В проекте нет самостоятельных вмешательств, памяти о пользователях, профилей, алиасов, настроек по чатам и фоновых LLM-задач.
+Обычное упоминание бота и обычный текст в личке не запускают LLM. Исключение — явная Reddit post-ссылка с поддержанным image/gallery/video media, Instagram Reel-ссылка или YouTube Shorts-ссылка, которую бот обрабатывает локально без LLM. Link-only пользователи из `TELEGRAM_LINK_USER_IDS` в личке могут отправлять поддержанные ссылки; их команды игнорируются.
 Если пользователь редактирует уже сохраненное входящее сообщение, бот обновляет его текст и `edited_at` в SQLite для будущего контекста, но не пересчитывает уже отправленные ответы.
 
 ## Команды
@@ -133,7 +133,7 @@ npm run eval:intents -- --id=decide-laptop-value-dispute
 npm run eval:intents -- --intent=summarize
 ```
 
-Отчеты eval пишутся в `.eval-runs/`; папка игнорируется Git.
+Eval-отчеты пишутся в локальную служебную папку.
 
 ## Структура
 
@@ -166,9 +166,9 @@ docker compose logs bot --tail=100 -f
 docker compose down
 ```
 
-Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированной папке `data/`, а не внутри контейнера.
+Продакшн-деплой собирается в GitHub Actions, публикует образ в GHCR и на сервере выполняет `docker compose pull` + `docker compose up -d`. SQLite живет в примонтированном persistent storage, а не внутри контейнера.
 
-Для Reddit video, Instagram Reels и YouTube Shorts standalone `yt-dlp` zipapp хранится на хосте в `data/bin/yt-dlp` и пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3`, `ffmpeg`/`ffprobe` и Node.js 22, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком, решать YouTube EJS challenges через `--js-runtimes node`, а затем нормализовать видео для Telegram. Любое Reddit-hosted video, Instagram Reel и YouTube Short проходит единый pipeline `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> sendVideo`: ролики длиннее 120 секунд не скачиваются/не конвертируются, а скачанные файлы повторно проверяются через `ffprobe`. Нормализация запускается только одним процессом за раз через `nice -n 19 ffmpeg -preset veryfast`, выставляет H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, удаляет metadata и переносит moov atom в начало файла. YouTube Shorts выбирают H.264 MP4 не выше `height<=854`, чтобы не брать слишком тяжелые 720p/1080p варианты для длинных Shorts. Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, Reels используют `INSTAGRAM_COOKIES_PATH`, Shorts используют `YOUTUBE_COOKIES_PATH`; если пути не заданы, defaults строятся как `reddit-cookies.txt`, `instagram-cookies.txt` и `youtube-cookies.txt` рядом с SQLite.
+Для Reddit video, Instagram Reels и YouTube Shorts standalone `yt-dlp` zipapp пробрасывается в контейнер через compose как `/usr/local/bin/yt-dlp`. Runtime image содержит `python3`, `ffmpeg`/`ffprobe` и Node.js 22, чтобы `yt-dlp` мог склеивать video/audio tracks в mp4 со звуком, решать YouTube EJS challenges через `--js-runtimes node`, а затем нормализовать видео для Telegram. Любое Reddit-hosted video, Instagram Reel и YouTube Short проходит единый pipeline `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> sendVideo`: ролики длиннее 120 секунд не скачиваются/не конвертируются, а скачанные файлы повторно проверяются через `ffprobe`. Нормализация запускается только одним процессом за раз через `nice -n 19 ffmpeg -preset veryfast`, выставляет H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, удаляет metadata и переносит moov atom в начало файла. YouTube Shorts выбирают H.264 MP4 не выше `height<=854`, чтобы не брать слишком тяжелые 720p/1080p варианты для длинных Shorts. Reddit `fallback_url` и похожие прямые MP4 URL можно использовать только как metadata/признак video-поста, но не как download path. `/meme` Reddit listing и Reddit direct links используют `REDDIT_COOKIES_PATH`, Reels используют `INSTAGRAM_COOKIES_PATH`, Shorts используют `YOUTUBE_COOKIES_PATH`; если пути не заданы, defaults строятся рядом с SQLite.
 
 ## Документация
 
