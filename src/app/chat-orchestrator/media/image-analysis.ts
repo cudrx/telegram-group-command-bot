@@ -1,6 +1,8 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
+import { language } from '../../../locales/locale.js';
 import { type AppLogger, serializeError } from '../../../logging/logger.js';
 import { downloadTelegramFileToTemp } from '../../../media/telegram-media.js';
+import type { OcrLanguage } from '../../../media/types.js';
 import {
   createMediaFilename,
   EMPTY_OCR_RESULT_MARKER,
@@ -109,7 +111,7 @@ export async function generateAndStoreImageAnalysis(
             const result = await extractDownloadedImageOcr(
               deps,
               downloaded.filePath,
-              'rus'
+              language.ocrProviderLanguageCode
             );
             const text = result.text.trim();
 
@@ -234,12 +236,12 @@ export async function generateAndStoreImageAnalysis(
 async function extractDownloadedImageOcr(
   deps: Pick<ChatOrchestratorDeps, 'env' | 'ocrProvider'>,
   filePath: string,
-  language: 'rus' | null
+  language: OcrLanguage
 ): Promise<{
   provider: 'ocr_space';
   providerModel: string;
   text: string;
-  language: 'rus' | null;
+  language: OcrLanguage;
   rawResponse: unknown;
 }> {
   if (!deps.ocrProvider) {

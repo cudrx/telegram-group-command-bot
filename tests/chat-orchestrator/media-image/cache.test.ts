@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import { language } from '../../../src/locales/locale.js';
 import { createOrchestrator, FakeDatabaseClient } from '../support.js';
 import {
   createReadImageMessage,
@@ -16,7 +17,7 @@ describe('ChatOrchestrator media image cache', () => {
     saveOcrArtifact(db, {
       artifactKind: 'ocr_text_ru',
       text: 'ГОРЖУСЬ',
-      language: 'rus'
+      language: language.ocrProviderLanguageCode
     });
     saveOcrArtifact(db, {
       artifactKind: 'ocr_text_default',
@@ -59,7 +60,7 @@ describe('ChatOrchestrator media image cache', () => {
     saveOcrArtifact(db, {
       artifactKind: 'ocr_text_ru',
       text: 'ГОРЖУСЬ',
-      language: 'rus',
+      language: language.ocrProviderLanguageCode,
       createdAt: '2026-04-03T12:00:01.500Z'
     });
 

@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 import type { SaveMediaArtifactInput } from '../../../src/database/index.js';
+import type { OcrLanguage } from '../../../src/media/types.js';
 import {
   createIncomingMessage,
   createReplyResult,
@@ -58,7 +59,7 @@ export function saveOcrArtifact(
   input: {
     artifactKind: 'ocr_text_ru' | 'ocr_text_default';
     text: string;
-    language: 'rus' | null;
+    language: OcrLanguage;
     createdAt?: string;
   }
 ): void {
@@ -152,7 +153,7 @@ export function createVisionProvider(rawText: string) {
   };
 }
 
-export function createOcrProvider(getText: (language: 'rus' | null) => string) {
+export function createOcrProvider(getText: (language: OcrLanguage) => string) {
   return {
     extractText: vi.fn().mockImplementation(async (input) => ({
       provider: 'ocr_space',

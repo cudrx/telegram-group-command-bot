@@ -10,6 +10,7 @@ import type {
   LookupIntent,
   LookupProvider
 } from '../../../src/lookup/types.js';
+import type { OcrLanguage } from '../../../src/media/types.js';
 import { createEnv } from './env.js';
 import type { FakeDatabaseClient } from './fake-database.js';
 import { createLookupPlanResult, type createReplyResult } from './llm.js';
@@ -67,7 +68,7 @@ export function createOrchestrator(input: {
   ocrProvider?: {
     extractText: (input: {
       filePath: string;
-      language: 'rus' | null;
+      language: OcrLanguage;
       timeoutMs: number;
     }) => Promise<unknown>;
   } | null;

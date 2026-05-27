@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import { language } from '../../../src/locales/locale.js';
 import { createOrchestrator, FakeDatabaseClient } from '../support.js';
 import {
   createOcrProvider,
@@ -57,8 +58,10 @@ describe('ChatOrchestrator media image analysis', () => {
       visionProvider: {
         describe: vi.fn().mockRejectedValue(new Error('vision down'))
       },
-      ocrProvider: createOcrProvider((language) =>
-        language === 'rus' ? 'РУ ТЕКСТ' : 'DEFAULT TEXT'
+      ocrProvider: createOcrProvider((ocrLanguage) =>
+        ocrLanguage === language.ocrProviderLanguageCode
+          ? 'РУ ТЕКСТ'
+          : 'DEFAULT TEXT'
       )
     });
 

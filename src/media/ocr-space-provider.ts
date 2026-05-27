@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { basename, extname } from 'node:path';
 
 import { mediaProviderConfig } from '../config/runtime/index.js';
-import type { OcrProvider } from './types.js';
+import { language } from '../locales/locale.js';
+import type { OcrLanguage, OcrProvider } from './types.js';
 
 const OCR_SPACE_ENDPOINT = mediaProviderConfig.ocrSpace.endpoint;
 const OCR_SPACE_PROVIDER_MODEL = mediaProviderConfig.ocrSpace.model;
@@ -17,13 +18,13 @@ export class OcrSpaceProvider implements OcrProvider {
 
   async extractText(input: {
     filePath: string;
-    language: 'rus' | null;
+    language: OcrLanguage;
     timeoutMs: number;
   }): Promise<{
     provider: 'ocr_space';
     providerModel: string;
     text: string;
-    language: 'rus' | null;
+    language: OcrLanguage;
     rawResponse: unknown;
   }> {
     const fetchImpl = this.config.fetch ?? globalThis.fetch;
@@ -70,7 +71,7 @@ export class OcrSpaceProvider implements OcrProvider {
 
   private async buildRequestBody(
     filePath: string,
-    language: 'rus' | null
+    inputLanguage: OcrLanguage
   ): Promise<FormData> {
     const bytes = await readFile(filePath);
     const filename = basename(filePath);
@@ -80,8 +81,8 @@ export class OcrSpaceProvider implements OcrProvider {
     form.set('file', new Blob([bytes], { type: blobType }), filename);
     form.set('OCREngine', mediaProviderConfig.ocrSpace.engine);
 
-    if (language === 'rus') {
-      form.set('language', 'rus');
+    if (inputLanguage === language.ocrProviderLanguageCode) {
+      form.set('language', language.ocrProviderLanguageCode);
     }
 
     return form;

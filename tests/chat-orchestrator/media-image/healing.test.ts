@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import { language } from '../../../src/locales/locale.js';
 import { createOrchestrator, FakeDatabaseClient } from '../support.js';
 import {
   createOcrProvider,
@@ -19,7 +20,7 @@ describe('ChatOrchestrator media image healing', () => {
     saveOcrArtifact(db, {
       artifactKind: 'ocr_text_ru',
       text: 'ГОРЖУСЬ',
-      language: 'rus'
+      language: language.ocrProviderLanguageCode
     });
 
     const generateReply = createReplyResultStub(
@@ -58,7 +59,7 @@ describe('ChatOrchestrator media image healing', () => {
     saveOcrArtifact(db, {
       artifactKind: 'ocr_text_ru',
       text: 'ГОРЖУСЬ',
-      language: 'rus'
+      language: language.ocrProviderLanguageCode
     });
     saveOcrArtifact(db, {
       artifactKind: 'ocr_text_default',

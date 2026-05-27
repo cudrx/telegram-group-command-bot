@@ -1,3 +1,5 @@
+import type { language } from '../locales/locale.js';
+
 export type TranscriptArtifact = {
   type: 'transcript';
   transcript: string;
@@ -7,7 +9,7 @@ export type TranscriptArtifact = {
 
 export type NormalizedMediaArtifact = TranscriptArtifact;
 
-export type OcrLanguage = 'rus' | null;
+export type OcrLanguage = typeof language.ocrProviderLanguageCode | null;
 
 export type SpeechToTextProvider = {
   transcribe(input: {

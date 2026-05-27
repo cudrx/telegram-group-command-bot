@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import { language } from '../../../src/locales/locale.js';
 import {
   createIncomingMessage,
   createOrchestrator,
@@ -69,12 +70,15 @@ describe('ChatOrchestrator media context preference', () => {
       artifactStatus: 'success',
       artifactText: 'ГОРЖУСЬ',
       artifactJson: { text: 'ГОРЖУСЬ' },
-      rawResponseJson: { status: 'ok', language: 'rus' },
+      rawResponseJson: {
+        status: 'ok',
+        language: language.ocrProviderLanguageCode
+      },
       sourceCaption: null,
       sourceMimeType: 'image/jpeg',
       sourceFileSize: 3,
       sourceDurationSeconds: null,
-      recognitionLanguage: 'rus',
+      recognitionLanguage: language.ocrProviderLanguageCode,
       confidenceJson: null,
       errorText: null,
       createdAt: '2026-04-03T11:58:11.000Z',

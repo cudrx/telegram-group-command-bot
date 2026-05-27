@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import { language } from '../src/locales/locale.js';
 import { OcrSpaceProvider } from '../src/media/ocr-space-provider.js';
 
 const tempDirectories: string[] = [];
@@ -18,7 +19,7 @@ describe('OcrSpaceProvider', () => {
     }
   });
 
-  test('sends rus OCR request with OCREngine=2 and extracts text', async () => {
+  test('sends target-language OCR request with OCREngine=2 and extracts text', async () => {
     const filePath = await createTempFixtureFile(
       'ocr-space-test-',
       'test-image.png',
@@ -48,7 +49,7 @@ describe('OcrSpaceProvider', () => {
 
     const result = await provider.extractText({
       filePath,
-      language: 'rus',
+      language: language.ocrProviderLanguageCode,
       timeoutMs: 5000
     });
 
@@ -56,7 +57,7 @@ describe('OcrSpaceProvider', () => {
       provider: 'ocr_space',
       providerModel: 'ocr.space/parse/image:OCREngine=2',
       text: 'ГОРЖУСЬ',
-      language: 'rus'
+      language: language.ocrProviderLanguageCode
     });
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toBe('https://api.ocr.space/parse/image');
@@ -65,7 +66,7 @@ describe('OcrSpaceProvider', () => {
     expect(requestBody).toBeInstanceOf(FormData);
 
     const form = requestBody as FormData;
-    expect(form.get('language')).toBe('rus');
+    expect(form.get('language')).toBe(language.ocrProviderLanguageCode);
     expect(form.get('OCREngine')).toBe('2');
     expectUploadedFile(form, 'test-image.png', 'image/png');
     expect(calls[0]?.init?.headers).toMatchObject({
@@ -175,21 +176,21 @@ describe('OcrSpaceProvider', () => {
     await expect(
       provider.extractText({
         filePath,
-        language: 'rus',
+        language: language.ocrProviderLanguageCode,
         timeoutMs: 5000
       })
     ).rejects.toThrow(/OCR\.space/i);
     await expect(
       provider.extractText({
         filePath,
-        language: 'rus',
+        language: language.ocrProviderLanguageCode,
         timeoutMs: 5000
       })
     ).rejects.toThrow(/File failed validation/i);
     await expect(
       provider.extractText({
         filePath,
-        language: 'rus',
+        language: language.ocrProviderLanguageCode,
         timeoutMs: 5000
       })
     ).rejects.toThrow(/Unsupported image format/i);
