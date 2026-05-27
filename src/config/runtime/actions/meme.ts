@@ -1,3 +1,5 @@
+import { text } from '../../../locales/locale.js';
+
 export const memeActionConfig = {
   subreddits: [
     'BatmanArkham',
@@ -29,7 +31,7 @@ export const memeActionConfig = {
     timeRange: 'week'
   },
   historyRetentionDays: 14,
-  fallbackText: 'Мемы закончились, идите трогайте траву.',
+  fallbackText: text.meme.fallback,
   media: {
     imageMaxBytes: 10_000_000,
     videoMaxBytes: 50_000_000,

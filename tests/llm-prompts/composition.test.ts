@@ -142,7 +142,9 @@ describe('buildIntentPrompt composition', () => {
     });
 
     expect(prompt).toContain('Assistant identity:');
-    expect(prompt).toContain('Proofy');
+    expect(prompt).toContain('Your display name in chats is "Пруфик".');
+    expect(prompt).not.toContain('Proofy');
+    expect(prompt).not.toContain('Prufik');
     expect(prompt).toContain('@hrupa_bot');
     expect(prompt).toContain(
       'If a chat message addresses your display name or "@hrupa_bot", treat it as addressing you, not another chat participant.'

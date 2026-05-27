@@ -1,12 +1,11 @@
 import { formatMoscowCurrentDateTime } from '../../llm/current-datetime.js';
 import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js';
 import { loadPrompt } from '../../llm/prompt-files.js';
+import { text } from '../../locales/locale.js';
 import { buildReplyContext } from '../reply-context-builder.js';
 import {
-  ANSWER_USAGE_PLACEHOLDER,
   createLocalReplyResult,
   getContextLimitForIntent,
-  TRANSLATE_USAGE_PLACEHOLDER,
   withReplySnapshotFallback
 } from './helpers/reply.js';
 import { buildLookupContext } from './lookup.js';
@@ -38,11 +37,11 @@ export async function executeReplyGeneration(input: {
   );
 
   if (request.intent === 'answer' && !replyContext.replyAnchorMessage) {
-    return createLocalReplyResult(ANSWER_USAGE_PLACEHOLDER);
+    return createLocalReplyResult(text.answer.usageFallback);
   }
 
   if (request.intent === 'translate' && !replyContext.replyAnchorMessage) {
-    return createLocalReplyResult(TRANSLATE_USAGE_PLACEHOLDER);
+    return createLocalReplyResult(text.translate.usageFallback);
   }
 
   const mediaGate = await mediaSupport.waitForRequiredMedia(

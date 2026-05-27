@@ -2,6 +2,7 @@ import type {
   ReplyContext,
   ReplyGenerationIntent
 } from '../../domain/models.js';
+import { patterns, text } from '../../locales/locale.js';
 import { loadPrompt } from '../prompt-files.js';
 import { renderPromptTemplate } from './render.js';
 import { formatJsonForPrompt, sanitizePromptText } from './sanitize.js';
@@ -106,16 +107,14 @@ export function getIntentDataSections(input: {
   });
 }
 
-function formatTranslateBlocksForPrompt(text: string | undefined): string {
-  const sanitized = sanitizePromptText(text ?? '');
+function formatTranslateBlocksForPrompt(
+  sourceText: string | undefined
+): string {
+  const sanitized = sanitizePromptText(sourceText ?? '');
 
-  if (
-    /^(Текст сообщения|Подпись|Текст на картинке|Расшифровка аудио|Описание изображения):/u.test(
-      sanitized
-    )
-  ) {
+  if (patterns.translate.blockHeaderAtStart.test(sanitized)) {
     return sanitized;
   }
 
-  return ['Текст сообщения:', sanitized].join('\n');
+  return [`${text.translate.headers.messageText}:`, sanitized].join('\n');
 }

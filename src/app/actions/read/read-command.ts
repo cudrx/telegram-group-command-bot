@@ -1,4 +1,5 @@
 import { readActionConfig } from '../../../config/runtime/index.js';
+import { text } from '../../../locales/locale.js';
 import { serializeError } from '../../../logging/logger.js';
 import { normalizeSpeechText } from '../../../tts/speech-cleanup.js';
 import { runWithReplyVoiceRecording } from '../../chat-orchestrator/helpers/reply.js';
@@ -13,11 +14,6 @@ export const OUTBOUND_TTS_READ_MAX_CHARS =
 export const READ_TTS_COOLDOWN_MS = readActionConfig.outboundTts.cooldownMs;
 export const READ_TTS_HOURLY_VOICE_LIMIT =
   readActionConfig.outboundTts.hourlyVoiceLimit;
-export const READ_TTS_USAGE_FALLBACK =
-  'Сделай reply на текстовое сообщение и отправь /read.';
-export const READ_TTS_TOO_LONG_FALLBACK = `Сообщение слишком длинное, я могу прочитать только до ${OUTBOUND_TTS_READ_MAX_CHARS} символов.`;
-export const READ_TTS_FAILED_FALLBACK =
-  'Не удалось озвучить сообщение. Попробуй позже.';
 
 export type ReadTtsDecision =
   | { ok: true; speechText: string }
@@ -36,7 +32,7 @@ export function decideReadTts(input: {
   if (!target || target.text.trim().length === 0) {
     return {
       ok: false,
-      fallbackText: READ_TTS_USAGE_FALLBACK,
+      fallbackText: text.read.usageFallback,
       reason: 'missing_text_reply'
     };
   }
@@ -52,7 +48,7 @@ export function decideReadTts(input: {
   ) {
     return {
       ok: false,
-      fallbackText: `Я уже прочитал ${READ_TTS_HOURLY_VOICE_LIMIT} сообщения за час в этом чате. Попробуй через ${Math.ceil(remainingMs / 60_000)} мин.`,
+      fallbackText: formatReadTtsCooldownFallback(remainingMs),
       reason: 'cooldown'
     };
   }
@@ -64,8 +60,8 @@ export function decideReadTts(input: {
       ok: false,
       fallbackText:
         cleanup.reason === 'length'
-          ? READ_TTS_TOO_LONG_FALLBACK
-          : READ_TTS_USAGE_FALLBACK,
+          ? text.read.tooLongFallback(OUTBOUND_TTS_READ_MAX_CHARS)
+          : text.read.usageFallback,
       reason: cleanup.reason
     };
   }
@@ -108,7 +104,7 @@ export async function runReadTtsJob(input: {
     await dispatchTextReply({
       deps: input.deps,
       request: input.request,
-      text: READ_TTS_FAILED_FALLBACK
+      text: text.read.failedFallback
     });
 
     return { outputMode: 'text' };
@@ -174,7 +170,7 @@ export async function runReadTtsJob(input: {
     await dispatchTextReply({
       deps: input.deps,
       request: input.request,
-      text: READ_TTS_FAILED_FALLBACK
+      text: text.read.failedFallback
     });
 
     return { outputMode: 'text' };
@@ -213,4 +209,11 @@ function getReadCooldownRemainingMs(
   const elapsed = new Date(now).getTime() - new Date(lastVoiceAt).getTime();
 
   return Math.max(READ_TTS_COOLDOWN_MS - elapsed, 0);
+}
+
+function formatReadTtsCooldownFallback(remainingMs: number): string {
+  return text.read.cooldownFallback(
+    READ_TTS_HOURLY_VOICE_LIMIT,
+    Math.ceil(remainingMs / 60_000)
+  );
 }

@@ -1,4 +1,5 @@
 import type { ReplyContext, ReplyGenerationIntent } from '../domain/models.js';
+import { text } from '../locales/locale.js';
 import type { LookupContext } from '../lookup/types.js';
 import { loadPrompt } from './prompt-files.js';
 import { getIntentDataSections } from './prompts/data-sections.js';
@@ -30,6 +31,7 @@ export function buildIntentPrompt(input: {
 
   return renderPromptTemplate(loadPrompt('replyShell'), {
     assistantInstructions: input.assistantInstructions,
+    assistantDisplayName: text.assistant.displayName,
     globalPrompt: loadPrompt('global'),
     targetDisplayName: sanitizePromptText(input.targetDisplayName),
     intent: input.intent,

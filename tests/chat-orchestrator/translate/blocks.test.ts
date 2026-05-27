@@ -3,7 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   collectTranslateBlocks,
   filterTranslatableBlocks,
-  looksRussian
+  looksLikeTargetLanguage
 } from '../../../src/app/actions/translate/blocks.js';
 import type { StoredMessage } from '../../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../../src/llm/prompts.js';
@@ -171,16 +171,16 @@ describe('translate blocks', () => {
     ]);
   });
 
-  test('detects ordinary Russian text without treating all Cyrillic as Russian', () => {
-    expect(looksRussian('Привет, как дела?')).toBe(true);
-    expect(looksRussian('Спасибо')).toBe(true);
-    expect(looksRussian('Хорошо')).toBe(true);
-    expect(looksRussian('Москва')).toBe(true);
-    expect(looksRussian('Hello, how are you?')).toBe(false);
-    expect(looksRussian('Добар дан')).toBe(false);
+  test('detects ordinary target-language text without treating all Cyrillic as target-language', () => {
+    expect(looksLikeTargetLanguage('Привет, как дела?')).toBe(true);
+    expect(looksLikeTargetLanguage('Спасибо')).toBe(true);
+    expect(looksLikeTargetLanguage('Хорошо')).toBe(true);
+    expect(looksLikeTargetLanguage('Москва')).toBe(true);
+    expect(looksLikeTargetLanguage('Hello, how are you?')).toBe(false);
+    expect(looksLikeTargetLanguage('Добар дан')).toBe(false);
   });
 
-  test('filters already-Russian blocks independently', () => {
+  test('filters target-language blocks independently', () => {
     const blocks = [
       { kind: 'caption' as const, header: 'Подпись', text: 'Уже на русском' },
       { kind: 'image_text' as const, header: 'Текст на картинке', text: 'OPEN' }

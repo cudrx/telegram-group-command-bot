@@ -1,5 +1,6 @@
 import type { StoredMessage } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
+import { patterns, text } from '../../../locales/locale.js';
 
 export type TranslateBlockKind =
   | 'message_text'
@@ -18,6 +19,9 @@ type CandidateTranslateBlock = Omit<TranslateBlock, 'text'> & {
   text: string | null;
 };
 
+const TRANSLATE_BLOCK_HEADERS = text.translate.headers;
+const LANGUAGE_DETECTION_PATTERNS = patterns.languageDetection;
+
 export function collectTranslateBlocks(input: {
   targetMessage: StoredMessage | null;
   mediaContext: DescribeMediaContext | null;
@@ -32,7 +36,7 @@ export function collectTranslateBlocks(input: {
   if (!isSameNonEmptyText(targetText, mediaCaption)) {
     addBlock(blocks, {
       kind: 'message_text',
-      header: 'Текст сообщения',
+      header: TRANSLATE_BLOCK_HEADERS.messageText,
       text: cleanMessageOrCaptionText(targetText)
     });
   }
@@ -42,20 +46,20 @@ export function collectTranslateBlocks(input: {
 
   addBlock(blocks, {
     kind: 'image_text',
-    header: 'Текст на картинке',
+    header: TRANSLATE_BLOCK_HEADERS.imageText,
     text: ocrText
   });
 
   addBlock(blocks, {
     kind: 'audio_transcript',
-    header: 'Расшифровка аудио',
+    header: TRANSLATE_BLOCK_HEADERS.audioTranscript,
     text: input.mediaContext?.audioTranscript?.transcript ?? null
   });
 
   if (!ocrText) {
     addBlock(blocks, {
       kind: 'image_description',
-      header: 'Описание изображения',
+      header: TRANSLATE_BLOCK_HEADERS.imageDescription,
       text:
         input.mediaContext?.visionInterpretation ??
         input.mediaContext?.visionDescription ??
@@ -65,7 +69,7 @@ export function collectTranslateBlocks(input: {
 
   addBlock(blocks, {
     kind: 'caption',
-    header: 'Подпись',
+    header: TRANSLATE_BLOCK_HEADERS.caption,
     text: cleanMessageOrCaptionText(mediaCaption)
   });
 
@@ -85,10 +89,10 @@ export function createTranslateBlockMessage(
 export function filterTranslatableBlocks(
   blocks: TranslateBlock[]
 ): TranslateBlock[] {
-  return blocks.filter((block) => !looksRussian(block.text));
+  return blocks.filter((block) => !looksLikeTargetLanguage(block.text));
 }
 
-export function looksRussian(text: string): boolean {
+export function looksLikeTargetLanguage(text: string): boolean {
   const normalized = text
     .toLowerCase()
     .replace(/https?:\/\/\S+/g, ' ')
@@ -99,20 +103,17 @@ export function looksRussian(text: string): boolean {
     return false;
   }
 
-  const russianSpecificLetters = normalized.match(/[ёыэъ]/gu) ?? [];
-  const commonRussianWords =
-    normalized.match(
-      /(?:^|[^\p{L}])(и|в|во|не|на|что|это|как|дела|привет|я|ты|он|она|мы|вы|они|уже|русском|русский|для|с|со|по|из|за|к|ко|от|до)(?=$|[^\p{L}])/gu
-    ) ?? [];
-  const commonRussianShortText =
-    normalized.match(
-      /(?:^|[^\p{L}])(спасибо|хорошо|понял|поняла|понятно|согласен|согласна|можно|нельзя|давай|ладно|москва)(?=$|[^\p{L}])/gu
-    ) ?? [];
+  const targetLanguageSpecificLetters =
+    normalized.match(LANGUAGE_DETECTION_PATTERNS.specificLetters) ?? [];
+  const commonTargetLanguageWords =
+    normalized.match(LANGUAGE_DETECTION_PATTERNS.commonWords) ?? [];
+  const commonTargetLanguageShortText =
+    normalized.match(LANGUAGE_DETECTION_PATTERNS.commonShortText) ?? [];
 
   return (
-    russianSpecificLetters.length > 0 ||
-    commonRussianWords.length >= 1 ||
-    commonRussianShortText.length >= 1
+    targetLanguageSpecificLetters.length > 0 ||
+    commonTargetLanguageWords.length >= 1 ||
+    commonTargetLanguageShortText.length >= 1
   );
 }
 

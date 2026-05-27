@@ -1,17 +1,13 @@
 import type { ReplyContext } from '../../../domain/models.js';
 import type { LlmReplyResult } from '../../../llm/openai-compatible-client/index.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
+import { text } from '../../../locales/locale.js';
 import {
   collectTranslateBlocks,
   createTranslateBlockMessage,
   filterTranslatableBlocks
 } from '../../actions/translate/blocks.js';
-import {
-  createLocalReplyResult,
-  TRANSLATE_ALREADY_RUSSIAN_PLACEHOLDER,
-  TRANSLATE_NO_MATERIAL_PLACEHOLDER,
-  TRANSLATE_USAGE_PLACEHOLDER
-} from '../helpers/reply.js';
+import { createLocalReplyResult } from '../helpers/reply.js';
 import type { ReplyJobRequest } from '../types.js';
 
 export function prepareTranslateReply(input: {
@@ -26,7 +22,7 @@ export function prepareTranslateReply(input: {
   if (!targetMessage) {
     return {
       ok: false,
-      result: createLocalReplyResult(TRANSLATE_USAGE_PLACEHOLDER)
+      result: createLocalReplyResult(text.translate.usageFallback)
     };
   }
 
@@ -45,7 +41,7 @@ export function prepareTranslateReply(input: {
   if (blocks.length === 0) {
     return {
       ok: false,
-      result: createLocalReplyResult(TRANSLATE_NO_MATERIAL_PLACEHOLDER)
+      result: createLocalReplyResult(text.translate.noMaterialFallback)
     };
   }
 
@@ -54,7 +50,9 @@ export function prepareTranslateReply(input: {
   if (translatableBlocks.length === 0) {
     return {
       ok: false,
-      result: createLocalReplyResult(TRANSLATE_ALREADY_RUSSIAN_PLACEHOLDER)
+      result: createLocalReplyResult(
+        text.translate.alreadyTargetLanguageFallback
+      )
     };
   }
 

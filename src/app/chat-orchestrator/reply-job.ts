@@ -1,3 +1,4 @@
+import { patterns } from '../../locales/locale.js';
 import { serializeError } from '../../logging/logger.js';
 import { runReadTtsJob } from '../actions/read/read-command.js';
 import { formatTelegramHtmlReply } from '../telegram-html/index.js';
@@ -123,10 +124,7 @@ function formatTranslateReplyBlocks(text: string): string {
 }
 
 function parseTranslateHeader(line: string): string | null {
-  const match =
-    /^ *(?:<b>)?(Текст сообщения|Подпись|Текст на картинке|Расшифровка аудио|Описание изображения):(?:<\/b>)? *$/u.exec(
-      line
-    );
+  const match = patterns.translate.replyHeaderLine.exec(line);
 
   return match?.[1] ?? null;
 }

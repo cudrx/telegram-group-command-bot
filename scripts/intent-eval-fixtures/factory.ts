@@ -33,7 +33,7 @@ export function createFixture(input: {
       senderDisplayName,
       text,
       createdAt,
-      isBot: senderDisplayName.toLowerCase().includes('бот'),
+      isBot: false,
       replyToMessageId: null
     })
   );

@@ -1,9 +1,6 @@
 import type { StoredMessage } from '../../../domain/models.js';
+import { text } from '../../../locales/locale.js';
 import type { ActionContext, ChatAction } from '../types.js';
-
-const missingTargetText =
-  'Не нашел сообщение для /publish. Сделай reply или отправь команду после сообщения.';
-const copyFailedText = 'Telegram не дал скопировать это сообщение.';
 
 export const publishAction: ChatAction = {
   intent: 'publish',
@@ -16,7 +13,7 @@ export const publishAction: ChatAction = {
       await ctx.deps.replyDispatcher({
         chatId: ctx.request.chatId,
         replyToMessageId: ctx.request.triggerMessageId,
-        text: missingTargetText
+        text: text.publish.missingTarget
       });
       return;
     }
@@ -46,7 +43,7 @@ export const publishAction: ChatAction = {
       await ctx.deps.replyDispatcher({
         chatId: ctx.request.chatId,
         replyToMessageId: ctx.request.triggerMessageId,
-        text: copyFailedText
+        text: text.publish.copyFailed
       });
     }
   }

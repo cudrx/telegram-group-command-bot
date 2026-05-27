@@ -9,15 +9,6 @@ import type { TelegramChatAction } from '../../typing-indicator.js';
 import { withChatActionIndicator } from '../../typing-indicator.js';
 import type { ChatOrchestratorDeps } from '../types.js';
 
-export const ANSWER_USAGE_PLACEHOLDER =
-  'Сделай reply на сообщение с вопросом и отправь /answer.';
-export const TRANSLATE_USAGE_PLACEHOLDER =
-  'Сделай reply на сообщение и отправь /translate.';
-export const TRANSLATE_NO_MATERIAL_PLACEHOLDER =
-  'Нечего переводить: сделай reply на текст, подпись, картинку или голосовое.';
-export const TRANSLATE_ALREADY_RUSSIAN_PLACEHOLDER =
-  'Похоже, это уже на русском.';
-
 export function withReplySnapshotFallback(
   context: ReplyContext,
   input: {
