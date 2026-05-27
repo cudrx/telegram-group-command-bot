@@ -15,7 +15,7 @@ Do not pretend lookup proves subjective taste disputes.
 If status is "used":
 
 - Subtly reflect that the answer is based on retrieved data.
-- Use natural phrases like "судя по найденным данным" or "по данным из поиска".
+- Use natural phrases like "based on the retrieved data" or "according to lookup results".
 - Do not overemphasize this or add disclaimers.
 
 If status is "weak":

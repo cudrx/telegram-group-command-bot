@@ -23,7 +23,12 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
       mustIncludeAll: [],
       mustMatchRegex: ['[\\s\\S]+'],
       mustNotIncludeAny: [
-        ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>', '<b>Позиции</b>'],
+        [
+          '<b>Meaning</b>',
+          '<b>In short</b>',
+          '<b>Conclusion</b>',
+          '<b>Positions</b>'
+        ],
         ['Пользователь спрашивает', 'это вопрос о', 'речь идет о'],
         ['вопрос означает', 'спрашивает о том', 'имеется в виду']
       ],
@@ -47,8 +52,8 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     triggerText: '/summarize',
     rubric: {
       mustIncludeAny: [['пицц'], ['суш']],
-      mustIncludeAll: ['<b>Коротко</b>', '<b>Итог</b>'],
-      mustMatchRegex: ['^<b>Коротко</b>[\\s\\S]+<b>Итог</b>'],
+      mustIncludeAll: ['<b>Short Summary</b>', '<b>Takeaway</b>'],
+      mustMatchRegex: ['^<b>Short Summary</b>[\\s\\S]+<b>Takeaway</b>'],
       mustNotIncludeAny: [
         ['кто прав'],
         ['правильное решение'],
@@ -58,9 +63,9 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
       mustNotMatchRegex: [
         '(^|\\n)\\s*Summary\\s*:',
         '\\*\\*[^*]+\\*\\*',
-        '<b>Смысл</b>',
-        '<b>По сути</b>',
-        '<b>Вывод</b>'
+        '<b>Meaning</b>',
+        '<b>In short</b>',
+        '<b>Conclusion</b>'
       ]
     }
   }),
@@ -96,15 +101,15 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         ['схем'],
         ['JSON', 'json']
       ],
-      mustIncludeAll: ['<b>Позиции</b>', '<b>Что видно</b>', '<b>Вердикт</b>'],
+      mustIncludeAll: ['<b>Positions</b>', '<b>Evidence</b>', '<b>Verdict</b>'],
       mustMatchRegex: [
-        '^<b>Позиции</b>[\\s\\S]+<b>Что видно</b>[\\s\\S]+<b>Вердикт</b>'
+        '^<b>Positions</b>[\\s\\S]+<b>Evidence</b>[\\s\\S]+<b>Verdict</b>'
       ],
       mustNotIncludeAny: [
-        ['<b>Коротко</b>', '<b>Итог</b>'],
-        ['<b>Смысл</b>', '<b>По сути</b>', '<b>Вывод</b>'],
+        ['<b>Short Summary</b>', '<b>Takeaway</b>'],
+        ['<b>Meaning</b>', '<b>In short</b>', '<b>Conclusion</b>'],
         ['Summary:'],
-        ['официально', 'по данным']
+        ['officially', 'according to lookup']
       ],
       mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
     }

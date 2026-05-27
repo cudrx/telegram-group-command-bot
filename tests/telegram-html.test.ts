@@ -35,7 +35,7 @@ describe('formatTelegramHtmlReply', () => {
         'Summary:',
         '- Участники тестируют команды (`/summarize`, `/answer`).',
         '- **Краткий ориентир:** бот проверяют на спорных репликах.',
-        '- Итог: чат работает как полигон для отладки.'
+        '- Takeaway: чат работает как полигон для отладки.'
       ].join('\n'),
       { intent: 'summarize' }
     );
@@ -44,7 +44,7 @@ describe('formatTelegramHtmlReply', () => {
       [
         '• Участники тестируют команды (<code>/summarize</code>, <code>/answer</code>).',
         '• <b>Краткий ориентир:</b> бот проверяют на спорных репликах.',
-        '<b>Итог</b> — чат работает как полигон для отладки.'
+        '<b>Takeaway</b> — чат работает как полигон для отладки.'
       ].join('\n')
     );
   });
@@ -55,10 +55,10 @@ describe('formatTelegramHtmlReply', () => {
     );
 
     expect(
-      formatTelegramHtmlReply('Summary:\nИтог: всё работает', {
+      formatTelegramHtmlReply('Summary:\nTakeaway: всё работает', {
         intent: 'summarize'
       })
-    ).toBe('<b>Итог</b> — всё работает');
+    ).toBe('<b>Takeaway</b> — всё работает');
   });
 
   test('does not normalize markdown headings for generic replies', () => {

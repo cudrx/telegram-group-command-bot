@@ -30,19 +30,19 @@ describe('buildIntentPrompt chat intent response shapes', () => {
     expect(prompt).toContain('Do not use external knowledge.');
     expect(prompt).toContain('Do not decide who is right.');
     expect(prompt).toContain('CHAT_CONTEXT_DATA:');
-    expect(prompt).toContain('<b>Коротко</b>');
+    expect(prompt).toContain('<b>Short Summary</b>');
     expect(prompt).toContain('3 to 5 short bullet points using •');
     expect(prompt).toContain(
-      'Add exactly one final line after bullets: <b>Итог</b> — concise takeaway.'
+      'Add exactly one final line after bullets: <b>Takeaway</b> — concise takeaway.'
     );
     expect(prompt).toContain(
-      'Insert one empty line between the final bullet and the final <b>Итог</b> line.'
+      'Insert one empty line between the final bullet and the final <b>Takeaway</b> line.'
     );
     expect(prompt).toContain(
       'The final line must not repeat bullets or introduce new unrelated info.'
     );
-    expect(prompt).toContain('No text before <b>Коротко</b>.');
-    expect(prompt).toContain('No text after the final <b>Итог</b> line.');
+    expect(prompt).toContain('No text before <b>Short Summary</b>.');
+    expect(prompt).toContain('No text after the final <b>Takeaway</b> line.');
     expect(prompt).toContain(
       'Do not add meta commentary about the summarization task.'
     );
@@ -51,13 +51,13 @@ describe('buildIntentPrompt chat intent response shapes', () => {
     );
     expect(prompt).toContain('Do not use Markdown markers like **bold**.');
     expect(prompt).toContain(
-      "Do not write phrases like 'Суммаризация завершена' or 'Данных для точного анализа недостаточно'."
+      'Do not write phrases like "summarization complete" or "there is not enough data for precise analysis".'
     );
     expect(prompt).toContain('No command arguments are used for this mode.');
     expect(prompt).toContain('Required response shape:');
-    expect(prompt).not.toContain('optional meaningful <b>Итог</b>');
+    expect(prompt).not.toContain('optional meaningful <b>Takeaway</b>');
     expect(prompt).not.toContain(
-      "Do not add a separate 'Итог:' bullet or section."
+      "Do not add a separate 'Takeaway:' bullet or section."
     );
     expect(prompt).not.toContain(
       'Do not add a final verdict, winner, or analysis-status line.'
@@ -108,7 +108,7 @@ describe('buildIntentPrompt chat intent response shapes', () => {
       'Preserve central named entities, product names, artist names, and model names.'
     );
     expect(prompt).toContain(
-      'If named entities are compared, name each compared entity clearly in <b>Позиции</b> and keep the relation explicit, for example "prefers A over B".'
+      'If named entities are compared, name each compared entity clearly in <b>Positions</b> and keep the relation explicit, for example "prefers A over B".'
     );
     expect(prompt).toContain(
       'Do not replace compared entities with generic words like "alternative", "other option", or "second side".'
@@ -127,14 +127,14 @@ describe('buildIntentPrompt chat intent response shapes', () => {
     );
     expect(prompt).toContain('CHAT_CONTEXT_DATA:');
     expect(prompt).toContain('Required response shape:');
-    expect(prompt).toContain('<b>Позиции</b>');
-    expect(prompt).toContain('<b>Что видно</b>');
-    expect(prompt).toContain('<b>Вердикт</b>');
-    expect(prompt.indexOf('<b>Позиции</b>')).toBeLessThan(
-      prompt.indexOf('<b>Что видно</b>')
+    expect(prompt).toContain('<b>Positions</b>');
+    expect(prompt).toContain('<b>Evidence</b>');
+    expect(prompt).toContain('<b>Verdict</b>');
+    expect(prompt.indexOf('<b>Positions</b>')).toBeLessThan(
+      prompt.indexOf('<b>Evidence</b>')
     );
-    expect(prompt.indexOf('<b>Что видно</b>')).toBeLessThan(
-      prompt.indexOf('<b>Вердикт</b>')
+    expect(prompt.indexOf('<b>Evidence</b>')).toBeLessThan(
+      prompt.indexOf('<b>Verdict</b>')
     );
     expect(prompt).toContain('<short decision, 1-2 lines maximum>');
     expect(prompt).toContain('Do not add extra sections or final lines.');

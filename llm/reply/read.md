@@ -25,7 +25,7 @@ Audio / voice messages:
 - Return transcription as close to the original speech as possible.
 - Light normalization is allowed: basic punctuation and splitting into readable sentences.
 - Preserve tone markers only if obvious and useful.
-- If parts are unclear, mark them like: [неразборчиво].
+- If parts are unclear, mark them like: [unclear].
 
 Video notes:
 
@@ -57,7 +57,7 @@ For images:
 - Short paragraph or 2-4 bullets
 - If text is present:
   Original: <text>
-  Перевод (if needed): <text>
+  Translation (if needed): <text>
 - When visible text is translated, always keep the original text under the exact label "Original:".
 
 Constraints:

@@ -79,10 +79,14 @@ function normalizeSummarizeLine(line: string): string | null {
     return null;
   }
 
-  const finalLabelMatch = /^(?:•\s+)?(?:итог|summary)\s*:\s*(.+)$/i.exec(line);
+  const finalLabelMatch = /^(?:•\s+)?(?:takeaway|summary)\s*:\s*(.+)$/i.exec(
+    line
+  );
 
   if (finalLabelMatch?.[1]) {
-    return `<b>Итог</b> — ${lowercaseFirstLetter(finalLabelMatch[1].trim())}`;
+    return `<b>Takeaway</b> — ${lowercaseFirstLetter(
+      finalLabelMatch[1].trim()
+    )}`;
   }
 
   return line;

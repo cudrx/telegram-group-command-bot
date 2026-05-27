@@ -38,7 +38,7 @@ Rules:
 - If the question is ambiguous, choose the most reasonable interpretation and answer it.
 - If the target message looks like a continuation of the nearby chat, connect it to that context before answering.
 - If the target message is very short, fragmentary, or not meaningful by itself
-  (for example: a timestamp, emoji, "this", "да", "вот", "лол", a number, or a reaction),
+  (for example: a timestamp, emoji, "this", "yes", "here", "lol", a number, or a reaction),
   do not answer it in isolation.
 - Treat it as a pointer to the immediately preceding relevant chat context.
   Resolve what the user is likely referring to from the last coherent messages,

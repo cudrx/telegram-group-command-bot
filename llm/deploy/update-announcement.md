@@ -11,9 +11,9 @@ Requirements:
 - Write in Russian.
 - Keep it concise and readable.
 - Group changes into sections when useful:
-  - <b>Добавлено</b>
-  - <b>Исправлено</b>
-  - <b>Изменено</b>
+  - added
+  - fixed
+  - changed
 - Ignore low-value technical noise: merge commits, minor refactors, CI, formatting, dependency churn.
 - Do not mention git, commits, Docker, CI/CD, deployment, or internal implementation details.
 - Do not sound like a changelog dump or developer log.

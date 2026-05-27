@@ -142,10 +142,10 @@ describe('buildIntentPrompt composition', () => {
     });
 
     expect(prompt).toContain('Assistant identity:');
-    expect(prompt).toContain('Пруфик');
+    expect(prompt).toContain('Proofy');
     expect(prompt).toContain('@hrupa_bot');
     expect(prompt).toContain(
-      'If a chat message addresses "Пруфик", "пруфик", or "@hrupa_bot", treat it as addressing you, not another chat participant.'
+      'If a chat message addresses your display name or "@hrupa_bot", treat it as addressing you, not another chat participant.'
     );
     expect(prompt).toContain(
       'Use masculine grammatical gender for yourself in Russian.'

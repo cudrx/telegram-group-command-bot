@@ -555,11 +555,13 @@ describe('ChatOrchestrator /meme command', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(new Response('rate limited', { status: 429 }));
+    const execFile = vi.fn().mockRejectedValue(new Error('yt-dlp unavailable'));
     const memeDispatcher = vi.fn();
     const deleteMessageDispatcher = vi.fn();
     const orchestrator = createOrchestrator({
       db,
       fetch: fetchMock,
+      execFile,
       logger,
       qwen: {
         generateReply: vi.fn()
@@ -586,6 +588,17 @@ describe('ChatOrchestrator /meme command', () => {
       expect.objectContaining({
         errorMessage:
           'Reddit post request failed for https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/.json with status 429'
+      })
+    );
+    expect(execFile).toHaveBeenCalledWith(
+      'yt-dlp',
+      expect.arrayContaining(['--dump-single-json']),
+      expect.any(Object)
+    );
+    expect(logger.warn).toHaveBeenCalledWith(
+      'reddit_video_ytdlp_failed',
+      expect.objectContaining({
+        errorMessage: 'yt-dlp unavailable'
       })
     );
   });

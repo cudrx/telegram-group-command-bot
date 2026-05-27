@@ -20,14 +20,14 @@ Rules:
 - Do not add meta commentary about the summarization task.
 - Do not write 'Summary:' or English summary headings.
 - Do not use Markdown markers like **bold**.
-- Do not write phrases like 'Суммаризация завершена' or 'Данных для точного анализа недостаточно'.
+- Do not write phrases like "summarization complete" or "there is not enough data for precise analysis".
 
 Required response shape:
-- First line exactly: <b>Коротко</b>
+- First line exactly: <b>Short Summary</b>
 - 3 to 5 short bullet points using •
-- Add exactly one final line after bullets: <b>Итог</b> — concise takeaway.
-- Insert one empty line between the final bullet and the final <b>Итог</b> line.
+- Add exactly one final line after bullets: <b>Takeaway</b> — concise takeaway.
+- Insert one empty line between the final bullet and the final <b>Takeaway</b> line.
 - The final line must not repeat bullets or introduce new unrelated info.
 - Use only the Telegram HTML subset from the global rules.
-- No text before <b>Коротко</b>.
-- No text after the final <b>Итог</b> line.
+- No text before <b>Short Summary</b>.
+- No text after the final <b>Takeaway</b> line.

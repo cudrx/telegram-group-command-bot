@@ -10,7 +10,7 @@ test('keeps static deploy update prompt text in llm markdown files', () => {
   );
 });
 
-test('builds a Russian Telegram update formatting prompt', () => {
+test('builds a Telegram update formatting prompt', () => {
   const prompt = buildDeployUpdatePrompt({
     shortSha: '9c59b85',
     commits: [
@@ -20,7 +20,7 @@ test('builds a Russian Telegram update formatting prompt', () => {
   });
 
   expect(prompt).toContain('Write in Russian.');
-  expect(prompt).toContain('<b>Добавлено</b>');
+  expect(prompt).toContain('added');
   expect(prompt).toContain(
     'Do not mention git, commits, Docker, CI/CD, deployment'
   );

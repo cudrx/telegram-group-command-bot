@@ -22,14 +22,14 @@ export function getIntentOutputShapeViolations(
 
   if (
     intent === 'summarize' &&
-    !/^<b>Коротко<\/b>[\s\S]+\n\n<b>Итог<\/b>\s+—/u.test(reply.trim())
+    !/^<b>Short Summary<\/b>[\s\S]+\n\n<b>Takeaway<\/b>\s+—/u.test(reply.trim())
   ) {
     violations.push('missing_summarize_shape');
   }
 
   if (
     intent === 'decide' &&
-    !hasOrderedSections(reply, ['Позиции', 'Что видно', 'Вердикт'])
+    !hasOrderedSections(reply, ['Positions', 'Evidence', 'Verdict'])
   ) {
     violations.push('missing_decide_shape');
   }
