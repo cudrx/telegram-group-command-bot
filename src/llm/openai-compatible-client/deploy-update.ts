@@ -1,4 +1,5 @@
 import { llmProviderConfig } from '../../config/runtime/index.js';
+import { text } from '../../locales/locale.js';
 import { buildDeployUpdatePrompt } from '../deploy-update-prompt.js';
 import { estimateTokens, logLlmText, toSingleLinePreview } from './logging.js';
 import { withRetry } from './retry.js';
@@ -42,7 +43,7 @@ export async function formatDeployUpdate(params: {
         messages: [
           {
             role: 'system',
-            content: 'You format concise Telegram release updates in Russian.'
+            content: text.llm.deployUpdateSystem
           },
           {
             role: 'user',

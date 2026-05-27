@@ -1,11 +1,15 @@
+import { language } from '../locales/locale.js';
 import { loadPrompt } from './prompt-files.js';
+import { renderPromptTemplate } from './prompts/render.js';
 
 export function buildDeployUpdatePrompt(input: {
   shortSha: string;
   commits: string[];
 }): string {
   return [
-    loadPrompt('updateAnnouncement'),
+    renderPromptTemplate(loadPrompt('updateAnnouncement'), {
+      targetLanguageName: language.targetLanguageName
+    }),
     '',
     'Input data:',
     '',

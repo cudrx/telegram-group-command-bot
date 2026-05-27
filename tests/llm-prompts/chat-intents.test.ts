@@ -183,7 +183,9 @@ describe('buildIntentPrompt chat intent response shapes', () => {
 
     expect(prompt).toContain('The selected task mode is: translate');
     expect(prompt).toContain('You are in TRANSLATE mode.');
-    expect(prompt).toContain('Translate the provided blocks to Russian.');
+    expect(prompt).toContain(
+      'Translate the provided blocks to the target language.'
+    );
     expect(prompt).toContain('TRANSLATE_BLOCKS:');
     expect(prompt).toContain('TARGET_MESSAGE_TO_TRANSLATE:');
     expect(prompt).toContain('Текст сообщения:');

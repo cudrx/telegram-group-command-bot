@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { describe, expect, test } from 'vitest';
 
 import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
+import { loadAssistantInstructions } from '../src/llm/prompt-files.js';
 import { buildIntentPrompt } from '../src/llm/prompts.js';
 
 describe('intent eval fixtures', () => {
@@ -75,10 +75,7 @@ describe('intent eval fixtures', () => {
   });
 
   test('fixtures use production assistant instructions by default', () => {
-    const productionInstructions = readFileSync(
-      'llm/assistant/base.md',
-      'utf8'
-    ).trim();
+    const productionInstructions = loadAssistantInstructions();
 
     for (const fixture of intentEvalFixtures) {
       expect(fixture.assistantInstructions).toBe(productionInstructions);

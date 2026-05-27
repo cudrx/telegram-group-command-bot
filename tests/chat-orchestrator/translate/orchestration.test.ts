@@ -45,7 +45,7 @@ describe('ChatOrchestrator translate command', () => {
     );
   });
 
-  test('returns local placeholder when target text already looks Russian', async () => {
+  test('returns local placeholder when target text already looks like target language', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
@@ -83,7 +83,7 @@ describe('ChatOrchestrator translate command', () => {
     });
   });
 
-  test('sends non-Russian target text to the LLM as a labeled block', async () => {
+  test('sends non-target-language text to the LLM as a labeled block', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
@@ -305,7 +305,7 @@ describe('ChatOrchestrator translate command', () => {
     });
   });
 
-  test('omits already-Russian media caption and translates non-Russian OCR block', async () => {
+  test('omits target-language media caption and translates non-target-language OCR block', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({

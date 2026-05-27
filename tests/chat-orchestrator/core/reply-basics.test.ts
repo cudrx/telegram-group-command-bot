@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
-import { loadPrompt } from '../../../src/llm/prompt-files.js';
+import { loadAssistantInstructions } from '../../../src/llm/prompt-files.js';
 import {
   createIncomingMessage,
   createOrchestrator,
@@ -40,7 +40,7 @@ describe('ChatOrchestrator reply basics', () => {
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        assistantInstructions: loadPrompt('base'),
+        assistantInstructions: loadAssistantInstructions(),
         targetDisplayName: 'Tom',
         intent: 'decide',
         currentDateTime: 'Monday, 13 April 2026, 12:00 Moscow time',

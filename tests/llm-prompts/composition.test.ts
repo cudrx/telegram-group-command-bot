@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { loadPrompt } from '../../src/llm/prompt-files.js';
+import {
+  loadAssistantInstructions,
+  loadPrompt
+} from '../../src/llm/prompt-files.js';
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
 import { createPromptReplyContext } from './support.js';
 
@@ -8,7 +11,7 @@ describe('buildIntentPrompt composition', () => {
   test('includes current Moscow date and time for every reply mode', () => {
     for (const intent of ['summarize', 'decide', 'read', 'answer'] as const) {
       const prompt = buildIntentPrompt({
-        assistantInstructions: loadPrompt('base'),
+        assistantInstructions: loadAssistantInstructions(),
         targetDisplayName: 'Tom',
         intent,
         currentDateTime: 'Monday, 11 May 2026, 00:41 Moscow time',
@@ -27,14 +30,14 @@ describe('buildIntentPrompt composition', () => {
 
   test('composes summarize prompt from base, global, and summarize prompt files', () => {
     const prompt = buildIntentPrompt({
-      assistantInstructions: loadPrompt('base'),
+      assistantInstructions: loadAssistantInstructions(),
       targetDisplayName: 'Tom',
       intent: 'summarize',
       currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: createPromptReplyContext('/summarize')
     });
 
-    expect(prompt).toContain(loadPrompt('base'));
+    expect(prompt).toContain(loadAssistantInstructions());
     expect(prompt).toContain(loadPrompt('global'));
     expect(prompt).toContain(loadPrompt('summarize'));
     expect(prompt).not.toContain(loadPrompt('lookupContext'));
@@ -42,14 +45,14 @@ describe('buildIntentPrompt composition', () => {
 
   test('composes decide prompt from base, global, and decide prompt files', () => {
     const prompt = buildIntentPrompt({
-      assistantInstructions: loadPrompt('base'),
+      assistantInstructions: loadAssistantInstructions(),
       targetDisplayName: 'Tom',
       intent: 'decide',
       currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
       replyContext: createPromptReplyContext('/decide')
     });
 
-    expect(prompt).toContain(loadPrompt('base'));
+    expect(prompt).toContain(loadAssistantInstructions());
     expect(prompt).toContain(loadPrompt('global'));
     expect(prompt).toContain(loadPrompt('decide'));
     expect(prompt).not.toContain(loadPrompt('lookupContext'));
@@ -149,8 +152,6 @@ describe('buildIntentPrompt composition', () => {
     expect(prompt).toContain(
       'If a chat message addresses your display name or "@hrupa_bot", treat it as addressing you, not another chat participant.'
     );
-    expect(prompt).toContain(
-      'Use masculine grammatical gender for yourself in Russian.'
-    );
+    expect(prompt).not.toContain('grammatical gender');
   });
 });

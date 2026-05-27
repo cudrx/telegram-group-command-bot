@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
 
+import { language } from '../locales/locale.js';
+import { renderPromptTemplate } from './prompts/render.js';
+
 export const PROMPT_FILE_PATHS = {
   base: 'llm/assistant/base.md',
   global: 'llm/reply/global.md',
@@ -25,6 +28,12 @@ export type PromptName = keyof typeof PROMPT_FILE_PATHS;
 
 export function loadPrompt(promptName: PromptName): string {
   return loadPromptFile(PROMPT_FILE_PATHS[promptName], promptName);
+}
+
+export function loadAssistantInstructions(): string {
+  return renderPromptTemplate(loadPrompt('base'), {
+    targetLanguageName: language.targetLanguageName
+  });
 }
 
 export function loadPromptFile(

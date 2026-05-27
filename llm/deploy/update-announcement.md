@@ -8,7 +8,7 @@ Your task:
 Turn the raw changes into a clean, human-friendly Telegram update.
 
 Requirements:
-- Write in Russian.
+- Write in {{targetLanguageName}}.
 - Keep it concise and readable.
 - Group changes into sections when useful:
   - added

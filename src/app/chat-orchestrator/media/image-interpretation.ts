@@ -1,6 +1,6 @@
 import type { MediaMessageSnapshot } from '../../../domain/models.js';
 import { formatMoscowCurrentDateTime } from '../../../llm/current-datetime.js';
-import { loadPrompt } from '../../../llm/prompt-files.js';
+import { loadAssistantInstructions } from '../../../llm/prompt-files.js';
 import {
   addDaysIso,
   IMAGE_INTERPRETATION_ARTIFACT_KIND,
@@ -19,7 +19,7 @@ export async function generateAndStoreVisionInterpretation(
   }
 ): Promise<string | null> {
   const result = await deps.qwen.generateReply({
-    assistantInstructions: loadPrompt('base'),
+    assistantInstructions: loadAssistantInstructions(),
     targetDisplayName: input.request.fromDisplayName,
     intent: 'read',
     currentDateTime: formatMoscowCurrentDateTime(deps.now()),

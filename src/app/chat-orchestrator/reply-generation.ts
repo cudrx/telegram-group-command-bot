@@ -1,6 +1,6 @@
 import { formatMoscowCurrentDateTime } from '../../llm/current-datetime.js';
 import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js';
-import { loadPrompt } from '../../llm/prompt-files.js';
+import { loadAssistantInstructions } from '../../llm/prompt-files.js';
 import { text } from '../../locales/locale.js';
 import { buildReplyContext } from '../reply-context-builder.js';
 import {
@@ -88,7 +88,7 @@ export async function executeReplyGeneration(input: {
     replyContext = translatePreparation.replyContext;
   }
 
-  const assistantInstructions = loadPrompt('base');
+  const assistantInstructions = loadAssistantInstructions();
   const lookupContext = await buildLookupContext(deps, {
     intent: request.intent,
     replyContext,

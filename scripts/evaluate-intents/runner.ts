@@ -4,6 +4,7 @@ import path from 'node:path';
 import OpenAI from 'openai';
 
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
+import { text } from '../../src/locales/locale.js';
 import { intentEvalFixtures } from '../intent-eval-fixtures.js';
 import { parseEvalEnv } from './env.js';
 import { filterFixtures, parseEvalFilters } from './filters.js';
@@ -46,8 +47,7 @@ export async function main(): Promise<number> {
       messages: [
         {
           role: 'system',
-          content:
-            'You are a careful Telegram chat assistant. Answer in Russian.'
+          content: text.llm.evalSystem
         },
         {
           role: 'user',

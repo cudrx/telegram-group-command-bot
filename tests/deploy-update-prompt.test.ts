@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
 
 import { buildDeployUpdatePrompt } from '../src/llm/deploy-update-prompt.js';
+import { language } from '../src/locales/locale.js';
 
 test('keeps static deploy update prompt text in llm markdown files', () => {
   expect(readFileSync('llm/deploy/update-announcement.md', 'utf8')).toContain(
@@ -19,7 +20,7 @@ test('builds a Telegram update formatting prompt', () => {
     ]
   });
 
-  expect(prompt).toContain('Write in Russian.');
+  expect(prompt).toContain(`Write in ${language.targetLanguageName}.`);
   expect(prompt).toContain('added');
   expect(prompt).toContain(
     'Do not mention git, commits, Docker, CI/CD, deployment'

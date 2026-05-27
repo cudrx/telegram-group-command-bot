@@ -1,3 +1,8 @@
+export const language = {
+  targetLanguageName: 'Russian',
+  ocrProviderLanguageCode: 'rus'
+} as const;
+
 export const text = {
   assistant: {
     displayName: 'Пруфик'
@@ -33,6 +38,11 @@ export const text = {
   },
   meme: {
     fallback: 'Мемы закончились, идите трогайте траву.'
+  },
+  llm: {
+    replySystem: `You are a neutral Telegram assistant. Respond helpfully and concisely in ${language.targetLanguageName}.`,
+    deployUpdateSystem: `You format concise Telegram release updates in ${language.targetLanguageName}.`,
+    evalSystem: `You are a careful Telegram chat assistant. Answer in ${language.targetLanguageName}.`
   }
 } as const;
 

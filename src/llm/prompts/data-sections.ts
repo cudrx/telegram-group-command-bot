@@ -25,7 +25,7 @@ export function getIntentDataSections(input: {
         input.mediaContext?.sourceCaption ?? 'No caption.'
       ),
       targetMediaOcrTextRu: sanitizePromptText(
-        input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
+        input.mediaContext?.ocrTextRu ?? 'No target-language OCR text.'
       ),
       targetMediaOcrTextDefault: sanitizePromptText(
         input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'
@@ -60,7 +60,7 @@ export function getIntentDataSections(input: {
         input.mediaContext?.sourceCaption ?? 'No caption.'
       ),
       ocrTextRu: sanitizePromptText(
-        input.mediaContext?.ocrTextRu ?? 'No Russian OCR text.'
+        input.mediaContext?.ocrTextRu ?? 'No target-language OCR text.'
       ),
       ocrTextDefault: sanitizePromptText(
         input.mediaContext?.ocrTextDefault ?? 'No default OCR text.'

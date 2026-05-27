@@ -1,16 +1,12 @@
-import { readFileSync } from 'node:fs';
-
 import type {
   ReplyGenerationIntent,
   StoredMessage
 } from '../../src/domain/models.js';
+import { loadAssistantInstructions } from '../../src/llm/prompt-files.js';
 import type { DescribeMediaContext } from '../../src/llm/prompts.js';
 import type { IntentEvalFixture } from './types.js';
 
-const DEFAULT_ASSISTANT_INSTRUCTIONS = readFileSync(
-  'llm/assistant/base.md',
-  'utf8'
-).trim();
+const DEFAULT_ASSISTANT_INSTRUCTIONS = loadAssistantInstructions();
 
 export function createFixture(input: {
   id: string;

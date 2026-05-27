@@ -1,3 +1,4 @@
+import { text } from '../../locales/locale.js';
 import { buildIntentPrompt } from '../prompts.js';
 import {
   estimateTokens,
@@ -43,8 +44,7 @@ export async function generateReply(params: {
         messages: [
           {
             role: 'system',
-            content:
-              'You are a neutral Telegram assistant. Respond helpfully and concisely in Russian.'
+            content: text.llm.replySystem
           },
           {
             role: 'user',
