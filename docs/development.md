@@ -17,6 +17,7 @@
 - `llm/` - static prompt files.
 - `src/app/actions/` - command action modules and command registry.
 - `src/llm/current-datetime.ts` - current Moscow date/time formatting for reply prompts.
+- `src/locales/locale.ts` - active user-facing text and language-specific patterns.
 - `src/config/env/` - environment schema, defaults, and validation.
 - `src/config/runtime/` - typed runtime defaults grouped by action and provider.
 - `scripts/` - migrations, eval scripts, and deploy metadata.
@@ -210,3 +211,9 @@ Rollback:
 - Run `/publish` in the admin private chat: check reply mode, no-reply mode, and media albums; the copy should appear in `TELEGRAM_CHAT_ID` as a bot message without source-author attribution.
 - Media providers run only when matching keys are configured.
 - Lookup smoke before production rollout can be done with a direct request to the Tavily API.
+
+## Localization
+
+- Keep runtime user-facing text and language-specific regex patterns in `src/locales/locale.ts`.
+- Runtime code should import the neutral `text` and `patterns` exports instead of embedding localized strings.
+- When adding a new local fallback, label, assistant display name, or target-language detection pattern, add it to the locale file first and consume it from the feature code.

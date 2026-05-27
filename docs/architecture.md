@@ -62,7 +62,8 @@ Assembly helpers live in:
 Configuration is split into two layers:
 
 - `src/config/env/` reads the environment, validates deploy-specific values and secrets, and applies defaults.
-- `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `summarize`, `decide`), external provider settings, storage settings, and localization.
+- `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `summarize`, `decide`), external provider settings, and storage settings.
+- `src/locales/locale.ts` is the active localization module. Runtime code imports localized user-facing text and language-specific patterns from this file through neutral `text` and `patterns` exports, so switching the bot language is a file replacement/edit rather than a sweep through action code.
 
 Values that differ between environments go through the env schema. Values that describe local bot policy or provider contracts live in runtime config and are imported directly by consumers.
 
@@ -214,10 +215,11 @@ Behavior:
 - Text after the command is ignored.
 - Can translate this bot's own messages; this exception supports the `/answer` -> `/translate` chain.
 - Translates only target-message blocks: text, caption, image OCR text, audio/video-note transcript, or image description.
-- Each block is checked locally; already-Russian blocks are not sent to the LLM and are not duplicated in the reply.
-- If all found blocks already look Russian, the bot sends a local fallback without the LLM.
+- Each block is checked locally; blocks that already look like the target language are not sent to the LLM and are not duplicated in the reply.
+- If all found blocks already look like the target language, the bot sends a local fallback without the LLM.
 - Does not use external lookup.
-- The reply labels source blocks with `Текст сообщения`, `Подпись`, `Текст на картинке`, `Расшифровка аудио`, `Описание изображения`.
+- The reply labels source blocks with localized labels for message text,
+  captions, image OCR text, audio transcripts, and image descriptions.
 
 ### `/read`
 
@@ -260,7 +262,7 @@ Behavior:
 - After successful dispatch, memes store Telegram media metadata; later recognition uses the shared media auto-read flow.
 - Captions are built locally from the original title, `r/<subreddit>`, and a linked upvote counter `↑N` that points to the original post.
 - The media message is sent without replying to the `/meme` command.
-- If no sendable candidate is found, the bot sends a local fallback without the LLM: `Мемы закончились, идите трогайте траву.`
+- If no sendable candidate is found, the bot sends a local fallback without the LLM.
 
 ### Direct Media Links
 

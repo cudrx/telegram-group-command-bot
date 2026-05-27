@@ -144,6 +144,7 @@ Eval reports are written to a local working directory.
 - `src/database/` - SQLite schema, migrations, row mapping, and queries.
 - `src/domain/` - shared domain types for messages, chats, and intents.
 - `src/llm/` - prompt assembly, lookup planner, OpenAI-compatible client.
+- `src/locales/locale.ts` - active user-facing text and language-specific patterns.
 - `src/media/` - Telegram media download, Gladia, Cloudflare Vision, OCR.space.
 - `src/tts/` - speech cleanup, voice policy, Yandex SpeechKit.
 - `src/transport/` - Telegram message normalization.
