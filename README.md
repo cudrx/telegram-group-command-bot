@@ -174,3 +174,7 @@ For Reddit video, Instagram Reels, and YouTube Shorts, a standalone `yt-dlp` zip
 - `docs/README.md` - Markdown file map.
 - `docs/architecture.md` - architecture, invariants, and main flows.
 - `docs/development.md` - local development, checks, CI/CD, and production notes.
+
+## License
+
+This project is licensed under the MIT License. See `LICENSE`.
