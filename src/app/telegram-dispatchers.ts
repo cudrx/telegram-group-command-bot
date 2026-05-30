@@ -147,7 +147,10 @@ export function createTelegramDispatchers(
     };
     const sent =
       media.kind === 'video'
-        ? await api.sendVideo(chatId, new InputFile(media.filePath), options)
+        ? await api.sendVideo(chatId, new InputFile(media.filePath), {
+            ...options,
+            ...toTelegramVideoOptions(media)
+          })
         : await api.sendPhoto(chatId, new InputFile(media.filePath), options);
     const mediaSnapshot =
       media.kind === 'video'
@@ -244,6 +247,28 @@ function createReplyParameters(input: {
       message_id: input.replyToMessageId
     }
   };
+}
+
+function toTelegramVideoOptions(media: {
+  durationSeconds?: number | null;
+  width?: number | null;
+  height?: number | null;
+}): Record<string, unknown> {
+  return {
+    supports_streaming: true,
+    ...toTelegramPositiveInteger('duration', media.durationSeconds),
+    ...toTelegramPositiveInteger('width', media.width),
+    ...toTelegramPositiveInteger('height', media.height)
+  };
+}
+
+function toTelegramPositiveInteger(
+  key: string,
+  value: number | null | undefined
+): Record<string, number> {
+  if (value == null || !Number.isFinite(value) || value <= 0) return {};
+
+  return { [key]: Math.round(value) };
 }
 
 function toSentBotMessage(sent: TelegramSentMessage): SentBotMessage {

@@ -23,7 +23,17 @@ async function writeNormalizedVideo(args: string[]): Promise<{
 
 function videoProbeResult(duration = 12): { stdout: string; stderr: string } {
   return {
-    stdout: JSON.stringify({ format: { duration: String(duration) } }),
+    stdout: JSON.stringify({
+      format: { duration: String(duration) },
+      streams: [
+        {
+          codec_type: 'video',
+          codec_name: 'h264',
+          width: 720,
+          height: 1280
+        }
+      ]
+    }),
     stderr: ''
   };
 }
@@ -208,10 +218,10 @@ describe('ChatOrchestrator /meme command', () => {
         reply: false,
         caption:
           'inst: bookstasyaa · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">3478</a>',
-        media: {
+        media: expect.objectContaining({
           kind: 'video',
           filePath: expect.stringContaining('normalized.mp4')
-        }
+        })
       })
     );
     expect(deleteMessageDispatcher).toHaveBeenCalledWith({
@@ -346,10 +356,10 @@ describe('ChatOrchestrator /meme command', () => {
         reply: false,
         caption:
           'yt: cartaxi · likes: <a href="https://www.youtube.com/shorts/5sMdQW_YYOo">444</a>',
-        media: {
+        media: expect.objectContaining({
           kind: 'video',
           filePath: expect.stringContaining('normalized.mp4')
-        }
+        })
       })
     );
     expect(deleteMessageDispatcher).toHaveBeenCalledWith({
@@ -504,7 +514,7 @@ describe('ChatOrchestrator /meme command', () => {
       expect.any(Object)
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(execFile).toHaveBeenCalledTimes(4);
+    expect(execFile).toHaveBeenCalledTimes(5);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -906,7 +916,7 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(execFile).toHaveBeenCalledTimes(4);
+    expect(execFile).toHaveBeenCalledTimes(5);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -1053,7 +1063,7 @@ describe('ChatOrchestrator /meme command', () => {
       'https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/.json',
       expect.any(Object)
     );
-    expect(execFile).toHaveBeenCalledTimes(4);
+    expect(execFile).toHaveBeenCalledTimes(5);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,
@@ -1164,7 +1174,7 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(execFile).toHaveBeenCalledTimes(4);
+    expect(execFile).toHaveBeenCalledTimes(5);
     expect(fetchMock).toHaveBeenNthCalledWith(
       3,
       'https://www.reddit.com/r/nextfuckinglevel/s/WKonIxZF1P',
@@ -1483,7 +1493,7 @@ describe('ChatOrchestrator /meme command', () => {
       })
     );
 
-    expect(execFile).toHaveBeenCalledTimes(4);
+    expect(execFile).toHaveBeenCalledTimes(5);
     expect(sendChatAction).toHaveBeenCalledWith(1, 'upload_video');
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({

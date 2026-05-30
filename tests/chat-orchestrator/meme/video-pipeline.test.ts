@@ -45,7 +45,26 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
 
           if (file === 'ffprobe') {
             expect(args).toContain('-show_entries');
-            expect(args.at(-1)).toContain('source.mp4');
+            const probedPath = args.at(-1) ?? '';
+
+            if (probedPath.includes('normalized.mp4')) {
+              return {
+                stdout: JSON.stringify({
+                  format: { duration: '12.20' },
+                  streams: [
+                    {
+                      codec_type: 'video',
+                      codec_name: 'h264',
+                      width: 720,
+                      height: 1280
+                    }
+                  ]
+                }),
+                stderr: ''
+              };
+            }
+
+            expect(probedPath).toContain('source.mp4');
             return {
               stdout: JSON.stringify({
                 format: { duration: '12.34' },
@@ -112,7 +131,9 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
       expect.objectContaining({
         kind: 'video',
         extension: 'mp4',
-        durationSeconds: 12
+        durationSeconds: 12,
+        width: 720,
+        height: 1280
       })
     );
     if (result.kind !== 'video') {
@@ -122,7 +143,7 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
     expect(result.filePath).toContain('normalized.mp4');
     const filePath = result.filePath;
     expect(existsSync(filePath)).toBe(true);
-    expect(execFile).toHaveBeenCalledTimes(3);
+    expect(execFile).toHaveBeenCalledTimes(4);
 
     await result.cleanup();
 

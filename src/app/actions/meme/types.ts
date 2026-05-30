@@ -67,6 +67,8 @@ export type DownloadedMemeMedia =
       filePath: string;
       extension: ResolvedMemeVideo['extension'];
       durationSeconds?: number | null;
+      width?: number | null;
+      height?: number | null;
       cleanup: () => Promise<void>;
     }
   | {

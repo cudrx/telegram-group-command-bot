@@ -41,8 +41,15 @@ export async function dispatchMemeMedia(input: {
 
 function toDispatchMedia(media: DownloadedMemeMedia):
   | {
-      kind: 'image' | 'video';
+      kind: 'image';
       filePath: string;
+    }
+  | {
+      kind: 'video';
+      filePath: string;
+      durationSeconds?: number | null;
+      width?: number | null;
+      height?: number | null;
     }
   | {
       kind: 'gallery';
@@ -58,8 +65,20 @@ function toDispatchMedia(media: DownloadedMemeMedia):
     };
   }
 
+  if (media.kind === 'video') {
+    return {
+      kind: 'video',
+      filePath: media.filePath,
+      ...(media.durationSeconds !== undefined
+        ? { durationSeconds: media.durationSeconds }
+        : {}),
+      ...(media.width !== undefined ? { width: media.width } : {}),
+      ...(media.height !== undefined ? { height: media.height } : {})
+    };
+  }
+
   return {
-    kind: media.kind,
+    kind: 'image',
     filePath: media.filePath
   };
 }

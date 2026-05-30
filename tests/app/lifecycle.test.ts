@@ -138,6 +138,9 @@ describe('createApplication lifecycle', () => {
             media: {
               kind: 'video';
               filePath: string;
+              durationSeconds?: number | null;
+              width?: number | null;
+              height?: number | null;
             };
           }) => Promise<{ messageId: number; createdAt: string }>;
         }
@@ -149,7 +152,10 @@ describe('createApplication lifecycle', () => {
       caption: '<b>Видео</b>',
       media: {
         kind: 'video',
-        filePath: '/tmp/meme.mp4'
+        filePath: '/tmp/meme.mp4',
+        durationSeconds: 7,
+        width: 720,
+        height: 1280
       }
     });
 
@@ -159,6 +165,10 @@ describe('createApplication lifecycle', () => {
       {
         caption: '<b>Видео</b>',
         parse_mode: 'HTML',
+        duration: 7,
+        width: 720,
+        height: 1280,
+        supports_streaming: true,
         link_preview_options: {
           is_disabled: true
         },

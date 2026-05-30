@@ -151,6 +151,9 @@ describe('dispatchMemeMedia', () => {
         kind: 'video',
         filePath: '/tmp/1.mp4',
         extension: 'mp4',
+        durationSeconds: 12,
+        width: 720,
+        height: 1280,
         cleanup: vi.fn()
       }
     });
@@ -161,7 +164,10 @@ describe('dispatchMemeMedia', () => {
       caption: 'caption',
       media: {
         kind: 'video',
-        filePath: '/tmp/1.mp4'
+        filePath: '/tmp/1.mp4',
+        durationSeconds: 12,
+        width: 720,
+        height: 1280
       }
     });
   });

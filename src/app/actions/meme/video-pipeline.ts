@@ -24,6 +24,12 @@ export type MediaExecFile = (
   options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
 ) => Promise<{ stdout: string; stderr: string }>;
 
+type VideoProbe = {
+  durationSeconds: number | null;
+  width: number | null;
+  height: number | null;
+};
+
 const execFileAsync = promisify(execFileCallback);
 
 export const execMediaFileDefault: MediaExecFile = async (
@@ -97,6 +103,11 @@ export async function downloadTelegramSafeVideoWithYtDlp(
       return outputPath;
     });
     await assertWithinMaxBytes(normalizedPath, input.maxBytes);
+    const normalizedProbe = await probeVideo({
+      execFile,
+      filePath: normalizedPath,
+      cwd: tempDirectory
+    });
 
     return {
       kind: 'video',
@@ -104,6 +115,12 @@ export async function downloadTelegramSafeVideoWithYtDlp(
       extension: 'mp4',
       ...(input.durationSeconds !== undefined
         ? { durationSeconds: input.durationSeconds }
+        : {}),
+      ...(normalizedProbe.width !== null
+        ? { width: normalizedProbe.width }
+        : {}),
+      ...(normalizedProbe.height !== null
+        ? { height: normalizedProbe.height }
         : {}),
       cleanup: async () => {
         await rm(tempDirectory, { recursive: true, force: true });
@@ -119,7 +136,7 @@ async function probeVideo(input: {
   execFile: MediaExecFile;
   filePath: string;
   cwd: string;
-}): Promise<{ durationSeconds: number | null }> {
+}): Promise<VideoProbe> {
   const result = await input.execFile(
     FFPROBE_BIN,
     [
@@ -136,7 +153,8 @@ async function probeVideo(input: {
   const payload = JSON.parse(result.stdout) as unknown;
 
   return {
-    durationSeconds: readDurationSeconds(payload)
+    durationSeconds: readDurationSeconds(payload),
+    ...readVideoDimensions(payload)
   };
 }
 
@@ -253,6 +271,34 @@ function readDurationSeconds(value: unknown): number | null {
 
   const parsed = Number(duration);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function readVideoDimensions(value: unknown): {
+  width: number | null;
+  height: number | null;
+} {
+  if (!isRecord(value) || !Array.isArray(value.streams)) {
+    return { width: null, height: null };
+  }
+
+  const video = value.streams.find(
+    (stream): stream is Record<string, unknown> =>
+      isRecord(stream) && stream.codec_type === 'video'
+  );
+  if (!video) return { width: null, height: null };
+
+  return {
+    width: readPositiveInteger(video.width),
+    height: readPositiveInteger(video.height)
+  };
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return null;
+  }
+
+  return value;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

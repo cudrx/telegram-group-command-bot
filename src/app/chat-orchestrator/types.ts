@@ -58,7 +58,14 @@ export type MemeMediaDispatchInput = {
   caption: string;
   hasSpoiler?: boolean;
   media:
-    | { kind: 'image' | 'video'; filePath: string }
+    | { kind: 'image'; filePath: string }
+    | {
+        kind: 'video';
+        filePath: string;
+        durationSeconds?: number | null;
+        width?: number | null;
+        height?: number | null;
+      }
     | {
         kind: 'gallery';
         items: Array<{ filePath: string; hasSpoiler?: boolean }>;
