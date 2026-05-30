@@ -177,7 +177,7 @@ The server directory next to the deploy compose file should contain an environme
 Minimum server values:
 
 ```dotenv
-GHCR_IMAGE=ghcr.io/<github-owner>/test-chatbot
+GHCR_IMAGE=ghcr.io/<github-owner>/telegram-group-command-bot
 IMAGE_TAG=latest
 SQLITE_PATH=/app/data/bot.sqlite
 TELEGRAM_CHAT_ID=-1001234567890

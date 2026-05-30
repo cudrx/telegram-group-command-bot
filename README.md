@@ -1,6 +1,6 @@
-# Telegram Chat Assistant
+# Telegram Group Command Bot
 
-A Telegram bot built with `Node.js`, `TypeScript`, `grammY`, and `SQLite`.
+A command-driven Telegram group bot built with TypeScript, grammY, SQLite, and OpenAI-compatible LLM providers.
 
 The bot is primarily command-driven. It stores a message log, can call an OpenAI-compatible LLM, optionally uses Tavily for web lookup, caches media recognition results, and can send voice replies through Yandex SpeechKit.
 

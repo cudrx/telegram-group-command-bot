@@ -1,7 +1,7 @@
 services:
   bot:
     image: ${GHCR_IMAGE:?set GHCR_IMAGE}:${IMAGE_TAG:-latest}
-    container_name: test-chatbot
+    container_name: telegram-group-command-bot
     restart: unless-stopped
     init: true
     env_file:
