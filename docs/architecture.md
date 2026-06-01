@@ -11,6 +11,7 @@ The bot responds to these commands:
 - `/answer`
 - `/translate`
 - `/read`
+- `/transcribe`
 - `/meme`
 - `/publish`
 
@@ -28,6 +29,7 @@ Regular bot mentions, regular private-chat text, unauthorized chats, and private
 - Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels and YouTube Shorts use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
 - `/publish` is available only in the admin private chat and copies messages into `TELEGRAM_CHAT_ID` through Telegram `copyMessage`/`copyMessages`, preserving content without source-author attribution.
 - TTS does not decide reply content: text is generated or read from the replied-to message first, then a local policy decides whether voice can be sent. Local usage/fallback messages are always sent as text.
+- `/transcribe` is an explicit local command for Telegram video messages. It downloads the replied-to Telegram video, extracts audio with `ffmpeg`, transcribes that temporary audio file through the configured speech-to-text provider, replies with text, and does not write a media artifact.
 
 ## Component Map
 
@@ -188,6 +190,7 @@ Supported inputs:
 - `voice`
 - `audio`
 - Telegram `video_note`
+- Telegram `video` for explicit `/transcribe` only
 
 Behavior:
 
@@ -197,6 +200,7 @@ Behavior:
 - failed auto-read attempts store a failed artifact with a short `errorText`;
 - image flow can produce `vision_description`, `ocr_text_ru`, `ocr_text_default`, and `vision_interpretation`;
 - audio/video-note flow produces transcript artifacts;
+- explicit Telegram video transcription produces a fresh reply and does not store a transcript artifact;
 - image/video memes sent by the bot store Telegram media metadata and run through the same auto-read flow;
 - media albums are deduplicated by `chatId + mediaGroupId` through short-lived TTL state.
 
@@ -228,6 +232,16 @@ Behavior:
 - Does not start media recognition.
 - Text is cleaned locally, bounded, and checked against cooldown/policy.
 - If the TTS provider is missing or fails, the bot sends fallback text.
+
+### `/transcribe`
+
+- Runs only as a reply to Telegram `video` media, including videos sent by this bot.
+- Does not call the LLM.
+- Ignores text after the command and does not process external links.
+- Downloads the Telegram file through `getFile`, extracts audio with `ffmpeg`, and sends the extracted audio to the speech-to-text provider.
+- Does not support `voice`, `audio`, or Telegram `video_note`.
+- Does not store transcript media artifacts; each invocation performs fresh recognition.
+- If Telegram file access, `ffmpeg`, or speech-to-text is unavailable or fails, the bot sends fallback text.
 
 ### `/publish`
 

@@ -197,9 +197,10 @@ Rollback:
 ## Manual Smoke Checks
 
 - Use a separate test bot and test group for Telegram smoke checks.
-- Start with explicit `/answer`, `/translate`, `/summarize`, `/decide`, `/read`.
+- Start with explicit `/answer`, `/translate`, `/summarize`, `/decide`, `/read`, `/transcribe`.
 - Check `/answer` both as a reply and without a reply: without a reply, it answers the latest message before the command.
 - `/translate` and `/read` require a reply to the target message.
+- `/transcribe` requires a reply to a Telegram video message. It should work on videos sent by users and videos sent by this bot, ignore command arguments and links, extract audio with `ffmpeg`, return the transcript as text, and avoid creating `media_artifacts` rows.
 - `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.
 - Editing an already stored message should update future context without sending a new reply by itself.
 - `/meme` makes an external request to a Reddit top-week listing with cookies from `REDDIT_COOKIES_PATH`, selects a fresh supported image/gallery/video post, sends media without replying to the command, downloads media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts also need `yt-dlp` and `ffmpeg`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.

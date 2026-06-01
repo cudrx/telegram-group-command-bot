@@ -14,13 +14,13 @@ import type {
 import type { DescribeMediaContext } from '../../llm/prompts.js';
 import type { AppLogger } from '../../logging/logger.js';
 import type { LookupIntent, LookupProvider } from '../../lookup/types.js';
+import type { MediaExecFile } from '../../media/exec.js';
 import type {
   OcrProvider,
   SpeechToTextProvider,
   TextToSpeechProvider,
   VisionProvider
 } from '../../media/types.js';
-import type { MediaExecFile } from '../actions/meme/video-pipeline.js';
 import type { TelegramChatAction } from '../typing-indicator.js';
 
 export type BotIdentity = {

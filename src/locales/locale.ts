@@ -31,6 +31,12 @@ export const text = {
     cooldownFallback: (limit: number, minutes: number) =>
       `Я уже прочитал ${limit} сообщения за час в этом чате. Попробуй через ${minutes} мин.`
   },
+  transcribe: {
+    usageFallback: 'Сделай reply на видео и отправь /transcribe.',
+    unavailableFallback: 'Распознавание видео сейчас не настроено.',
+    failedFallback: 'Не удалось расшифровать видео. Попробуй позже.',
+    emptyFallback: 'Не получилось найти речь в этом видео.'
+  },
   publish: {
     missingTarget:
       'Не нашел сообщение для /publish. Сделай reply или отправь команду после сообщения.',

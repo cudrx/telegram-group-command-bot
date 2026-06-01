@@ -1,15 +1,13 @@
-import {
-  type ExecFileOptions,
-  execFile as execFileCallback
-} from 'node:child_process';
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
-
+import {
+  execMediaFileDefault,
+  MEDIA_EXEC_MAX_BUFFER,
+  type MediaExecFile
+} from '../../../media/exec.js';
 import type { DownloadedMemeMedia } from './types.js';
 
-export const MEDIA_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
 export const DIRECT_VIDEO_MAX_DURATION_SECONDS = 120;
 const YT_DLP_BIN = 'yt-dlp';
 const NICE_BIN = 'nice';
@@ -18,34 +16,10 @@ const FFPROBE_BIN = 'ffprobe';
 const TELEGRAM_SAFE_VIDEO_FILTER =
   "scale='if(gt(iw,ih),min(1280,iw),-2)':'if(gt(iw,ih),-2,min(1280,ih))':out_range=tv,setsar=1,format=yuv420p";
 
-export type MediaExecFile = (
-  file: string,
-  args: string[],
-  options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
-) => Promise<{ stdout: string; stderr: string }>;
-
 type VideoProbe = {
   durationSeconds: number | null;
   width: number | null;
   height: number | null;
-};
-
-const execFileAsync = promisify(execFileCallback);
-
-export const execMediaFileDefault: MediaExecFile = async (
-  file,
-  args,
-  options
-) => {
-  const result = await execFileAsync(file, args, {
-    ...options,
-    maxBuffer: options?.maxBuffer ?? MEDIA_EXEC_MAX_BUFFER
-  } satisfies ExecFileOptions);
-
-  return {
-    stdout: result.stdout,
-    stderr: result.stderr
-  };
 };
 
 export type DownloadTelegramSafeVideoInput = {

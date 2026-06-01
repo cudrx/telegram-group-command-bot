@@ -5,6 +5,7 @@ import { publishAction } from './publish/index.js';
 import { readAction } from './read/index.js';
 import { createActionRegistry } from './registry.js';
 import { summarizeAction } from './summarize/index.js';
+import { transcribeAction } from './transcribe/index.js';
 import { translateAction } from './translate/index.js';
 import type { ChatAction } from './types.js';
 
@@ -14,6 +15,7 @@ export const chatActions = [
   answerAction,
   translateAction,
   readAction,
+  transcribeAction,
   memeAction,
   publishAction
 ] satisfies ChatAction[];

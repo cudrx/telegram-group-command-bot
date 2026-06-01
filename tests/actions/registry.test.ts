@@ -110,6 +110,7 @@ describe('chatActionRegistry command policy', () => {
     ['/summarize', 'summarize'],
     ['/decide', 'decide'],
     ['/read', 'read'],
+    ['/transcribe', 'transcribe'],
     ['/answer', 'answer'],
     ['/translate', 'translate'],
     ['/meme', 'meme']
@@ -131,6 +132,7 @@ describe('chatActionRegistry command policy', () => {
     ['/summarize@fun_bot', 'summarize'],
     ['/decide@fun_bot', 'decide'],
     ['/read@fun_bot', 'read'],
+    ['/transcribe@fun_bot', 'transcribe'],
     ['/answer@fun_bot', 'answer'],
     ['/translate@fun_bot', 'translate'],
     ['/meme@fun_bot', 'meme']
@@ -194,6 +196,7 @@ describe('chatActionRegistry command policy', () => {
     '/summarize',
     '/decide',
     '/read',
+    '/transcribe',
     '/answer',
     '/translate',
     '/meme'

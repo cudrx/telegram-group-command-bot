@@ -67,6 +67,32 @@ describe('extractReplyToMediaSnapshot', () => {
     });
   });
 
+  test('extracts replied-to video metadata', () => {
+    expect(
+      extractReplyToMediaSnapshot(
+        createMessage({
+          video: {
+            file_id: 'video-file',
+            file_unique_id: 'video-unique',
+            duration: 23,
+            mime_type: 'video/mp4',
+            file_size: 3210
+          },
+          caption: '  video caption  '
+        })
+      )
+    ).toEqual({
+      messageId: 90,
+      mediaKind: 'video',
+      fileId: 'video-file',
+      fileUniqueId: 'video-unique',
+      mimeType: 'video/mp4',
+      fileSize: 3210,
+      durationSeconds: 23,
+      caption: 'video caption'
+    });
+  });
+
   test('extracts replied-to audio metadata', () => {
     expect(
       extractReplyToMediaSnapshot(

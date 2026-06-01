@@ -9,12 +9,13 @@ The bot is primarily command-driven. It stores a message log, can call an OpenAI
 - Telegram update handling through `grammY` long polling.
 - Access control: the main work chat is configured with `TELEGRAM_CHAT_ID`, private admin mode with `TELEGRAM_ADMIN_ID`, and link-only private users with `TELEGRAM_LINK_USER_IDS`.
 - SQLite stores chats, messages, sender metadata, reply relationships, edit markers, media artifacts, sent meme history, and a small `app_state`.
-- Commands: `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/meme`, `/publish`.
+- Commands: `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, `/publish`.
 - Lookup for `/decide` and `/answer` is enabled when `TAVILY_API_KEY` is set.
 - Reply prompts receive the current Moscow date and time as plain text so the model can resolve "today", "tomorrow", and "yesterday".
 - Automatic recognition for supported media when provider keys are present:
   `GLADIA_API_KEY`, `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`.
 - `/read` speaks the text of the replied-to message when `YANDEX_SPEECHKIT_API_KEY` is set.
+- `/transcribe` extracts audio from the replied-to Telegram video with `ffmpeg`, transcribes it when `GLADIA_API_KEY` is set, and replies with the transcript. It does not handle links, voice, audio, or video notes.
 - `/translate` translates into the target language the text, caption, OCR text, image description, or audio transcript from the replied-to message.
 - `/meme` picks a random fresh post from Reddit top-week listings across a hardcoded subreddit pool, sends an image or video with the original title without replying to the command, and stores Telegram media metadata for future context. Reddit NSFW/spoiler posts are sent with Telegram's spoiler flag.
 - Supported Reddit image/gallery/video post links, Instagram Reel links, and YouTube Shorts links in regular messages are expanded automatically in the work chat, the admin private chat, and link-only private chats. The bot downloads media to temporary files, sends it without replying to the source message, then tries to delete the link message. Reddit captions use the title, `r/<subreddit>`, and linked upvotes; Reels/Shorts captions use `<source>: <nickname> · likes: <linked count>`. Reddit NSFW/spoiler media is sent with Telegram's spoiler flag.
@@ -33,6 +34,7 @@ When a user edits an already stored incoming message, the bot updates its text a
 - `/answer` - answer the replied-to message or the latest message before the command.
 - `/translate` - translate the content of the replied-to message into the target language.
 - `/read` - speak a replied-to text message; text after the command is ignored.
+- `/transcribe` - transcribe a replied-to Telegram video; text after the command is ignored.
 - `/meme` - send a random image/gallery/video meme that was not repeated in the last 14 days.
 - `/publish` - in the admin private chat, copy the replied-to message or the latest message before the command into the work chat; albums are copied as a group when every album item was stored by the bot.
 

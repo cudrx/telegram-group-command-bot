@@ -1,12 +1,14 @@
 import path from 'node:path';
 
-import type { DownloadedMemeMedia } from './types.js';
 import {
-  DIRECT_VIDEO_MAX_DURATION_SECONDS,
-  downloadTelegramSafeVideoWithYtDlp,
   execMediaFileDefault,
   MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
+} from '../../../media/exec.js';
+import type { DownloadedMemeMedia } from './types.js';
+import {
+  DIRECT_VIDEO_MAX_DURATION_SECONDS,
+  downloadTelegramSafeVideoWithYtDlp
 } from './video-pipeline.js';
 
 const YT_DLP_BIN = 'yt-dlp';

@@ -10,6 +10,7 @@ describe('chatActions', () => {
       'answer',
       'translate',
       'read',
+      'transcribe',
       'meme',
       'publish'
     ]);
@@ -20,6 +21,7 @@ describe('chatActions', () => {
       ['answer'],
       ['translate'],
       ['read'],
+      ['transcribe'],
       ['meme'],
       ['publish']
     ]);

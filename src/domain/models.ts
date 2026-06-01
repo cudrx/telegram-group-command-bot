@@ -11,6 +11,7 @@ export type AssistantIntent =
   | 'summarize'
   | 'decide'
   | 'read'
+  | 'transcribe'
   | 'answer'
   | 'translate'
   | 'meme'
@@ -18,7 +19,7 @@ export type AssistantIntent =
 
 export type ReplyGenerationIntent = Exclude<
   AssistantIntent,
-  'meme' | 'publish'
+  'meme' | 'publish' | 'transcribe'
 >;
 
 export type BotOutputMode = 'text' | 'voice';
