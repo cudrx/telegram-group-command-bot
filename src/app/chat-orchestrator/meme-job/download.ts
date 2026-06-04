@@ -5,11 +5,13 @@ import type {
   ResolvedMemeMedia
 } from '../../actions/meme/types.js';
 import { downloadRedditVideoWithYtDlp } from '../../actions/meme/yt-dlp-client.js';
+import type { ProcessStatusReporter } from '../../process-status.js';
 import type { ChatOrchestratorDeps } from '../types.js';
 
 export async function downloadResolvedMedia(
   deps: ChatOrchestratorDeps,
-  media: ResolvedMemeMedia
+  media: ResolvedMemeMedia,
+  processStatus?: ProcessStatusReporter
 ): Promise<DownloadedMemeMedia> {
   if (media.kind === 'video' && media.downloadStrategy === 'yt-dlp') {
     const result = await downloadRedditVideoWithYtDlp({
@@ -18,6 +20,7 @@ export async function downloadResolvedMedia(
       redditCookiesPath: deps.env.redditCookiesPath,
       maxBytes: memeActionConfig.media.videoMaxBytes,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
+      ...(processStatus ? { processStatus } : {}),
       ...(deps.execFile ? { execFile: deps.execFile } : {})
     });
 
@@ -33,6 +36,8 @@ export async function downloadResolvedMedia(
   if (media.kind === 'gallery') {
     return downloadGalleryMedia(deps, media);
   }
+
+  await processStatus?.stage('download');
 
   const downloaded = await downloadMemeMediaToTemp({
     url: media.mediaUrl,

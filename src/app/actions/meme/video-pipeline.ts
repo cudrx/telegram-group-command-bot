@@ -6,6 +6,7 @@ import {
   MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from '../../../media/exec.js';
+import type { ProcessStatusReporter } from '../../process-status.js';
 import type { DownloadedMemeMedia } from './types.js';
 
 export const DIRECT_VIDEO_MAX_DURATION_SECONDS = 120;
@@ -29,6 +30,7 @@ export type DownloadTelegramSafeVideoInput = {
   maxDurationSeconds?: number | undefined;
   ytDlpArgs: string[];
   durationSeconds?: number | null;
+  processStatus?: ProcessStatusReporter | undefined;
   execFile?: MediaExecFile | undefined;
 };
 
@@ -41,6 +43,8 @@ export async function downloadTelegramSafeVideoWithYtDlp(
   const tempDirectory = await mkdtemp(path.join(os.tmpdir(), input.tempPrefix));
 
   try {
+    await input.processStatus?.stage('metadata');
+    await input.processStatus?.stage('download');
     await execFile(
       YT_DLP_BIN,
       [
@@ -59,6 +63,7 @@ export async function downloadTelegramSafeVideoWithYtDlp(
 
     const downloadedPath = await findDownloadedMp4(tempDirectory);
     await assertWithinMaxBytes(downloadedPath, input.maxBytes);
+    await input.processStatus?.stage('probe');
     const probe = await probeVideo({
       execFile,
       filePath: downloadedPath,
@@ -67,6 +72,7 @@ export async function downloadTelegramSafeVideoWithYtDlp(
     assertWithinMaxDuration(probe.durationSeconds, input.maxDurationSeconds);
 
     const normalizedPath = await runWithNormalizationLock(async () => {
+      await input.processStatus?.stage('convert');
       const outputPath = path.join(tempDirectory, 'normalized.mp4');
       await normalizeVideoForTelegram({
         execFile,
@@ -77,6 +83,7 @@ export async function downloadTelegramSafeVideoWithYtDlp(
       return outputPath;
     });
     await assertWithinMaxBytes(normalizedPath, input.maxBytes);
+    await input.processStatus?.stage('probe');
     const normalizedProbe = await probeVideo({
       execFile,
       filePath: normalizedPath,

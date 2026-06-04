@@ -5,6 +5,7 @@ import {
   MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from '../../../media/exec.js';
+import type { ProcessStatusReporter } from '../../process-status.js';
 import { resolveRedditPostReference } from './reddit-post-client.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 import {
@@ -27,6 +28,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
   redditCookiesPath?: string | null | undefined;
   maxBytes: number;
   fetch?: typeof fetch | undefined;
+  processStatus?: ProcessStatusReporter | undefined;
   execFile?: MediaExecFile | undefined;
 }): Promise<YtDlpRedditVideoResult | null> {
   const reference = await resolveRedditPostReference({
@@ -42,6 +44,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
   const cookiesPath =
     input.redditCookiesPath ??
     path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt');
+  await input.processStatus?.stage('metadata');
   const metadata = await fetchYtDlpMetadata({
     execFile,
     cookiesPath,
@@ -61,6 +64,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
     maxBytes: input.maxBytes,
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds ?? null,
+    ...(input.processStatus ? { processStatus: input.processStatus } : {}),
     ytDlpArgs: ['--cookies', cookiesPath, '-f', REDDIT_FORMAT_SELECTOR]
   });
 

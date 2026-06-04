@@ -6,8 +6,8 @@ import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
 import { downloadYoutubeShortWithYtDlp } from '../../actions/meme/youtube-short-client.js';
 import { downloadRedditVideoWithYtDlp } from '../../actions/meme/yt-dlp-client.js';
+import { runWithProcessStatus } from '../../process-status.js';
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
-import { runWithChatAction } from '../helpers/reply.js';
 import {
   type MemeJobInput,
   sendCandidate,
@@ -45,23 +45,45 @@ async function runDirectRedditVideoMemeJob(
     });
   } catch (error) {
     input.logger.warn('reddit_video_resolution_failed', serializeError(error));
-    let fallback: Awaited<ReturnType<typeof downloadRedditVideoWithYtDlp>>;
 
     try {
-      fallback = await runWithChatAction(
+      const sentFallback = await runWithProcessStatus(
         input.deps,
-        input.request.chatId,
-        'upload_video',
-        () =>
-          downloadRedditVideoWithYtDlp({
+        {
+          chatId: input.request.chatId,
+          status: {
+            preset: 'video_pipeline'
+          }
+        },
+        async (status) => {
+          const fallback = await downloadRedditVideoWithYtDlp({
             text: input.text,
             sqlitePath: input.deps.env.sqlitePath,
             redditCookiesPath: input.deps.env.redditCookiesPath,
             maxBytes: memeActionConfig.media.videoMaxBytes,
             ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
+            processStatus: status,
             ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
-          })
+          });
+
+          if (!fallback) {
+            return false;
+          }
+
+          await status.stage('upload');
+          await sendDownloadedCandidate(
+            input,
+            fallback.candidate,
+            fallback.downloaded,
+            {
+              reply: false
+            }
+          );
+
+          return true;
+        }
       );
+      if (!sentFallback) return false;
     } catch (fallbackError) {
       input.logger.warn(
         'reddit_video_ytdlp_failed',
@@ -69,17 +91,6 @@ async function runDirectRedditVideoMemeJob(
       );
       return false;
     }
-
-    if (!fallback) return false;
-
-    await sendDownloadedCandidate(
-      input,
-      fallback.candidate,
-      fallback.downloaded,
-      {
-        reply: false
-      }
-    );
 
     await deleteSourceMessage(input);
     return true;
@@ -99,17 +110,22 @@ async function runDirectYoutubeShortMemeJob(
   let short: Awaited<ReturnType<typeof downloadYoutubeShortWithYtDlp>>;
 
   try {
-    short = await runWithChatAction(
+    short = await runWithProcessStatus(
       input.deps,
-      input.request.chatId,
-      'upload_video',
-      () =>
+      {
+        chatId: input.request.chatId,
+        status: {
+          preset: 'video_pipeline'
+        }
+      },
+      (status) =>
         downloadYoutubeShortWithYtDlp({
           text: input.text,
           sqlitePath: input.deps.env.sqlitePath,
           youtubeCookiesPath: input.deps.env.youtubeCookiesPath,
           maxBytes: memeActionConfig.media.videoMaxBytes,
           captionMaxLength: memeActionConfig.caption.maxLength,
+          processStatus: status,
           ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
         })
     );
@@ -121,14 +137,28 @@ async function runDirectYoutubeShortMemeJob(
   if (!short) return false;
 
   try {
-    const sent = await dispatchMemeMedia({
-      memeDispatcher: input.deps.memeDispatcher,
-      chatId: input.request.chatId,
-      replyToMessageId: null,
-      reply: false,
-      caption: short.caption,
-      media: short.downloaded
-    });
+    const sent = await runWithProcessStatus(
+      input.deps,
+      {
+        chatId: input.request.chatId,
+        status: {
+          preset: 'video_pipeline',
+          startStage: 'upload'
+        }
+      },
+      async (status) => {
+        await status.stage('upload');
+
+        return dispatchMemeMedia({
+          memeDispatcher: input.deps.memeDispatcher,
+          chatId: input.request.chatId,
+          replyToMessageId: null,
+          reply: false,
+          caption: short.caption,
+          media: short.downloaded
+        });
+      }
+    );
 
     input.deps.db.saveBotMessage({
       chatId: input.request.chatId,
@@ -173,17 +203,22 @@ async function runDirectInstagramReelMemeJob(
   let reel: Awaited<ReturnType<typeof downloadInstagramReelWithYtDlp>>;
 
   try {
-    reel = await runWithChatAction(
+    reel = await runWithProcessStatus(
       input.deps,
-      input.request.chatId,
-      'upload_video',
-      () =>
+      {
+        chatId: input.request.chatId,
+        status: {
+          preset: 'video_pipeline'
+        }
+      },
+      (status) =>
         downloadInstagramReelWithYtDlp({
           text: input.text,
           sqlitePath: input.deps.env.sqlitePath,
           instagramCookiesPath: input.deps.env.instagramCookiesPath,
           maxBytes: memeActionConfig.media.videoMaxBytes,
           captionMaxLength: memeActionConfig.caption.maxLength,
+          processStatus: status,
           ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
         })
     );
@@ -195,14 +230,28 @@ async function runDirectInstagramReelMemeJob(
   if (!reel) return false;
 
   try {
-    const sent = await dispatchMemeMedia({
-      memeDispatcher: input.deps.memeDispatcher,
-      chatId: input.request.chatId,
-      replyToMessageId: null,
-      reply: false,
-      caption: reel.caption,
-      media: reel.downloaded
-    });
+    const sent = await runWithProcessStatus(
+      input.deps,
+      {
+        chatId: input.request.chatId,
+        status: {
+          preset: 'video_pipeline',
+          startStage: 'upload'
+        }
+      },
+      async (status) => {
+        await status.stage('upload');
+
+        return dispatchMemeMedia({
+          memeDispatcher: input.deps.memeDispatcher,
+          chatId: input.request.chatId,
+          replyToMessageId: null,
+          reply: false,
+          caption: reel.caption,
+          media: reel.downloaded
+        });
+      }
+    );
 
     input.deps.db.saveBotMessage({
       chatId: input.request.chatId,

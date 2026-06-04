@@ -4,7 +4,7 @@ import { getRecentlySentMemeIds } from '../../actions/meme/history-store.js';
 import { fetchRedditListingCandidates } from '../../actions/meme/reddit-listing-client.js';
 import { selectMemeSources } from '../../actions/meme/source-selection.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
-import { runWithReplyTyping } from '../helpers/reply.js';
+import { runWithProcessStatus } from '../../process-status.js';
 import { type MemeJobInput, sendCandidate, sendMemeFallback } from './send.js';
 
 export async function runMemeJob(input: MemeJobInput): Promise<void> {
@@ -15,7 +15,14 @@ export async function runMemeJob(input: MemeJobInput): Promise<void> {
       replyToMessageId: request.triggerMessageId
     });
 
-    const sentMeme = await selectAndSendMeme({ deps, request, logger });
+    const sentMeme = await runWithProcessStatus(
+      deps,
+      {
+        chatId: request.chatId,
+        replyToMessageId: request.triggerMessageId
+      },
+      async () => selectAndSendMeme({ deps, request, logger })
+    );
 
     if (sentMeme) {
       logger.debug('meme_job_completed', {
@@ -24,7 +31,7 @@ export async function runMemeJob(input: MemeJobInput): Promise<void> {
       return;
     }
 
-    await runWithReplyTyping(deps, request.chatId, async () => {
+    await runWithProcessStatus(deps, { chatId: request.chatId }, async () => {
       await sendMemeFallback({ deps, request });
     });
     logger.debug('meme_job_fallback_sent', {

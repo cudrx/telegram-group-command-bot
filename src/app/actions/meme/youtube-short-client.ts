@@ -5,6 +5,7 @@ import {
   MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from '../../../media/exec.js';
+import type { ProcessStatusReporter } from '../../process-status.js';
 import type { DownloadedMemeMedia } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
@@ -40,6 +41,7 @@ export async function downloadYoutubeShortWithYtDlp(input: {
   youtubeCookiesPath?: string | null | undefined;
   maxBytes: number;
   captionMaxLength: number;
+  processStatus?: ProcessStatusReporter | undefined;
   execFile?: MediaExecFile | undefined;
 }): Promise<YoutubeShortDownloadResult | null> {
   const shortUrl = findYoutubeShortUrl(input.text);
@@ -49,6 +51,7 @@ export async function downloadYoutubeShortWithYtDlp(input: {
   const cookiesPath =
     input.youtubeCookiesPath ??
     path.join(path.dirname(input.sqlitePath), 'youtube-cookies.txt');
+  await input.processStatus?.stage('metadata');
   const metadata = await fetchYoutubeMetadata({
     execFile,
     cookiesPath,
@@ -68,6 +71,7 @@ export async function downloadYoutubeShortWithYtDlp(input: {
     maxBytes: input.maxBytes,
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds,
+    ...(input.processStatus ? { processStatus: input.processStatus } : {}),
     ytDlpArgs: [
       ...YOUTUBE_JS_RUNTIME_ARGS,
       '--cookies',

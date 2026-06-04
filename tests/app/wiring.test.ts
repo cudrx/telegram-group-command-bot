@@ -4,6 +4,7 @@ import {
   botCopyMessage,
   botCopyMessages,
   botDeleteMessage,
+  botEditMessageText,
   botGetMe,
   botSendChatAction,
   botSendVoice,
@@ -49,11 +50,29 @@ describe('createApplication wiring', () => {
             chatId: number,
             action: 'typing' | 'record_voice' | 'upload_photo' | 'upload_video'
           ) => Promise<void>;
+          editMessageTextDispatcher?: (input: {
+            chatId: number;
+            messageId: number;
+            text: string;
+          }) => Promise<void>;
         }
       | undefined;
 
     await orchestratorDeps?.sendChatAction?.(-1001, 'record_voice');
     expect(botSendChatAction).toHaveBeenCalledWith(-1001, 'record_voice');
+    await orchestratorDeps?.editMessageTextDispatcher?.({
+      chatId: -1001,
+      messageId: 55,
+      text: 'status'
+    });
+    expect(botEditMessageText).toHaveBeenCalledWith(
+      -1001,
+      55,
+      'status',
+      expect.objectContaining({
+        parse_mode: 'HTML'
+      })
+    );
 
     await app.start();
 

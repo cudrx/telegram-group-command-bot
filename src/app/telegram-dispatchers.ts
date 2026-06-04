@@ -6,6 +6,7 @@ import type {
   CopyMessageDispatcher,
   CopyMessagesDispatcher,
   DeleteMessageDispatcher,
+  EditMessageTextDispatcher,
   MemeDispatcher,
   ReplyDispatcher,
   SentBotMessage,
@@ -40,6 +41,12 @@ type TelegramApi = {
     text: string,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
+  editMessageText(
+    chatId: number,
+    messageId: number,
+    text: string,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage | true>;
   sendVoice(
     chatId: number,
     file: InputFile,
@@ -82,6 +89,7 @@ export type TelegramDispatchers = {
   memeDispatcher: MemeDispatcher;
   copyMessageDispatcher: CopyMessageDispatcher;
   copyMessagesDispatcher: CopyMessagesDispatcher;
+  editMessageTextDispatcher: EditMessageTextDispatcher;
   deleteMessageDispatcher: DeleteMessageDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   sendHtmlMessage: (input: {
@@ -213,6 +221,14 @@ export function createTelegramDispatchers(
       );
 
       return copied.map(toCopiedBotMessage);
+    },
+    editMessageTextDispatcher: async ({ chatId, messageId, text }) => {
+      await api.editMessageText(chatId, messageId, text, {
+        parse_mode: 'HTML',
+        link_preview_options: {
+          is_disabled: true
+        }
+      });
     },
     deleteMessageDispatcher: async ({ chatId, messageId }) => {
       await api.deleteMessage(chatId, messageId);

@@ -7,7 +7,7 @@ import type {
   ResolvedMemeMedia
 } from '../../actions/meme/types.js';
 import { toMemeMediaKind } from '../../actions/meme/types.js';
-import { runWithChatAction } from '../helpers/reply.js';
+import { runWithProcessStatus } from '../../process-status.js';
 import type { ChatOrchestratorMediaSupport } from '../media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { downloadResolvedMedia, getMemeChatAction } from './download.js';
@@ -24,15 +24,36 @@ export async function sendCandidate(
   candidate: MemePostCandidate,
   options: { reply?: boolean } = {}
 ): Promise<void> {
-  await runWithChatAction(
+  const processStatusOptions = {
+    chatId: input.request.chatId,
+    replyToMessageId:
+      (options.reply ?? true) !== false ? input.request.triggerMessageId : null,
+    action: getMemeChatAction(candidate.media),
+    ...(options.reply !== undefined ? { reply: options.reply } : {}),
+    ...(candidate.media.kind === 'video'
+      ? {
+          status: {
+            preset: 'video_pipeline'
+          } as const
+        }
+      : {
+          status: {
+            preset: 'meme_search',
+            startStage: 'download'
+          } as const
+        })
+  };
+
+  await runWithProcessStatus(
     input.deps,
-    input.request.chatId,
-    getMemeChatAction(candidate.media),
-    async () => {
+    processStatusOptions,
+    async (status) => {
       const downloaded = await downloadResolvedMedia(
         input.deps,
-        candidate.media
+        candidate.media,
+        status
       );
+      await status.stage('upload');
 
       await sendDownloadedCandidate(input, candidate, downloaded, options);
     }

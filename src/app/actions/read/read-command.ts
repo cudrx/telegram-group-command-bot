@@ -2,12 +2,12 @@ import { readActionConfig } from '../../../config/runtime/index.js';
 import { text } from '../../../locales/locale.js';
 import { serializeError } from '../../../logging/logger.js';
 import { normalizeSpeechText } from '../../../tts/speech-cleanup.js';
-import { runWithReplyVoiceRecording } from '../../chat-orchestrator/helpers/reply.js';
 import { dispatchTextReply } from '../../chat-orchestrator/outbound-voice.js';
 import type {
   ChatOrchestratorDeps,
   ReplyRequest
 } from '../../chat-orchestrator/types.js';
+import { runWithProcessStatus } from '../../process-status.js';
 
 export const OUTBOUND_TTS_READ_MAX_CHARS =
   readActionConfig.outboundTts.maxChars;
@@ -113,22 +113,33 @@ export async function runReadTtsJob(input: {
   const textToSpeechProvider = input.deps.textToSpeechProvider;
 
   try {
-    const synthesized = await runWithReplyVoiceRecording(
+    const { sent, synthesized } = await runWithProcessStatus(
       input.deps,
-      input.request.chatId,
-      () =>
-        textToSpeechProvider.synthesize({
+      {
+        chatId: input.request.chatId,
+        replyToMessageId: input.request.triggerMessageId,
+        status: {
+          preset: 'voice_generation'
+        }
+      },
+      async (status) => {
+        await status.stage('synthesize');
+        const synthesized = await textToSpeechProvider.synthesize({
           text: decision.speechText,
           timeoutMs: input.deps.env.llmTimeoutMs
-        })
+        });
+        await status.stage('upload');
+        const sent = await input.deps.voiceDispatcher({
+          chatId: input.request.chatId,
+          replyToMessageId: input.request.triggerMessageId,
+          audioBytes: synthesized.audioBytes,
+          filename: `read-${input.request.triggerMessageId}.ogg`,
+          mimeType: synthesized.mimeType
+        });
+
+        return { sent, synthesized };
+      }
     );
-    const sent = await input.deps.voiceDispatcher({
-      chatId: input.request.chatId,
-      replyToMessageId: input.request.triggerMessageId,
-      audioBytes: synthesized.audioBytes,
-      filename: `read-${input.request.triggerMessageId}.ogg`,
-      mimeType: synthesized.mimeType
-    });
 
     input.deps.db.saveBotMessage({
       chatId: input.request.chatId,

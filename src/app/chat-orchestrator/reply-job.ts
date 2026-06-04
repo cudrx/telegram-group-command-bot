@@ -1,8 +1,8 @@
 import { patterns } from '../../locales/locale.js';
 import { serializeError } from '../../logging/logger.js';
 import { runReadTtsJob } from '../actions/read/read-command.js';
+import { runWithProcessStatus } from '../process-status.js';
 import { formatTelegramHtmlReply } from '../telegram-html/index.js';
-import { runWithReplyTyping } from './helpers/reply.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import { dispatchGeneratedReply } from './outbound-voice.js';
 import { executeReplyGeneration } from './reply-generation.js';
@@ -37,13 +37,22 @@ export async function runReplyJob(input: {
       return;
     }
 
-    const result = await runWithReplyTyping(deps, request.chatId, async () =>
-      executeReplyGeneration({
-        deps,
-        mediaSupport,
-        request,
-        logger
-      })
+    const result = await runWithProcessStatus(
+      deps,
+      {
+        chatId: request.chatId,
+        replyToMessageId: request.triggerMessageId,
+        status: {
+          preset: 'reply_generation'
+        }
+      },
+      async () =>
+        executeReplyGeneration({
+          deps,
+          mediaSupport,
+          request,
+          logger
+        })
     );
 
     if (!result) {

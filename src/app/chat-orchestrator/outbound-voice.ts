@@ -3,7 +3,7 @@ import type { LlmReplyResult } from '../../llm/openai-compatible-client/index.js
 import type { AppLogger } from '../../logging/logger.js';
 import { serializeError } from '../../logging/logger.js';
 import { decideAnswerTts } from '../../tts/outbound-policy.js';
-import { runWithReplyVoiceRecording } from './helpers/reply.js';
+import { runWithProcessStatus } from '../process-status.js';
 import type {
   ChatOrchestratorDeps,
   ReplyRequest,
@@ -74,22 +74,33 @@ export async function dispatchGeneratedReply(input: {
   }
 
   try {
-    const synthesized = await runWithReplyVoiceRecording(
+    const { sent, synthesized } = await runWithProcessStatus(
       input.deps,
-      input.request.chatId,
-      () =>
-        textToSpeechProvider.synthesize({
+      {
+        chatId: input.request.chatId,
+        replyToMessageId: input.request.triggerMessageId,
+        status: {
+          preset: 'voice_generation'
+        }
+      },
+      async (status) => {
+        await status.stage('synthesize');
+        const synthesized = await textToSpeechProvider.synthesize({
           text: decision.speechText,
           timeoutMs: input.deps.env.llmTimeoutMs
-        })
+        });
+        await status.stage('upload');
+        const sent = await input.deps.voiceDispatcher({
+          chatId: input.request.chatId,
+          replyToMessageId: input.request.triggerMessageId,
+          audioBytes: synthesized.audioBytes,
+          filename: `reply-${input.request.triggerMessageId}.ogg`,
+          mimeType: synthesized.mimeType
+        });
+
+        return { sent, synthesized };
+      }
     );
-    const sent = await input.deps.voiceDispatcher({
-      chatId: input.request.chatId,
-      replyToMessageId: input.request.triggerMessageId,
-      audioBytes: synthesized.audioBytes,
-      filename: `reply-${input.request.triggerMessageId}.ogg`,
-      mimeType: synthesized.mimeType
-    });
 
     updateAnswerTtsStateAfterVoice({
       deps: input.deps,

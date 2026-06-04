@@ -45,6 +45,38 @@ export const text = {
   meme: {
     fallback: 'Мемы закончились, идите трогайте траву.'
   },
+  processStatus: {
+    presets: {
+      meme_search: {
+        start: 'Ищет мем',
+        download: 'Скачивает мем',
+        upload: 'Отправляет мем'
+      },
+      reply_generation: {
+        start: 'Пишет ответ'
+      },
+      transcription: {
+        start: 'Готовит расшифровку',
+        download: 'Скачивает видео',
+        extract_audio: 'Извлекает звук',
+        transcribe: 'Распознаёт речь',
+        reply: 'Отправляет расшифровку'
+      },
+      video_pipeline: {
+        start: 'Готовит видео',
+        metadata: 'Проверяет видео',
+        download: 'Скачивает видео',
+        probe: 'Проверяет файл',
+        convert: 'Конвертирует видео',
+        upload: 'Отправляет видео'
+      },
+      voice_generation: {
+        start: 'Готовит голосовой ответ',
+        synthesize: 'Озвучивает текст',
+        upload: 'Отправляет голосовое'
+      }
+    }
+  },
   llm: {
     replySystem: `You are a neutral Telegram assistant. Respond helpfully and concisely in ${language.targetLanguageName}.`,
     deployUpdateSystem: `You format concise Telegram release updates in ${language.targetLanguageName}.`,

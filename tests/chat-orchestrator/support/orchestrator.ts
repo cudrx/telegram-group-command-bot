@@ -56,6 +56,11 @@ export function createOrchestrator(input: {
     chatId: number;
     messageId: number;
   }) => Promise<void>;
+  editMessageTextDispatcher?: (input: {
+    chatId: number;
+    messageId: number;
+    text: string;
+  }) => Promise<void>;
   lookupProvider?: LookupProvider | null;
   speechToTextProvider?: {
     transcribe: (input: {
@@ -189,6 +194,8 @@ export function createOrchestrator(input: {
           messageId: 4000
         }
       ]),
+    editMessageTextDispatcher:
+      input.editMessageTextDispatcher ?? vi.fn().mockResolvedValue(undefined),
     deleteMessageDispatcher:
       input.deleteMessageDispatcher ?? vi.fn().mockResolvedValue(undefined),
     sendChatAction,

@@ -1591,7 +1591,16 @@ describe('ChatOrchestrator /meme command', () => {
       messageId: 502,
       createdAt: '2026-05-11T10:00:00.000Z'
     });
-    const replyDispatcher = vi.fn();
+    const replyDispatcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messageId: 701,
+        createdAt: '2026-05-11T10:00:00.000Z'
+      })
+      .mockResolvedValueOnce({
+        messageId: 702,
+        createdAt: '2026-05-11T10:00:01.000Z'
+      });
     const orchestrator = createOrchestrator({
       db,
       fetch: fetchMock,
@@ -1612,7 +1621,18 @@ describe('ChatOrchestrator /meme command', () => {
     );
 
     expect(memeDispatcher).toHaveBeenCalledTimes(1);
-    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
+      chatId: 1,
+      replyToMessageId: null,
+      reply: false,
+      text: 'Скачивает мем'
+    });
+    expect(replyDispatcher).toHaveBeenNthCalledWith(2, {
+      chatId: 1,
+      replyToMessageId: null,
+      reply: false,
+      text: 'Скачивает мем'
+    });
     expect(db.savedMemePosts).toHaveLength(1);
     expect(db.savedMemePosts[0]).toMatchObject({ redditPostId: 'fresh' });
   });

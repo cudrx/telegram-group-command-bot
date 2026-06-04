@@ -192,14 +192,24 @@ describe('ChatOrchestrator /transcribe command', () => {
       rawResponse: { ok: true },
       sourceDurationSeconds: 12
     });
-    const replyDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1003,
-      createdAt: '2026-04-13T09:00:30.000Z'
-    });
+    const replyDispatcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messageId: 1003,
+        createdAt: '2026-04-13T09:00:05.000Z'
+      })
+      .mockResolvedValueOnce({
+        messageId: 1004,
+        createdAt: '2026-04-13T09:00:30.000Z'
+      });
+    const editMessageTextDispatcher = vi.fn().mockResolvedValue(undefined);
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply: vi.fn() },
       replyDispatcher,
+      editMessageTextDispatcher,
+      deleteMessageDispatcher,
       telegramFileApi,
       fetch: fetch as typeof globalThis.fetch,
       execFile,
@@ -229,12 +239,41 @@ describe('ChatOrchestrator /transcribe command', () => {
       mimeType: 'audio/ogg',
       timeoutMs: expect.any(Number)
     });
-    expect(replyDispatcher).toHaveBeenCalledWith({
+    expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
+      chatId: 1,
+      replyToMessageId: 11,
+      text: 'Готовит расшифровку'
+    });
+    expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(1, {
+      chatId: 1,
+      messageId: 1003,
+      text: 'Скачивает видео'
+    });
+    expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(2, {
+      chatId: 1,
+      messageId: 1003,
+      text: 'Извлекает звук'
+    });
+    expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(3, {
+      chatId: 1,
+      messageId: 1003,
+      text: 'Распознаёт речь'
+    });
+    expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(4, {
+      chatId: 1,
+      messageId: 1003,
+      text: 'Отправляет расшифровку'
+    });
+    expect(replyDispatcher).toHaveBeenNthCalledWith(2, {
       chatId: 1,
       replyToMessageId: 11,
       text: 'текст из видео'
     });
-    expect(db.getMessageByTelegramMessageId(1, 1003)).toMatchObject({
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 1003
+    });
+    expect(db.getMessageByTelegramMessageId(1, 1004)).toMatchObject({
       text: 'текст из видео',
       isBot: true,
       replyToMessageId: 11

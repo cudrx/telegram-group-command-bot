@@ -97,6 +97,12 @@ export type DeleteMessageDispatcher = (input: {
   messageId: number;
 }) => Promise<void>;
 
+export type EditMessageTextDispatcher = (input: {
+  chatId: number;
+  messageId: number;
+  text: string;
+}) => Promise<void>;
+
 export type LlmClient = {
   generateReply(input: {
     assistantInstructions: string;
@@ -149,6 +155,7 @@ export type ChatOrchestratorDeps = {
   memeDispatcher: MemeDispatcher;
   copyMessageDispatcher: CopyMessageDispatcher;
   copyMessagesDispatcher: CopyMessagesDispatcher;
+  editMessageTextDispatcher: EditMessageTextDispatcher;
   deleteMessageDispatcher: DeleteMessageDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;
   delay: (ms: number) => Promise<void>;

@@ -5,6 +5,7 @@ import {
   MEDIA_EXEC_MAX_BUFFER,
   type MediaExecFile
 } from '../../../media/exec.js';
+import type { ProcessStatusReporter } from '../../process-status.js';
 import type { DownloadedMemeMedia } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
@@ -39,6 +40,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
   instagramCookiesPath?: string | null | undefined;
   maxBytes: number;
   captionMaxLength: number;
+  processStatus?: ProcessStatusReporter | undefined;
   execFile?: MediaExecFile | undefined;
 }): Promise<InstagramReelDownloadResult | null> {
   const reelUrl = findInstagramReelUrl(input.text);
@@ -48,6 +50,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
   const cookiesPath =
     input.instagramCookiesPath ??
     path.join(path.dirname(input.sqlitePath), 'instagram-cookies.txt');
+  await input.processStatus?.stage('metadata');
   const metadata = await fetchInstagramMetadata({
     execFile,
     cookiesPath,
@@ -68,6 +71,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
     maxBytes: input.maxBytes,
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds,
+    ...(input.processStatus ? { processStatus: input.processStatus } : {}),
     ytDlpArgs: ['--cookies', cookiesPath, '-f', INSTAGRAM_FORMAT_SELECTOR]
   });
 

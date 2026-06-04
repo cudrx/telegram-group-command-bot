@@ -1,5 +1,6 @@
 import type { StoredMessage } from '../../../domain/models.js';
 import { text } from '../../../locales/locale.js';
+import { runWithProcessStatus } from '../../process-status.js';
 import type { ActionContext, ChatAction } from '../types.js';
 
 export const publishAction: ChatAction = {
@@ -19,22 +20,32 @@ export const publishAction: ChatAction = {
     }
 
     try {
-      const albumMessageIds = getAlbumMessageIds(ctx, target);
+      const copyTarget = async (): Promise<void> => {
+        const albumMessageIds = getAlbumMessageIds(ctx, target);
 
-      if (albumMessageIds.length > 1) {
-        await ctx.deps.copyMessagesDispatcher({
+        if (albumMessageIds.length > 1) {
+          await ctx.deps.copyMessagesDispatcher({
+            targetChatId: ctx.deps.env.telegramChatId,
+            sourceChatId: ctx.request.chatId,
+            messageIds: albumMessageIds
+          });
+          return;
+        }
+
+        await ctx.deps.copyMessageDispatcher({
           targetChatId: ctx.deps.env.telegramChatId,
           sourceChatId: ctx.request.chatId,
-          messageIds: albumMessageIds
+          messageId: target.messageId
         });
-        return;
-      }
+      };
 
-      await ctx.deps.copyMessageDispatcher({
-        targetChatId: ctx.deps.env.telegramChatId,
-        sourceChatId: ctx.request.chatId,
-        messageId: target.messageId
-      });
+      await runWithProcessStatus(
+        ctx.deps,
+        {
+          chatId: ctx.request.chatId
+        },
+        copyTarget
+      );
     } catch (error) {
       ctx.logger.warn('publish_copy_failed', {
         targetMessageId: target.messageId,
