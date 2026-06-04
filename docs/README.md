@@ -4,7 +4,7 @@ Map of Markdown documents in this repository.
 
 ## Main Documents
 
-- `README.md` - project overview, quick start, environment variables, and commands.
+- `README.md` - project overview, quick start, command summary, and links into detailed docs.
 - `docs/README.md` - this documentation map.
 - `docs/architecture.md` - architecture, invariants, main flows, and data model.
 - `docs/development.md` - local development, checks, CI/CD, Docker, and production notes.

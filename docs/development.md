@@ -29,29 +29,54 @@ Required variables:
 - `TELEGRAM_BOT_TOKEN`
 - `TELEGRAM_CHAT_ID`
 - `TELEGRAM_ADMIN_ID`
-- `TELEGRAM_LINK_USER_IDS` - optional comma-separated Telegram user ids allowed to DM only supported direct media links; their commands are ignored.
 - `LLM_API_KEY`
+
+Access and storage:
+
+- `TELEGRAM_LINK_USER_IDS` - optional comma-separated Telegram user ids allowed to DM only supported direct media links; their commands are ignored.
+- `SQLITE_PATH`
 - `REDDIT_COOKIES_PATH` - optional path to Netscape cookies for Reddit listing/direct video requests.
 - `INSTAGRAM_COOKIES_PATH` - optional path to Netscape cookies for Instagram Reels.
 - `YOUTUBE_COOKIES_PATH` - optional path to Netscape cookies for YouTube Shorts.
 
-Common variables:
+LLM:
 
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
 - `LLM_PLANNER_MODEL`
-- `LOG_LEVEL`
-- `LOG_COLOR`
-- `LOG_LLM_TEXT`
-- `SQLITE_PATH`
+- `LLM_REPLY_TEMPERATURE`
+- `LLM_TIMEOUT_MS`
+- `LLM_MAX_RETRIES`
 
-Optional providers:
+Behavior:
+
+- `ANSWER_CONTEXT_LIMIT`
+- `DECIDE_CONTEXT_LIMIT`
+- `SUMMARIZE_CONTEXT_LIMIT`
+- `REPLY_MIN_TYPING_MS`
+- `REPLY_MAX_TYPING_MS`
+- `REPLY_TYPING_REFRESH_MS`
+
+Lookup:
 
 - `TAVILY_API_KEY` - lookup for `/decide` and `/answer`.
-- `GLADIA_API_KEY` - audio/video-note transcription.
+- `LOOKUP_TIMEOUT_MS`
+- `LOOKUP_MAX_QUERIES`
+- `LOOKUP_MAX_RESULTS`
+
+Media and voice providers:
+
+- `GLADIA_API_KEY` - audio/video-note transcription and `/transcribe`.
 - `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` - image description.
 - `OCR_SPACE_API_KEY` - OCR.
 - `YANDEX_SPEECHKIT_API_KEY` - outbound voice.
+
+Logging and runtime:
+
+- `NODE_ENV`
+- `LOG_LEVEL`
+- `LOG_COLOR`
+- `LOG_LLM_TEXT`
 
 `.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
 
@@ -141,6 +166,10 @@ docker compose down
 SQLite is stored in mounted persistent storage.
 
 If Docker returns `permission denied`, use `sudo` or add the user to the `docker` group and start a new session.
+
+For Reddit video, Instagram Reels, and YouTube Shorts, a standalone `yt-dlp` zipapp is mounted into the container as `/usr/local/bin/yt-dlp`. The runtime image includes `python3`, `ffmpeg`/`ffprobe`, and Node.js 22 so `yt-dlp` can merge video/audio tracks into MP4 with audio, solve YouTube EJS challenges through `--js-runtimes node`, and then normalize video for Telegram. Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`.
+
+Videos longer than 120 seconds are not downloaded or converted, and downloaded files are checked again with `ffprobe`. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and moves the moov atom to the beginning. After normalization, the bot probes the output dimensions and passes `duration`, `width`, `height`, and `supports_streaming` to Telegram `sendVideo`. YouTube Shorts use H.264 MP4 at `height<=854` to avoid oversized 720p/1080p variants for long Shorts. Reddit `fallback_url` and similar direct MP4 URLs are used only as metadata/video-post signals, not as download paths.
 
 ## CI
 
