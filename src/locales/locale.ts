@@ -80,7 +80,22 @@ export const text = {
   llm: {
     replySystem: `You are a neutral Telegram assistant. Respond helpfully and concisely in ${language.targetLanguageName}.`,
     deployUpdateSystem: `You format concise Telegram release updates in ${language.targetLanguageName}.`,
-    evalSystem: `You are a careful Telegram chat assistant. Answer in ${language.targetLanguageName}.`
+    evalSystem: `You are a careful Telegram chat assistant. Answer in ${language.targetLanguageName}.`,
+    sections: {
+      decide: {
+        positions: 'Позиции',
+        evidence: 'Аргументы',
+        verdict: 'Вердикт'
+      },
+      summarize: {
+        shortSummary: 'Кратко',
+        takeaway: 'Вывод'
+      },
+      read: {
+        original: 'Оригинал',
+        translation: 'Перевод'
+      }
+    }
   }
 } as const;
 

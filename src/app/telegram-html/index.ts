@@ -1,3 +1,4 @@
+import { text as localeText } from '../../locales/locale.js';
 import { escapeMarkdownTagContent, restoreMarkdownEscapes } from './escapes.js';
 
 const ALLOWED_TAGS = new Set(['b', 'i', 'code']);
@@ -84,7 +85,7 @@ function normalizeSummarizeLine(line: string): string | null {
   );
 
   if (finalLabelMatch?.[1]) {
-    return `<b>Takeaway</b> — ${lowercaseFirstLetter(
+    return `<b>${localeText.llm.sections.summarize.takeaway}</b> — ${lowercaseFirstLetter(
       finalLabelMatch[1].trim()
     )}`;
   }

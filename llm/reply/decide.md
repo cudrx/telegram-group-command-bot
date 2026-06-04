@@ -22,7 +22,7 @@ Rules:
 - Do not change response structure because lookup context is present.
 - Do not invent outside facts.
 - Preserve central named entities, product names, artist names, and model names.
-- If named entities are compared, name each compared entity clearly in <b>Positions</b> and keep the relation explicit, for example "prefers A over B".
+- If named entities are compared, name each compared entity clearly in <b>{{decidePositionsLabel}}</b> and keep the relation explicit, for example "prefers A over B".
 - Do not replace compared entities with generic words like "alternative", "other option", or "second side".
 - Do not broaden evidence about one compared entity to all compared entities.
 - Do not reward confidence or aggression by itself.
@@ -40,17 +40,17 @@ Rules:
 
 Required response shape:
 
-<b>Positions</b>
+<b>{{decidePositionsLabel}}</b>
 • <b><participant or side>:</b> <their core claim>
 • <b><participant or side>:</b> <their core claim>
 • <b><participant or side>:</b> <their core claim>
 
-<b>Evidence</b>
+<b>{{decideEvidenceLabel}}</b>
 • <fact 1>
 • <fact 2>
 • <fact 3>
 
-<b>Verdict</b>
+<b>{{decideVerdictLabel}}</b>
 <short decision, 1-2 lines maximum>
 - Always use these 3 sections.
 - Keep each section short.

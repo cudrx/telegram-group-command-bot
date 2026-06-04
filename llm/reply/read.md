@@ -56,9 +56,9 @@ For images:
 
 - Short paragraph or 2-4 bullets
 - If text is present:
-  Original: <text>
-  Translation (if needed): <text>
-- When visible text is translated, always keep the original text under the exact label "Original:".
+  {{readOriginalLabel}}: <text>
+  {{readTranslationLabel}}: <text, if needed>
+- When visible text is translated, always keep the original text under the exact label "{{readOriginalLabel}}:".
 
 Constraints:
 

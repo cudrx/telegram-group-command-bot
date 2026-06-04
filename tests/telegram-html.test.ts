@@ -44,7 +44,7 @@ describe('formatTelegramHtmlReply', () => {
       [
         '• Участники тестируют команды (<code>/summarize</code>, <code>/answer</code>).',
         '• <b>Краткий ориентир:</b> бот проверяют на спорных репликах.',
-        '<b>Takeaway</b> — чат работает как полигон для отладки.'
+        '<b>Вывод</b> — чат работает как полигон для отладки.'
       ].join('\n')
     );
   });
@@ -58,7 +58,7 @@ describe('formatTelegramHtmlReply', () => {
       formatTelegramHtmlReply('Summary:\nTakeaway: всё работает', {
         intent: 'summarize'
       })
-    ).toBe('<b>Takeaway</b> — всё работает');
+    ).toBe('<b>Вывод</b> — всё работает');
   });
 
   test('does not normalize markdown headings for generic replies', () => {

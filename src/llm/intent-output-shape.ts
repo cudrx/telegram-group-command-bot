@@ -1,4 +1,5 @@
 import type { ReplyGenerationIntent } from '../domain/models.js';
+import { text } from '../locales/locale.js';
 
 export type IntentOutputShapeViolation =
   | 'english_summary_heading'
@@ -20,21 +21,33 @@ export function getIntentOutputShapeViolations(
     violations.push('markdown_bold');
   }
 
-  if (
-    intent === 'summarize' &&
-    !/^<b>Short Summary<\/b>[\s\S]+\n\n<b>Takeaway<\/b>\s+—/u.test(reply.trim())
-  ) {
+  if (intent === 'summarize' && !hasSummarizeShape(reply)) {
     violations.push('missing_summarize_shape');
   }
 
   if (
     intent === 'decide' &&
-    !hasOrderedSections(reply, ['Positions', 'Evidence', 'Verdict'])
+    !hasOrderedSections(reply, [
+      text.llm.sections.decide.positions,
+      text.llm.sections.decide.evidence,
+      text.llm.sections.decide.verdict
+    ])
   ) {
     violations.push('missing_decide_shape');
   }
 
   return violations;
+}
+
+function hasSummarizeShape(reply: string): boolean {
+  const shortSummary = escapeRegExp(text.llm.sections.summarize.shortSummary);
+  const takeaway = escapeRegExp(text.llm.sections.summarize.takeaway);
+  const pattern = new RegExp(
+    `^<b>${shortSummary}</b>[\\s\\S]+\\n\\n<b>${takeaway}</b>\\s+—`,
+    'u'
+  );
+
+  return pattern.test(reply.trim());
 }
 
 function hasOrderedSections(reply: string, sections: string[]): boolean {
@@ -52,4 +65,8 @@ function hasOrderedSections(reply: string, sections: string[]): boolean {
   }
 
   return true;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

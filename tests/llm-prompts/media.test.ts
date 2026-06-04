@@ -57,7 +57,7 @@ describe('buildIntentPrompt media context', () => {
       'Do not invent details that are absent from OCR_TEXT_* / VISION_DESCRIPTION / VISION_RAW.'
     );
     expect(prompt).toContain(
-      'When visible text is translated, always keep the original text under the exact label "Original:".'
+      'When visible text is translated, always keep the original text under the exact label "Оригинал:".'
     );
     expect(prompt).toContain(
       'Do not turn the result into EXPLAIN mode or answer questions that the image merely suggests.'

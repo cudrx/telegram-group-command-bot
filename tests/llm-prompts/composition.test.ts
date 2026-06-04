@@ -39,7 +39,13 @@ describe('buildIntentPrompt composition', () => {
 
     expect(prompt).toContain(loadAssistantInstructions());
     expect(prompt).toContain(loadPrompt('global'));
-    expect(prompt).toContain(loadPrompt('summarize'));
+    expect(prompt).toContain('You are in SUMMARIZE mode.');
+    expect(prompt).toContain('First line exactly: <b>Кратко</b>');
+    expect(prompt).toContain(
+      'Add exactly one final line after bullets: <b>Вывод</b> — concise takeaway.'
+    );
+    expect(prompt).not.toContain('{{summarizeShortSummaryLabel}}');
+    expect(prompt).not.toContain('{{summarizeTakeawayLabel}}');
     expect(prompt).not.toContain(loadPrompt('lookupContext'));
   });
 
@@ -54,7 +60,13 @@ describe('buildIntentPrompt composition', () => {
 
     expect(prompt).toContain(loadAssistantInstructions());
     expect(prompt).toContain(loadPrompt('global'));
-    expect(prompt).toContain(loadPrompt('decide'));
+    expect(prompt).toContain('You are in DECIDE mode.');
+    expect(prompt).toContain('<b>Позиции</b>');
+    expect(prompt).toContain('<b>Аргументы</b>');
+    expect(prompt).toContain('<b>Вердикт</b>');
+    expect(prompt).not.toContain('{{decidePositionsLabel}}');
+    expect(prompt).not.toContain('{{decideEvidenceLabel}}');
+    expect(prompt).not.toContain('{{decideVerdictLabel}}');
     expect(prompt).not.toContain(loadPrompt('lookupContext'));
   });
 

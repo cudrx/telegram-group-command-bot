@@ -43,16 +43,33 @@ export function buildIntentPrompt(input: {
 }
 
 function getIntentPrompt(intent: ReplyGenerationIntent): string {
+  const promptName = getIntentPromptName(intent);
+  const sections = text.llm.sections;
+
+  return renderPromptTemplate(loadPrompt(promptName), {
+    decidePositionsLabel: sections.decide.positions,
+    decideEvidenceLabel: sections.decide.evidence,
+    decideVerdictLabel: sections.decide.verdict,
+    summarizeShortSummaryLabel: sections.summarize.shortSummary,
+    summarizeTakeawayLabel: sections.summarize.takeaway,
+    readOriginalLabel: sections.read.original,
+    readTranslationLabel: sections.read.translation
+  });
+}
+
+function getIntentPromptName(
+  intent: ReplyGenerationIntent
+): Parameters<typeof loadPrompt>[0] {
   switch (intent) {
     case 'summarize':
-      return loadPrompt('summarize');
+      return 'summarize';
     case 'decide':
-      return loadPrompt('decide');
+      return 'decide';
     case 'read':
-      return loadPrompt('read');
+      return 'read';
     case 'answer':
-      return loadPrompt('answer');
+      return 'answer';
     case 'translate':
-      return loadPrompt('translate');
+      return 'translate';
   }
 }

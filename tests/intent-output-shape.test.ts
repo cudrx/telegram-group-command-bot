@@ -8,11 +8,11 @@ describe('getIntentOutputShapeViolations', () => {
       getIntentOutputShapeViolations(
         'summarize',
         [
-          '<b>Short Summary</b>',
+          '<b>Кратко</b>',
           '• one',
           '• two',
           '',
-          '<b>Takeaway</b> — conclusion'
+          '<b>Вывод</b> — conclusion'
         ].join('\n')
       )
     ).toEqual([]);
@@ -20,9 +20,7 @@ describe('getIntentOutputShapeViolations', () => {
     expect(
       getIntentOutputShapeViolations(
         'summarize',
-        ['<b>Short Summary</b>', '• one', '<b>Takeaway</b> — conclusion'].join(
-          '\n'
-        )
+        ['<b>Кратко</b>', '• one', '<b>Вывод</b> — conclusion'].join('\n')
       )
     ).toContain('missing_summarize_shape');
   });
@@ -32,13 +30,13 @@ describe('getIntentOutputShapeViolations', () => {
       getIntentOutputShapeViolations(
         'decide',
         [
-          '<b>Positions</b>',
+          '<b>Позиции</b>',
           '• A',
           '',
-          '<b>Evidence</b>',
+          '<b>Аргументы</b>',
           '• fact',
           '',
-          '<b>Verdict</b>',
+          '<b>Вердикт</b>',
           'conclusion'
         ].join('\n')
       )
