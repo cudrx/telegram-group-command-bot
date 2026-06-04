@@ -67,17 +67,17 @@ describe('runWithProcessStatus', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 42,
       replyToMessageId: 7,
-      text: 'Готовит расшифровку'
+      text: 'Слушаю видео'
     });
     expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(1, {
       chatId: 42,
       messageId: 51,
-      text: 'Скачивает видео'
+      text: 'Скачиваю видео'
     });
     expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(2, {
       chatId: 42,
       messageId: 51,
-      text: 'Распознаёт речь'
+      text: 'Распознаю речь'
     });
     expect(deleteMessageDispatcher).toHaveBeenCalledWith({
       chatId: 42,

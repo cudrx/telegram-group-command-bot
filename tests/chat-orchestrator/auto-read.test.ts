@@ -230,7 +230,7 @@ describe('auto-read media intake', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 11,
-      text: 'Пишет ответ'
+      text: 'Думаю'
     });
     expect(replyDispatcher).toHaveBeenCalledTimes(1);
   });
@@ -286,7 +286,7 @@ describe('auto-read media intake', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 11,
-      text: 'Пишет ответ'
+      text: 'Думаю'
     });
     expect(replyDispatcher).toHaveBeenCalledTimes(1);
   });

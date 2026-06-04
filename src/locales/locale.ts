@@ -48,32 +48,32 @@ export const text = {
   processStatus: {
     presets: {
       meme_search: {
-        start: 'Ищет мем',
-        download: 'Скачивает мем',
-        upload: 'Отправляет мем'
+        start: 'Ищу мем',
+        download: 'Скачиваю мем',
+        upload: 'Отправляю мем'
       },
       reply_generation: {
-        start: 'Пишет ответ'
+        start: 'Думаю'
       },
       transcription: {
-        start: 'Готовит расшифровку',
-        download: 'Скачивает видео',
-        extract_audio: 'Извлекает звук',
-        transcribe: 'Распознаёт речь',
-        reply: 'Отправляет расшифровку'
+        start: 'Слушаю видео',
+        download: 'Скачиваю видео',
+        extract_audio: 'Достаю звук',
+        transcribe: 'Распознаю речь',
+        reply: 'Отправляю расшифровку'
       },
       video_pipeline: {
-        start: 'Готовит видео',
-        metadata: 'Проверяет видео',
-        download: 'Скачивает видео',
-        probe: 'Проверяет файл',
-        convert: 'Конвертирует видео',
-        upload: 'Отправляет видео'
+        start: 'Думаю',
+        metadata: 'Проверяю видео',
+        download: 'Скачиваю видео',
+        probe: 'Проверяю файл',
+        convert: 'Конвертирую видео',
+        upload: 'Отправляю видео'
       },
       voice_generation: {
-        start: 'Готовит голосовой ответ',
-        synthesize: 'Озвучивает текст',
-        upload: 'Отправляет голосовое'
+        start: 'Записываю голосовое',
+        synthesize: 'Записываю голосовое',
+        upload: 'Отправляю голосовое'
       }
     }
   },

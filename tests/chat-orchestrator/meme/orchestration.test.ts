@@ -1625,13 +1625,13 @@ describe('ChatOrchestrator /meme command', () => {
       chatId: 1,
       replyToMessageId: null,
       reply: false,
-      text: 'Скачивает мем'
+      text: 'Скачиваю мем'
     });
     expect(replyDispatcher).toHaveBeenNthCalledWith(2, {
       chatId: 1,
       replyToMessageId: null,
       reply: false,
-      text: 'Скачивает мем'
+      text: 'Скачиваю мем'
     });
     expect(db.savedMemePosts).toHaveLength(1);
     expect(db.savedMemePosts[0]).toMatchObject({ redditPostId: 'fresh' });

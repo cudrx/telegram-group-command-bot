@@ -242,27 +242,27 @@ describe('ChatOrchestrator /transcribe command', () => {
     expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
       chatId: 1,
       replyToMessageId: 11,
-      text: 'Готовит расшифровку'
+      text: 'Слушаю видео'
     });
     expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(1, {
       chatId: 1,
       messageId: 1003,
-      text: 'Скачивает видео'
+      text: 'Скачиваю видео'
     });
     expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(2, {
       chatId: 1,
       messageId: 1003,
-      text: 'Извлекает звук'
+      text: 'Достаю звук'
     });
     expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(3, {
       chatId: 1,
       messageId: 1003,
-      text: 'Распознаёт речь'
+      text: 'Распознаю речь'
     });
     expect(editMessageTextDispatcher).toHaveBeenNthCalledWith(4, {
       chatId: 1,
       messageId: 1003,
-      text: 'Отправляет расшифровку'
+      text: 'Отправляю расшифровку'
     });
     expect(replyDispatcher).toHaveBeenNthCalledWith(2, {
       chatId: 1,

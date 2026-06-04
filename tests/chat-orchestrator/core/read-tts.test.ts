@@ -64,7 +64,7 @@ describe('ChatOrchestrator /read TTS command', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Готовит голосовой ответ'
+      text: 'Записываю голосовое'
     });
     expect(replyDispatcher).toHaveBeenCalledTimes(1);
     expect(db.getChatState(1)).toMatchObject({

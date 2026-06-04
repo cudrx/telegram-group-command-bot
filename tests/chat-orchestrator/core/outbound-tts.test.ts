@@ -68,12 +68,12 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Пишет ответ'
+      text: 'Думаю'
     });
     expect(replyDispatcher).toHaveBeenNthCalledWith(2, {
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Готовит голосовой ответ'
+      text: 'Записываю голосовое'
     });
     expect(db.getMessageByTelegramMessageId(1, 1001)).toMatchObject({
       text: 'да, звучит нормально',
