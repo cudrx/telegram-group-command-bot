@@ -27,7 +27,10 @@ describe('ChatOrchestrator /read TTS command', () => {
       messageId: 1001,
       createdAt: '2026-04-13T09:00:30.000Z'
     });
-    const replyDispatcher = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 9001,
+      createdAt: '2026-04-13T09:00:20.000Z'
+    });
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply: vi.fn() },
@@ -58,7 +61,12 @@ describe('ChatOrchestrator /read TTS command', () => {
         mimeType: 'audio/ogg'
       })
     );
-    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Готовит голосовой ответ'
+    });
+    expect(replyDispatcher).toHaveBeenCalledTimes(1);
     expect(db.getChatState(1)).toMatchObject({
       readLastVoiceAt: null,
       readTtsVoiceCount: 1

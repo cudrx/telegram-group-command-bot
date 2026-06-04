@@ -227,7 +227,12 @@ describe('auto-read media intake', () => {
       );
     });
     expect(generateReply).not.toHaveBeenCalled();
-    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 11,
+      text: 'Пишет ответ'
+    });
+    expect(replyDispatcher).toHaveBeenCalledTimes(1);
   });
 
   test('decide waits for context media and skips LLM after failed required media', async () => {
@@ -278,7 +283,12 @@ describe('auto-read media intake', () => {
       );
     });
     expect(generateReply).not.toHaveBeenCalled();
-    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 11,
+      text: 'Пишет ответ'
+    });
+    expect(replyDispatcher).toHaveBeenCalledTimes(1);
   });
 
   test('starts image processing for an incoming photo without a command or reply', async () => {

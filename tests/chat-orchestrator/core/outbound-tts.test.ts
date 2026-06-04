@@ -29,7 +29,16 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
       messageId: 1001,
       createdAt: '2026-04-13T09:00:30.000Z'
     });
-    const replyDispatcher = vi.fn();
+    const replyDispatcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messageId: 9001,
+        createdAt: '2026-04-13T09:00:20.000Z'
+      })
+      .mockResolvedValueOnce({
+        messageId: 9002,
+        createdAt: '2026-04-13T09:00:21.000Z'
+      });
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply },
@@ -56,7 +65,16 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     );
 
     expect(voiceDispatcher).toHaveBeenCalled();
-    expect(replyDispatcher).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Пишет ответ'
+    });
+    expect(replyDispatcher).toHaveBeenNthCalledWith(2, {
+      chatId: 1,
+      replyToMessageId: 2,
+      text: 'Готовит голосовой ответ'
+    });
     expect(db.getMessageByTelegramMessageId(1, 1001)).toMatchObject({
       text: 'да, звучит нормально',
       outputMode: 'voice'
