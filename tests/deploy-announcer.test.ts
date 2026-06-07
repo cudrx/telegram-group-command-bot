@@ -72,19 +72,23 @@ describe('maybeAnnounceDeployUpdate', () => {
   });
 });
 
+type DeployAnnouncerDeps = Parameters<typeof maybeAnnounceDeployUpdate>[0];
+type FormatDeployUpdate = DeployAnnouncerDeps['llm']['formatDeployUpdate'];
+
 function createDeps(
-  overrides: Partial<Parameters<typeof maybeAnnounceDeployUpdate>[0]> & {
+  overrides: Partial<DeployAnnouncerDeps> & {
     getAppState?: (key: string) => string | null;
     setAppState?: (key: string, value: string, updatedAt: string) => void;
-    formatDeployUpdate?: ReturnType<typeof vi.fn>;
+    formatDeployUpdate?: FormatDeployUpdate;
   } = {}
-): Parameters<typeof maybeAnnounceDeployUpdate>[0] {
+): DeployAnnouncerDeps {
   const getAppState = overrides.getAppState ?? vi.fn().mockReturnValue(null);
   const setAppState = overrides.setAppState ?? vi.fn();
   const formatDeployUpdate =
     overrides.formatDeployUpdate ??
-    vi.fn().mockResolvedValue({
+    vi.fn<FormatDeployUpdate>().mockResolvedValue({
       text: '<b>Исправлено</b>\n\n• Подписи к видео теперь работают.',
+      source: 'llm',
       model: 'fast-reply-model',
       latencyMs: 10,
       attemptCount: 1,
