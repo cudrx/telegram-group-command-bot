@@ -126,12 +126,11 @@ vi.mock('../../src/database/index.js', () => ({
 }));
 
 vi.mock('../../src/llm/openai-compatible-client/index.js', () => ({
-  OpenAiCompatibleLlmClient: vi
-    .fn()
-    .mockImplementation((...args: unknown[]) => {
+  OpenAiCompatibleLlmClient: class {
+    constructor(...args: unknown[]) {
       llmConstructor(...args);
-      return {};
-    })
+    }
+  }
 }));
 
 vi.mock('../../src/logging/logger.js', () => ({
@@ -142,13 +141,13 @@ vi.mock('../../src/logging/logger.js', () => ({
 }));
 
 vi.mock('../../src/app/chat-orchestrator/index.js', () => ({
-  ChatOrchestrator: vi.fn().mockImplementation((...args: unknown[]) => {
-    chatOrchestratorConstructor(...args);
+  ChatOrchestrator: class {
+    public readonly handleIncomingMessage = handleIncomingMessage;
 
-    return {
-      handleIncomingMessage
-    };
-  })
+    constructor(...args: unknown[]) {
+      chatOrchestratorConstructor(...args);
+    }
+  }
 }));
 
 vi.mock('../../src/app/deploy-announcer.js', () => ({
@@ -156,42 +155,53 @@ vi.mock('../../src/app/deploy-announcer.js', () => ({
 }));
 
 vi.mock('../../src/lookup/tavily-lookup-provider.js', () => ({
-  TavilyLookupProvider: vi.fn().mockImplementation((...args: unknown[]) => {
-    tavilyConstructor(...args);
-    return { search: vi.fn() };
-  })
+  TavilyLookupProvider: class {
+    public readonly search = vi.fn();
+
+    constructor(...args: unknown[]) {
+      tavilyConstructor(...args);
+    }
+  }
 }));
 
 vi.mock('../../src/media/gladia-transcription-provider.js', () => ({
-  GladiaTranscriptionProvider: vi
-    .fn()
-    .mockImplementation((...args: unknown[]) => {
+  GladiaTranscriptionProvider: class {
+    public readonly transcribe = vi.fn();
+
+    constructor(...args: unknown[]) {
       gladiaConstructor(...args);
-      return { transcribe: vi.fn() };
-    })
+    }
+  }
 }));
 
 vi.mock('../../src/media/cloudflare-vision-provider.js', () => ({
-  CloudflareVisionProvider: vi.fn().mockImplementation((...args: unknown[]) => {
-    cloudflareVisionConstructor(...args);
-    return { describe: vi.fn() };
-  })
+  CloudflareVisionProvider: class {
+    public readonly describe = vi.fn();
+
+    constructor(...args: unknown[]) {
+      cloudflareVisionConstructor(...args);
+    }
+  }
 }));
 
 vi.mock('../../src/media/ocr-space-provider.js', () => ({
-  OcrSpaceProvider: vi.fn().mockImplementation((...args: unknown[]) => {
-    ocrSpaceConstructor(...args);
-    return { extractText: vi.fn() };
-  })
+  OcrSpaceProvider: class {
+    public readonly extractText = vi.fn();
+
+    constructor(...args: unknown[]) {
+      ocrSpaceConstructor(...args);
+    }
+  }
 }));
 
 vi.mock('../../src/tts/yandex-speechkit-provider.js', () => ({
-  YandexSpeechKitTtsProvider: vi
-    .fn()
-    .mockImplementation((...args: unknown[]) => {
+  YandexSpeechKitTtsProvider: class {
+    public readonly synthesize = vi.fn();
+
+    constructor(...args: unknown[]) {
       yandexSpeechKitConstructor(...args);
-      return { synthesize: vi.fn() };
-    })
+    }
+  }
 }));
 
 export function installAppTestHooks(): void {
