@@ -19,7 +19,7 @@ export interface RedditListingSourceClientOptions {
   fetch?: typeof fetch;
 }
 
-type RedditListingTimeRange =
+export type RedditListingTimeRange =
   | 'hour'
   | 'day'
   | 'week'

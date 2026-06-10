@@ -1,11 +1,15 @@
-import { memeActionConfig } from '../../../config/runtime/index.js';
 import { serializeError } from '../../../logging/logger.js';
 import { getRecentlySentMemeIds } from '../../actions/meme/history-store.js';
 import { fetchRedditListingCandidates } from '../../actions/meme/reddit-listing-client.js';
 import { selectMemeSources } from '../../actions/meme/source-selection.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
 import { runWithProcessStatus } from '../../process-status.js';
-import { type MemeJobInput, sendCandidate, sendMemeFallback } from './send.js';
+import {
+  getMemeJobConfig,
+  type MemeJobInput,
+  sendCandidate,
+  sendMemeFallback
+} from './send.js';
 
 export async function runMemeJob(input: MemeJobInput): Promise<void> {
   const { deps, request, logger } = input;
@@ -21,7 +25,7 @@ export async function runMemeJob(input: MemeJobInput): Promise<void> {
         chatId: request.chatId,
         replyToMessageId: request.triggerMessageId
       },
-      async () => selectAndSendMeme({ deps, request, logger })
+      async () => selectAndSendMeme(input)
     );
 
     if (sentMeme) {
@@ -32,7 +36,7 @@ export async function runMemeJob(input: MemeJobInput): Promise<void> {
     }
 
     await runWithProcessStatus(deps, { chatId: request.chatId }, async () => {
-      await sendMemeFallback({ deps, request });
+      await sendMemeFallback(input);
     });
     logger.debug('meme_job_fallback_sent', {
       replyToMessageId: request.triggerMessageId
@@ -43,9 +47,10 @@ export async function runMemeJob(input: MemeJobInput): Promise<void> {
 }
 
 async function selectAndSendMeme(input: MemeJobInput): Promise<boolean> {
+  const config = getMemeJobConfig(input);
   const sources = selectMemeSources({
-    subreddits: memeActionConfig.subreddits,
-    maxSourceAttempts: memeActionConfig.listing.maxSourceAttempts,
+    subreddits: config.subreddits,
+    maxSourceAttempts: config.listing.maxSourceAttempts,
     random: input.deps.random
   });
 
@@ -73,10 +78,11 @@ async function selectAndSendMeme(input: MemeJobInput): Promise<boolean> {
 async function selectAndSendFromSubreddit(
   input: MemeJobInput & { subreddit: string }
 ): Promise<boolean> {
+  const config = getMemeJobConfig(input);
   const candidates = await fetchRedditListingCandidates({
     subreddit: input.subreddit,
-    count: memeActionConfig.listing.limit,
-    timeRange: memeActionConfig.listing.timeRange,
+    count: config.listing.limit,
+    timeRange: config.listing.timeRange,
     sqlitePath: input.deps.env.sqlitePath,
     redditCookiesPath: input.deps.env.redditCookiesPath,
     ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
@@ -90,7 +96,7 @@ async function selectAndSendFromSubreddit(
   });
   const fresh = candidates.filter(
     (candidate) =>
-      candidate.upvotes >= memeActionConfig.listing.minUpvotes &&
+      candidate.upvotes >= config.listing.minUpvotes &&
       !seen.has(candidate.redditPostId)
   );
 

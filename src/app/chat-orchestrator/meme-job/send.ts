@@ -1,5 +1,6 @@
 import { memeActionConfig } from '../../../config/runtime/index.js';
 import { formatMemeCaption } from '../../actions/meme/caption.js';
+import type { RedditListingTimeRange } from '../../actions/meme/reddit-listing-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import type {
   DownloadedMemeMedia,
@@ -12,11 +13,26 @@ import type { ChatOrchestratorMediaSupport } from '../media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { downloadResolvedMedia, getMemeChatAction } from './download.js';
 
+export type MemeListingJobConfig = {
+  subreddits: readonly string[];
+  listing: {
+    limit: number;
+    maxSourceAttempts: number;
+    minUpvotes: number;
+    timeRange: RedditListingTimeRange;
+  };
+  fallbackText: string;
+  caption: {
+    maxLength: number;
+  };
+};
+
 export type MemeJobInput = {
   deps: ChatOrchestratorDeps;
   request: ReplyRequest;
   mediaSupport?: ChatOrchestratorMediaSupport;
   logger: ChatOrchestratorDeps['logger'];
+  config?: MemeListingJobConfig;
 };
 
 export async function sendCandidate(
@@ -74,7 +90,7 @@ export async function sendDownloadedCandidate(
       subreddit: candidate.subreddit,
       upvotes: candidate.upvotes,
       permalink: candidate.permalink,
-      maxLength: memeActionConfig.caption.maxLength
+      maxLength: getMemeJobConfig(input).caption.maxLength
     });
 
     const sent = await dispatchMemeMedia({
@@ -131,12 +147,13 @@ export async function sendDownloadedCandidate(
 }
 
 export async function sendMemeFallback(
-  input: Pick<MemeJobInput, 'deps' | 'request'>
+  input: Pick<MemeJobInput, 'deps' | 'request' | 'config'>
 ): Promise<void> {
+  const fallbackText = getMemeJobConfig(input).fallbackText;
   const sent = await input.deps.replyDispatcher({
     chatId: input.request.chatId,
     replyToMessageId: input.request.triggerMessageId,
-    text: memeActionConfig.fallbackText
+    text: fallbackText
   });
 
   input.deps.db.saveBotMessage({
@@ -144,7 +161,7 @@ export async function sendMemeFallback(
     chatType: input.request.chatType,
     chatTitle: input.request.chatTitle,
     messageId: sent.messageId,
-    text: memeActionConfig.fallbackText,
+    text: fallbackText,
     createdAt: sent.createdAt,
     userId: input.deps.bot.userId,
     username: input.deps.bot.username,
@@ -152,6 +169,12 @@ export async function sendMemeFallback(
     replyToMessageId: input.request.triggerMessageId,
     outputMode: 'text'
   });
+}
+
+export function getMemeJobConfig(
+  input: Pick<MemeJobInput, 'config'>
+): MemeListingJobConfig {
+  return input.config ?? memeActionConfig;
 }
 
 function getPrimaryMediaUrl(media: ResolvedMemeMedia): string | null {

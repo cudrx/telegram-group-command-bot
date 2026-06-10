@@ -1271,6 +1271,72 @@ describe('ChatOrchestrator /meme command', () => {
     });
   });
 
+  test('fetches sex media with the meme flow using sex subreddits', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditListing([
+          {
+            id: 'sex-post',
+            subreddit: 'sex_placeholder',
+            title: 'sex command post',
+            url: 'https://i.redd.it/sex.jpeg',
+            ups: 100
+          }
+        ])
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Length': '3' }
+        })
+      );
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 520,
+      createdAt: '2026-05-11T10:00:00.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/sex',
+        entities: [{ type: 'bot_command', offset: 0, length: 4 }],
+        createdAt: '2026-05-11T10:00:00.000Z'
+      })
+    );
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'https://www.reddit.com/r/sex_placeholder/top/.json?t=week&limit=10',
+      expect.any(Object)
+    );
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: null,
+        reply: false,
+        caption:
+          'sex command post\n\nr/sex_placeholder · <a href="https://www.reddit.com/r/sex_placeholder/comments/sex-post/post_title/">↑100</a>',
+        media: expect.objectContaining({ kind: 'image' })
+      })
+    );
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: 'sex-post',
+      telegramMessageId: 520,
+      mediaKind: 'image'
+    });
+  });
+
   test('handles /meme as a command even when the message also contains a Reddit URL', async () => {
     const db = new FakeDatabaseClient();
     const fetchMock = vi

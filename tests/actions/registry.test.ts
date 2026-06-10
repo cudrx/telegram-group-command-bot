@@ -113,7 +113,8 @@ describe('chatActionRegistry command policy', () => {
     ['/transcribe', 'transcribe'],
     ['/answer', 'answer'],
     ['/translate', 'translate'],
-    ['/meme', 'meme']
+    ['/meme', 'meme'],
+    ['/sex', 'sex']
   ] as const)('resolves %s command intent in chat mode', (commandText, intent) => {
     const resolved = chatActionRegistry.resolveCommand({
       botUsername: 'fun_bot',
@@ -135,7 +136,8 @@ describe('chatActionRegistry command policy', () => {
     ['/transcribe@fun_bot', 'transcribe'],
     ['/answer@fun_bot', 'answer'],
     ['/translate@fun_bot', 'translate'],
-    ['/meme@fun_bot', 'meme']
+    ['/meme@fun_bot', 'meme'],
+    ['/sex@fun_bot', 'sex']
   ] as const)('resolves %s bot-suffixed command in chat mode', (commandText, intent) => {
     const resolved = chatActionRegistry.resolveCommand({
       botUsername: 'fun_bot',
@@ -199,7 +201,8 @@ describe('chatActionRegistry command policy', () => {
     '/transcribe',
     '/answer',
     '/translate',
-    '/meme'
+    '/meme',
+    '/sex'
   ] as const)('returns none for %s command in private admin mode', (commandText) => {
     const resolved = chatActionRegistry.resolveCommand({
       botUsername: 'fun_bot',

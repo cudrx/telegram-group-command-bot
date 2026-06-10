@@ -9,7 +9,7 @@ The bot stores chat history, runs explicit command flows, can use web lookup and
 - Handles Telegram updates through `grammY` long polling.
 - Restricts access to the configured work chat, admin private chat, and optional link-only private users.
 - Stores chats, messages, replies, edits, media artifacts, sent meme history, and app state in SQLite.
-- Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, and `/publish`.
+- Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, `/sex`, and `/publish`.
 - Expands supported Reddit post links, Instagram Reels, and YouTube Shorts without calling the LLM.
 - Keeps user-facing local fallbacks as text even when outbound voice is enabled.
 
@@ -44,6 +44,7 @@ Replace the required placeholders in `.env` before starting. Optional provider k
 - `/read` - speak a replied-to text message.
 - `/transcribe` - transcribe a replied-to Telegram video.
 - `/meme` - send a fresh Reddit image, gallery, or video meme.
+- `/sex` - send fresh Reddit image, gallery, or video media from its own subreddit pool.
 - `/publish` - in the admin private chat, copy a message into the work chat.
 
 ## Project Map

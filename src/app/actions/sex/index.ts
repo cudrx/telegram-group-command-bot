@@ -1,10 +1,10 @@
-import { memeActionConfig } from '../../../config/runtime/index.js';
+import { sexActionConfig } from '../../../config/runtime/index.js';
 import { runMemeJob } from '../../chat-orchestrator/meme-job/listing.js';
 import type { ActionContext, ChatAction } from '../types.js';
 
-export const memeAction: ChatAction = {
-  intent: 'meme',
-  commands: ['meme'],
+export const sexAction: ChatAction = {
+  intent: 'sex',
+  commands: ['sex'],
   modes: ['chat'],
   async handle(ctx: ActionContext): Promise<void> {
     await runMemeJob({
@@ -12,7 +12,7 @@ export const memeAction: ChatAction = {
       request: ctx.request,
       mediaSupport: ctx.mediaSupport,
       logger: ctx.logger,
-      config: memeActionConfig
+      config: sexActionConfig
     });
   }
 };

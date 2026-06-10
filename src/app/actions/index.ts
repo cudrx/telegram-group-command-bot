@@ -4,6 +4,7 @@ import { memeAction } from './meme/index.js';
 import { publishAction } from './publish/index.js';
 import { readAction } from './read/index.js';
 import { createActionRegistry } from './registry.js';
+import { sexAction } from './sex/index.js';
 import { summarizeAction } from './summarize/index.js';
 import { transcribeAction } from './transcribe/index.js';
 import { translateAction } from './translate/index.js';
@@ -17,6 +18,7 @@ export const chatActions = [
   readAction,
   transcribeAction,
   memeAction,
+  sexAction,
   publishAction
 ] satisfies ChatAction[];
 

@@ -13,6 +13,7 @@ The bot responds to these commands:
 - `/read`
 - `/transcribe`
 - `/meme`
+- `/sex`
 - `/publish`
 
 Regular bot mentions, regular private-chat text, unauthorized chats, and private messages from users other than the admin or link-only users do not start a reply flow. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `TELEGRAM_LINK_USER_IDS` can use only the direct-link flow.
@@ -25,7 +26,7 @@ Regular bot mentions, regular private-chat text, unauthorized chats, and private
 - Messages from other bots are stored and can be reply anchors for `/answer` and `/translate`, but they are excluded from recent human-message context.
 - Lookup context is added as untrusted evidence, not as instructions.
 - Media recognition results are stored as TTL artifacts; source files are temporary.
-- `/meme` keeps downloaded media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
+- `/meme` and `/sex` keep downloaded Reddit media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
 - Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels and YouTube Shorts use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
 - `/publish` is available only in the admin private chat and copies messages into `TELEGRAM_CHAT_ID` through Telegram `copyMessage`/`copyMessages`, preserving content without source-author attribution.
 - TTS does not decide reply content: text is generated or read from the replied-to message first, then a local policy decides whether voice can be sent. Local usage/fallback messages are always sent as text.
@@ -64,7 +65,7 @@ Assembly helpers live in:
 Configuration is split into two layers:
 
 - `src/config/env/` reads the environment, validates deploy-specific values and secrets, and applies defaults.
-- `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `summarize`, `decide`), external provider settings, and storage settings.
+- `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `sex`, `summarize`, `decide`), external provider settings, and storage settings.
 - `src/locales/locale.ts` is the active localization module. Runtime code imports localized user-facing text and language-specific patterns from this file through neutral `text` and `patterns` exports, so switching the bot language is a file replacement/edit rather than a sweep through action code.
 
 Values that differ between environments go through the env schema. Values that describe local bot policy or provider contracts live in runtime config and are imported directly by consumers.
@@ -159,7 +160,7 @@ Outbound voice:
 7. When no action is resolved, the flow ends.
 8. `ChatOrchestrator` builds a request and calls `action.handle(...)`.
 9. `/read` runs a local TTS flow without the LLM.
-10. `/meme` runs a separate flow that selects a Reddit top-week post, downloads image/video media, and sends it with a locally formatted caption.
+10. `/meme` and `/sex` run a separate flow that selects a Reddit top-week post, downloads image/video media, and sends it with a locally formatted caption.
 11. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job: context is assembled, current Moscow date/time is added, lookup/media context is added when needed, and the LLM is called.
 12. The reply is formatted for Telegram HTML.
 13. `/answer` may be sent as voice when it passes the local TTS policy; local placeholder and fallback replies are text-only.
@@ -263,10 +264,10 @@ Behavior:
 - With lookup configured, it can verify facts, freshness, links, or external entities.
 - Should say when context or criteria are insufficient.
 
-### `/meme`
+### `/meme` and `/sex`
 
 - Available as a regular chat command.
-- Source is Reddit listing JSON from a hardcoded subreddit pool.
+- Source is Reddit listing JSON from a hardcoded subreddit pool. `/meme` and `/sex` use separate runtime subreddit lists.
 - Each run selects up to three subreddits; for each one, Reddit cookies are used to request `/r/<subreddit>/top/.json?t=week&limit=10`.
 - Post ids sent in the last 14 days are filtered through `meme_posts`.
 - Supports Reddit image URLs from `i.redd.it`, Reddit galleries from `gallery_data`/`media_metadata`, and Reddit video posts from `secure_media.reddit_video`/`media.reddit_video`.
@@ -275,7 +276,7 @@ Behavior:
 - Images and gallery items are downloaded directly into temporary files; Reddit-hosted video is downloaded through `yt-dlp` with cookies. Direct Reddit MP4/fallback URLs are not download paths for video. Temporary files are cleaned up in `finally`.
 - After successful dispatch, memes store Telegram media metadata; later recognition uses the shared media auto-read flow.
 - Captions are built locally from the original title, `r/<subreddit>`, and a linked upvote counter `↑N` that points to the original post.
-- The media message is sent without replying to the `/meme` command.
+- The media message is sent without replying to the command.
 - If no sendable candidate is found, the bot sends a local fallback without the LLM.
 
 ### Direct Media Links

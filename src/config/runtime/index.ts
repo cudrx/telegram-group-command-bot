@@ -2,6 +2,7 @@ import { answerActionConfig } from './actions/answer.js';
 import { decideActionConfig } from './actions/decide.js';
 import { memeActionConfig } from './actions/meme.js';
 import { readActionConfig } from './actions/read.js';
+import { sexActionConfig } from './actions/sex.js';
 import { summarizeActionConfig } from './actions/summarize.js';
 import { localizationConfig } from './localization.js';
 import { llmProviderConfig } from './providers/llm.js';
@@ -16,6 +17,7 @@ export const runtimeConfig = {
     decide: decideActionConfig,
     meme: memeActionConfig,
     read: readActionConfig,
+    sex: sexActionConfig,
     summarize: summarizeActionConfig
   },
   providers: {
@@ -32,6 +34,7 @@ export { answerActionConfig } from './actions/answer.js';
 export { decideActionConfig } from './actions/decide.js';
 export { memeActionConfig } from './actions/meme.js';
 export { readActionConfig } from './actions/read.js';
+export { sexActionConfig } from './actions/sex.js';
 export { summarizeActionConfig } from './actions/summarize.js';
 export { localizationConfig } from './localization.js';
 export { llmProviderConfig } from './providers/llm.js';
