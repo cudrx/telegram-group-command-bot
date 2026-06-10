@@ -1337,6 +1337,7 @@ describe('ChatOrchestrator /meme command', () => {
         chatId: 1,
         replyToMessageId: null,
         reply: false,
+        hasSpoiler: true,
         caption: `sex command post\n\nr/${sexSubreddit} · <a href="https://www.reddit.com/r/${sexSubreddit}/comments/sex-post/post_title/">↑100</a>`,
         media: expect.objectContaining({ kind: 'image' })
       })
@@ -1346,6 +1347,123 @@ describe('ChatOrchestrator /meme command', () => {
       telegramMessageId: 520,
       mediaKind: 'image'
     });
+  });
+
+  test('always sends sex video media as Telegram spoiler media', async () => {
+    let dispatchedFilePath = '';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'sex-listing-video-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'reddit-cookies.txt'),
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\tsession\tabc123'
+    );
+    const db = new FakeDatabaseClient();
+    const sexSubreddit = sexActionConfig.subreddits[0];
+
+    if (!sexSubreddit) {
+      throw new Error(
+        'sexActionConfig.subreddits must include at least one subreddit'
+      );
+    }
+
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      redditListing([
+        {
+          id: 'sex-video',
+          subreddit: sexSubreddit,
+          title: 'sex command video',
+          url: 'https://v.redd.it/video-post',
+          ups: 111,
+          secure_media: {
+            reddit_video: {
+              fallback_url:
+                'https://v.redd.it/video-post/DASH_720.mp4?source=fallback',
+              duration: 12
+            }
+          }
+        }
+      ])
+    );
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          if (file === 'ffprobe') return videoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
+
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            return {
+              stdout: JSON.stringify({
+                id: 'sex-video',
+                title: 'sex command video',
+                like_count: 111,
+                duration: 12
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, 'sex-video.mp4'),
+            new Uint8Array([1, 2, 3])
+          );
+
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 521,
+        createdAt: '2026-05-11T10:00:00.000Z'
+      });
+    });
+    const sendChatAction = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      sendChatAction
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/sex',
+        entities: [{ type: 'bot_command', offset: 0, length: 4 }]
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        hasSpoiler: true,
+        media: expect.objectContaining({ kind: 'video' })
+      })
+    );
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
   test('handles /meme as a command even when the message also contains a Reddit URL', async () => {

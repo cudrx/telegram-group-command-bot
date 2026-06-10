@@ -85,6 +85,10 @@ export async function sendDownloadedCandidate(
   try {
     const reply = options.reply ?? true;
     const replyToMessageId = reply ? input.request.triggerMessageId : null;
+    const shouldForceSpoiler = input.request.intent === 'sex';
+    const media = shouldForceSpoiler
+      ? forceSpoilerOnDownloadedMedia(downloaded)
+      : downloaded;
     const caption = formatMemeCaption({
       title: candidate.title,
       subreddit: candidate.subreddit,
@@ -99,8 +103,10 @@ export async function sendDownloadedCandidate(
       replyToMessageId,
       reply,
       caption,
-      ...(candidate.media.hasSpoiler ? { hasSpoiler: true } : {}),
-      media: downloaded
+      ...(shouldForceSpoiler || candidate.media.hasSpoiler
+        ? { hasSpoiler: true }
+        : {}),
+      media
     });
     input.deps.db.saveBotMessage({
       chatId: input.request.chatId,
@@ -181,4 +187,20 @@ function getPrimaryMediaUrl(media: ResolvedMemeMedia): string | null {
   if (media.kind === 'gallery') return null;
 
   return media.mediaUrl;
+}
+
+function forceSpoilerOnDownloadedMedia(
+  media: DownloadedMemeMedia
+): DownloadedMemeMedia {
+  if (media.kind !== 'gallery') {
+    return media;
+  }
+
+  return {
+    ...media,
+    items: media.items.map((item) => ({
+      ...item,
+      hasSpoiler: true
+    }))
+  };
 }
