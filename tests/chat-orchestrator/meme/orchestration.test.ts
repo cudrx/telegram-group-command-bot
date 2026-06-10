@@ -5,6 +5,10 @@ import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
 
+import {
+  memeActionConfig,
+  sexActionConfig
+} from '../../../src/config/runtime/index.js';
 import { createIncomingMessage } from '../../database/support.js';
 import { FakeDatabaseClient } from '../support/fake-database.js';
 import { createOrchestrator } from '../support/orchestrator.js';
@@ -1273,13 +1277,21 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('fetches sex media with the meme flow using sex subreddits', async () => {
     const db = new FakeDatabaseClient();
+    const sexSubreddit = sexActionConfig.subreddits[0];
+
+    if (!sexSubreddit) {
+      throw new Error(
+        'sexActionConfig.subreddits must include at least one subreddit'
+      );
+    }
+
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
         redditListing([
           {
             id: 'sex-post',
-            subreddit: 'sex_placeholder',
+            subreddit: sexSubreddit,
             title: 'sex command post',
             url: 'https://i.redd.it/sex.jpeg',
             ups: 100
@@ -1317,7 +1329,7 @@ describe('ChatOrchestrator /meme command', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'https://www.reddit.com/r/sex_placeholder/top/.json?t=week&limit=10',
+      `https://www.reddit.com/r/${sexSubreddit}/top/.json?t=week&limit=10`,
       expect.any(Object)
     );
     expect(memeDispatcher).toHaveBeenCalledWith(
@@ -1325,8 +1337,7 @@ describe('ChatOrchestrator /meme command', () => {
         chatId: 1,
         replyToMessageId: null,
         reply: false,
-        caption:
-          'sex command post\n\nr/sex_placeholder · <a href="https://www.reddit.com/r/sex_placeholder/comments/sex-post/post_title/">↑100</a>',
+        caption: `sex command post\n\nr/${sexSubreddit} · <a href="https://www.reddit.com/r/${sexSubreddit}/comments/sex-post/post_title/">↑100</a>`,
         media: expect.objectContaining({ kind: 'image' })
       })
     );
@@ -1339,6 +1350,14 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('handles /meme as a command even when the message also contains a Reddit URL', async () => {
     const db = new FakeDatabaseClient();
+    const memeSubreddit = memeActionConfig.subreddits[0];
+
+    if (!memeSubreddit) {
+      throw new Error(
+        'memeActionConfig.subreddits must include at least one subreddit'
+      );
+    }
+
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -1380,7 +1399,7 @@ describe('ChatOrchestrator /meme command', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      'https://www.reddit.com/r/BatmanArkham/top/.json?t=week&limit=10',
+      `https://www.reddit.com/r/${memeSubreddit}/top/.json?t=week&limit=10`,
       expect.any(Object)
     );
     expect(memeDispatcher).toHaveBeenCalledWith(
