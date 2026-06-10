@@ -1303,6 +1303,16 @@ describe('ChatOrchestrator /meme command', () => {
           headers: { 'Content-Length': '3' }
         })
       );
+    const replyDispatcher = vi
+      .fn()
+      .mockResolvedValueOnce({
+        messageId: 710,
+        createdAt: '2026-05-11T10:00:00.000Z'
+      })
+      .mockResolvedValueOnce({
+        messageId: 711,
+        createdAt: '2026-05-11T10:00:01.000Z'
+      });
     const memeDispatcher = vi.fn().mockResolvedValue({
       messageId: 520,
       createdAt: '2026-05-11T10:00:00.000Z'
@@ -1315,7 +1325,7 @@ describe('ChatOrchestrator /meme command', () => {
       qwen: {
         generateReply: vi.fn()
       },
-      replyDispatcher: vi.fn(),
+      replyDispatcher,
       memeDispatcher
     });
 
@@ -1332,6 +1342,13 @@ describe('ChatOrchestrator /meme command', () => {
       `https://www.reddit.com/r/${sexSubreddit}/top/.json?t=week&limit=10`,
       expect.any(Object)
     );
+    expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
+      chatId: 1,
+      replyToMessageId: null,
+      reply: false,
+      text: 'Скачиваю пост'
+    });
+    expect(replyDispatcher).toHaveBeenCalledTimes(1);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 1,

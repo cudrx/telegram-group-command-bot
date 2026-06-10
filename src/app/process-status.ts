@@ -45,6 +45,7 @@ const PROCESS_STATUS_PRESET_ACTIONS: Record<
   TelegramChatAction
 > = {
   meme_search: 'typing',
+  sex_search: 'typing',
   reply_generation: 'typing',
   transcription: 'typing',
   video_pipeline: 'upload_video',

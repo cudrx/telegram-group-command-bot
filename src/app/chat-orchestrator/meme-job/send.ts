@@ -54,7 +54,7 @@ export async function sendCandidate(
         }
       : {
           status: {
-            preset: 'meme_search',
+            preset: getMemeSearchStatusPreset(input),
             startStage: 'download'
           } as const
         })
@@ -187,6 +187,12 @@ function getPrimaryMediaUrl(media: ResolvedMemeMedia): string | null {
   if (media.kind === 'gallery') return null;
 
   return media.mediaUrl;
+}
+
+function getMemeSearchStatusPreset(
+  input: MemeJobInput
+): 'meme_search' | 'sex_search' {
+  return input.request.intent === 'sex' ? 'sex_search' : 'meme_search';
 }
 
 function forceSpoilerOnDownloadedMedia(

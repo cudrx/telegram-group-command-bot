@@ -52,6 +52,11 @@ export const text = {
         download: 'Скачиваю мем',
         upload: 'Отправляю мем'
       },
+      sex_search: {
+        start: 'Ищу пост',
+        download: 'Скачиваю пост',
+        upload: 'Отправляю пост'
+      },
       reply_generation: {
         start: 'Думаю'
       },
