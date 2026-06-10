@@ -35,6 +35,10 @@ npm run dev
 
 Replace the required placeholders in `.env` before starting. Optional provider keys in `.env.example` can be filled in for matching features or removed/commented out.
 
+For Reddit-based `/meme`, `/sex`, and direct Reddit link expansion, you can also
+set `REDDIT_COOKIE_HEADER_PATH` to a file containing a full browser `Cookie`
+header when a plain Netscape cookie file is not enough for subreddit listings.
+
 ## Main Commands
 
 - `/summarize` - summarize recent human messages in the chat.

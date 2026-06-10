@@ -17,6 +17,7 @@ export async function downloadResolvedMedia(
     const result = await downloadRedditVideoWithYtDlp({
       text: media.mediaUrl,
       sqlitePath: deps.env.sqlitePath,
+      redditCookieHeaderPath: deps.env.redditCookieHeaderPath,
       redditCookiesPath: deps.env.redditCookiesPath,
       maxBytes: memeActionConfig.media.videoMaxBytes,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),

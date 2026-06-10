@@ -98,6 +98,21 @@ describe('parseEnv defaults', () => {
     expect(env.youtubeCookiesPath).toBe('/run/secrets/youtube-cookies.txt');
   });
 
+  test('parses an explicit Reddit cookie header path override', () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TAVILY_API_KEY: 'tvly-key',
+      TELEGRAM_CHAT_ID: '-1002155313986',
+      TELEGRAM_ADMIN_ID: '-1002155313987',
+      REDDIT_COOKIE_HEADER_PATH: '/run/secrets/reddit-cookie-header.txt'
+    });
+
+    expect(env.redditCookieHeaderPath).toBe(
+      '/run/secrets/reddit-cookie-header.txt'
+    );
+  });
+
   test('does not infer media cookies paths for in-memory sqlite', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',

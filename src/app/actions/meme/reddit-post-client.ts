@@ -30,6 +30,7 @@ export function findRedditPostReference(
 
 export async function resolveRedditPostReference(input: {
   text: string;
+  redditCookieHeaderPath?: string | null | undefined;
   sqlitePath?: string | undefined;
   redditCookiesPath?: string | null | undefined;
   fetch?: typeof fetch | undefined;
@@ -42,6 +43,7 @@ export async function resolveRedditPostReference(input: {
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
   const cookieHeader = await readRedditCookieHeader({
+    redditCookieHeaderPath: input.redditCookieHeaderPath,
     sqlitePath: input.sqlitePath,
     redditCookiesPath: input.redditCookiesPath
   });
@@ -68,6 +70,7 @@ export async function resolveRedditPostReference(input: {
 
 export async function fetchRedditVideoCandidate(input: {
   text: string;
+  redditCookieHeaderPath?: string | null | undefined;
   sqlitePath?: string | undefined;
   redditCookiesPath?: string | null | undefined;
   fetch?: typeof fetch | undefined;
@@ -77,6 +80,7 @@ export async function fetchRedditVideoCandidate(input: {
 
 export async function fetchRedditPostCandidate(input: {
   text: string;
+  redditCookieHeaderPath?: string | null | undefined;
   sqlitePath?: string | undefined;
   redditCookiesPath?: string | null | undefined;
   fetch?: typeof fetch | undefined;
@@ -87,6 +91,7 @@ export async function fetchRedditPostCandidate(input: {
 
   const fetchImpl = input.fetch ?? globalThis.fetch;
   const cookieHeader = await readRedditCookieHeader({
+    redditCookieHeaderPath: input.redditCookieHeaderPath,
     sqlitePath: input.sqlitePath,
     redditCookiesPath: input.redditCookiesPath
   });

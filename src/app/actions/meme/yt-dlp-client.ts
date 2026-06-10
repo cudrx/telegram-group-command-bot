@@ -25,6 +25,7 @@ export type YtDlpRedditVideoResult = {
 export async function downloadRedditVideoWithYtDlp(input: {
   text: string;
   sqlitePath: string;
+  redditCookieHeaderPath?: string | null | undefined;
   redditCookiesPath?: string | null | undefined;
   maxBytes: number;
   fetch?: typeof fetch | undefined;
@@ -33,6 +34,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
 }): Promise<YtDlpRedditVideoResult | null> {
   const reference = await resolveRedditPostReference({
     text: input.text,
+    redditCookieHeaderPath: input.redditCookieHeaderPath,
     sqlitePath: input.sqlitePath,
     redditCookiesPath: input.redditCookiesPath,
     ...(input.fetch ? { fetch: input.fetch } : {})

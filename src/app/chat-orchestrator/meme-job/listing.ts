@@ -83,6 +83,7 @@ async function selectAndSendFromSubreddit(
     subreddit: input.subreddit,
     count: config.listing.limit,
     timeRange: config.listing.timeRange,
+    redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
     sqlitePath: input.deps.env.sqlitePath,
     redditCookiesPath: input.deps.env.redditCookiesPath,
     ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})

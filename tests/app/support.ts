@@ -272,6 +272,7 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath,
+    redditCookieHeaderPath: overrides.redditCookieHeaderPath ?? null,
     redditCookiesPath:
       overrides.redditCookiesPath ??
       resolveDefaultCookiesPath(sqlitePath, 'reddit-cookies.txt'),

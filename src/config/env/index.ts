@@ -45,6 +45,7 @@ export function parseEnv(
     logLevel: parsed.LOG_LEVEL,
     logColor: parsed.LOG_COLOR,
     sqlitePath: parsed.SQLITE_PATH,
+    redditCookieHeaderPath: parsed.REDDIT_COOKIE_HEADER_PATH ?? null,
     redditCookiesPath:
       parsed.REDDIT_COOKIES_PATH ??
       resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'reddit-cookies.txt'),

@@ -298,6 +298,47 @@ describe('fetchRedditListingCandidates', () => {
       })
     );
   });
+
+  test('prefers an explicit Reddit cookie header file over the cookies file', async () => {
+    const tempDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'reddit-cookie-header-test-')
+    );
+    const cookiesPath = path.join(tempDirectory, 'reddit-cookies.txt');
+    const cookieHeaderPath = path.join(
+      tempDirectory,
+      'reddit-cookie-header.txt'
+    );
+    await writeFile(
+      cookiesPath,
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\tsession\tfrom-file'
+    );
+    await writeFile(cookieHeaderPath, 'session=from-header; token_v2=abc');
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          data: { children: [] }
+        })
+      )
+    );
+
+    await fetchRedditListingCandidates({
+      subreddit: 'SipsTea',
+      count: 10,
+      timeRange: 'week',
+      redditCookieHeaderPath: cookieHeaderPath,
+      redditCookiesPath: cookiesPath,
+      fetch: fetchMock
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://www.reddit.com/r/SipsTea/top/.json?t=week&limit=10',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Cookie: 'session=from-header; token_v2=abc'
+        })
+      })
+    );
+  });
 });
 
 function redditChild(data: Record<string, unknown>) {

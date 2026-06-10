@@ -39,6 +39,7 @@ async function runDirectRedditVideoMemeJob(
   try {
     candidate = await fetchRedditPostCandidate({
       text: input.text,
+      redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
       sqlitePath: input.deps.env.sqlitePath,
       redditCookiesPath: input.deps.env.redditCookiesPath,
       ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
@@ -59,6 +60,7 @@ async function runDirectRedditVideoMemeJob(
           const fallback = await downloadRedditVideoWithYtDlp({
             text: input.text,
             sqlitePath: input.deps.env.sqlitePath,
+            redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
             redditCookiesPath: input.deps.env.redditCookiesPath,
             maxBytes: memeActionConfig.media.videoMaxBytes,
             ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),

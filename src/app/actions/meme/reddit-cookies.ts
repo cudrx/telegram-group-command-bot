@@ -5,27 +5,26 @@ export async function readRedditCookieHeader(
   input:
     | string
     | {
+        redditCookieHeaderPath?: string | null | undefined;
         sqlitePath?: string | undefined;
         redditCookiesPath?: string | null | undefined;
       }
     | undefined
 ): Promise<string | null> {
+  const cookieHeaderPath =
+    typeof input === 'string' ? null : input?.redditCookieHeaderPath;
+
+  if (cookieHeaderPath) {
+    return readRedditCookieHeaderFile(cookieHeaderPath);
+  }
+
   const cookiesPath = resolveRedditCookiesPath(input);
   if (!cookiesPath) return null;
 
-  let contents: string;
-
-  try {
-    contents = await readFile(cookiesPath, 'utf8');
-  } catch (error) {
-    if (isFileNotFound(error)) {
-      throw new Error(
-        `Reddit cookies file is required for Reddit requests: ${cookiesPath}`
-      );
-    }
-
-    throw error;
-  }
+  const contents = await readRequiredFile(
+    cookiesPath,
+    `Reddit cookies file is required for Reddit requests: ${cookiesPath}`
+  );
 
   const cookies = contents
     .split(/\r?\n/u)
@@ -35,10 +34,38 @@ export async function readRedditCookieHeader(
   return cookies.length > 0 ? cookies.join('; ') : null;
 }
 
+async function readRedditCookieHeaderFile(
+  path: string
+): Promise<string | null> {
+  const contents = await readRequiredFile(
+    path,
+    `Reddit cookie header file is required for Reddit requests: ${path}`
+  );
+  const normalized = contents.trim();
+
+  return normalized.length > 0 ? normalized : null;
+}
+
+async function readRequiredFile(
+  path: string,
+  missingFileMessage: string
+): Promise<string> {
+  try {
+    return await readFile(path, 'utf8');
+  } catch (error) {
+    if (isFileNotFound(error)) {
+      throw new Error(missingFileMessage);
+    }
+
+    throw error;
+  }
+}
+
 function resolveRedditCookiesPath(
   input:
     | string
     | {
+        redditCookieHeaderPath?: string | null | undefined;
         sqlitePath?: string | undefined;
         redditCookiesPath?: string | null | undefined;
       }
