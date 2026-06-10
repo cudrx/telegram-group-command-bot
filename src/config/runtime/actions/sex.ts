@@ -2,13 +2,12 @@ import { text } from '../../../locales/locale.js';
 
 export const sexActionConfig = {
   subreddits: [
-    'GoneMild',
-    'braless',
-    'underboob',
+    'celebnsfw',
+    'celebNSFWs',
+    'LadyBoners', // straight women / male thirst
+    'ladyladyboners',
     'NSFWfashion',
-    'pokies',
-    'CelebNSFW',
-    'LadyBoners' // straight women / male thirst
+    'WatchItForThePlot'
   ],
   listing: {
     limit: 10,
