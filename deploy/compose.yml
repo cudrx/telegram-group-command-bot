@@ -9,9 +9,12 @@ services:
     environment:
       NODE_ENV: production
       SQLITE_PATH: /app/data/bot.sqlite
+      PATH: /usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
     volumes:
       - ./data:/app/data
       - ./data/bin/yt-dlp:/usr/local/bin/yt-dlp:ro
+      - ./data/bin/ffmpeg:/usr/local/bin/ffmpeg:ro
+      - ./data/bin/ffprobe:/usr/local/bin/ffprobe:ro
     logging:
       driver: json-file
       options:

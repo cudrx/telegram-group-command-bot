@@ -39,6 +39,11 @@ For Reddit-based `/meme`, `/sex`, and direct Reddit link expansion, you can also
 set `REDDIT_COOKIE_HEADER_PATH` to a file containing a full browser `Cookie`
 header when a plain Netscape cookie file is not enough for subreddit listings.
 
+Video features require external runtime tools mounted into Docker from
+`data/bin`: official standalone Linux `yt-dlp`, static `ffmpeg`, and static
+`ffprobe`. The production image contains the Node.js app and minimal OS
+certificates.
+
 ## Main Commands
 
 - `/summarize` - summarize recent human messages in the chat.

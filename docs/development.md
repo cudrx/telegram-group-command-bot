@@ -168,7 +168,16 @@ SQLite is stored in mounted persistent storage.
 
 If Docker returns `permission denied`, use `sudo` or add the user to the `docker` group and start a new session.
 
-For Reddit video, Instagram Reels, and YouTube Shorts, a standalone `yt-dlp` zipapp is mounted into the container as `/usr/local/bin/yt-dlp`. The runtime image includes `python3`, `ffmpeg`/`ffprobe`, and Node.js 22 so `yt-dlp` can merge video/audio tracks into MP4 with audio, solve YouTube EJS challenges through `--js-runtimes node`, and then normalize video for Telegram. Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`.
+For Reddit video, Instagram Reels, and YouTube Shorts, runtime media tools are
+mounted into the container from persistent storage. `data/bin/yt-dlp` must be
+the official standalone Linux binary, and `data/bin/ffmpeg` plus
+`data/bin/ffprobe` must be static binaries, such as the John Van Sickle static
+builds. The Docker image includes Node.js 22 and OS certificate authorities, but
+the media tools live in persistent storage. The compose files mount those tools
+read-only into `/usr/local/bin` and put `/usr/local/bin` first on `PATH`.
+Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same
+pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe ->
+ffmpeg normalize -> ffprobe -> sendVideo`.
 
 Videos longer than 120 seconds are not downloaded or converted, and downloaded files are checked again with `ffprobe`. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and moves the moov atom to the beginning. After normalization, the bot probes the output dimensions and passes `duration`, `width`, `height`, and `supports_streaming` to Telegram `sendVideo`. YouTube Shorts use H.264 MP4 at `height<=854` to avoid oversized 720p/1080p variants for long Shorts. Reddit `fallback_url` and similar direct MP4 URLs are used only as metadata/video-post signals, not as download paths.
 
@@ -216,6 +225,19 @@ TELEGRAM_ADMIN_ID=123456789
 
 Optional provider keys are added there as well.
 
+The server persistent storage must also contain executable media tools:
+
+```text
+data/bin/yt-dlp
+data/bin/ffmpeg
+data/bin/ffprobe
+```
+
+Use the official standalone Linux `yt-dlp` binary. Use static `ffmpeg` and
+`ffprobe` binaries; do not bind-mount host distribution binaries from another
+Linux distribution into the Debian-based container, because their shared
+libraries may be unavailable.
+
 Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. The announcement is sent once per new `sha` and deduplicated through SQLite `app_state`.
 
 Rollback:
@@ -233,11 +255,11 @@ Rollback:
 - `/transcribe` requires a reply to a Telegram video message. It should work on videos sent by users and videos sent by this bot, ignore command arguments and links, extract audio with `ffmpeg`, return the transcript as text, and avoid creating `media_artifacts` rows.
 - `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.
 - Editing an already stored message should update future context without sending a new reply by itself.
-- `/meme` and `/sex` make an external request to a Reddit top-week listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts also need `yt-dlp` and `ffmpeg`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
-- Direct Reddit media link smoke: make the standalone `yt-dlp` zipapp available inside the container as `/usr/local/bin/yt-dlp`, configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, gallery, or `reddit_video` in the work chat or admin private chat as a regular non-command message. The bot should send `sendPhoto`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
+- `/meme` and `/sex` make an external request to a Reddit top-week listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts require mounted standalone `yt-dlp` plus static `ffmpeg` and `ffprobe`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
+- Direct Reddit media link smoke: make standalone `yt-dlp` plus static `ffmpeg` and `ffprobe` available inside the container through `/usr/local/bin`, configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, gallery, or `reddit_video` in the work chat or admin private chat as a regular non-command message. The bot should send `sendPhoto`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
 - Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in the work chat, admin private chat, or a private chat with a user from `TELEGRAM_LINK_USER_IDS`. The bot should get metadata through `yt-dlp`, skip videos longer than 120 seconds, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message.
 - Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in the work chat, admin private chat, or a private chat with a user from `TELEGRAM_LINK_USER_IDS`. The bot should get metadata through `yt-dlp`, skip videos longer than 120 seconds, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message.
-- YouTube Shorts require a runtime image with Node.js 22+: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
+- YouTube Shorts require a runtime container with Node.js 22+: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
 - Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`. Videos longer than 120 seconds are not downloaded or converted. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`. The normalized output dimensions are passed to Telegram as `width`/`height`, with `duration` and `supports_streaming`.
 - Run `/publish` in the admin private chat: check reply mode, no-reply mode, and media albums; the copy should appear in `TELEGRAM_CHAT_ID` as a bot message without source-author attribution.
 - Media providers run only when matching keys are configured.
