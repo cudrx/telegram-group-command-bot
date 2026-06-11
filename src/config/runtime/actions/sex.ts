@@ -13,7 +13,7 @@ export const sexActionConfig = {
     limit: 10,
     maxSourceAttempts: 3,
     minUpvotes: 10,
-    timeRange: 'week'
+    timeRange: 'month'
   },
   fallbackText: text.meme.fallback,
   media: {

@@ -1339,7 +1339,7 @@ describe('ChatOrchestrator /meme command', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      `https://www.reddit.com/r/${sexSubreddit}/top/.json?t=week&limit=10`,
+      `https://www.reddit.com/r/${sexSubreddit}/top/.json?t=month&limit=10`,
       expect.any(Object)
     );
     expect(replyDispatcher).toHaveBeenNthCalledWith(1, {
@@ -1534,7 +1534,7 @@ describe('ChatOrchestrator /meme command', () => {
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      `https://www.reddit.com/r/${memeSubreddit}/top/.json?t=week&limit=10`,
+      `https://www.reddit.com/r/${memeSubreddit}/top/.json?t=month&limit=10`,
       expect.any(Object)
     );
     expect(memeDispatcher).toHaveBeenCalledWith(

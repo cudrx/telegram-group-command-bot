@@ -26,7 +26,7 @@ export const memeActionConfig = {
     limit: 10,
     maxSourceAttempts: 3,
     minUpvotes: 10,
-    timeRange: 'week'
+    timeRange: 'month'
   },
   historyRetentionDays: 14,
   fallbackText: text.meme.fallback,

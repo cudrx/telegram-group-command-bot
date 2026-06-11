@@ -160,7 +160,7 @@ Outbound voice:
 7. When no action is resolved, the flow ends.
 8. `ChatOrchestrator` builds a request and calls `action.handle(...)`.
 9. `/read` runs a local TTS flow without the LLM.
-10. `/meme` and `/sex` run a separate flow that selects a Reddit top-week post, downloads image/video media, and sends it with a locally formatted caption.
+10. `/meme` and `/sex` run a separate flow that selects a Reddit top-month post, downloads image/video media, and sends it with a locally formatted caption.
 11. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job: context is assembled, current Moscow date/time is added, lookup/media context is added when needed, and the LLM is called.
 12. The reply is formatted for Telegram HTML.
 13. `/answer` may be sent as voice when it passes the local TTS policy; local placeholder and fallback replies are text-only.
@@ -268,7 +268,7 @@ Behavior:
 
 - Available as a regular chat command.
 - Source is Reddit listing JSON from a hardcoded subreddit pool. `/meme` and `/sex` use separate runtime subreddit lists.
-- Each run selects up to three subreddits; for each one, Reddit cookies are used to request `/r/<subreddit>/top/.json?t=week&limit=10`.
+- Each run selects up to three subreddits; for each one, Reddit cookies are used to request `/r/<subreddit>/top/.json?t=month&limit=10`.
 - Post ids sent in the last 14 days are filtered through `meme_posts`.
 - Supports Reddit image URLs from `i.redd.it`, Reddit galleries from `gallery_data`/`media_metadata`, and Reddit video posts from `secure_media.reddit_video`/`media.reddit_video`.
 - NSFW and spoiler posts are allowed and sent with Telegram's spoiler flag. For galleries, the spoiler flag is applied to every album item. External/self/text and unsupported posts are skipped.
