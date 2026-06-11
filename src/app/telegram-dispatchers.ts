@@ -130,12 +130,14 @@ export function createTelegramDispatchers(
     };
 
     if (media.kind === 'gallery') {
-      const sent = await api.sendMediaGroup(
+      const sentBatches = await sendTelegramGalleryMedia({
+        api,
         chatId,
-        toTelegramGalleryMedia(media.items, caption),
+        items: media.items,
+        caption,
         replyParameters
-      );
-      const firstSent = sent[0];
+      });
+      const firstSent = sentBatches[0]?.[0];
       const mediaSnapshot = firstSent
         ? toSentPhotoSnapshot(firstSent, caption)
         : null;
@@ -240,16 +242,53 @@ export function createTelegramDispatchers(
   };
 }
 
+async function sendTelegramGalleryMedia(input: {
+  api: Pick<TelegramApi, 'sendMediaGroup'>;
+  chatId: number;
+  items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+  caption: string;
+  replyParameters: Record<string, unknown>;
+}): Promise<TelegramSentMessage[][]> {
+  const chunks = chunkGalleryItems(input.items, 10);
+  const sentBatches: TelegramSentMessage[][] = [];
+
+  for (const [index, chunk] of chunks.entries()) {
+    const sent = await input.api.sendMediaGroup(
+      input.chatId,
+      toTelegramGalleryMedia(chunk, input.caption, {
+        includeCaption: index === 0
+      }),
+      index === 0 ? input.replyParameters : {}
+    );
+    sentBatches.push(sent);
+  }
+
+  return sentBatches;
+}
+
 function toTelegramGalleryMedia(
   items: Array<{ filePath: string; hasSpoiler?: boolean }>,
-  caption: string
+  caption: string,
+  options: { includeCaption: boolean }
 ): InputMediaPhoto[] {
   return items.map((item, index) => ({
     type: 'photo',
     media: new InputFile(item.filePath),
-    ...(index === 0 ? { caption, parse_mode: 'HTML' } : {}),
+    ...(options.includeCaption && index === 0
+      ? { caption, parse_mode: 'HTML' }
+      : {}),
     ...(item.hasSpoiler ? { has_spoiler: true } : {})
   }));
+}
+
+function chunkGalleryItems<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 function createReplyParameters(input: {
