@@ -24,38 +24,11 @@ export const redditMediaActionConfig = {
   presets: {
     meme: {
       fallbackText: text.meme.fallback,
-      subreddits: [
-        'BatmanArkham',
-        'blursed_videos',
-        'dankvideos',
-        'discordVideos',
-        'marvelcirclejerk',
-        'MarvelRivalsCirclejer',
-        'OkBuddyFresca',
-        'okbuddymimir',
-        'okbuddyretard',
-        'okbuddyviltrum',
-        'PeopleFuckingDying',
-        'perfectlycutscreams',
-        'shitposting',
-        'ShittyMovieDetails',
-        'SipsTea',
-        'soccercirclejerk',
-        'TikTokCringe',
-        'Unexpected',
-        'WatchPeopleDieInside'
-      ]
+      subreddits: [] as const
     },
     sex: {
       fallbackText: text.meme.fallback,
-      subreddits: [
-        'celebnsfw',
-        'celebNSFWs',
-        'LadyBoners', // straight women / male thirst
-        'ladyladyboners',
-        'NSFWfashion',
-        'WatchItForThePlot'
-      ]
+      subreddits: [] as const
     }
   }
 } as const;

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
+import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 import {
   botState,
   createEnv,
@@ -14,21 +15,7 @@ describe('createApplication message forwarding', () => {
   function createAllowedAppEnv() {
     return createEnv({
       telegramChatPolicies: [
-        {
-          chatId: -1001,
-          label: 'main',
-          features: {
-            answer: true,
-            summarize: true,
-            decide: true,
-            translate: true,
-            read: true,
-            transcribe: true,
-            meme: true,
-            sex: true,
-            direct_links: true
-          }
-        }
+        createTestChatPolicy({ chatId: -1001, label: 'main' })
       ],
       telegramAdminId: 900000222
     });

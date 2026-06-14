@@ -13,7 +13,7 @@ describe('telegram test fixtures', () => {
     expect(createTestChatPolicy()).toEqual({
       chatId: TEST_CONFIGURED_CHAT_ID,
       label: 'default',
-      features: {
+      commands: {
         answer: true,
         summarize: true,
         decide: true,
@@ -21,8 +21,15 @@ describe('telegram test fixtures', () => {
         read: true,
         transcribe: true,
         meme: true,
-        sex: true,
-        direct_links: true
+        sex: true
+      },
+      features: {
+        direct_links: true,
+        deploy_announcements: false
+      },
+      reddit_sources: {
+        meme: ['SipsTea', 'Unexpected'],
+        sex: ['LadyBoners', 'WatchItForThePlot']
       }
     });
   });

@@ -67,8 +67,6 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     replyDispatcher: telegramDispatchers.replyDispatcher,
     voiceDispatcher: telegramDispatchers.voiceDispatcher,
     memeDispatcher: telegramDispatchers.memeDispatcher,
-    copyMessageDispatcher: telegramDispatchers.copyMessageDispatcher,
-    copyMessagesDispatcher: telegramDispatchers.copyMessagesDispatcher,
     editMessageTextDispatcher: telegramDispatchers.editMessageTextDispatcher,
     deleteMessageDispatcher: telegramDispatchers.deleteMessageDispatcher,
     sendChatAction: telegramDispatchers.sendChatAction,
@@ -186,10 +184,13 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   return {
     async start() {
       cleanupScheduler.start();
+      const deployAnnouncementChatIds = env.telegramChatPolicies
+        .filter((policy) => policy.features.deploy_announcements)
+        .map((policy) => policy.chatId);
 
-      if (env.telegramAdminDefaultChatId !== null) {
+      if (deployAnnouncementChatIds.length > 0) {
         await maybeAnnounceDeployUpdate({
-          telegramChatId: env.telegramAdminDefaultChatId,
+          telegramChatIds: deployAnnouncementChatIds,
           db,
           llm: qwen,
           sendMessage: async (message) => {

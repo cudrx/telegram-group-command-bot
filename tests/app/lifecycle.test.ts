@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 import {
   botSendMediaGroup,
   botSendMessage,
@@ -322,22 +323,40 @@ describe('createApplication lifecycle', () => {
     });
   });
 
-  test('announces deploy updates before polling starts', async () => {
+  test('announces deploy updates to chats with deploy_announcements before polling starts', async () => {
     const { createApplication } = await importCreateApplication();
+    const basePolicy = createTestChatPolicy();
     const app = await createApplication(
-      createEnv({ telegramAdminDefaultChatId: -1009000001111 })
+      createEnv({
+        telegramChatPolicies: [
+          basePolicy,
+          {
+            ...basePolicy,
+            chatId: -1009000002222,
+            label: 'announcements',
+            features: {
+              ...basePolicy.features,
+              deploy_announcements: true
+            }
+          },
+          {
+            ...basePolicy,
+            chatId: -1009000003333,
+            label: 'announcements-2',
+            features: {
+              ...basePolicy.features,
+              deploy_announcements: true
+            }
+          }
+        ]
+      })
     );
 
     await app.start();
 
     expect(maybeAnnounceDeployUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        telegramChatId: -1009000001111,
-        db: expect.any(Object),
-        llm: expect.any(Object),
-        sendMessage: expect.any(Function),
-        logger: expect.any(Object),
-        now: expect.any(Function)
+        telegramChatIds: [-1009000002222, -1009000003333]
       })
     );
     expect(botStart).toHaveBeenCalledWith({

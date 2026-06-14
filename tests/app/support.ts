@@ -2,10 +2,7 @@ import path from 'node:path';
 import { afterEach, beforeEach, vi } from 'vitest';
 
 import type { AppEnv } from '../../src/config/env/index.js';
-import {
-  createTestChatPolicy,
-  TEST_CONFIGURED_CHAT_ID
-} from '../helpers/telegram-fixtures.js';
+import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 
 export const handleIncomingMessage = vi.fn();
 export const loggerInfo = vi.fn();
@@ -32,8 +29,6 @@ export const botSendPhoto = vi.fn();
 export const botSendVideo = vi.fn();
 export const botSendMediaGroup = vi.fn();
 export const botSendAnimation = vi.fn();
-export const botCopyMessage = vi.fn();
-export const botCopyMessages = vi.fn();
 export const botDeleteMessage = vi.fn();
 export const botSendChatAction = vi.fn();
 export const chatOrchestratorConstructor = vi.fn();
@@ -72,8 +67,6 @@ vi.mock('grammy', () => {
       sendVideo: botSendVideo,
       sendMediaGroup: botSendMediaGroup,
       sendAnimation: botSendAnimation,
-      copyMessage: botCopyMessage,
-      copyMessages: botCopyMessages,
       deleteMessage: botDeleteMessage,
       sendChatAction: botSendChatAction
     };
@@ -311,7 +304,6 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
     telegramChatPolicies: [createTestChatPolicy()],
-    telegramAdminDefaultChatId: TEST_CONFIGURED_CHAT_ID,
     telegramAdminId: 900000222,
     telegramLinkUserIds: [],
     ...overrides

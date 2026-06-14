@@ -15,8 +15,7 @@ describe('chatActions', () => {
       'read',
       'transcribe',
       'meme',
-      'sex',
-      'publish'
+      'sex'
     ]);
 
     expect(chatActions.map((action) => action.commands)).toEqual([
@@ -27,18 +26,12 @@ describe('chatActions', () => {
       ['read'],
       ['transcribe'],
       ['meme'],
-      ['sex'],
-      ['publish']
+      ['sex']
     ]);
 
-    expect(
-      chatActions
-        .filter((action) => action.intent !== 'publish')
-        .every((action) => action.modes.includes('chat'))
-    ).toBe(true);
-    expect(
-      chatActions.find((action) => action.intent === 'publish')?.modes
-    ).toEqual(['private_admin']);
+    expect(chatActions.every((action) => action.modes.includes('chat'))).toBe(
+      true
+    );
   });
 
   test('defines centralized feature requirements for configured-chat actions', () => {

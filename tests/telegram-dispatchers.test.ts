@@ -29,8 +29,6 @@ describe('createTelegramDispatchers', () => {
       sendPhoto: vi.fn(),
       sendVideo: vi.fn(),
       sendMediaGroup,
-      copyMessage: vi.fn(),
-      copyMessages: vi.fn(),
       deleteMessage: vi.fn(),
       sendChatAction: vi.fn()
     });

@@ -14,7 +14,6 @@ The bot responds to these commands:
 - `/transcribe`
 - `/meme`
 - `/sex`
-- `/publish`
 
 Regular bot mentions, regular private-chat text, unauthorized chats, and private messages from users other than the operator or link-only users do not start a reply flow. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `linkUserIds` in `telegram-access-config.json` can use only the direct-link flow.
 
@@ -28,7 +27,6 @@ Regular bot mentions, regular private-chat text, unauthorized chats, and private
 - Media recognition results are stored as TTL artifacts; source files are temporary.
 - `/meme` and `/sex` keep downloaded Reddit media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
 - Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels and YouTube Shorts use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
-- `/publish` is available only in the operator private chat and copies messages into `adminDefaultChatId` from `telegram-access-config.json` through Telegram `copyMessage`/`copyMessages`, preserving content without source-author attribution. When no operator default chat is configured, the command replies with a local fallback instead of copying anything.
 - TTS does not decide reply content: text is generated or read from the replied-to message first, then a local policy decides whether voice can be sent. Local usage/fallback messages are always sent as text.
 - `/transcribe` is an explicit local command for Telegram video messages. It downloads the replied-to Telegram video, extracts audio with `ffmpeg`, transcribes that temporary audio file through the configured speech-to-text provider, replies with text, and does not write a media artifact.
 
@@ -65,7 +63,7 @@ Assembly helpers live in:
 Configuration is split into two layers:
 
 - `src/config/env/` reads the environment, validates deploy-specific values and secrets, and applies defaults.
-- Telegram chat access policy is loaded from the JSON file at `TELEGRAM_CHAT_CONFIG_PATH`.
+- Telegram chat access policy is loaded from the JSON file at `TELEGRAM_CHAT_CONFIG_PATH`. Each chat policy has a `commands` object for slash-command gating, a `features` object for non-command capabilities such as `direct_links` and `deploy_announcements`, and a `reddit_sources` object for chat-specific `/meme` and `/sex` subreddit lists.
 - Global operator access settings are loaded from the JSON file at `TELEGRAM_ACCESS_CONFIG_PATH`.
 - `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `sex`, `summarize`, `decide`), external provider settings, and storage settings.
 - `src/locales/locale.ts` is the active localization module. Runtime code imports localized user-facing text and language-specific patterns from this file through neutral `text` and `patterns` exports, so switching the bot language is a file replacement/edit rather than a sweep through action code.
@@ -159,11 +157,11 @@ Outbound voice:
 4. `ChatOrchestrator` stores the message in SQLite.
 5. If the message has a supported media snapshot, the auto-read coordinator starts.
 6. The action registry resolves a command from registered action metadata.
-7. For configured chats, centralized feature gating checks whether the resolved command or direct-link flow is enabled for that chat.
+7. For configured chats, centralized command/feature gating checks whether the resolved command or direct-link flow is enabled for that chat.
 8. When no action is resolved, or the resolved behavior is disabled for that chat, the flow ends.
 9. `ChatOrchestrator` builds a request and calls `action.handle(...)`.
 10. `/read` runs a local TTS flow without the LLM.
-11. `/meme` and `/sex` run a separate flow that selects a Reddit top-month post, downloads image/video media, and sends it with a locally formatted caption.
+11. `/meme` and `/sex` run a separate flow that selects a Reddit top-month post from the current chat's configured `reddit_sources`, downloads image/video media, and sends it with a locally formatted caption.
 12. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job: context is assembled, current Moscow date/time is added, lookup/media context is added when needed, and the LLM is called.
 13. The reply is formatted for Telegram HTML.
 14. `/answer` may be sent as voice when it passes the local TTS policy; local placeholder and fallback replies are text-only.
@@ -247,14 +245,6 @@ Behavior:
 - Does not store transcript media artifacts; each invocation performs fresh recognition.
 - If Telegram file access, `ffmpeg`, or speech-to-text is unavailable or fails, the bot sends fallback text.
 
-### `/publish`
-
-- Runs only in the operator private chat.
-- Copies the replied-to message into `adminDefaultChatId` from `telegram-access-config.json`; without a reply, it copies the latest message before the command.
-- Uses Telegram `copyMessage`, so text, media, and captions are copied without rebuilding and without a source-message link.
-- If the target message belongs to a stored `media_group_id`, it uses `copyMessages` with sorted message ids and preserves album grouping.
-- If `adminDefaultChatId` is missing, or Telegram cannot copy the target message or message type, the bot sends a local hint in the operator private chat.
-
 ### `/summarize`
 
 - Summarizes recent human messages.
@@ -298,17 +288,6 @@ Behavior:
 - After successful direct Reddit/Reels/Shorts dispatch, the bot calls Telegram `deleteMessage` for the source link message; media is sent without replying to the source message so it does not point back to a deleted message. If Telegram rejects deletion because of permissions, the media message remains.
 - If direct video fails only because it exceeds the configured duration or size cap, the bot replies with a local limit-specific fallback and keeps the source link message in place. Unsupported or unavailable links still exit quietly without calling the LLM.
 
-## Deploy Announcement Flow
-
-1. The deploy workflow writes metadata to server persistent storage.
-2. The container sees the file as `/app/data/deploy-metadata.json`.
-3. Application startup skips the announcement when metadata is missing, invalid, or already announced.
-4. The new `sha` is formatted through the LLM.
-5. When `adminDefaultChatId` is configured in `telegram-access-config.json`, the bot sends a Telegram HTML announcement there.
-6. After successful dispatch, the `sha` is stored in `app_state`.
-
-Announcement errors do not block long polling.
-
 ## Data Model
 
 ### `chats`
@@ -329,4 +308,5 @@ Stores anti-repeat history for `/meme` and sent direct Reddit media links: `chat
 
 ### `app_state`
 
-Small runtime key-value state, such as `last_announced_deploy_sha`.
+Small runtime key-value state.
+- Deploy announcements are formatted once per new deploy `sha` and sent to every configured chat where `features.deploy_announcements` is enabled. SQLite stores one shared `last_announced_deploy_sha`, so the same deploy is not reformatted or resent after a successful announce cycle.

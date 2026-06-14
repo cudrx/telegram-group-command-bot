@@ -3,7 +3,6 @@ import { describe, expect, test } from 'vitest';
 import {
   createTestAccessConfig,
   createTestChatPolicy,
-  TEST_CONFIGURED_CHAT_ID,
   TEST_OPERATOR_CHAT_ID
 } from '../helpers/telegram-fixtures.js';
 import {
@@ -91,8 +90,8 @@ describe('parseEnv defaults', () => {
     expect(env.telegramChatPolicies).toEqual([
       createTestChatPolicy({ label: 'main' })
     ]);
-    expect(env.telegramAdminDefaultChatId).toBe(TEST_CONFIGURED_CHAT_ID);
     expect(Object.hasOwn(env, 'telegramChatId')).toBe(false);
+    expect(Object.hasOwn(env, 'telegramAdminDefaultChatId')).toBe(false);
     expect(env.telegramAdminId).toBe(TEST_OPERATOR_CHAT_ID);
     expect(env.redditCookiesPath).toBe('/app/data/reddit-cookies.txt');
     expect(env.instagramCookiesPath).toBe('/app/data/instagram-cookies.txt');

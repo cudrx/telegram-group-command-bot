@@ -42,16 +42,6 @@ export function createOrchestrator(input: {
   memeDispatcher?: (
     input: MemeMediaDispatchInput
   ) => Promise<{ messageId: number; createdAt: string }>;
-  copyMessageDispatcher?: (input: {
-    targetChatId: number;
-    sourceChatId: number;
-    messageId: number;
-  }) => Promise<{ messageId: number }>;
-  copyMessagesDispatcher?: (input: {
-    targetChatId: number;
-    sourceChatId: number;
-    messageIds: number[];
-  }) => Promise<Array<{ messageId: number }>>;
   deleteMessageDispatcher?: (input: {
     chatId: number;
     messageId: number;
@@ -182,18 +172,6 @@ export function createOrchestrator(input: {
         messageId: 3000,
         createdAt: '2026-04-13T09:00:30.000Z'
       }),
-    copyMessageDispatcher:
-      input.copyMessageDispatcher ??
-      vi.fn().mockResolvedValue({
-        messageId: 4000
-      }),
-    copyMessagesDispatcher:
-      input.copyMessagesDispatcher ??
-      vi.fn().mockResolvedValue([
-        {
-          messageId: 4000
-        }
-      ]),
     editMessageTextDispatcher:
       input.editMessageTextDispatcher ?? vi.fn().mockResolvedValue(undefined),
     deleteMessageDispatcher:

@@ -2,31 +2,44 @@
   {
     "chatId": -1001234567890,
     "label": "main",
-    "features": {
+    "commands": {
       "answer": true,
-      "summarize": true,
       "decide": true,
-      "translate": true,
-      "read": true,
-      "transcribe": true,
+      "summarize": true,
       "meme": true,
-      "sex": false,
-      "direct_links": true
+      "read": true,
+      "sex": true,
+      "transcribe": true,
+      "translate": true
+    },
+    "features": {
+      "direct_links": true,
+      "deploy_announcements": true
+    },
+    "reddit_sources": {
+      "meme": ["SipsTea", "Unexpected"],
+      "sex": ["LadyBoners", "WatchItForThePlot"]
     }
   },
   {
     "chatId": -1002222222222,
     "label": "quiet-chat",
-    "features": {
+    "commands": {
       "answer": true,
-      "summarize": true,
-      "decide": false,
-      "translate": true,
+      "decide": true,
+      "meme": true,
       "read": false,
-      "transcribe": false,
-      "meme": false,
       "sex": false,
-      "direct_links": false
+      "summarize": true,
+      "transcribe": false,
+      "translate": true
+    },
+    "features": {
+      "direct_links": false,
+      "deploy_announcements": false
+    },
+    "reddit_sources": {
+      "meme": ["nonononoyes"]
     }
   }
 ]

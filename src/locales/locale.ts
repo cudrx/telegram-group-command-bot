@@ -37,13 +37,6 @@ export const text = {
     failedFallback: 'Не удалось расшифровать видео. Попробуй позже.',
     emptyFallback: 'Не получилось найти речь в этом видео.'
   },
-  publish: {
-    missingTarget:
-      'Не нашел сообщение для /publish. Сделай reply или отправь команду после сообщения.',
-    missingDefaultChat:
-      'Для /publish не настроен чат назначения. Добавь adminDefaultChatId в telegram-access-config.json.',
-    copyFailed: 'Telegram не дал скопировать это сообщение.'
-  },
   meme: {
     fallback: 'Мемы закончились, идите трогайте траву.',
     directVideoTooLongFallback: (maxMinutes: number) =>

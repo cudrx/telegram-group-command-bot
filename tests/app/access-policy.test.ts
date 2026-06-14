@@ -4,24 +4,19 @@ import { resolveAccessContext } from '../../src/app/access-policy.js';
 import { ChatOrchestrator } from '../../src/app/chat-orchestrator/index.js';
 import type { AppEnv } from '../../src/config/env/index.js';
 import type { ChatPolicy } from '../../src/config/env/types.js';
+import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 
-function createChatPolicy(overrides: Partial<ChatPolicy> = {}): ChatPolicy {
-  return {
+function createChatPolicy(
+  overrides: Omit<Partial<ChatPolicy>, 'commands' | 'features'> & {
+    commands?: Partial<ChatPolicy['commands']>;
+    features?: Partial<ChatPolicy['features']>;
+  } = {}
+): ChatPolicy {
+  return createTestChatPolicy({
     chatId: -1001,
     label: 'main',
-    features: {
-      answer: true,
-      summarize: true,
-      decide: true,
-      translate: true,
-      read: true,
-      transcribe: true,
-      meme: true,
-      sex: true,
-      direct_links: true
-    },
     ...overrides
-  };
+  });
 }
 
 function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
@@ -67,7 +62,6 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
     telegramChatPolicies: [createChatPolicy()],
-    telegramAdminDefaultChatId: null,
     telegramAdminId: 900000222,
     telegramLinkUserIds: [],
     ...overrides
@@ -77,23 +71,7 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
 describe('resolveAccessContext', () => {
   test('resolves configured group chats to configured_chat with policy', () => {
     const env = createEnv({
-      telegramChatPolicies: [
-        {
-          chatId: -1001,
-          label: 'main',
-          features: {
-            answer: true,
-            summarize: true,
-            decide: true,
-            translate: true,
-            read: true,
-            transcribe: true,
-            meme: true,
-            sex: false,
-            direct_links: true
-          }
-        }
-      ]
+      telegramChatPolicies: [createChatPolicy({ commands: { sex: false } })]
     });
 
     expect(
@@ -111,23 +89,7 @@ describe('resolveAccessContext', () => {
 
   test('rejects unconfigured group chats', () => {
     const env = createEnv({
-      telegramChatPolicies: [
-        {
-          chatId: -1001,
-          label: 'main',
-          features: {
-            answer: true,
-            summarize: true,
-            decide: true,
-            translate: true,
-            read: true,
-            transcribe: true,
-            meme: true,
-            sex: true,
-            direct_links: true
-          }
-        }
-      ]
+      telegramChatPolicies: [createChatPolicy()]
     });
 
     expect(
@@ -184,8 +146,6 @@ describe('resolveAccessContext', () => {
       replyDispatcher: async () => ({ messageId: 1, createdAt: 'now' }),
       voiceDispatcher: async () => ({ messageId: 1, createdAt: 'now' }),
       memeDispatcher: async () => ({ messageId: 1, createdAt: 'now' }),
-      copyMessageDispatcher: async () => ({ messageId: 1 }),
-      copyMessagesDispatcher: async () => [{ messageId: 1 }],
       editMessageTextDispatcher: async () => undefined,
       deleteMessageDispatcher: async () => undefined,
       sendChatAction: async () => undefined,

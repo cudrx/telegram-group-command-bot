@@ -13,7 +13,7 @@ const validChatPolicies = [
   {
     chatId: -1001234567890,
     label: 'main',
-    features: {
+    commands: {
       answer: true,
       summarize: true,
       decide: true,
@@ -21,13 +21,20 @@ const validChatPolicies = [
       read: true,
       transcribe: false,
       meme: true,
-      sex: false,
-      direct_links: true
+      sex: false
+    },
+    features: {
+      direct_links: true,
+      deploy_announcements: true
+    },
+    reddit_sources: {
+      meme: ['SipsTea', 'Unexpected'],
+      sex: ['LadyBoners']
     }
   },
   {
     chatId: -1002222222222,
-    features: {
+    commands: {
       answer: false,
       summarize: true,
       decide: false,
@@ -35,8 +42,15 @@ const validChatPolicies = [
       read: false,
       transcribe: true,
       meme: false,
-      sex: false,
-      direct_links: false
+      sex: false
+    },
+    features: {
+      direct_links: false,
+      deploy_announcements: false
+    },
+    reddit_sources: {
+      meme: ['memes'],
+      sex: ['WatchItForThePlot']
     }
   }
 ];
@@ -48,7 +62,7 @@ describe('parseEnv multichat config', () => {
       LLM_API_KEY: 'llm-key',
       TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile(validChatPolicies),
       TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
-        createTestAccessConfig({ adminDefaultChatId: -1002222222222 })
+        createTestAccessConfig()
       )
     });
 
@@ -56,7 +70,7 @@ describe('parseEnv multichat config', () => {
       {
         chatId: -1001234567890,
         label: 'main',
-        features: {
+        commands: {
           answer: true,
           summarize: true,
           decide: true,
@@ -64,14 +78,21 @@ describe('parseEnv multichat config', () => {
           read: true,
           transcribe: false,
           meme: true,
-          sex: false,
-          direct_links: true
+          sex: false
+        },
+        features: {
+          direct_links: true,
+          deploy_announcements: true
+        },
+        reddit_sources: {
+          meme: ['SipsTea', 'Unexpected'],
+          sex: ['LadyBoners']
         }
       },
       {
         chatId: -1002222222222,
         label: null,
-        features: {
+        commands: {
           answer: false,
           summarize: true,
           decide: false,
@@ -79,13 +100,20 @@ describe('parseEnv multichat config', () => {
           read: false,
           transcribe: true,
           meme: false,
-          sex: false,
-          direct_links: false
+          sex: false
+        },
+        features: {
+          direct_links: false,
+          deploy_announcements: false
+        },
+        reddit_sources: {
+          meme: ['memes'],
+          sex: ['WatchItForThePlot']
         }
       }
     ]);
     expect(env.telegramAdminId).toBe(createTestAccessConfig().adminUserId);
-    expect(env.telegramAdminDefaultChatId).toBe(-1002222222222);
+    expect(Object.hasOwn(env, 'telegramAdminDefaultChatId')).toBe(false);
     expect(env.telegramLinkUserIds).toEqual([]);
     expect(Object.hasOwn(env, 'telegramLegacyChatId')).toBe(false);
   });
@@ -98,7 +126,7 @@ describe('parseEnv multichat config', () => {
         TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
           {
             chatId: -1001234567890,
-            features: {
+            commands: {
               answer: true,
               summarize: true,
               decide: true,
@@ -106,13 +134,20 @@ describe('parseEnv multichat config', () => {
               read: true,
               transcribe: true,
               meme: true,
-              sex: true,
-              direct_links: true
+              sex: true
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            },
+            reddit_sources: {
+              meme: ['memes'],
+              sex: ['WatchItForThePlot']
             }
           },
           {
             chatId: -1001234567890,
-            features: {
+            commands: {
               answer: true,
               summarize: true,
               decide: true,
@@ -120,8 +155,15 @@ describe('parseEnv multichat config', () => {
               read: true,
               transcribe: true,
               meme: true,
-              sex: true,
-              direct_links: true
+              sex: true
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            },
+            reddit_sources: {
+              meme: ['memes'],
+              sex: ['WatchItForThePlot']
             }
           }
         ]),
@@ -132,7 +174,7 @@ describe('parseEnv multichat config', () => {
     ).toThrow(/duplicate chat id/i);
   });
 
-  test('rejects unknown feature keys in TELEGRAM_CHAT_CONFIG_PATH', () => {
+  test('rejects unknown command keys in TELEGRAM_CHAT_CONFIG_PATH', () => {
     expect(() =>
       parseRawEnv({
         TELEGRAM_BOT_TOKEN: 'telegram-token',
@@ -140,7 +182,7 @@ describe('parseEnv multichat config', () => {
         TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
           {
             chatId: -1001234567890,
-            features: {
+            commands: {
               answer: true,
               summarize: true,
               decide: true,
@@ -149,8 +191,51 @@ describe('parseEnv multichat config', () => {
               transcribe: true,
               meme: true,
               sex: false,
-              direct_links: true,
               surprise: true
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            },
+            reddit_sources: {
+              meme: ['memes'],
+              sex: ['WatchItForThePlot']
+            }
+          }
+        ]),
+        TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+          createTestAccessConfig()
+        )
+      })
+    ).toThrow(/0\.commands.*surprise|unknown field/i);
+  });
+
+  test('rejects unknown feature keys in TELEGRAM_CHAT_CONFIG_PATH', () => {
+    expect(() =>
+      parseRawEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+          {
+            chatId: -1001234567890,
+            commands: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: false
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false,
+              surprise: true
+            },
+            reddit_sources: {
+              meme: ['memes'],
+              sex: ['WatchItForThePlot']
             }
           }
         ]),
@@ -170,7 +255,7 @@ describe('parseEnv multichat config', () => {
           {
             chatId: -1001234567890,
             labell: 'oops',
-            features: {
+            commands: {
               answer: true,
               summarize: true,
               decide: true,
@@ -178,8 +263,15 @@ describe('parseEnv multichat config', () => {
               read: true,
               transcribe: true,
               meme: true,
-              sex: false,
-              direct_links: true
+              sex: false
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            },
+            reddit_sources: {
+              meme: ['memes'],
+              sex: ['WatchItForThePlot']
             }
           }
         ]),
@@ -188,6 +280,106 @@ describe('parseEnv multichat config', () => {
         )
       })
     ).toThrow(/0.*labell|unknown field/i);
+  });
+
+  test('requires meme reddit sources when /meme is enabled', () => {
+    expect(() =>
+      parseRawEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+          {
+            chatId: -1001234567890,
+            commands: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: false
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            }
+          }
+        ]),
+        TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+          createTestAccessConfig()
+        )
+      })
+    ).toThrow(/reddit_sources\.meme.*required|reddit_sources\.meme/i);
+  });
+
+  test('requires sex reddit sources when /sex is enabled', () => {
+    expect(() =>
+      parseRawEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+          {
+            chatId: -1001234567890,
+            commands: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: false,
+              sex: true
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            },
+            reddit_sources: {
+              meme: ['memes']
+            }
+          }
+        ]),
+        TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+          createTestAccessConfig()
+        )
+      })
+    ).toThrow(/reddit_sources\.sex.*required|reddit_sources\.sex/i);
+  });
+
+  test('rejects empty reddit source lists for enabled commands', () => {
+    expect(() =>
+      parseRawEnv({
+        TELEGRAM_BOT_TOKEN: 'telegram-token',
+        LLM_API_KEY: 'llm-key',
+        TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+          {
+            chatId: -1001234567890,
+            commands: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: false
+            },
+            features: {
+              direct_links: true,
+              deploy_announcements: false
+            },
+            reddit_sources: {
+              meme: [],
+              sex: ['WatchItForThePlot']
+            }
+          }
+        ]),
+        TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+          createTestAccessConfig()
+        )
+      })
+    ).toThrow(/reddit_sources\.meme.*at least 1|reddit_sources\.meme/i);
   });
 
   test('rejects unreadable TELEGRAM_CHAT_CONFIG_PATH files', () => {
@@ -241,20 +433,21 @@ describe('parseEnv multichat config', () => {
     ).toThrow(/TELEGRAM_ACCESS_CONFIG_PATH.*json/i);
   });
 
-  test('requires TELEGRAM_ACCESS_CONFIG_PATH admin default chat to reference a configured chat', () => {
+  test('rejects retired adminDefaultChatId in TELEGRAM_ACCESS_CONFIG_PATH', () => {
     expect(() =>
       parseRawEnv({
         TELEGRAM_BOT_TOKEN: 'telegram-token',
         LLM_API_KEY: 'llm-key',
         TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile(validChatPolicies),
-        TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
-          createTestAccessConfig({ adminDefaultChatId: -1009999999999 })
-        )
+        TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile({
+          adminUserId: createTestAccessConfig().adminUserId,
+          adminDefaultChatId: -1009999999999
+        })
       })
-    ).toThrow(/adminDefaultChatId.*configured chat/i);
+    ).toThrow(/adminDefaultChatId|unknown field/i);
   });
 
-  test('defaults link user ids to an empty list and default chat to null', () => {
+  test('defaults link user ids to an empty list', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
@@ -264,7 +457,7 @@ describe('parseEnv multichat config', () => {
       })
     });
 
-    expect(env.telegramAdminDefaultChatId).toBeNull();
+    expect(Object.hasOwn(env, 'telegramAdminDefaultChatId')).toBe(false);
     expect(env.telegramLinkUserIds).toEqual([]);
   });
 
@@ -275,13 +468,12 @@ describe('parseEnv multichat config', () => {
       TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile(validChatPolicies),
       TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
         createTestAccessConfig({
-          adminDefaultChatId: -1001234567890,
           linkUserIds: [111, 222, 333]
         })
       )
     });
 
     expect(env.telegramLinkUserIds).toEqual([111, 222, 333]);
-    expect(env.telegramAdminDefaultChatId).toBe(-1001234567890);
+    expect(Object.hasOwn(env, 'telegramAdminDefaultChatId')).toBe(false);
   });
 });

@@ -34,7 +34,7 @@ describe('maybeAnnounceDeployUpdate', () => {
     expect(deps.sendMessage).not.toHaveBeenCalled();
   });
 
-  test('sends formatted update and stores sha after successful send', async () => {
+  test('formats once, sends to all configured chats, and stores sha after successful send', async () => {
     const deps = createDeps();
 
     await maybeAnnounceDeployUpdate(deps);
@@ -43,10 +43,33 @@ describe('maybeAnnounceDeployUpdate', () => {
       shortSha: 'sha-1',
       commits: ['fix: handle telegram media captions']
     });
-    expect(deps.sendMessage).toHaveBeenCalledWith({
+    expect(deps.llm.formatDeployUpdate).toHaveBeenCalledTimes(1);
+    expect(deps.sendMessage).toHaveBeenNthCalledWith(1, {
       chatId: -1009000001111,
       text: '<b>Исправлено</b>\n\n• Подписи к видео теперь работают.'
     });
+    expect(deps.sendMessage).toHaveBeenNthCalledWith(2, {
+      chatId: -1009000002222,
+      text: '<b>Исправлено</b>\n\n• Подписи к видео теперь работают.'
+    });
+    expect(deps.db.setAppState).toHaveBeenCalledWith(
+      'last_announced_deploy_sha',
+      'sha-1',
+      '2026-04-19T10:00:00.000Z'
+    );
+  });
+
+  test('stores sha when at least one chat send succeeds', async () => {
+    const deps = createDeps({
+      sendMessage: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('chat blocked'))
+        .mockResolvedValueOnce(undefined)
+    });
+
+    await maybeAnnounceDeployUpdate(deps);
+
+    expect(deps.llm.formatDeployUpdate).toHaveBeenCalledTimes(1);
     expect(deps.db.setAppState).toHaveBeenCalledWith(
       'last_announced_deploy_sha',
       'sha-1',
@@ -69,6 +92,19 @@ describe('maybeAnnounceDeployUpdate', () => {
         errorMessage: 'llm down'
       })
     );
+  });
+
+  test('does not store sha when all chat sends fail', async () => {
+    const deps = createDeps({
+      sendMessage: vi
+        .fn()
+        .mockRejectedValueOnce(new Error('chat one blocked'))
+        .mockRejectedValueOnce(new Error('chat two blocked'))
+    });
+
+    await maybeAnnounceDeployUpdate(deps);
+
+    expect(deps.db.setAppState).not.toHaveBeenCalled();
   });
 });
 
@@ -96,7 +132,7 @@ function createDeps(
     });
 
   return {
-    telegramChatId: -1009000001111,
+    telegramChatIds: [-1009000001111, -1009000002222],
     db: {
       getAppState,
       setAppState

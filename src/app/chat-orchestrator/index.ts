@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { NormalizedMessage } from '../../domain/models.js';
 import {
   chatActionRegistry,
+  isCommandEnabledForAccessContext,
   isFeatureEnabledForAccessContext
 } from '../actions/index.js';
 import { detectDirectMediaLink } from './direct-media-link.js';
@@ -85,9 +86,9 @@ export class ChatOrchestrator {
 
     if (resolvedAction) {
       if (
-        !isFeatureEnabledForAccessContext(
+        !isCommandEnabledForAccessContext(
           accessContext,
-          resolvedAction.requiredFeature
+          resolvedAction.requiredCommand
         )
       ) {
         return;

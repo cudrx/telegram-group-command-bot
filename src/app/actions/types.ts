@@ -1,4 +1,4 @@
-import type { ChatFeature } from '../../config/env/types.js';
+import type { ChatCommand } from '../../config/env/types.js';
 import type {
   AccessContext,
   AssistantIntent,
@@ -34,7 +34,7 @@ export type ResolveCommandInput = {
 export type ResolvedAction = {
   action: ChatAction;
   commandText: string;
-  requiredFeature: ChatFeature | null;
+  requiredCommand: ChatCommand | null;
 };
 
 export type ActionRegistry = {

@@ -9,7 +9,7 @@ import { formatTelegramHtmlReply } from './telegram-html/index.js';
 const LAST_ANNOUNCED_DEPLOY_SHA_KEY = 'last_announced_deploy_sha';
 
 export async function maybeAnnounceDeployUpdate(input: {
-  telegramChatId: number;
+  telegramChatIds: number[];
   db: {
     getAppState(key: string): string | null;
     setAppState(key: string, value: string, updatedAt: string): void;
@@ -49,18 +49,25 @@ export async function maybeAnnounceDeployUpdate(input: {
       commits: loaded.metadata.commits
     });
     const text = formatTelegramHtmlReply(result.text);
-
-    await input.sendMessage({
-      chatId: input.telegramChatId,
-      text
+    const sentChatIds = await sendDeployAnnouncementToChats({
+      chatIds: input.telegramChatIds,
+      text,
+      sha: loaded.metadata.sha,
+      sendMessage: input.sendMessage,
+      logger: input.logger
     });
-    input.db.setAppState(
-      LAST_ANNOUNCED_DEPLOY_SHA_KEY,
-      loaded.metadata.sha,
-      input.now()
-    );
+
+    if (sentChatIds.length > 0) {
+      input.db.setAppState(
+        LAST_ANNOUNCED_DEPLOY_SHA_KEY,
+        loaded.metadata.sha,
+        input.now()
+      );
+    }
+
     input.logger.info('deploy_announcement_sent', {
       sha: loaded.metadata.sha,
+      chatCount: sentChatIds.length,
       commitCount: loaded.metadata.commits.length,
       llmModel: result.model,
       llmLatencyMs: result.latencyMs,
@@ -72,4 +79,32 @@ export async function maybeAnnounceDeployUpdate(input: {
       ...serializeError(error)
     });
   }
+}
+
+async function sendDeployAnnouncementToChats(input: {
+  chatIds: number[];
+  text: string;
+  sha: string;
+  sendMessage: (input: { chatId: number; text: string }) => Promise<void>;
+  logger: AppLogger;
+}): Promise<number[]> {
+  const sentChatIds: number[] = [];
+
+  for (const chatId of input.chatIds) {
+    try {
+      await input.sendMessage({
+        chatId,
+        text: input.text
+      });
+      sentChatIds.push(chatId);
+    } catch (error) {
+      input.logger.warn('deploy_announcement_failed', {
+        sha: input.sha,
+        chatId,
+        ...serializeError(error)
+      });
+    }
+  }
+
+  return sentChatIds;
 }

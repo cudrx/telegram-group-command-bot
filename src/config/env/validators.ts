@@ -5,7 +5,9 @@ import { STT_PROVIDER, VISION_PROVIDER } from './constants.js';
 import type { ParsedRawEnv } from './schema.js';
 import type { ChatPolicy, TelegramChatEnv } from './types.js';
 
-const chatFeaturesSchema = z
+const subredditListSchema = z.array(z.string().trim().min(1)).min(1);
+
+const chatCommandsSchema = z
   .object({
     answer: z.boolean(),
     summarize: z.boolean(),
@@ -14,10 +16,32 @@ const chatFeaturesSchema = z
     read: z.boolean(),
     transcribe: z.boolean(),
     meme: z.boolean(),
-    sex: z.boolean(),
-    direct_links: z.boolean()
+    sex: z.boolean()
   })
   .strict();
+
+const chatFeaturesSchema = z
+  .object({
+    direct_links: z.boolean(),
+    deploy_announcements: z.boolean()
+  })
+  .strict();
+
+const redditSourcesSchema = z
+  .object({
+    meme: subredditListSchema.optional(),
+    sex: subredditListSchema.optional()
+  })
+  .strict()
+  .optional()
+  .transform((value): ChatPolicy['reddit_sources'] => {
+    const normalized = value ?? {};
+
+    return {
+      ...(normalized.meme ? { meme: normalized.meme } : {}),
+      ...(normalized.sex ? { sex: normalized.sex } : {})
+    };
+  });
 
 const chatPolicySchema = z
   .object({
@@ -29,14 +53,35 @@ const chatPolicySchema = z
       .optional()
       .nullable()
       .transform((value) => value ?? null),
-    features: chatFeaturesSchema
+    commands: chatCommandsSchema,
+    features: chatFeaturesSchema,
+    reddit_sources: redditSourcesSchema
   })
   .strict()
+  .superRefine((value, ctx) => {
+    if (value.commands.meme && !value.reddit_sources.meme) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reddit_sources', 'meme'],
+        message: 'required when commands.meme is enabled'
+      });
+    }
+
+    if (value.commands.sex && !value.reddit_sources.sex) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['reddit_sources', 'sex'],
+        message: 'required when commands.sex is enabled'
+      });
+    }
+  })
   .transform(
     (value): ChatPolicy => ({
       chatId: value.chatId,
       label: value.label,
-      features: value.features
+      commands: value.commands,
+      features: value.features,
+      reddit_sources: value.reddit_sources
     })
   );
 
@@ -45,13 +90,11 @@ const telegramChatConfigSchema = z.array(chatPolicySchema).min(1);
 const telegramAccessConfigSchema = z
   .object({
     adminUserId: z.number().int(),
-    adminDefaultChatId: z.number().int().nullable().optional(),
     linkUserIds: z.array(z.number().int()).optional()
   })
   .strict()
   .transform((value) => ({
     adminUserId: value.adminUserId,
-    adminDefaultChatId: value.adminDefaultChatId ?? null,
     linkUserIds: value.linkUserIds ?? []
   }));
 
@@ -78,20 +121,8 @@ export function normalizeTelegramChatEnv(
   const telegramChatPolicies = parseTelegramChatConfig(parsed);
   const accessConfig = parseTelegramAccessConfig(parsed);
 
-  if (
-    accessConfig.adminDefaultChatId !== null &&
-    !telegramChatPolicies.some(
-      (policy) => policy.chatId === accessConfig.adminDefaultChatId
-    )
-  ) {
-    throw new Error(
-      'TELEGRAM_ACCESS_CONFIG_PATH adminDefaultChatId must reference a configured chat.'
-    );
-  }
-
   return {
     telegramChatPolicies,
-    telegramAdminDefaultChatId: accessConfig.adminDefaultChatId,
     telegramAdminId: accessConfig.adminUserId,
     telegramLinkUserIds: accessConfig.linkUserIds
   };
@@ -222,7 +253,6 @@ function parseTelegramChatConfig(parsed: ParsedRawEnv): ChatPolicy[] {
 
 function parseTelegramAccessConfig(parsed: ParsedRawEnv): {
   adminUserId: number;
-  adminDefaultChatId: number | null;
   linkUserIds: number[];
 } {
   const rawAccessConfig = loadJsonConfigFile(
@@ -283,7 +313,7 @@ function formatChatConfigIssues(error: z.ZodError): string {
         ? issue.path.map((segment) => String(segment)).join('.')
         : 'root';
 
-    if (issue.code === z.ZodIssueCode.unrecognized_keys) {
+    if (issue.code === 'unrecognized_keys') {
       const location =
         issue.path.at(-1) === 'features'
           ? 'unknown feature key'
@@ -305,7 +335,7 @@ function formatAccessConfigIssues(error: z.ZodError): string {
         ? issue.path.map((segment) => String(segment)).join('.')
         : 'root';
 
-    if (issue.code === z.ZodIssueCode.unrecognized_keys) {
+    if (issue.code === 'unrecognized_keys') {
       return `${path}: unknown field: ${issue.keys.join(', ')}`;
     }
 

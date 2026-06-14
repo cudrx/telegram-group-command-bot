@@ -86,7 +86,6 @@ export function parseEnv(
     databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
     yandexSpeechKitApiKey: parsed.YANDEX_SPEECHKIT_API_KEY ?? null,
     telegramChatPolicies: telegramChatEnv.telegramChatPolicies,
-    telegramAdminDefaultChatId: telegramChatEnv.telegramAdminDefaultChatId,
     telegramAdminId: telegramChatEnv.telegramAdminId,
     telegramLinkUserIds: telegramChatEnv.telegramLinkUserIds
   };

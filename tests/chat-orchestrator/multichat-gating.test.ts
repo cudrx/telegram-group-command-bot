@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import type { ChatPolicy } from '../../src/config/env/types.js';
+import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 import {
   createIncomingMessage,
   createOrchestrator,
@@ -9,24 +10,17 @@ import {
 } from './support.js';
 
 function createPolicy(
-  featureOverrides: Partial<ChatPolicy['features']> = {}
+  overrides: {
+    commands?: Partial<ChatPolicy['commands']>;
+    features?: Partial<ChatPolicy['features']>;
+  } = {}
 ): ChatPolicy {
-  return {
+  return createTestChatPolicy({
     chatId: 1,
     label: 'friends',
-    features: {
-      answer: true,
-      summarize: true,
-      decide: true,
-      translate: true,
-      read: true,
-      transcribe: true,
-      meme: true,
-      sex: true,
-      direct_links: true,
-      ...featureOverrides
-    }
-  };
+    ...(overrides.commands ? { commands: overrides.commands } : {}),
+    ...(overrides.features ? { features: overrides.features } : {})
+  });
 }
 
 describe('ChatOrchestrator multichat gating', () => {
@@ -48,7 +42,7 @@ describe('ChatOrchestrator multichat gating', () => {
         entities: [{ type: 'bot_command', offset: 0, length: 7 }],
         accessContext: {
           kind: 'configured_chat',
-          policy: createPolicy({ answer: false })
+          policy: createPolicy({ commands: { answer: false } })
         }
       })
     );
@@ -80,7 +74,7 @@ describe('ChatOrchestrator multichat gating', () => {
         entities: [{ type: 'bot_command', offset: 0, length: 5 }],
         accessContext: {
           kind: 'configured_chat',
-          policy: createPolicy({ meme: false })
+          policy: createPolicy({ commands: { meme: false } })
         }
       })
     );
@@ -113,7 +107,7 @@ describe('ChatOrchestrator multichat gating', () => {
         text: 'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/title/',
         accessContext: {
           kind: 'configured_chat',
-          policy: createPolicy({ direct_links: false })
+          policy: createPolicy({ features: { direct_links: false } })
         }
       })
     );
@@ -161,7 +155,7 @@ describe('ChatOrchestrator multichat gating', () => {
         replyToUserId: 555,
         accessContext: {
           kind: 'configured_chat',
-          policy: createPolicy({ answer: true })
+          policy: createPolicy({ commands: { answer: true } })
         }
       })
     );
@@ -175,18 +169,14 @@ describe('ChatOrchestrator multichat gating', () => {
     expect(sendChatAction).toHaveBeenCalled();
   });
 
-  test('keeps /publish available for private admin flow independent of chat features', async () => {
+  test('ignores removed /publish in private admin flow', async () => {
     const db = new FakeDatabaseClient();
-    const copyMessageDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1001
-    });
     const replyDispatcher = vi.fn();
     const orchestrator = createOrchestrator({
       db,
       qwen: { generateReply: vi.fn() },
       replyDispatcher,
-      copyMessageDispatcher,
-      env: { telegramAdminDefaultChatId: -1001 }
+      env: {}
     });
 
     await orchestrator.handleIncomingMessage(
@@ -211,11 +201,6 @@ describe('ChatOrchestrator multichat gating', () => {
       })
     );
 
-    expect(copyMessageDispatcher).toHaveBeenCalledWith({
-      targetChatId: -1001,
-      sourceChatId: 900000222,
-      messageId: 1
-    });
     expect(replyDispatcher).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,4 @@
-export const CHAT_FEATURES = [
+export const CHAT_COMMANDS = [
   'answer',
   'summarize',
   'decide',
@@ -6,21 +6,25 @@ export const CHAT_FEATURES = [
   'read',
   'transcribe',
   'meme',
-  'sex',
-  'direct_links'
+  'sex'
 ] as const;
 
+export const CHAT_FEATURES = ['direct_links', 'deploy_announcements'] as const;
+
+export type ChatCommand = (typeof CHAT_COMMANDS)[number];
 export type ChatFeature = (typeof CHAT_FEATURES)[number];
+export type RedditCommandSource = Extract<ChatCommand, 'meme' | 'sex'>;
 
 export type ChatPolicy = {
   chatId: number;
   label: string | null;
+  commands: Record<ChatCommand, boolean>;
   features: Record<ChatFeature, boolean>;
+  reddit_sources: Partial<Record<RedditCommandSource, string[]>>;
 };
 
 export type TelegramChatEnv = {
   telegramChatPolicies: ChatPolicy[];
-  telegramAdminDefaultChatId: number | null;
   telegramAdminId: number;
   telegramLinkUserIds: number[];
 };
@@ -67,7 +71,6 @@ export type ParsedEnv = {
   messageRetentionDays: number;
   databaseCleanupIntervalHours: number;
   telegramChatPolicies: ChatPolicy[];
-  telegramAdminDefaultChatId: number | null;
   telegramAdminId: number;
   telegramLinkUserIds: number[];
 };

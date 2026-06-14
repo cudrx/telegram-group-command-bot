@@ -78,22 +78,6 @@ export type MemeDispatcher = (
   input: MemeMediaDispatchInput
 ) => Promise<SentBotMessage>;
 
-export type CopiedBotMessage = {
-  messageId: number;
-};
-
-export type CopyMessageDispatcher = (input: {
-  targetChatId: number;
-  sourceChatId: number;
-  messageId: number;
-}) => Promise<CopiedBotMessage>;
-
-export type CopyMessagesDispatcher = (input: {
-  targetChatId: number;
-  sourceChatId: number;
-  messageIds: number[];
-}) => Promise<CopiedBotMessage[]>;
-
 export type DeleteMessageDispatcher = (input: {
   chatId: number;
   messageId: number;
@@ -159,8 +143,6 @@ export type ChatOrchestratorDeps = {
   replyDispatcher: ReplyDispatcher;
   voiceDispatcher: VoiceDispatcher;
   memeDispatcher: MemeDispatcher;
-  copyMessageDispatcher: CopyMessageDispatcher;
-  copyMessagesDispatcher: CopyMessagesDispatcher;
   editMessageTextDispatcher: EditMessageTextDispatcher;
   deleteMessageDispatcher: DeleteMessageDispatcher;
   sendChatAction: (chatId: number, action: TelegramChatAction) => Promise<void>;

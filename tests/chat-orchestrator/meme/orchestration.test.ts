@@ -9,11 +9,8 @@ import {
   DirectVideoTooLargeError,
   DirectVideoTooLongError
 } from '../../../src/app/actions/meme/video-pipeline.js';
-import {
-  memeActionConfig,
-  sexActionConfig
-} from '../../../src/config/runtime/index.js';
 import { createIncomingMessage } from '../../database/support.js';
+import { createTestChatPolicy } from '../../helpers/telegram-fixtures.js';
 import { FakeDatabaseClient } from '../support/fake-database.js';
 import { createOrchestrator } from '../support/orchestrator.js';
 
@@ -1492,13 +1489,7 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('fetches sex media with the meme flow using sex subreddits', async () => {
     const db = new FakeDatabaseClient();
-    const sexSubreddit = sexActionConfig.subreddits[0];
-
-    if (!sexSubreddit) {
-      throw new Error(
-        'sexActionConfig.subreddits must include at least one subreddit'
-      );
-    }
+    const sexSubreddit = 'custom-sex-subreddit';
 
     const fetchMock = vi
       .fn()
@@ -1537,6 +1528,16 @@ describe('ChatOrchestrator /meme command', () => {
       fetch: fetchMock,
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
+      env: {
+        telegramChatPolicies: [
+          createTestChatPolicy({
+            chatId: 1,
+            reddit_sources: {
+              sex: [sexSubreddit]
+            }
+          })
+        ]
+      },
       qwen: {
         generateReply: vi.fn()
       },
@@ -1591,13 +1592,7 @@ describe('ChatOrchestrator /meme command', () => {
       '.reddit.com\tTRUE\t/\tTRUE\t2147483647\tsession\tabc123'
     );
     const db = new FakeDatabaseClient();
-    const sexSubreddit = sexActionConfig.subreddits[0];
-
-    if (!sexSubreddit) {
-      throw new Error(
-        'sexActionConfig.subreddits must include at least one subreddit'
-      );
-    }
+    const sexSubreddit = 'custom-sex-subreddit';
 
     const fetchMock = vi.fn().mockResolvedValueOnce(
       redditListing([
@@ -1671,7 +1666,15 @@ describe('ChatOrchestrator /meme command', () => {
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
       env: {
-        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite'),
+        telegramChatPolicies: [
+          createTestChatPolicy({
+            chatId: 1,
+            reddit_sources: {
+              sex: [sexSubreddit]
+            }
+          })
+        ]
       },
       qwen: {
         generateReply: vi.fn()
@@ -1700,13 +1703,7 @@ describe('ChatOrchestrator /meme command', () => {
 
   test('handles /meme as a command even when the message also contains a Reddit URL', async () => {
     const db = new FakeDatabaseClient();
-    const memeSubreddit = memeActionConfig.subreddits[0];
-
-    if (!memeSubreddit) {
-      throw new Error(
-        'memeActionConfig.subreddits must include at least one subreddit'
-      );
-    }
+    const memeSubreddit = 'custom-meme-subreddit';
 
     const fetchMock = vi
       .fn()
@@ -1732,6 +1729,16 @@ describe('ChatOrchestrator /meme command', () => {
       fetch: fetchMock,
       random: () => 0,
       now: () => '2026-05-11T10:00:00.000Z',
+      env: {
+        telegramChatPolicies: [
+          createTestChatPolicy({
+            chatId: 1,
+            reddit_sources: {
+              meme: [memeSubreddit]
+            }
+          })
+        ]
+      },
       qwen: {
         generateReply: vi.fn()
       },

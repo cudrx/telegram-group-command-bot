@@ -9,7 +9,7 @@ The bot stores chat history, runs explicit command flows, can use web lookup and
 - Handles Telegram updates through `grammY` long polling.
 - Restricts access to configured chats from `TELEGRAM_CHAT_CONFIG_PATH`, the operator private chat, and optional link-only private users from `TELEGRAM_ACCESS_CONFIG_PATH`.
 - Stores chats, messages, replies, edits, media artifacts, sent meme history, and app state in SQLite.
-- Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, `/sex`, and `/publish`.
+- Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, and `/sex`.
 - Expands supported Reddit post links, Instagram Reels, and YouTube Shorts without calling the LLM.
 - Keeps user-facing local fallbacks as text even when outbound voice is enabled.
 
@@ -36,7 +36,7 @@ npm run migrate
 npm run dev
 ```
 
-Replace the required placeholders in `.env` before starting. Then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids. Optional provider keys in `config/examples/.env.example` can be filled in for matching features or removed/commented out.
+Replace the required placeholders in `.env` before starting. Then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids. In the chat config, `commands` controls which slash commands are enabled per chat, `features` controls non-command flows such as `direct_links` and `deploy_announcements`, and `reddit_sources` holds the chat-specific subreddit lists for `/meme` and `/sex`. If `commands.meme` or `commands.sex` is enabled, the matching `reddit_sources` list must be present and non-empty. Optional provider keys in `config/examples/.env.example` can be filled in for matching features or removed/commented out.
 
 For Reddit-based `/meme`, `/sex`, and direct Reddit link expansion, you can also
 set `REDDIT_COOKIE_HEADER_PATH` to a file containing a full browser `Cookie`
@@ -57,7 +57,6 @@ certificates.
 - `/transcribe` - transcribe a replied-to Telegram video.
 - `/meme` - send a fresh Reddit image, gallery, or video meme.
 - `/sex` - send fresh Reddit image, gallery, or video media from its own subreddit pool.
-- `/publish` - in the operator private chat, copy a message into the `adminDefaultChatId` configured in `telegram-access-config.json`.
 
 ## Project Map
 

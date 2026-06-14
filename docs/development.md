@@ -77,15 +77,20 @@ Logging and runtime:
 - `LOG_COLOR`
 - `LOG_LLM_TEXT`
 
-`TELEGRAM_CHAT_CONFIG_PATH` should point to a JSON array of chat policies. Unknown feature names, duplicate chat ids, invalid JSON, and unreadable files all fail startup.
+`TELEGRAM_CHAT_CONFIG_PATH` should point to a JSON array of chat policies. Each policy includes:
+
+- `commands` - boolean flags for slash commands such as `answer`, `summarize`, `decide`, `translate`, `read`, `transcribe`, `meme`, and `sex`.
+- `features` - boolean flags for non-command behavior such as `direct_links` and `deploy_announcements`.
+- `reddit_sources` - optional per-chat subreddit lists for Reddit-backed commands:
+  - `meme` is required and must be non-empty when `commands.meme=true`
+  - `sex` is required and must be non-empty when `commands.sex=true`
+
+Unknown command names, unknown feature names, duplicate chat ids, invalid JSON, and unreadable files all fail startup.
 
 `TELEGRAM_ACCESS_CONFIG_PATH` should point to a JSON object with:
 
 - `adminUserId` - required Telegram user id of the global operator.
-- `adminDefaultChatId` - optional default operator chat used by `/publish` and deploy announcements.
 - `linkUserIds` - optional array of Telegram user ids allowed to DM only supported direct media links.
-
-`adminDefaultChatId` must refer to one of the configured chats from `TELEGRAM_CHAT_CONFIG_PATH`.
 
 `config/examples/.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
 
@@ -103,7 +108,7 @@ npm run migrate
 npm run dev
 ```
 
-Replace required values in `.env` before starting, then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids and feature flags.
+Replace required values in `.env` before starting, then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids, command flags, feature flags, and per-chat Reddit source lists for `/meme` and `/sex`.
 
 If you use a different OpenAI-compatible provider, change:
 
@@ -254,7 +259,7 @@ Use the official standalone Linux `yt-dlp` binary. Use static `ffmpeg` and
 Linux distribution into the Debian-based container, because their shared
 libraries may be unavailable.
 
-Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. The announcement is sent once per new `sha` and deduplicated through SQLite `app_state`.
+Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. The bot formats one announcement per new `sha`, reuses that text for every configured chat with `features.deploy_announcements: true`, and deduplicates future restarts through SQLite `app_state`.
 
 Rollback:
 
@@ -277,7 +282,6 @@ Rollback:
 - Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Short is over 10 minutes or 50 MB, the bot should reply with a local limit-specific error instead of sending video.
 - YouTube Shorts require a runtime container with Node.js 24: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
 - Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`. Videos longer than 600 seconds are not downloaded or converted, and videos larger than 50 MB are rejected. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`. The normalized output dimensions are passed to Telegram as `width`/`height`, with `duration` and `supports_streaming`.
-- Run `/publish` in the operator private chat: check reply mode, no-reply mode, and media albums; the copy should appear in the `adminDefaultChatId` configured in `telegram-access-config.json` as a bot message without source-author attribution. Also verify the local fallback when `adminDefaultChatId` is unset.
 - Media providers run only when matching keys are configured.
 - Lookup smoke before production rollout can be done with a direct request to the Tavily API.
 

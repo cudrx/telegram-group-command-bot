@@ -32,7 +32,7 @@ describe('createActionRegistry', () => {
     ).toMatchObject({
       action: expect.objectContaining({ intent: 'answer' }),
       commandText: '/answer',
-      requiredFeature: 'answer'
+      requiredCommand: 'answer'
     });
   });
 
@@ -55,7 +55,7 @@ describe('createActionRegistry', () => {
     ).toMatchObject({
       action: expect.objectContaining({ intent: 'meme' }),
       commandText: '/meme@fun_bot',
-      requiredFeature: 'meme'
+      requiredCommand: 'meme'
     });
   });
 
@@ -128,7 +128,7 @@ describe('chatActionRegistry command policy', () => {
     expect(resolved).toMatchObject({
       action: expect.objectContaining({ intent }),
       commandText,
-      requiredFeature: intent
+      requiredCommand: intent
     });
   });
 
@@ -152,7 +152,7 @@ describe('chatActionRegistry command policy', () => {
     expect(resolved).toMatchObject({
       action: expect.objectContaining({ intent }),
       commandText,
-      requiredFeature: intent
+      requiredCommand: intent
     });
   });
 
@@ -221,27 +221,7 @@ describe('chatActionRegistry command policy', () => {
   test.each([
     '/publish',
     '/publish@fun_bot'
-  ] as const)('resolves %s command only in private admin mode', (commandText) => {
-    const resolved = chatActionRegistry.resolveCommand({
-      botUsername: 'fun_bot',
-      mode: 'private_admin',
-      text: `${commandText} ignored arguments`,
-      entities: [{ type: 'bot_command', offset: 0, length: commandText.length }]
-    });
-
-    expect(resolved).toMatchObject({
-      action: expect.objectContaining({
-        intent: 'publish'
-      }),
-      commandText,
-      requiredFeature: null
-    });
-  });
-
-  test.each([
-    '/publish',
-    '/publish@fun_bot'
-  ] as const)('returns none for %s command in chat mode', (commandText) => {
+  ] as const)('returns none for removed %s command in chat mode', (commandText) => {
     const resolved = chatActionRegistry.resolveCommand({
       botUsername: 'fun_bot',
       mode: 'chat',
@@ -253,6 +233,8 @@ describe('chatActionRegistry command policy', () => {
   });
 
   test.each([
+    '/publish',
+    '/publish@fun_bot',
     '/news',
     '/news@fun_bot'
   ] as const)('returns none for removed %s command in private admin mode', (commandText) => {
@@ -264,28 +246,5 @@ describe('chatActionRegistry command policy', () => {
     });
 
     expect(resolved).toBeNull();
-  });
-
-  test('defaults to no required feature for private-admin-only commands', () => {
-    const registry = createActionRegistry([
-      action({
-        intent: 'publish',
-        commands: ['publish'],
-        modes: ['private_admin']
-      })
-    ]);
-
-    expect(
-      registry.resolveCommand({
-        botUsername: 'fun_bot',
-        mode: 'private_admin',
-        text: '/publish',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
-      })
-    ).toMatchObject({
-      action: expect.objectContaining({ intent: 'publish' }),
-      commandText: '/publish',
-      requiredFeature: null
-    });
   });
 });

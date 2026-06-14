@@ -1,8 +1,7 @@
 import { describe, expect, test } from 'vitest';
 
+import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 import {
-  botCopyMessage,
-  botCopyMessages,
   botDeleteMessage,
   botEditMessageText,
   botGetMe,
@@ -21,6 +20,10 @@ import {
   yandexSpeechKitConstructor
 } from './support.js';
 
+function createMainChatPolicy() {
+  return createTestChatPolicy({ chatId: -1001, label: 'main' });
+}
+
 describe('createApplication wiring', () => {
   installAppTestHooks();
 
@@ -28,23 +31,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
@@ -139,23 +126,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
@@ -200,23 +171,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222,
         yandexSpeechKitApiKey: 'yandex-key'
       })
@@ -262,91 +217,11 @@ describe('createApplication wiring', () => {
     );
   });
 
-  test('wires publish copy dispatchers to Telegram copy APIs', async () => {
-    const { createApplication } = await importCreateApplication();
-    await createApplication(
-      createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
-        telegramAdminId: 900000222
-      })
-    );
-
-    const deps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
-      | {
-          copyMessageDispatcher?: (input: {
-            targetChatId: number;
-            sourceChatId: number;
-            messageId: number;
-          }) => Promise<{ messageId: number; createdAt: string }>;
-          copyMessagesDispatcher?: (input: {
-            targetChatId: number;
-            sourceChatId: number;
-            messageIds: number[];
-          }) => Promise<Array<{ messageId: number; createdAt: string }>>;
-        }
-      | undefined;
-
-    botCopyMessage.mockResolvedValue({
-      message_id: 99,
-      date: 1_744_000_100
-    });
-    botCopyMessages.mockResolvedValue([
-      { message_id: 100 },
-      { message_id: 101 }
-    ]);
-
-    await deps?.copyMessageDispatcher?.({
-      targetChatId: -1001,
-      sourceChatId: 900000222,
-      messageId: 11
-    });
-    await deps?.copyMessagesDispatcher?.({
-      targetChatId: -1001,
-      sourceChatId: 900000222,
-      messageIds: [11, 12]
-    });
-
-    expect(botCopyMessage).toHaveBeenCalledWith(-1001, 900000222, 11);
-    expect(botCopyMessages).toHaveBeenCalledWith(-1001, 900000222, [11, 12]);
-  });
-
   test('wires source message deletion to Telegram deleteMessage API', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
@@ -368,62 +243,11 @@ describe('createApplication wiring', () => {
     expect(botDeleteMessage).toHaveBeenCalledWith(-1001, 11);
   });
 
-  test('announces deploy updates only to the explicit admin default chat', async () => {
+  test('does not trigger deploy announcements on startup', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
-        telegramAdminDefaultChatId: -1001
-      })
-    );
-
-    await app.start();
-
-    expect(maybeAnnounceDeployUpdate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        telegramChatId: -1001
-      })
-    );
-  });
-
-  test('skips deploy announcement when no explicit admin default chat is configured', async () => {
-    const { createApplication } = await importCreateApplication();
-    const app = await createApplication(
-      createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
-        telegramAdminDefaultChatId: null
+        telegramChatPolicies: [createMainChatPolicy()]
       })
     );
 
@@ -436,23 +260,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
@@ -491,23 +299,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
@@ -545,23 +337,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222,
         telegramLinkUserIds: [555]
       })
@@ -599,23 +375,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222,
         telegramLinkUserIds: [900000222]
       })
@@ -654,23 +414,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
@@ -703,23 +447,7 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatPolicies: [
-          {
-            chatId: -1001,
-            label: 'main',
-            features: {
-              answer: true,
-              summarize: true,
-              decide: true,
-              translate: true,
-              read: true,
-              transcribe: true,
-              meme: true,
-              sex: true,
-              direct_links: true
-            }
-          }
-        ],
+        telegramChatPolicies: [createMainChatPolicy()],
         telegramAdminId: 900000222
       })
     );
