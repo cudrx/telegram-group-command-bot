@@ -27,13 +27,14 @@
 Required variables:
 
 - `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_ID`
-- `TELEGRAM_ADMIN_ID`
+- `TELEGRAM_CHAT_CONFIG_PATH`
+- `TELEGRAM_ACCESS_CONFIG_PATH`
 - `LLM_API_KEY`
 
 Access and storage:
 
-- `TELEGRAM_LINK_USER_IDS` - optional comma-separated Telegram user ids allowed to DM only supported direct media links; their commands are ignored.
+- `TELEGRAM_CHAT_CONFIG_PATH` - primary path to a JSON file with chat policies.
+- `TELEGRAM_ACCESS_CONFIG_PATH` - path to a JSON file with global operator access settings.
 - `SQLITE_PATH`
 - `REDDIT_COOKIE_HEADER_PATH` - optional path to a file containing a full browser `Cookie` header for Reddit listing/direct requests; when set, it overrides `REDDIT_COOKIES_PATH`.
 - `REDDIT_COOKIES_PATH` - optional path to Netscape cookies for Reddit listing/direct video requests.
@@ -51,9 +52,6 @@ LLM:
 
 Behavior:
 
-- `ANSWER_CONTEXT_LIMIT`
-- `DECIDE_CONTEXT_LIMIT`
-- `SUMMARIZE_CONTEXT_LIMIT`
 - `REPLY_MIN_TYPING_MS`
 - `REPLY_MAX_TYPING_MS`
 - `REPLY_TYPING_REFRESH_MS`
@@ -79,7 +77,17 @@ Logging and runtime:
 - `LOG_COLOR`
 - `LOG_LLM_TEXT`
 
-`.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
+`TELEGRAM_CHAT_CONFIG_PATH` should point to a JSON array of chat policies. Unknown feature names, duplicate chat ids, invalid JSON, and unreadable files all fail startup.
+
+`TELEGRAM_ACCESS_CONFIG_PATH` should point to a JSON object with:
+
+- `adminUserId` - required Telegram user id of the global operator.
+- `adminDefaultChatId` - optional default operator chat used by `/publish` and deploy announcements.
+- `linkUserIds` - optional array of Telegram user ids allowed to DM only supported direct media links.
+
+`adminDefaultChatId` must refer to one of the configured chats from `TELEGRAM_CHAT_CONFIG_PATH`.
+
+`config/examples/.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
 
 Runtime settings that are not secrets and do not require deploy-specific overrides live in `src/config/runtime/`. Values are grouped by scenario (`actions/answer`, `actions/read`, `actions/meme`, `actions/sex`) and external provider (`providers/llm`, `providers/media`, `providers/tts`, `providers/lookup`). Settings that differ between environments go through `src/config/env/schema.ts`; defaults come from runtime config.
 
@@ -87,12 +95,15 @@ Runtime settings that are not secrets and do not require deploy-specific overrid
 
 ```bash
 npm install
-cp .env.example .env
+mkdir -p data
+cp config/examples/.env.example .env
+cp config/examples/telegram-chat-config.example.json data/telegram-chat-config.json
+cp config/examples/telegram-access-config.example.json data/telegram-access-config.json
 npm run migrate
 npm run dev
 ```
 
-Replace required values in `.env` before starting.
+Replace required values in `.env` before starting, then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids and feature flags.
 
 If you use a different OpenAI-compatible provider, change:
 
@@ -179,7 +190,7 @@ Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same
 pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe ->
 ffmpeg normalize -> ffprobe -> sendVideo`.
 
-Videos longer than 120 seconds are not downloaded or converted, and downloaded files are checked again with `ffprobe`. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and moves the moov atom to the beginning. After normalization, the bot probes the output dimensions and passes `duration`, `width`, `height`, and `supports_streaming` to Telegram `sendVideo`. YouTube Shorts use H.264 MP4 at `height<=854` to avoid oversized 720p/1080p variants for long Shorts. Reddit `fallback_url` and similar direct MP4 URLs are used only as metadata/video-post signals, not as download paths.
+Videos longer than 600 seconds are not downloaded or converted, and downloaded files are checked again with `ffprobe`. Direct video sends for Reddit, Instagram Reels, YouTube Shorts, `/meme`, and `/sex` use a 50 MB file cap because this project uses the standard Telegram Bot API rather than a local Bot API server. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and moves the moov atom to the beginning. After normalization, the bot probes the output dimensions and passes `duration`, `width`, `height`, and `supports_streaming` to Telegram `sendVideo`. YouTube Shorts use H.264 MP4 at `height<=854` to avoid oversized 720p/1080p variants for long Shorts. Reddit `fallback_url` and similar direct MP4 URLs are used only as metadata/video-post signals, not as download paths.
 
 ## CI
 
@@ -208,20 +219,25 @@ GitHub Secrets:
 - `DEPLOY_SSH_KEY`
 - `SERVER_GHCR_USERNAME`
 - `SERVER_GHCR_TOKEN`
-- `TELEGRAM_CHAT_ID`
-- `TELEGRAM_ADMIN_ID`
 
-The server directory next to the deploy compose file should contain an environment file and persistent storage directory.
+The server directory next to the deploy compose file should contain an environment file and persistent storage directory. Start from `config/examples/.env.example`, then add the deploy-only image coordinates below. The persistent storage must include the two JSON config files referenced below:
+
+```text
+data/telegram-chat-config.json
+data/telegram-access-config.json
+```
 
 Minimum server values:
 
 ```dotenv
 GHCR_IMAGE=ghcr.io/<github-owner>/telegram-group-command-bot
 IMAGE_TAG=latest
-SQLITE_PATH=/app/data/bot.sqlite
-TELEGRAM_CHAT_ID=-1001234567890
-TELEGRAM_ADMIN_ID=123456789
 ```
+
+`deploy/compose.yml` already forces `NODE_ENV=production` and
+`SQLITE_PATH=/app/data/bot.sqlite`. The shared example env already points chat
+and access config to `data/...`, which resolves inside the container through the
+`./data:/app/data` bind mount.
 
 Optional provider keys are added there as well.
 
@@ -256,12 +272,12 @@ Rollback:
 - `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.
 - Editing an already stored message should update future context without sending a new reply by itself.
 - `/meme` and `/sex` make an external request to a Reddit top-month listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts require mounted standalone `yt-dlp` plus static `ffmpeg` and `ffprobe`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
-- Direct Reddit media link smoke: make standalone `yt-dlp` plus static `ffmpeg` and `ffprobe` available inside the container through `/usr/local/bin`, configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, gallery, or `reddit_video` in the work chat or admin private chat as a regular non-command message. The bot should send `sendPhoto`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
-- Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in the work chat, admin private chat, or a private chat with a user from `TELEGRAM_LINK_USER_IDS`. The bot should get metadata through `yt-dlp`, skip videos longer than 120 seconds, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message.
-- Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in the work chat, admin private chat, or a private chat with a user from `TELEGRAM_LINK_USER_IDS`. The bot should get metadata through `yt-dlp`, skip videos longer than 120 seconds, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message.
+- Direct Reddit media link smoke: make standalone `yt-dlp` plus static `ffmpeg` and `ffprobe` available inside the container through `/usr/local/bin`, configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, gallery, or `reddit_video` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should send `sendPhoto`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
+- Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Reel is over 10 minutes or 50 MB, the bot should reply with a local limit-specific error instead of sending video.
+- Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Short is over 10 minutes or 50 MB, the bot should reply with a local limit-specific error instead of sending video.
 - YouTube Shorts require a runtime container with Node.js 22+: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
-- Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`. Videos longer than 120 seconds are not downloaded or converted. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`. The normalized output dimensions are passed to Telegram as `width`/`height`, with `duration` and `supports_streaming`.
-- Run `/publish` in the admin private chat: check reply mode, no-reply mode, and media albums; the copy should appear in `TELEGRAM_CHAT_ID` as a bot message without source-author attribution.
+- Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration cap -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`. Videos longer than 600 seconds are not downloaded or converted, and videos larger than 50 MB are rejected. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`. The normalized output dimensions are passed to Telegram as `width`/`height`, with `duration` and `supports_streaming`.
+- Run `/publish` in the operator private chat: check reply mode, no-reply mode, and media albums; the copy should appear in the `adminDefaultChatId` configured in `telegram-access-config.json` as a bot message without source-author attribution. Also verify the local fallback when `adminDefaultChatId` is unset.
 - Media providers run only when matching keys are configured.
 - Lookup smoke before production rollout can be done with a direct request to the Tavily API.
 

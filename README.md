@@ -7,7 +7,7 @@ The bot stores chat history, runs explicit command flows, can use web lookup and
 ## What It Does
 
 - Handles Telegram updates through `grammY` long polling.
-- Restricts access to the configured work chat, admin private chat, and optional link-only private users.
+- Restricts access to configured chats from `TELEGRAM_CHAT_CONFIG_PATH`, the operator private chat, and optional link-only private users from `TELEGRAM_ACCESS_CONFIG_PATH`.
 - Stores chats, messages, replies, edits, media artifacts, sent meme history, and app state in SQLite.
 - Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, `/sex`, and `/publish`.
 - Expands supported Reddit post links, Instagram Reels, and YouTube Shorts without calling the LLM.
@@ -28,12 +28,15 @@ Run locally:
 
 ```bash
 npm install
-cp .env.example .env
+mkdir -p data
+cp config/examples/.env.example .env
+cp config/examples/telegram-chat-config.example.json data/telegram-chat-config.json
+cp config/examples/telegram-access-config.example.json data/telegram-access-config.json
 npm run migrate
 npm run dev
 ```
 
-Replace the required placeholders in `.env` before starting. Optional provider keys in `.env.example` can be filled in for matching features or removed/commented out.
+Replace the required placeholders in `.env` before starting. Then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids. Optional provider keys in `config/examples/.env.example` can be filled in for matching features or removed/commented out.
 
 For Reddit-based `/meme`, `/sex`, and direct Reddit link expansion, you can also
 set `REDDIT_COOKIE_HEADER_PATH` to a file containing a full browser `Cookie`
@@ -54,7 +57,7 @@ certificates.
 - `/transcribe` - transcribe a replied-to Telegram video.
 - `/meme` - send a fresh Reddit image, gallery, or video meme.
 - `/sex` - send fresh Reddit image, gallery, or video media from its own subreddit pool.
-- `/publish` - in the admin private chat, copy a message into the work chat.
+- `/publish` - in the operator private chat, copy a message into the `adminDefaultChatId` configured in `telegram-access-config.json`.
 
 ## Project Map
 
