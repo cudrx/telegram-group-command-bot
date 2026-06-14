@@ -30,7 +30,7 @@ export async function runTranscribeVideoJob(input: {
     input.request.replyToMessageSnapshot?.mediaSnapshot ??
     null;
 
-  if (!media || media.mediaKind !== 'video') {
+  if (media?.mediaKind !== 'video') {
     await dispatchTextReply({
       deps: input.deps,
       request: input.request,

@@ -171,7 +171,7 @@ describe('downloadInstagramReelWithYtDlp', () => {
         })
       })
     );
-    if (!result || result.downloaded.kind !== 'video') {
+    if (result?.downloaded.kind !== 'video') {
       throw new Error(
         'Expected Instagram Reel download to return video media.'
       );

@@ -83,7 +83,7 @@ describe('downloadRedditVideoWithYtDlp', () => {
     expect(result).not.toBeNull();
     expect(execFile).toHaveBeenCalled();
 
-    if (!result || result.downloaded.kind !== 'video') {
+    if (result?.downloaded.kind !== 'video') {
       throw new Error('Expected Reddit video download result.');
     }
 

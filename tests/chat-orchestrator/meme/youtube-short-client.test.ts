@@ -168,7 +168,7 @@ describe('downloadYoutubeShortWithYtDlp', () => {
         })
       })
     );
-    if (!result || result.downloaded.kind !== 'video') {
+    if (result?.downloaded.kind !== 'video') {
       throw new Error('Expected YouTube Short download to return video media.');
     }
 
