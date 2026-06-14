@@ -1,6 +1,5 @@
 import { describe, expect, test, vi } from 'vitest';
 
-import type { NormalizedMessage } from '../../../src/domain/models.js';
 import {
   createIncomingMessage,
   createLogger,
@@ -99,7 +98,7 @@ describe('ChatOrchestrator reply anchors', () => {
         isBot: true,
         replyToMessageId: null
       }
-    } as NormalizedMessage);
+    });
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({

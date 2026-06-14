@@ -44,7 +44,7 @@ describe('maybeAnnounceDeployUpdate', () => {
       commits: ['fix: handle telegram media captions']
     });
     expect(deps.sendMessage).toHaveBeenCalledWith({
-      chatId: -1002155313986,
+      chatId: -1009000001111,
       text: '<b>Исправлено</b>\n\n• Подписи к видео теперь работают.'
     });
     expect(deps.db.setAppState).toHaveBeenCalledWith(
@@ -96,7 +96,7 @@ function createDeps(
     });
 
   return {
-    telegramChatId: -1002155313986,
+    telegramChatId: -1009000001111,
     db: {
       getAppState,
       setAppState

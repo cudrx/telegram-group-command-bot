@@ -1,6 +1,17 @@
 import { describe, expect, test } from 'vitest';
 
-import { parseEnv, parseRawEnv } from './support.js';
+import {
+  createTestAccessConfig,
+  createTestChatPolicy,
+  TEST_CONFIGURED_CHAT_ID,
+  TEST_OPERATOR_CHAT_ID
+} from '../helpers/telegram-fixtures.js';
+import {
+  parseEnv,
+  parseRawEnv,
+  writeAccessConfigFile,
+  writeChatConfigFile
+} from './support.js';
 
 describe('parseEnv defaults', () => {
   test('applies v0 reply-only defaults for generic LLM settings', () => {
@@ -26,7 +37,7 @@ describe('parseEnv defaults', () => {
     expect(env.replyTypingRefreshMs).toBe(4000);
   });
 
-  test('reads per-intent context limit overrides', () => {
+  test('ignores per-intent context limit env overrides', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
@@ -35,9 +46,9 @@ describe('parseEnv defaults', () => {
       DECIDE_CONTEXT_LIMIT: '56'
     });
 
-    expect(env.answerContextLimit).toBe(78);
-    expect(env.summarizeContextLimit).toBe(34);
-    expect(env.decideContextLimit).toBe(56);
+    expect(env.answerContextLimit).toBe(16);
+    expect(env.summarizeContextLimit).toBe(128);
+    expect(env.decideContextLimit).toBe(64);
   });
 
   test('ignores legacy MESSAGE_CONTEXT_LIMIT', () => {
@@ -63,18 +74,26 @@ describe('parseEnv defaults', () => {
     expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
   });
 
-  test('parses telegram chat and admin ids', () => {
+  test('parses normalized multichat env fields', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '-1002155313987',
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+        createTestChatPolicy({ label: 'main' })
+      ]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      ),
       SQLITE_PATH: '/app/data/bot.sqlite'
     });
 
-    expect(env.telegramChatId).toBe(-1002155313986);
-    expect(env.telegramAdminId).toBe(-1002155313987);
+    expect(env.telegramChatPolicies).toEqual([
+      createTestChatPolicy({ label: 'main' })
+    ]);
+    expect(env.telegramAdminDefaultChatId).toBe(TEST_CONFIGURED_CHAT_ID);
+    expect(Object.hasOwn(env, 'telegramChatId')).toBe(false);
+    expect(env.telegramAdminId).toBe(TEST_OPERATOR_CHAT_ID);
     expect(env.redditCookiesPath).toBe('/app/data/reddit-cookies.txt');
     expect(env.instagramCookiesPath).toBe('/app/data/instagram-cookies.txt');
     expect(env.youtubeCookiesPath).toBe('/app/data/youtube-cookies.txt');
@@ -85,8 +104,10 @@ describe('parseEnv defaults', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '-1002155313987',
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([createTestChatPolicy()]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      ),
       SQLITE_PATH: '/app/data/bot.sqlite',
       REDDIT_COOKIES_PATH: '/run/secrets/reddit-cookies.txt',
       INSTAGRAM_COOKIES_PATH: '/run/secrets/instagram-cookies.txt',
@@ -103,8 +124,10 @@ describe('parseEnv defaults', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '-1002155313987',
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([createTestChatPolicy()]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      ),
       REDDIT_COOKIE_HEADER_PATH: '/run/secrets/reddit-cookie-header.txt'
     });
 
@@ -118,8 +141,10 @@ describe('parseEnv defaults', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '-1002155313987',
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([createTestChatPolicy()]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      ),
       SQLITE_PATH: ':memory:'
     });
 
@@ -133,9 +158,10 @@ describe('parseEnv defaults', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '84626969',
-      TELEGRAM_LINK_USER_IDS: '111, 222,333'
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([createTestChatPolicy()]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig({ linkUserIds: [111, 222, 333] })
+      )
     });
 
     expect(env.telegramLinkUserIds).toEqual([111, 222, 333]);
@@ -146,8 +172,10 @@ describe('parseEnv defaults', () => {
       TELEGRAM_BOT_TOKEN: 'telegram-token',
       LLM_API_KEY: 'llm-key',
       TAVILY_API_KEY: 'tvly-key',
-      TELEGRAM_CHAT_ID: '-1002155313986',
-      TELEGRAM_ADMIN_ID: '84626969'
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([createTestChatPolicy()]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      )
     });
 
     expect(env.telegramLinkUserIds).toEqual([]);

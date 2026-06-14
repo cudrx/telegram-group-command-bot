@@ -24,20 +24,20 @@ describe('ChatOrchestrator publish command', () => {
       replyDispatcher,
       copyMessageDispatcher,
       copyMessagesDispatcher,
-      env: { telegramChatId: -1001 }
+      env: { telegramAdminDefaultChatId: -1001 }
     });
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        chatId: 84626969,
+        chatId: 900000222,
         chatType: 'private',
-        authorizedMode: 'private_admin',
         messageId: 2,
         text: '/publish',
         entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        accessContext: { kind: 'private_admin' },
         replyToMessageId: 1,
         replyToMessageSnapshot: {
-          chatId: 84626969,
+          chatId: 900000222,
           messageId: 1,
           userId: 42,
           senderDisplayName: 'Tom',
@@ -51,7 +51,7 @@ describe('ChatOrchestrator publish command', () => {
 
     expect(copyMessageDispatcher).toHaveBeenCalledWith({
       targetChatId: -1001,
-      sourceChatId: 84626969,
+      sourceChatId: 900000222,
       messageId: 1
     });
     expect(copyMessagesDispatcher).not.toHaveBeenCalled();
@@ -62,11 +62,11 @@ describe('ChatOrchestrator publish command', () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
-        chatId: 84626969,
+        chatId: 900000222,
         chatType: 'private',
-        authorizedMode: 'private_admin',
         messageId: 1,
-        text: 'сообщение перед командой'
+        text: 'сообщение перед командой',
+        accessContext: { kind: 'private_admin' }
       })
     );
 
@@ -79,23 +79,23 @@ describe('ChatOrchestrator publish command', () => {
       qwen: { generateReply: vi.fn() },
       replyDispatcher: vi.fn(),
       copyMessageDispatcher,
-      env: { telegramChatId: -1001 }
+      env: { telegramAdminDefaultChatId: -1001 }
     });
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        chatId: 84626969,
+        chatId: 900000222,
         chatType: 'private',
-        authorizedMode: 'private_admin',
         messageId: 2,
         text: '/publish',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        accessContext: { kind: 'private_admin' }
       })
     );
 
     expect(copyMessageDispatcher).toHaveBeenCalledWith({
       targetChatId: -1001,
-      sourceChatId: 84626969,
+      sourceChatId: 900000222,
       messageId: 1
     });
   });
@@ -105,12 +105,12 @@ describe('ChatOrchestrator publish command', () => {
     for (const messageId of [10, 11, 12]) {
       db.saveIncomingMessage(
         createIncomingMessage({
-          chatId: 84626969,
+          chatId: 900000222,
           chatType: 'private',
-          authorizedMode: 'private_admin',
           messageId,
           mediaGroupId: 'album-1',
-          text: messageId === 10 ? 'подпись' : ''
+          text: messageId === 10 ? 'подпись' : '',
+          accessContext: { kind: 'private_admin' }
         })
       );
     }
@@ -127,20 +127,20 @@ describe('ChatOrchestrator publish command', () => {
       replyDispatcher: vi.fn(),
       copyMessageDispatcher,
       copyMessagesDispatcher,
-      env: { telegramChatId: -1001 }
+      env: { telegramAdminDefaultChatId: -1001 }
     });
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        chatId: 84626969,
+        chatId: 900000222,
         chatType: 'private',
-        authorizedMode: 'private_admin',
         messageId: 20,
         text: '/publish',
         entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        accessContext: { kind: 'private_admin' },
         replyToMessageId: 11,
         replyToMessageSnapshot: {
-          chatId: 84626969,
+          chatId: 900000222,
           messageId: 11,
           mediaGroupId: 'album-1',
           userId: 42,
@@ -155,7 +155,7 @@ describe('ChatOrchestrator publish command', () => {
 
     expect(copyMessagesDispatcher).toHaveBeenCalledWith({
       targetChatId: -1001,
-      sourceChatId: 84626969,
+      sourceChatId: 900000222,
       messageIds: [10, 11, 12]
     });
     expect(copyMessageDispatcher).not.toHaveBeenCalled();
@@ -173,23 +173,23 @@ describe('ChatOrchestrator publish command', () => {
       qwen: { generateReply: vi.fn() },
       replyDispatcher,
       copyMessageDispatcher,
-      env: { telegramChatId: -1001 }
+      env: { telegramAdminDefaultChatId: -1001 }
     });
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        chatId: 84626969,
+        chatId: 900000222,
         chatType: 'private',
-        authorizedMode: 'private_admin',
         messageId: 2,
         text: '/publish',
-        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }],
+        accessContext: { kind: 'private_admin' }
       })
     );
 
     expect(copyMessageDispatcher).not.toHaveBeenCalled();
     expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 84626969,
+      chatId: 900000222,
       replyToMessageId: 2,
       text: 'Не нашел сообщение для /publish. Сделай reply или отправь команду после сообщения.'
     });

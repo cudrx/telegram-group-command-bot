@@ -31,7 +31,8 @@ describe('createActionRegistry', () => {
       })
     ).toMatchObject({
       action: expect.objectContaining({ intent: 'answer' }),
-      commandText: '/answer'
+      commandText: '/answer',
+      requiredFeature: 'answer'
     });
   });
 
@@ -53,7 +54,8 @@ describe('createActionRegistry', () => {
       })
     ).toMatchObject({
       action: expect.objectContaining({ intent: 'meme' }),
-      commandText: '/meme@fun_bot'
+      commandText: '/meme@fun_bot',
+      requiredFeature: 'meme'
     });
   });
 
@@ -125,7 +127,8 @@ describe('chatActionRegistry command policy', () => {
 
     expect(resolved).toMatchObject({
       action: expect.objectContaining({ intent }),
-      commandText
+      commandText,
+      requiredFeature: intent
     });
   });
 
@@ -148,7 +151,8 @@ describe('chatActionRegistry command policy', () => {
 
     expect(resolved).toMatchObject({
       action: expect.objectContaining({ intent }),
-      commandText
+      commandText,
+      requiredFeature: intent
     });
   });
 
@@ -229,7 +233,8 @@ describe('chatActionRegistry command policy', () => {
       action: expect.objectContaining({
         intent: 'publish'
       }),
-      commandText
+      commandText,
+      requiredFeature: null
     });
   });
 
@@ -259,5 +264,28 @@ describe('chatActionRegistry command policy', () => {
     });
 
     expect(resolved).toBeNull();
+  });
+
+  test('defaults to no required feature for private-admin-only commands', () => {
+    const registry = createActionRegistry([
+      action({
+        intent: 'publish',
+        commands: ['publish'],
+        modes: ['private_admin']
+      })
+    ]);
+
+    expect(
+      registry.resolveCommand({
+        botUsername: 'fun_bot',
+        mode: 'private_admin',
+        text: '/publish',
+        entities: [{ type: 'bot_command', offset: 0, length: 8 }]
+      })
+    ).toMatchObject({
+      action: expect.objectContaining({ intent: 'publish' }),
+      commandText: '/publish',
+      requiredFeature: null
+    });
   });
 });

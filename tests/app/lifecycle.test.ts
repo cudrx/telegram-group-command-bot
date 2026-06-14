@@ -324,13 +324,15 @@ describe('createApplication lifecycle', () => {
 
   test('announces deploy updates before polling starts', async () => {
     const { createApplication } = await importCreateApplication();
-    const app = await createApplication(createEnv());
+    const app = await createApplication(
+      createEnv({ telegramAdminDefaultChatId: -1009000001111 })
+    );
 
     await app.start();
 
     expect(maybeAnnounceDeployUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
-        telegramChatId: -1002155313986,
+        telegramChatId: -1009000001111,
         db: expect.any(Object),
         llm: expect.any(Object),
         sendMessage: expect.any(Function),

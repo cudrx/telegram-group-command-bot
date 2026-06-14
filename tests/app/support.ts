@@ -2,6 +2,10 @@ import path from 'node:path';
 import { afterEach, beforeEach, vi } from 'vitest';
 
 import type { AppEnv } from '../../src/config/env/index.js';
+import {
+  createTestChatPolicy,
+  TEST_CONFIGURED_CHAT_ID
+} from '../helpers/telegram-fixtures.js';
 
 export const handleIncomingMessage = vi.fn();
 export const loggerInfo = vi.fn();
@@ -306,8 +310,9 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     memeHistoryRetentionDays: 14,
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
-    telegramChatId: -1002155313986,
-    telegramAdminId: 84626969,
+    telegramChatPolicies: [createTestChatPolicy()],
+    telegramAdminDefaultChatId: TEST_CONFIGURED_CHAT_ID,
+    telegramAdminId: 900000222,
     telegramLinkUserIds: [],
     ...overrides
   };

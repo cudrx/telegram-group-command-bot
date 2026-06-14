@@ -2,6 +2,11 @@ import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 
 import {
+  answerActionConfig,
+  decideActionConfig,
+  summarizeActionConfig
+} from '../runtime/index.js';
+import {
   DATABASE_CLEANUP_INTERVAL_HOURS,
   LOOKUP_PROVIDER,
   MEDIA_ARTIFACT_RETENTION_DAYS,
@@ -14,11 +19,12 @@ import {
 import { buildProviderEnv } from './provider-env.js';
 import { envSchema } from './schema.js';
 import type { AppEnv, ParsedEnv } from './types.js';
-import { validateParsedEnv } from './validators.js';
+import { normalizeTelegramChatEnv, validateParsedEnv } from './validators.js';
 
 loadDotenv();
 
 export type { AppEnv, ParsedEnv } from './types.js';
+export { normalizeTelegramChatEnv } from './validators.js';
 
 export function parseEnv(
   rawEnv: Record<string, string | undefined> = process.env
@@ -30,6 +36,7 @@ export function parseEnv(
   });
 
   validateParsedEnv(parsed);
+  const telegramChatEnv = normalizeTelegramChatEnv(parsed);
 
   return {
     nodeEnv: parsed.NODE_ENV,
@@ -55,9 +62,9 @@ export function parseEnv(
     youtubeCookiesPath:
       parsed.YOUTUBE_COOKIES_PATH ??
       resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'youtube-cookies.txt'),
-    answerContextLimit: parsed.ANSWER_CONTEXT_LIMIT,
-    summarizeContextLimit: parsed.SUMMARIZE_CONTEXT_LIMIT,
-    decideContextLimit: parsed.DECIDE_CONTEXT_LIMIT,
+    answerContextLimit: answerActionConfig.contextLimit,
+    summarizeContextLimit: summarizeActionConfig.contextLimit,
+    decideContextLimit: decideActionConfig.contextLimit,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS,
@@ -78,9 +85,10 @@ export function parseEnv(
     messageRetentionDays: MESSAGE_RETENTION_DAYS,
     databaseCleanupIntervalHours: DATABASE_CLEANUP_INTERVAL_HOURS,
     yandexSpeechKitApiKey: parsed.YANDEX_SPEECHKIT_API_KEY ?? null,
-    telegramChatId: parsed.TELEGRAM_CHAT_ID,
-    telegramAdminId: parsed.TELEGRAM_ADMIN_ID,
-    telegramLinkUserIds: parsed.TELEGRAM_LINK_USER_IDS
+    telegramChatPolicies: telegramChatEnv.telegramChatPolicies,
+    telegramAdminDefaultChatId: telegramChatEnv.telegramAdminDefaultChatId,
+    telegramAdminId: telegramChatEnv.telegramAdminId,
+    telegramLinkUserIds: telegramChatEnv.telegramLinkUserIds
   };
 }
 

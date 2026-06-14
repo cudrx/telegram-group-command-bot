@@ -1,24 +1,32 @@
 import type { AppEnv } from '../config/env/index.js';
-import type { AuthorizedMode, ChatType } from '../domain/models.js';
+import type { AccessContext, ChatType } from '../domain/models.js';
 
-export function resolveAuthorizedMode(input: {
+export function resolveAccessContext(input: {
   env: AppEnv;
   chatId: number;
   chatType: ChatType;
   fromUserId: number | null;
-}): AuthorizedMode | null {
-  if (
-    (input.chatType === 'group' || input.chatType === 'supergroup') &&
-    input.chatId === input.env.telegramChatId
-  ) {
-    return 'chat';
+}): AccessContext {
+  if (input.chatType === 'group' || input.chatType === 'supergroup') {
+    const policy = input.env.telegramChatPolicies.find(
+      (candidate) => candidate.chatId === input.chatId
+    );
+
+    if (policy) {
+      return {
+        kind: 'configured_chat',
+        policy
+      };
+    }
+
+    return { kind: 'unauthorized' };
   }
 
   if (
     input.chatType === 'private' &&
     input.fromUserId === input.env.telegramAdminId
   ) {
-    return 'private_admin';
+    return { kind: 'private_admin' };
   }
 
   if (
@@ -26,8 +34,8 @@ export function resolveAuthorizedMode(input: {
     input.fromUserId !== null &&
     input.env.telegramLinkUserIds.includes(input.fromUserId)
   ) {
-    return 'private_link_sender';
+    return { kind: 'private_link_sender' };
   }
 
-  return null;
+  return { kind: 'unauthorized' };
 }

@@ -1,3 +1,30 @@
+export const CHAT_FEATURES = [
+  'answer',
+  'summarize',
+  'decide',
+  'translate',
+  'read',
+  'transcribe',
+  'meme',
+  'sex',
+  'direct_links'
+] as const;
+
+export type ChatFeature = (typeof CHAT_FEATURES)[number];
+
+export type ChatPolicy = {
+  chatId: number;
+  label: string | null;
+  features: Record<ChatFeature, boolean>;
+};
+
+export type TelegramChatEnv = {
+  telegramChatPolicies: ChatPolicy[];
+  telegramAdminDefaultChatId: number | null;
+  telegramAdminId: number;
+  telegramLinkUserIds: number[];
+};
+
 export type ParsedEnv = {
   nodeEnv: 'development' | 'test' | 'production';
   telegramBotToken: string;
@@ -39,7 +66,8 @@ export type ParsedEnv = {
   memeHistoryRetentionDays: number;
   messageRetentionDays: number;
   databaseCleanupIntervalHours: number;
-  telegramChatId: number;
+  telegramChatPolicies: ChatPolicy[];
+  telegramAdminDefaultChatId: number | null;
   telegramAdminId: number;
   telegramLinkUserIds: number[];
 };

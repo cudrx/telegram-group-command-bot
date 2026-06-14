@@ -1,5 +1,5 @@
 import { Bot } from 'grammy';
-import { resolveAuthorizedMode } from './app/access-policy.js';
+import { resolveAccessContext } from './app/access-policy.js';
 import {
   createAdminNotifier,
   createNotifyingLogger
@@ -124,14 +124,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       )
     });
 
-    const authorizedMode = resolveAuthorizedMode({
+    const accessContext = resolveAccessContext({
       env,
       chatId: normalized.chatId,
       chatType: normalized.chatType,
       fromUserId: normalized.fromUserId
     });
 
-    if (!authorizedMode) {
+    if (accessContext.kind === 'unauthorized') {
       logger.debug('incoming_message_rejected_by_access_policy', {
         chatId: normalized.chatId,
         chatType: normalized.chatType,
@@ -142,7 +142,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
     await orchestrator.handleIncomingMessage({
       ...normalized,
-      authorizedMode
+      accessContext
     });
   });
 
@@ -153,14 +153,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
       return;
     }
 
-    const authorizedMode = resolveAuthorizedMode({
+    const accessContext = resolveAccessContext({
       env,
       chatId: normalized.chatId,
       chatType: normalized.chatType,
       fromUserId: normalized.fromUserId
     });
 
-    if (!authorizedMode) {
+    if (accessContext.kind === 'unauthorized') {
       logger.debug('edited_message_rejected_by_access_policy', {
         chatId: normalized.chatId,
         chatType: normalized.chatType,
@@ -187,16 +187,18 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     async start() {
       cleanupScheduler.start();
 
-      await maybeAnnounceDeployUpdate({
-        telegramChatId: env.telegramChatId,
-        db,
-        llm: qwen,
-        sendMessage: async (message) => {
-          await telegramDispatchers.sendHtmlMessage(message);
-        },
-        logger,
-        now: () => new Date().toISOString()
-      });
+      if (env.telegramAdminDefaultChatId !== null) {
+        await maybeAnnounceDeployUpdate({
+          telegramChatId: env.telegramAdminDefaultChatId,
+          db,
+          llm: qwen,
+          sendMessage: async (message) => {
+            await telegramDispatchers.sendHtmlMessage(message);
+          },
+          logger,
+          now: () => new Date().toISOString()
+        });
+      }
 
       logger.info('bot_polling_started', {
         allowedUpdates: ['message', 'edited_message']

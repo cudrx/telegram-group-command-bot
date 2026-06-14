@@ -1,11 +1,18 @@
 import { randomUUID } from 'node:crypto';
 
 import type { NormalizedMessage } from '../../domain/models.js';
-import { chatActionRegistry } from '../actions/index.js';
+import {
+  chatActionRegistry,
+  isFeatureEnabledForAccessContext
+} from '../actions/index.js';
 import { detectDirectMediaLink } from './direct-media-link.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
 import { runDirectMediaMemeJob } from './meme-job/direct.js';
-import type { ChatOrchestratorDeps, ReplyRequest } from './types.js';
+import type {
+  ChatOrchestratorDeps,
+  IncomingMessage,
+  ReplyRequest
+} from './types.js';
 
 export type {
   BotIdentity,
@@ -21,13 +28,14 @@ export class ChatOrchestrator {
     this.mediaSupport = new ChatOrchestratorMediaSupport(deps);
   }
 
-  async handleIncomingMessage(message: NormalizedMessage): Promise<void> {
+  async handleIncomingMessage(message: IncomingMessage): Promise<void> {
     const correlationId = randomUUID();
     const logger = this.deps.logger.child({
       correlationId,
       chatId: message.chatId,
       messageId: message.messageId
     });
+    const accessContext = requireAccessContext(message);
     const stored = this.deps.db.saveIncomingMessage(message);
 
     if (!stored) {
@@ -53,7 +61,11 @@ export class ChatOrchestrator {
 
     const resolvedAction = chatActionRegistry.resolveCommand({
       botUsername: this.deps.bot.username,
-      ...(message.authorizedMode ? { mode: message.authorizedMode } : {}),
+      ...(accessContext.kind === 'private_admin'
+        ? { mode: 'private_admin' as const }
+        : accessContext.kind === 'private_link_sender'
+          ? { mode: 'private_link_sender' as const }
+          : {}),
       text: message.text,
       entities: message.entities
     });
@@ -65,13 +77,22 @@ export class ChatOrchestrator {
     });
 
     if (
-      message.authorizedMode === 'private_link_sender' &&
+      accessContext.kind === 'private_link_sender' &&
       hasLeadingBotCommand(message)
     ) {
       return;
     }
 
     if (resolvedAction) {
+      if (
+        !isFeatureEnabledForAccessContext(
+          accessContext,
+          resolvedAction.requiredFeature
+        )
+      ) {
+        return;
+      }
+
       const request: ReplyRequest = {
         chatId: message.chatId,
         chatType: message.chatType,
@@ -95,6 +116,10 @@ export class ChatOrchestrator {
 
     const directMediaLink = detectDirectMediaLink(message.text);
     if (!directMediaLink) {
+      return;
+    }
+
+    if (!isFeatureEnabledForAccessContext(accessContext, 'direct_links')) {
       return;
     }
 
@@ -128,4 +153,14 @@ function hasLeadingBotCommand(message: NormalizedMessage): boolean {
   return message.entities.some(
     (entity) => entity.type === 'bot_command' && entity.offset === 0
   );
+}
+
+function requireAccessContext(
+  message: NormalizedMessage
+): IncomingMessage['accessContext'] {
+  if (!message.accessContext || message.accessContext.kind === 'unauthorized') {
+    throw new Error('Missing access context for incoming message');
+  }
+
+  return message.accessContext;
 }

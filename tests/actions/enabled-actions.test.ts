@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'vitest';
 
-import { chatActions } from '../../src/app/actions/index.js';
+import {
+  chatActionRequiredFeatures,
+  chatActions
+} from '../../src/app/actions/index.js';
 
 describe('chatActions', () => {
   test('registers all supported commands in action folders', () => {
@@ -36,5 +39,18 @@ describe('chatActions', () => {
     expect(
       chatActions.find((action) => action.intent === 'publish')?.modes
     ).toEqual(['private_admin']);
+  });
+
+  test('defines centralized feature requirements for configured-chat actions', () => {
+    expect(chatActionRequiredFeatures).toEqual({
+      answer: 'answer',
+      summarize: 'summarize',
+      decide: 'decide',
+      translate: 'translate',
+      read: 'read',
+      transcribe: 'transcribe',
+      meme: 'meme',
+      sex: 'sex'
+    });
   });
 });

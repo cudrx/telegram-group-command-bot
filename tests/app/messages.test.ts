@@ -12,7 +12,26 @@ describe('createApplication message forwarding', () => {
   installAppTestHooks();
 
   function createAllowedAppEnv() {
-    return createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 });
+    return createEnv({
+      telegramChatPolicies: [
+        {
+          chatId: -1001,
+          label: 'main',
+          features: {
+            answer: true,
+            summarize: true,
+            decide: true,
+            translate: true,
+            read: true,
+            transcribe: true,
+            meme: true,
+            sex: true,
+            direct_links: true
+          }
+        }
+      ],
+      telegramAdminId: 900000222
+    });
   }
 
   test('forwards text messages from other bots so answer replies can use them as anchors', async () => {

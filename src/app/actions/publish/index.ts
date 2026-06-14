@@ -19,13 +19,24 @@ export const publishAction: ChatAction = {
       return;
     }
 
+    const targetChatId = ctx.deps.env.telegramAdminDefaultChatId;
+
+    if (targetChatId === null) {
+      await ctx.deps.replyDispatcher({
+        chatId: ctx.request.chatId,
+        replyToMessageId: ctx.request.triggerMessageId,
+        text: text.publish.missingDefaultChat
+      });
+      return;
+    }
+
     try {
       const copyTarget = async (): Promise<void> => {
         const albumMessageIds = getAlbumMessageIds(ctx, target);
 
         if (albumMessageIds.length > 1) {
           await ctx.deps.copyMessagesDispatcher({
-            targetChatId: ctx.deps.env.telegramChatId,
+            targetChatId,
             sourceChatId: ctx.request.chatId,
             messageIds: albumMessageIds
           });
@@ -33,7 +44,7 @@ export const publishAction: ChatAction = {
         }
 
         await ctx.deps.copyMessageDispatcher({
-          targetChatId: ctx.deps.env.telegramChatId,
+          targetChatId,
           sourceChatId: ctx.request.chatId,
           messageId: target.messageId
         });

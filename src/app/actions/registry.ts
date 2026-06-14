@@ -1,9 +1,25 @@
+import type { ChatFeature } from '../../config/env/types.js';
+import type { AssistantIntent } from '../../domain/models.js';
 import type {
   ActionRegistry,
   ChatAction,
   ResolveCommandInput,
   ResolvedAction
 } from './types.js';
+
+export const chatActionRequiredFeatures: Record<
+  Exclude<AssistantIntent, 'publish'>,
+  ChatFeature
+> = {
+  answer: 'answer',
+  summarize: 'summarize',
+  decide: 'decide',
+  translate: 'translate',
+  read: 'read',
+  transcribe: 'transcribe',
+  meme: 'meme',
+  sex: 'sex'
+};
 
 export function createActionRegistry(actions: ChatAction[]): ActionRegistry {
   const byCommand = new Map<string, ChatAction>();
@@ -46,7 +62,14 @@ export function createActionRegistry(actions: ChatAction[]): ActionRegistry {
         return null;
       }
 
-      return { action, commandText } satisfies ResolvedAction;
+      return {
+        action,
+        commandText,
+        requiredFeature:
+          action.intent === 'publish'
+            ? null
+            : chatActionRequiredFeatures[action.intent]
+      } satisfies ResolvedAction;
     }
   };
 }

@@ -1,8 +1,10 @@
 import type { AppEnv } from '../../config/env/index.js';
 import type { DatabaseClient } from '../../database/index.js';
 import type {
+  AccessContext,
   AssistantIntent,
   MediaMessageSnapshot,
+  NormalizedMessage,
   ReplyContext,
   ReplyGenerationIntent,
   StoredMessage
@@ -133,6 +135,10 @@ export type ReplyRequest = {
 
 export type ReplyJobRequest = Omit<ReplyRequest, 'intent'> & {
   intent: ReplyGenerationIntent;
+};
+
+export type IncomingMessage = NormalizedMessage & {
+  accessContext: Exclude<AccessContext, { kind: 'unauthorized' }>;
 };
 
 export type ChatOrchestratorDeps = {

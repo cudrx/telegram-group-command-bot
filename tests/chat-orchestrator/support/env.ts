@@ -1,5 +1,10 @@
 import path from 'node:path';
 import type { AppEnv } from '../../../src/config/env/index.js';
+import {
+  createTestChatPolicy,
+  TEST_CONFIGURED_CHAT_ID,
+  TEST_OPERATOR_CHAT_ID
+} from '../../helpers/telegram-fixtures.js';
 
 export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
   const sqlitePath = overrides.sqlitePath ?? ':memory:';
@@ -51,8 +56,9 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     memeHistoryRetentionDays: 14,
     messageRetentionDays: 7,
     databaseCleanupIntervalHours: 24,
-    telegramChatId: -1002155313986,
-    telegramAdminId: -1002155313987,
+    telegramChatPolicies: [createTestChatPolicy()],
+    telegramAdminDefaultChatId: TEST_CONFIGURED_CHAT_ID,
+    telegramAdminId: TEST_OPERATOR_CHAT_ID,
     telegramLinkUserIds: [],
     ...overrides
   };

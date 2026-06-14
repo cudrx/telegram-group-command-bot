@@ -1,4 +1,9 @@
-import type { AssistantIntent, AuthorizedMode } from '../../domain/models.js';
+import type { ChatFeature } from '../../config/env/types.js';
+import type {
+  AccessContext,
+  AssistantIntent,
+  AuthorizedMode
+} from '../../domain/models.js';
 import type { ChatOrchestratorMediaSupport } from '../chat-orchestrator/media/index.js';
 import type {
   ChatOrchestratorDeps,
@@ -29,8 +34,14 @@ export type ResolveCommandInput = {
 export type ResolvedAction = {
   action: ChatAction;
   commandText: string;
+  requiredFeature: ChatFeature | null;
 };
 
 export type ActionRegistry = {
   resolveCommand(input: ResolveCommandInput): ResolvedAction | null;
 };
+
+export type FeatureGatedAccessContext = Exclude<
+  AccessContext,
+  { kind: 'unauthorized' }
+>;

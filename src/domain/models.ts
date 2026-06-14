@@ -1,3 +1,5 @@
+import type { ChatPolicy } from '../config/env/types.js';
+
 export type ChatType =
   | 'private'
   | 'group'
@@ -6,6 +8,12 @@ export type ChatType =
   | 'unknown';
 
 export type AuthorizedMode = 'chat' | 'private_admin' | 'private_link_sender';
+
+export type AccessContext =
+  | { kind: 'configured_chat'; policy: ChatPolicy }
+  | { kind: 'private_admin' }
+  | { kind: 'private_link_sender' }
+  | { kind: 'unauthorized' };
 
 export type AssistantIntent =
   | 'summarize'
@@ -29,6 +37,7 @@ export type NormalizedMessage = {
   chatId: number;
   chatType: ChatType;
   authorizedMode?: AuthorizedMode;
+  accessContext?: AccessContext;
   chatTitle: string | null;
   messageId: number;
   mediaGroupId?: string | null;

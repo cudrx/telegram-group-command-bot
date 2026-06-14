@@ -17,6 +17,7 @@ import {
   importCreateApplication,
   installAppTestHooks,
   llmConstructor,
+  maybeAnnounceDeployUpdate,
   yandexSpeechKitConstructor
 } from './support.js';
 
@@ -26,7 +27,26 @@ describe('createApplication wiring', () => {
   test('wires v0 reply-only dependencies and forwards text messages', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     expect(llmConstructor).toHaveBeenCalledWith(
@@ -105,7 +125,12 @@ describe('createApplication wiring', () => {
         chatId: -1001,
         messageId: 11,
         text: '@hrupa_bot привет',
-        authorizedMode: 'chat'
+        accessContext: expect.objectContaining({
+          kind: 'configured_chat',
+          policy: expect.objectContaining({
+            chatId: -1001
+          })
+        })
       })
     );
   });
@@ -113,7 +138,26 @@ describe('createApplication wiring', () => {
   test('updates existing incoming messages on Telegram edits without invoking orchestrator', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     await app.start();
@@ -156,8 +200,24 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
       createEnv({
-        telegramChatId: -1001,
-        telegramAdminId: 84626969,
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222,
         yandexSpeechKitApiKey: 'yandex-key'
       })
     );
@@ -205,7 +265,26 @@ describe('createApplication wiring', () => {
   test('wires publish copy dispatchers to Telegram copy APIs', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     const deps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
@@ -234,23 +313,42 @@ describe('createApplication wiring', () => {
 
     await deps?.copyMessageDispatcher?.({
       targetChatId: -1001,
-      sourceChatId: 84626969,
+      sourceChatId: 900000222,
       messageId: 11
     });
     await deps?.copyMessagesDispatcher?.({
       targetChatId: -1001,
-      sourceChatId: 84626969,
+      sourceChatId: 900000222,
       messageIds: [11, 12]
     });
 
-    expect(botCopyMessage).toHaveBeenCalledWith(-1001, 84626969, 11);
-    expect(botCopyMessages).toHaveBeenCalledWith(-1001, 84626969, [11, 12]);
+    expect(botCopyMessage).toHaveBeenCalledWith(-1001, 900000222, 11);
+    expect(botCopyMessages).toHaveBeenCalledWith(-1001, 900000222, [11, 12]);
   });
 
   test('wires source message deletion to Telegram deleteMessage API', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     const deps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
@@ -270,10 +368,93 @@ describe('createApplication wiring', () => {
     expect(botDeleteMessage).toHaveBeenCalledWith(-1001, 11);
   });
 
+  test('announces deploy updates only to the explicit admin default chat', async () => {
+    const { createApplication } = await importCreateApplication();
+    const app = await createApplication(
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminDefaultChatId: -1001
+      })
+    );
+
+    await app.start();
+
+    expect(maybeAnnounceDeployUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        telegramChatId: -1001
+      })
+    );
+  });
+
+  test('skips deploy announcement when no explicit admin default chat is configured', async () => {
+    const { createApplication } = await importCreateApplication();
+    const app = await createApplication(
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminDefaultChatId: null
+      })
+    );
+
+    await app.start();
+
+    expect(maybeAnnounceDeployUpdate).not.toHaveBeenCalled();
+  });
+
   test('drops messages from unauthorized chats before the orchestrator', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     await app.start();
@@ -309,7 +490,26 @@ describe('createApplication wiring', () => {
     });
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     await app.start();
@@ -321,13 +521,13 @@ describe('createApplication wiring', () => {
         text: '/summarize',
         entities: [{ type: 'bot_command', offset: 0, length: 10 }],
         from: {
-          id: 84626969,
+          id: 900000222,
           is_bot: false,
           username: 'artyom',
           first_name: 'Artyom'
         },
         chat: {
-          id: 84626969,
+          id: 900000222,
           type: 'private'
         }
       }
@@ -335,8 +535,8 @@ describe('createApplication wiring', () => {
 
     expect(handleIncomingMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        chatId: 84626969,
-        authorizedMode: 'private_admin'
+        chatId: 900000222,
+        accessContext: { kind: 'private_admin' }
       })
     );
   });
@@ -345,8 +545,24 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatId: -1001,
-        telegramAdminId: 84626969,
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222,
         telegramLinkUserIds: [555]
       })
     );
@@ -374,7 +590,7 @@ describe('createApplication wiring', () => {
     expect(handleIncomingMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 555,
-        authorizedMode: 'private_link_sender'
+        accessContext: { kind: 'private_link_sender' }
       })
     );
   });
@@ -383,9 +599,25 @@ describe('createApplication wiring', () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
       createEnv({
-        telegramChatId: -1001,
-        telegramAdminId: 84626969,
-        telegramLinkUserIds: [84626969]
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222,
+        telegramLinkUserIds: [900000222]
       })
     );
 
@@ -398,13 +630,13 @@ describe('createApplication wiring', () => {
         text: '/summarize',
         entities: [{ type: 'bot_command', offset: 0, length: 10 }],
         from: {
-          id: 84626969,
+          id: 900000222,
           is_bot: false,
           username: 'artyom',
           first_name: 'Artyom'
         },
         chat: {
-          id: 84626969,
+          id: 900000222,
           type: 'private'
         }
       }
@@ -412,8 +644,8 @@ describe('createApplication wiring', () => {
 
     expect(handleIncomingMessage).toHaveBeenCalledWith(
       expect.objectContaining({
-        chatId: 84626969,
-        authorizedMode: 'private_admin'
+        chatId: 900000222,
+        accessContext: { kind: 'private_admin' }
       })
     );
   });
@@ -421,7 +653,26 @@ describe('createApplication wiring', () => {
   test('drops private messages from non-admin users before the orchestrator', async () => {
     const { createApplication } = await importCreateApplication();
     const app = await createApplication(
-      createEnv({ telegramChatId: -1001, telegramAdminId: 84626969 })
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
     );
 
     await app.start();
@@ -446,5 +697,57 @@ describe('createApplication wiring', () => {
     });
 
     expect(handleIncomingMessage).not.toHaveBeenCalled();
+  });
+
+  test('ignores edited messages from unconfigured chats', async () => {
+    const { createApplication } = await importCreateApplication();
+    const app = await createApplication(
+      createEnv({
+        telegramChatPolicies: [
+          {
+            chatId: -1001,
+            label: 'main',
+            features: {
+              answer: true,
+              summarize: true,
+              decide: true,
+              translate: true,
+              read: true,
+              transcribe: true,
+              meme: true,
+              sex: true,
+              direct_links: true
+            }
+          }
+        ],
+        telegramAdminId: 900000222
+      })
+    );
+
+    await app.start();
+
+    await botState.editedMessageHandler?.({
+      update: {
+        edited_message: {
+          message_id: 99,
+          date: 1_744_000_000,
+          edit_date: 1_744_000_060,
+          text: 'ignored',
+          from: {
+            id: 123,
+            is_bot: false,
+            username: 'artyom',
+            first_name: 'Artyom'
+          },
+          chat: {
+            id: -2002,
+            type: 'supergroup',
+            title: 'Other chat'
+          }
+        }
+      }
+    });
+
+    expect(dbUpdateIncomingMessageEdit).not.toHaveBeenCalled();
   });
 });
