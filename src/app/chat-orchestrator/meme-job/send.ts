@@ -22,6 +22,13 @@ export type MemeListingJobConfig = {
     timeRange: RedditListingTimeRange;
   };
   fallbackText: string;
+  historyRetentionDays: number;
+  telegramMedia: {
+    imageMaxBytes: number;
+    videoMaxBytes: number;
+    videoMaxDurationSeconds: number;
+    downloadTimeoutMs: number;
+  };
   caption: {
     maxLength: number;
   };

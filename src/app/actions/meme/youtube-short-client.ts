@@ -6,9 +6,11 @@ import {
   type MediaExecFile
 } from '../../../media/exec.js';
 import type { ProcessStatusReporter } from '../../process-status.js';
+import { resolveRuntimeFilePath } from './paths.js';
 import type { DownloadedMemeMedia } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
+  DirectVideoTooLongError,
   downloadTelegramSafeVideoWithYtDlp
 } from './video-pipeline.js';
 
@@ -48,9 +50,10 @@ export async function downloadYoutubeShortWithYtDlp(input: {
   if (!shortUrl) return null;
 
   const execFile = input.execFile ?? execMediaFileDefault;
-  const cookiesPath =
+  const cookiesPath = resolveRuntimeFilePath(
     input.youtubeCookiesPath ??
-    path.join(path.dirname(input.sqlitePath), 'youtube-cookies.txt');
+      path.join(path.dirname(input.sqlitePath), 'youtube-cookies.txt')
+  );
   await input.processStatus?.stage('metadata');
   const metadata = await fetchYoutubeMetadata({
     execFile,
@@ -61,7 +64,10 @@ export async function downloadYoutubeShortWithYtDlp(input: {
     metadata.durationSeconds !== null &&
     metadata.durationSeconds > DIRECT_VIDEO_MAX_DURATION_SECONDS
   ) {
-    return null;
+    throw new DirectVideoTooLongError(
+      metadata.durationSeconds,
+      DIRECT_VIDEO_MAX_DURATION_SECONDS
+    );
   }
 
   const downloaded = await downloadTelegramSafeVideoWithYtDlp({

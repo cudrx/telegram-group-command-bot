@@ -6,10 +6,12 @@ import {
   type MediaExecFile
 } from '../../../media/exec.js';
 import type { ProcessStatusReporter } from '../../process-status.js';
+import { resolveRuntimeFilePath } from './paths.js';
 import { resolveRedditPostReference } from './reddit-post-client.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
+  DirectVideoTooLongError,
   downloadTelegramSafeVideoWithYtDlp
 } from './video-pipeline.js';
 
@@ -43,9 +45,10 @@ export async function downloadRedditVideoWithYtDlp(input: {
   if (!reference) return null;
 
   const execFile = input.execFile ?? execMediaFileDefault;
-  const cookiesPath =
+  const cookiesPath = resolveRuntimeFilePath(
     input.redditCookiesPath ??
-    path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt');
+      path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt')
+  );
   await input.processStatus?.stage('metadata');
   const metadata = await fetchYtDlpMetadata({
     execFile,
@@ -56,7 +59,10 @@ export async function downloadRedditVideoWithYtDlp(input: {
     metadata.durationSeconds !== null &&
     metadata.durationSeconds > DIRECT_VIDEO_MAX_DURATION_SECONDS
   ) {
-    return null;
+    throw new DirectVideoTooLongError(
+      metadata.durationSeconds,
+      DIRECT_VIDEO_MAX_DURATION_SECONDS
+    );
   }
 
   const downloaded = await downloadTelegramSafeVideoWithYtDlp({

@@ -1,13 +1,19 @@
 import { memeActionConfig } from '../../../config/runtime/index.js';
+import { text } from '../../../locales/locale.js';
 import { serializeError } from '../../../logging/logger.js';
 import { downloadInstagramReelWithYtDlp } from '../../actions/meme/instagram-reel-client.js';
 import { fetchRedditPostCandidate } from '../../actions/meme/reddit-post-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
+import {
+  isDirectVideoTooLargeError,
+  isDirectVideoTooLongError
+} from '../../actions/meme/video-pipeline.js';
 import { downloadYoutubeShortWithYtDlp } from '../../actions/meme/youtube-short-client.js';
 import { downloadRedditVideoWithYtDlp } from '../../actions/meme/yt-dlp-client.js';
 import { runWithProcessStatus } from '../../process-status.js';
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
+import { dispatchTextReply } from '../outbound-voice.js';
 import {
   type MemeJobInput,
   sendCandidate,
@@ -62,7 +68,7 @@ async function runDirectRedditVideoMemeJob(
             sqlitePath: input.deps.env.sqlitePath,
             redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
             redditCookiesPath: input.deps.env.redditCookiesPath,
-            maxBytes: memeActionConfig.media.videoMaxBytes,
+            maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
             ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
             processStatus: status,
             ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
@@ -87,6 +93,10 @@ async function runDirectRedditVideoMemeJob(
       );
       if (!sentFallback) return false;
     } catch (fallbackError) {
+      if (await handleDirectVideoFailure(input, fallbackError)) {
+        return true;
+      }
+
       input.logger.warn(
         'reddit_video_ytdlp_failed',
         serializeError(fallbackError)
@@ -100,7 +110,15 @@ async function runDirectRedditVideoMemeJob(
 
   if (!candidate) return false;
 
-  await sendCandidate(input, candidate, { reply: false });
+  try {
+    await sendCandidate(input, candidate, { reply: false });
+  } catch (error) {
+    if (await handleDirectVideoFailure(input, error)) {
+      return true;
+    }
+
+    throw error;
+  }
 
   await deleteSourceMessage(input);
   return true;
@@ -125,13 +143,17 @@ async function runDirectYoutubeShortMemeJob(
           text: input.text,
           sqlitePath: input.deps.env.sqlitePath,
           youtubeCookiesPath: input.deps.env.youtubeCookiesPath,
-          maxBytes: memeActionConfig.media.videoMaxBytes,
+          maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
           captionMaxLength: memeActionConfig.caption.maxLength,
           processStatus: status,
           ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
         })
     );
   } catch (error) {
+    if (await handleDirectVideoFailure(input, error)) {
+      return true;
+    }
+
     input.logger.warn('youtube_short_ytdlp_failed', serializeError(error));
     return false;
   }
@@ -189,6 +211,10 @@ async function runDirectYoutubeShortMemeJob(
       );
     }
   } catch (error) {
+    if (await handleDirectVideoFailure(input, error)) {
+      return true;
+    }
+
     input.logger.warn('youtube_short_dispatch_failed', serializeError(error));
     return true;
   } finally {
@@ -218,13 +244,17 @@ async function runDirectInstagramReelMemeJob(
           text: input.text,
           sqlitePath: input.deps.env.sqlitePath,
           instagramCookiesPath: input.deps.env.instagramCookiesPath,
-          maxBytes: memeActionConfig.media.videoMaxBytes,
+          maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
           captionMaxLength: memeActionConfig.caption.maxLength,
           processStatus: status,
           ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
         })
     );
   } catch (error) {
+    if (await handleDirectVideoFailure(input, error)) {
+      return true;
+    }
+
     input.logger.warn('instagram_reel_ytdlp_failed', serializeError(error));
     return false;
   }
@@ -282,6 +312,10 @@ async function runDirectInstagramReelMemeJob(
       );
     }
   } catch (error) {
+    if (await handleDirectVideoFailure(input, error)) {
+      return true;
+    }
+
     input.logger.warn('instagram_reel_dispatch_failed', serializeError(error));
     return true;
   } finally {
@@ -306,4 +340,53 @@ async function deleteSourceMessage(
       serializeError(error)
     );
   }
+}
+
+async function handleDirectVideoFailure(
+  input: MemeJobInput,
+  error: unknown
+): Promise<boolean> {
+  if (isDirectVideoTooLongError(error)) {
+    await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: text.meme.directVideoTooLongFallback(
+        Math.floor(error.maxDurationSeconds / 60)
+      )
+    });
+    return true;
+  }
+
+  if (isDirectVideoTooLargeError(error)) {
+    await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: text.meme.directVideoTooLargeFallback(
+        Math.floor(error.maxBytes / 1_000_000)
+      )
+    });
+    return true;
+  }
+
+  if (isTelegramRequestEntityTooLargeError(error)) {
+    await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: text.meme.directVideoTooLargeFallback(
+        Math.floor(memeActionConfig.telegramMedia.videoMaxBytes / 1_000_000)
+      )
+    });
+    return true;
+  }
+
+  return false;
+}
+
+function isTelegramRequestEntityTooLargeError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'error_code' in error &&
+    error.error_code === 413
+  );
 }

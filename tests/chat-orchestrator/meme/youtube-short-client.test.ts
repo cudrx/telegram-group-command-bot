@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
 
+import { DirectVideoTooLongError } from '../../../src/app/actions/meme/video-pipeline.js';
 import {
   downloadYoutubeShortWithYtDlp,
   findYoutubeShortUrl,
@@ -180,13 +181,13 @@ describe('downloadYoutubeShortWithYtDlp', () => {
     expect(existsSync(filePath)).toBe(false);
   });
 
-  test('returns null for Shorts longer than the duration cap before downloading', async () => {
+  test('rejects Shorts longer than the duration cap before downloading', async () => {
     const execFile = vi.fn().mockResolvedValueOnce({
       stdout: JSON.stringify({
         id: 'RsEXmvAefDg',
         channel: 'Lunchb0xGaming',
         like_count: 5035,
-        duration: 179
+        duration: 601
       }),
       stderr: ''
     });
@@ -199,7 +200,7 @@ describe('downloadYoutubeShortWithYtDlp', () => {
         captionMaxLength: 1024,
         execFile
       })
-    ).resolves.toBeNull();
+    ).rejects.toBeInstanceOf(DirectVideoTooLongError);
 
     expect(execFile).toHaveBeenCalledTimes(1);
   });

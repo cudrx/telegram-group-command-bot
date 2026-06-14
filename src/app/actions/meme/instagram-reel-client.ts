@@ -6,9 +6,11 @@ import {
   type MediaExecFile
 } from '../../../media/exec.js';
 import type { ProcessStatusReporter } from '../../process-status.js';
+import { resolveRuntimeFilePath } from './paths.js';
 import type { DownloadedMemeMedia } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
+  DirectVideoTooLongError,
   downloadTelegramSafeVideoWithYtDlp
 } from './video-pipeline.js';
 
@@ -47,9 +49,10 @@ export async function downloadInstagramReelWithYtDlp(input: {
   if (!reelUrl) return null;
 
   const execFile = input.execFile ?? execMediaFileDefault;
-  const cookiesPath =
+  const cookiesPath = resolveRuntimeFilePath(
     input.instagramCookiesPath ??
-    path.join(path.dirname(input.sqlitePath), 'instagram-cookies.txt');
+      path.join(path.dirname(input.sqlitePath), 'instagram-cookies.txt')
+  );
   await input.processStatus?.stage('metadata');
   const metadata = await fetchInstagramMetadata({
     execFile,
@@ -60,7 +63,10 @@ export async function downloadInstagramReelWithYtDlp(input: {
     metadata.durationSeconds !== null &&
     metadata.durationSeconds > DIRECT_VIDEO_MAX_DURATION_SECONDS
   ) {
-    return null;
+    throw new DirectVideoTooLongError(
+      metadata.durationSeconds,
+      DIRECT_VIDEO_MAX_DURATION_SECONDS
+    );
   }
 
   const sourceUrl = reelUrl;

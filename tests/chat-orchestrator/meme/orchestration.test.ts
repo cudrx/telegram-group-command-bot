@@ -6,6 +6,10 @@ import path from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 
 import {
+  DirectVideoTooLargeError,
+  DirectVideoTooLongError
+} from '../../../src/app/actions/meme/video-pipeline.js';
+import {
   memeActionConfig,
   sexActionConfig
 } from '../../../src/config/runtime/index.js';
@@ -615,6 +619,217 @@ describe('ChatOrchestrator /meme command', () => {
         errorMessage: 'yt-dlp unavailable'
       })
     );
+  });
+
+  test('replies with a size-specific fallback when Telegram rejects a direct Reddit video upload', async () => {
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'direct-reddit-video-telegram-413-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'reddit-cookies.txt'),
+      '.reddit.com\tTRUE\t/\tTRUE\t2147483647\treddit_session\tabc123'
+    );
+    const db = new FakeDatabaseClient();
+    const canonicalUrl =
+      'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/';
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      redditPostResponse({
+        id: '1ti5fvt',
+        subreddit: 'SipsTea',
+        title: 'AI vs creativity from a pro-AI greedy corpo',
+        permalink:
+          '/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
+        ups: 24123,
+        secure_media: {
+          reddit_video: {
+            fallback_url:
+              'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
+            duration: 42
+          }
+        }
+      })
+    );
+    const execFile = vi
+      .fn()
+      .mockImplementation(
+        async (
+          file: string,
+          args: string[],
+          options: { cwd?: string | undefined }
+        ) => {
+          if (file === 'ffprobe') return videoProbeResult();
+
+          if (file === 'nice') return writeNormalizedVideo(args);
+
+          expect(file).toBe('yt-dlp');
+
+          if (args.includes('--dump-single-json')) {
+            return {
+              stdout: JSON.stringify({
+                id: '1ti5fvt',
+                title: 'AI vs creativity from a pro-AI greedy corpo',
+                like_count: 24123,
+                duration: 42
+              }),
+              stderr: ''
+            };
+          }
+
+          const outputIndex = args.indexOf('-o');
+          const outputTemplate = args[outputIndex + 1] ?? '';
+          const tempDirectory = path.dirname(outputTemplate);
+          await writeFile(
+            path.join(tempDirectory, '1ti5fvt.mp4'),
+            new Uint8Array([1, 2, 3, 4])
+          );
+
+          expect(args).toContain(canonicalUrl);
+          expect(options.cwd).toBe(tempDirectory);
+          return { stdout: '', stderr: '' };
+        }
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 701,
+      createdAt: '2026-05-20T10:00:00.000Z'
+    });
+    const memeDispatcher = vi.fn().mockRejectedValue({
+      error_code: 413,
+      description: 'Request Entity Too Large'
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-20T10:00:00.000Z'
+    });
+
+    await expect(
+      orchestrator.handleIncomingMessage(
+        createIncomingMessage({
+          text: canonicalUrl,
+          entities: [],
+          messageId: 44,
+          chatType: 'supergroup'
+        })
+      )
+    ).resolves.toBeUndefined();
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 44,
+      text: 'Видео по ссылке слишком большое: максимум 50 МБ.'
+    });
+    expect(deleteMessageDispatcher).not.toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 44
+    });
+    expect(db.savedMemePosts).toHaveLength(0);
+  });
+
+  test('replies with a duration-specific fallback for overlong direct Reddit videos', async () => {
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      redditPostResponse({
+        id: 'longdirect',
+        subreddit: 'ForzaHorizon',
+        title: 'long direct video',
+        permalink: '/r/ForzaHorizon/comments/longdirect/long_direct_video/',
+        ups: 999,
+        secure_media: {
+          reddit_video: {
+            fallback_url: 'https://v.redd.it/longdirect/DASH_720.mp4',
+            duration: 601
+          }
+        }
+      })
+    );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 701,
+      createdAt: '2026-06-14T12:45:00.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile: vi
+        .fn()
+        .mockRejectedValue(new DirectVideoTooLongError(601, 600)),
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      memeDispatcher: vi.fn(),
+      deleteMessageDispatcher: vi.fn()
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/ForzaHorizon/comments/longdirect/long_direct_video/',
+        entities: [],
+        messageId: 52,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 52,
+      text: 'Видео по ссылке слишком длинное: максимум 10 мин.'
+    });
+  });
+
+  test('replies with a size-specific fallback for oversized direct YouTube videos', async () => {
+    const db = new FakeDatabaseClient();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 702,
+      createdAt: '2026-06-14T12:46:00.000Z'
+    });
+    const memeDispatcher = vi.fn();
+    const deleteMessageDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      execFile: vi
+        .fn()
+        .mockRejectedValue(
+          new DirectVideoTooLargeError(50_000_001, 50_000_000)
+        ),
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://youtu.be/5sMdQW_YYOo',
+        entities: [],
+        messageId: 53
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 53,
+      text: 'Видео по ссылке слишком большое: максимум 50 МБ.'
+    });
+    expect(memeDispatcher).not.toHaveBeenCalled();
+    expect(deleteMessageDispatcher).not.toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 53
+    });
   });
 
   test('expands a direct Reddit image link with the standard meme caption', async () => {

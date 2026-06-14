@@ -1,6 +1,7 @@
 import { mkdtemp, readdir, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { redditMediaActionConfig } from '../../../config/runtime/index.js';
 import {
   execMediaFileDefault,
   MEDIA_EXEC_MAX_BUFFER,
@@ -9,7 +10,8 @@ import {
 import type { ProcessStatusReporter } from '../../process-status.js';
 import type { DownloadedMemeMedia } from './types.js';
 
-export const DIRECT_VIDEO_MAX_DURATION_SECONDS = 120;
+export const DIRECT_VIDEO_MAX_DURATION_SECONDS =
+  redditMediaActionConfig.telegramMedia.videoMaxDurationSeconds;
 const YT_DLP_BIN = 'yt-dlp';
 const NICE_BIN = 'nice';
 const FFMPEG_BIN = 'ffmpeg';
@@ -22,6 +24,42 @@ type VideoProbe = {
   width: number | null;
   height: number | null;
 };
+
+export class DirectVideoTooLargeError extends Error {
+  readonly actualBytes: number;
+  readonly maxBytes: number;
+
+  constructor(actualBytes: number, maxBytes: number) {
+    super(`Media file is too large: ${actualBytes} bytes.`);
+    this.name = 'DirectVideoTooLargeError';
+    this.actualBytes = actualBytes;
+    this.maxBytes = maxBytes;
+  }
+}
+
+export class DirectVideoTooLongError extends Error {
+  readonly durationSeconds: number;
+  readonly maxDurationSeconds: number;
+
+  constructor(durationSeconds: number, maxDurationSeconds: number) {
+    super(`Media duration is too long: ${durationSeconds} seconds.`);
+    this.name = 'DirectVideoTooLongError';
+    this.durationSeconds = durationSeconds;
+    this.maxDurationSeconds = maxDurationSeconds;
+  }
+}
+
+export function isDirectVideoTooLargeError(
+  error: unknown
+): error is DirectVideoTooLargeError {
+  return error instanceof DirectVideoTooLargeError;
+}
+
+export function isDirectVideoTooLongError(
+  error: unknown
+): error is DirectVideoTooLongError {
+  return error instanceof DirectVideoTooLongError;
+}
 
 export type DownloadTelegramSafeVideoInput = {
   url: string;
@@ -216,7 +254,7 @@ async function assertWithinMaxBytes(
   const fileStat = await stat(filePath);
 
   if (fileStat.size > maxBytes) {
-    throw new Error(`Media file is too large: ${fileStat.size} bytes.`);
+    throw new DirectVideoTooLargeError(fileStat.size, maxBytes);
   }
 }
 
@@ -229,7 +267,7 @@ function assertWithinMaxDuration(
     durationSeconds !== null &&
     durationSeconds > maxDurationSeconds
   ) {
-    throw new Error(`Media duration is too long: ${durationSeconds} seconds.`);
+    throw new DirectVideoTooLongError(durationSeconds, maxDurationSeconds);
   }
 }
 

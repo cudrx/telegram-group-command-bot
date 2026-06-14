@@ -40,10 +40,16 @@ export const text = {
   publish: {
     missingTarget:
       'Не нашел сообщение для /publish. Сделай reply или отправь команду после сообщения.',
+    missingDefaultChat:
+      'Для /publish не настроен чат назначения. Добавь adminDefaultChatId в telegram-access-config.json.',
     copyFailed: 'Telegram не дал скопировать это сообщение.'
   },
   meme: {
-    fallback: 'Мемы закончились, идите трогайте траву.'
+    fallback: 'Мемы закончились, идите трогайте траву.',
+    directVideoTooLongFallback: (maxMinutes: number) =>
+      `Видео по ссылке слишком длинное: максимум ${maxMinutes} мин.`,
+    directVideoTooLargeFallback: (maxMegabytes: number) =>
+      `Видео по ссылке слишком большое: максимум ${maxMegabytes} МБ.`
   },
   processStatus: {
     presets: {

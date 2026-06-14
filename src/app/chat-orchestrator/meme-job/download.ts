@@ -19,16 +19,14 @@ export async function downloadResolvedMedia(
       sqlitePath: deps.env.sqlitePath,
       redditCookieHeaderPath: deps.env.redditCookieHeaderPath,
       redditCookiesPath: deps.env.redditCookiesPath,
-      maxBytes: memeActionConfig.media.videoMaxBytes,
+      maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
       ...(deps.fetch ? { fetch: deps.fetch } : {}),
       ...(processStatus ? { processStatus } : {}),
       ...(deps.execFile ? { execFile: deps.execFile } : {})
     });
 
     if (!result) {
-      throw new Error(
-        `yt-dlp could not resolve Reddit video: ${media.mediaUrl}`
-      );
+      throw new Error(`Reddit video could not be resolved: ${media.mediaUrl}`);
     }
 
     return result.downloaded;
@@ -45,9 +43,9 @@ export async function downloadResolvedMedia(
     filename: `meme-media.${media.extension}`,
     maxBytes:
       media.kind === 'video'
-        ? memeActionConfig.media.videoMaxBytes
-        : memeActionConfig.media.imageMaxBytes,
-    timeoutMs: memeActionConfig.media.downloadTimeoutMs,
+        ? memeActionConfig.telegramMedia.videoMaxBytes
+        : memeActionConfig.telegramMedia.imageMaxBytes,
+    timeoutMs: memeActionConfig.telegramMedia.downloadTimeoutMs,
     ...(deps.fetch ? { fetch: deps.fetch } : {})
   });
 
@@ -85,8 +83,8 @@ async function downloadGalleryMedia(
       const downloaded = await downloadMemeMediaToTemp({
         url: item.mediaUrl,
         filename: `meme-gallery-${index + 1}.${item.extension}`,
-        maxBytes: memeActionConfig.media.imageMaxBytes,
-        timeoutMs: memeActionConfig.media.downloadTimeoutMs,
+        maxBytes: memeActionConfig.telegramMedia.imageMaxBytes,
+        timeoutMs: memeActionConfig.telegramMedia.downloadTimeoutMs,
         ...(deps.fetch ? { fetch: deps.fetch } : {})
       });
       downloadedItems.push(downloaded);
