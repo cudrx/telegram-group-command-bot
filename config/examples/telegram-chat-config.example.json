@@ -1,0 +1,32 @@
+[
+  {
+    "chatId": -1001234567890,
+    "label": "main",
+    "features": {
+      "answer": true,
+      "summarize": true,
+      "decide": true,
+      "translate": true,
+      "read": true,
+      "transcribe": true,
+      "meme": true,
+      "sex": false,
+      "direct_links": true
+    }
+  },
+  {
+    "chatId": -1002222222222,
+    "label": "quiet-chat",
+    "features": {
+      "answer": true,
+      "summarize": true,
+      "decide": false,
+      "translate": true,
+      "read": false,
+      "transcribe": false,
+      "meme": false,
+      "sex": false,
+      "direct_links": false
+    }
+  }
+]
