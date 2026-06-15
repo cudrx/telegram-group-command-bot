@@ -2,7 +2,9 @@ import type {
   BotOutputMode,
   SaveMediaArtifactInput,
   SaveMemePostInput,
+  SourceStateKey,
   StoredMediaArtifact,
+  StoredSourceState,
   UpdateChatTtsStateInput
 } from '../../../src/database/index.js';
 import type {
@@ -39,6 +41,7 @@ function findLastMediaArtifact(
 export class FakeDatabaseClient {
   private readonly messages = new Map<number, StoredMessage[]>();
   private readonly chats = new Map<number, ChatState>();
+  private readonly sourceStates = new Map<SourceStateKey, StoredSourceState>();
   readonly savedMediaArtifacts: SaveMediaArtifactInput[] = [];
   readonly savedMemePosts: SaveMemePostInput[] = [];
 
@@ -307,6 +310,16 @@ export class FakeDatabaseClient {
         )
         .map((post) => post.redditPostId)
     );
+  }
+
+  getSourceState(sourceKey: SourceStateKey): StoredSourceState | null {
+    const state = this.sourceStates.get(sourceKey);
+
+    return state ? { ...state } : null;
+  }
+
+  saveSourceState(input: StoredSourceState): void {
+    this.sourceStates.set(input.sourceKey, { ...input });
   }
 
   private insertMessage(message: StoredMessage): boolean {

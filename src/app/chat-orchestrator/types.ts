@@ -24,6 +24,7 @@ import type {
   VisionProvider
 } from '../../media/types.js';
 import type { TelegramChatAction } from '../typing-indicator.js';
+import type { VideoJobQueue } from '../video-job-queue.js';
 
 export type BotIdentity = {
   userId: number;
@@ -150,4 +151,5 @@ export type ChatOrchestratorDeps = {
   logger: AppLogger;
   now: () => string;
   random: () => number;
+  videoJobQueue?: VideoJobQueue | undefined;
 };

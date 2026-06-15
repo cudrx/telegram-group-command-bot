@@ -12,7 +12,15 @@ const redditMediaSharedConfig = {
     imageMaxBytes: 10_000_000,
     videoMaxBytes: 50_000_000, // Default Telegram Bot API upload limit for bot-sent video files.
     videoMaxDurationSeconds: 600,
-    downloadTimeoutMs: 30_000
+    downloadTimeoutMs: 30_000,
+    metadataTimeoutMs: 45_000,
+    videoDownloadTimeoutMs: 240_000,
+    probeTimeoutMs: 15_000,
+    normalizeTimeoutMs: 240_000
+  },
+  videoQueue: {
+    maxConcurrentJobs: 2,
+    maxConcurrentJobsPerChat: 1
   },
   caption: {
     maxLength: 1024

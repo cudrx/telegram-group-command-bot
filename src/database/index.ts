@@ -25,13 +25,16 @@ import {
 } from './messages.js';
 import { migrateExistingSchema } from './migrations.js';
 import { schema } from './schema.js';
+import { getSourceState, saveSourceState } from './source-states.js';
 import type {
   ChatState,
   NormalizedMessage,
   SaveMediaArtifactInput,
   SaveMemePostInput,
+  SourceStateKey,
   StoredMediaArtifact,
   StoredMessage,
+  StoredSourceState,
   UpdateChatTtsStateInput
 } from './types.js';
 
@@ -41,7 +44,9 @@ export type {
   MemeMediaKind,
   SaveMediaArtifactInput,
   SaveMemePostInput,
+  SourceStateKey,
   StoredMediaArtifact,
+  StoredSourceState,
   UpdateChatTtsStateInput
 } from './types.js';
 
@@ -184,6 +189,21 @@ export class DatabaseClient {
     since: string;
   }): Set<string> {
     return getRecentMemePostIds(this.db, input);
+  }
+
+  getSourceState(sourceKey: SourceStateKey): StoredSourceState | null {
+    return getSourceState(this.db, sourceKey);
+  }
+
+  saveSourceState(input: {
+    sourceKey: SourceStateKey;
+    state: 'healthy' | 'blocked';
+    reason: string | null;
+    blockedAt: string | null;
+    cookieFileMtimeMsAtBlock: number | null;
+    updatedAt: string;
+  }): void {
+    saveSourceState(this.db, input);
   }
 
   cleanupExpiredData(input: {

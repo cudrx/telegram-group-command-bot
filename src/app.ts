@@ -9,7 +9,9 @@ import { createCleanupScheduler } from './app/database-cleanup.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
 import { createLlmClient, createOptionalProviders } from './app/providers.js';
 import { createTelegramDispatchers } from './app/telegram-dispatchers.js';
+import { createVideoJobQueue } from './app/video-job-queue.js';
 import type { AppEnv } from './config/env/index.js';
+import { memeActionConfig } from './config/runtime/index.js';
 import { DatabaseClient } from './database/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import {
@@ -52,6 +54,12 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   const qwen = createLlmClient({ env, logger });
   const providers = createOptionalProviders(env);
   const telegramDispatchers = createTelegramDispatchers(bot.api);
+  const videoJobQueue = createVideoJobQueue({
+    maxConcurrentJobs: memeActionConfig.videoQueue.maxConcurrentJobs,
+    maxConcurrentJobsPerChat:
+      memeActionConfig.videoQueue.maxConcurrentJobsPerChat,
+    logger
+  });
   const orchestrator = new ChatOrchestrator({
     db,
     qwen,
@@ -73,7 +81,8 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     delay: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     logger,
     random: Math.random,
-    now: () => new Date().toISOString()
+    now: () => new Date().toISOString(),
+    videoJobQueue
   });
   const cleanupScheduler = createCleanupScheduler({
     db,

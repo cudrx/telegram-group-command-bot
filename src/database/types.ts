@@ -9,6 +9,8 @@ import type {
 export type MediaArtifactStatus = 'success' | 'failed' | 'partial';
 
 export type MemeMediaKind = 'image' | 'video' | 'gallery';
+export type SourceStateKey = 'instagram';
+export type SourceStateStatus = 'healthy' | 'blocked';
 
 export type SaveMediaArtifactInput = {
   fileUniqueId: string | null;
@@ -70,6 +72,15 @@ export type StoredMediaArtifact = {
   expiresAt: string;
 };
 
+export type StoredSourceState = {
+  sourceKey: SourceStateKey;
+  state: SourceStateStatus;
+  reason: string | null;
+  blockedAt: string | null;
+  cookieFileMtimeMsAtBlock: number | null;
+  updatedAt: string;
+};
+
 export type StoredMessageRow = Omit<StoredMessage, 'isBot'> & {
   isBot: number;
   outputMode?: string | null;
@@ -115,6 +126,15 @@ export type StoredMediaArtifactRow = {
   errorText: string | null;
   createdAt: string;
   expiresAt: string;
+};
+
+export type StoredSourceStateRow = {
+  sourceKey: string;
+  state: string;
+  reason: string | null;
+  blockedAt: string | null;
+  cookieFileMtimeMsAtBlock: number | null;
+  updatedAt: string;
 };
 
 export type {

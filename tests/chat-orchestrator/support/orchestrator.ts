@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
 import type { MemeMediaDispatchInput } from '../../../src/app/chat-orchestrator/types.js';
 import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
+import type { VideoJobQueue } from '../../../src/app/video-job-queue.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
 import type { AssistantIntent, ChatState } from '../../../src/domain/models.js';
 import type { AppLogger } from '../../../src/logging/logger.js';
@@ -80,8 +81,13 @@ export function createOrchestrator(input: {
   execFile?: (
     file: string,
     args: string[],
-    options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
+    options?: {
+      cwd?: string | undefined;
+      maxBuffer?: number | undefined;
+      timeoutMs?: number | undefined;
+    }
   ) => Promise<{ stdout: string; stderr: string }>;
+  videoJobQueue?: VideoJobQueue;
   env?: Partial<AppEnv>;
   logger?: AppLogger;
   textToSpeechProvider?: {
@@ -180,6 +186,7 @@ export function createOrchestrator(input: {
     delay: vi.fn().mockResolvedValue(undefined),
     logger: input.logger ?? createLogger(),
     random: input.random ?? (() => 0),
-    now: input.now ?? (() => '2026-04-13T09:00:10.000Z')
+    now: input.now ?? (() => '2026-04-13T09:00:10.000Z'),
+    videoJobQueue: input.videoJobQueue
   });
 }

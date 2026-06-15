@@ -39,6 +39,7 @@ export function migrateExistingSchema(db: Database.Database): void {
     'INTEGER NOT NULL DEFAULT 0'
   );
   ensureMemePosts(db);
+  ensureSourceStates(db);
 }
 
 function ensureMemePosts(db: Database.Database): void {
@@ -70,6 +71,21 @@ function ensureMemePosts(db: Database.Database): void {
     `
       CREATE INDEX IF NOT EXISTS idx_meme_posts_chat_post
       ON meme_posts(chat_id, reddit_post_id)
+    `
+  ).run();
+}
+
+function ensureSourceStates(db: Database.Database): void {
+  db.prepare(
+    `
+      CREATE TABLE IF NOT EXISTS source_states (
+        source_key TEXT PRIMARY KEY,
+        state TEXT NOT NULL,
+        reason TEXT,
+        blocked_at TEXT,
+        cookie_file_mtime_ms_at_block REAL,
+        updated_at TEXT NOT NULL
+      )
     `
   ).run();
 }

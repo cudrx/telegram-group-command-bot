@@ -39,6 +39,9 @@ export const text = {
   },
   meme: {
     fallback: 'Мемы закончились, идите трогайте траву.',
+    videoQueuedFallback: 'Видео поставлено в очередь.',
+    instagramUnavailableFallback:
+      'Instagram временно недоступен. Попробуй позже.',
     directVideoTooLongFallback: (maxMinutes: number) =>
       `Видео по ссылке слишком длинное: максимум ${maxMinutes} мин.`,
     directVideoTooLargeFallback: (maxMegabytes: number) =>

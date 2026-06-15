@@ -111,6 +111,50 @@ describeWithSqlite('DatabaseClient migrations', () => {
     db.close();
   });
 
+  test('adds source_states table when opening an existing database', () => {
+    const directory = mkdtempSync(
+      path.join(os.tmpdir(), 'chatbot-source-states-db-')
+    );
+    const dbPath = path.join(directory, 'bot.sqlite');
+    trackTempDirectory(directory);
+
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      CREATE TABLE chats (
+        chat_id INTEGER PRIMARY KEY,
+        chat_type TEXT NOT NULL,
+        title TEXT,
+        last_message_at TEXT,
+        last_bot_message_at TEXT
+      );
+
+      CREATE TABLE messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        chat_id INTEGER NOT NULL,
+        telegram_message_id INTEGER NOT NULL,
+        user_id INTEGER,
+        sender_display_name TEXT NOT NULL,
+        text TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        is_bot INTEGER NOT NULL DEFAULT 0,
+        reply_to_telegram_message_id INTEGER,
+        UNIQUE (chat_id, telegram_message_id)
+      );
+    `);
+    legacyDb.close();
+
+    const db = DatabaseClient.open(dbPath);
+    expect(db.getSchemaColumns('source_states')).toEqual([
+      'source_key',
+      'state',
+      'reason',
+      'blocked_at',
+      'cookie_file_mtime_ms_at_block',
+      'updated_at'
+    ]);
+    db.close();
+  });
+
   test('does not add removed news_posts table when opening an existing database', () => {
     const directory = mkdtempSync(
       path.join(os.tmpdir(), 'chatbot-news-posts-db-')

@@ -27,6 +27,8 @@ Regular bot mentions, regular private-chat text, unauthorized chats, and private
 - Media recognition results are stored as TTL artifacts; source files are temporary.
 - `/meme` and `/sex` keep downloaded Reddit media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
 - Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels and YouTube Shorts use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
+- Heavy video jobs run through an in-process queue with bounded global concurrency and per-chat concurrency so one chat cannot occupy all video slots.
+- Instagram source access can enter a persistent blocked state in SQLite after auth/rate-limit style `yt-dlp` failures. Blocked Instagram jobs do not start again until the cookie file changes on disk.
 - TTS does not decide reply content: text is generated or read from the replied-to message first, then a local policy decides whether voice can be sent. Local usage/fallback messages are always sent as text.
 - `/transcribe` is an explicit local command for Telegram video messages. It downloads the replied-to Telegram video, extracts audio with `ffmpeg`, transcribes that temporary audio file through the configured speech-to-text provider, replies with text, and does not write a media artifact.
 
@@ -115,6 +117,7 @@ SQLite layer:
 - `media_artifacts`;
 - `app_state`;
 - `meme_posts`;
+- `source_states`;
 - stale-data cleanup, including legacy cleanup for the old `news_posts` table if it still exists in an existing database.
 
 ### `src/llm`
@@ -267,6 +270,7 @@ Behavior:
 - NSFW and spoiler posts are allowed and sent with Telegram's spoiler flag. For galleries, the spoiler flag is applied to every album item. External/self/text and unsupported posts are skipped.
 - If a candidate fails to download, is too large, or Telegram dispatch fails, the bot logs `WARN` through the logger/admin notifier and tries another shuffled candidate from the same listing, then the next subreddit.
 - Images and gallery items are downloaded directly into temporary files; Reddit-hosted video is downloaded through `yt-dlp` with cookies. Direct Reddit MP4/fallback URLs are not download paths for video. Temporary files are cleaned up in `finally`.
+- Video jobs for `/meme`, `/sex`, and direct supported video links are admitted through the shared queue only after a specific video candidate is chosen. Listing fetches and candidate selection stay outside the queue.
 - After successful dispatch, memes store Telegram media metadata; later recognition uses the shared media auto-read flow.
 - Captions are built locally from the original title, `r/<subreddit>`, and a linked upvote counter `↑N` that points to the original post.
 - The media message is sent without replying to the command.
@@ -280,9 +284,10 @@ Behavior:
 - NSFW and spoiler direct Reddit media are sent with Telegram's spoiler flag; for galleries, the flag is applied to every album item.
 - Direct Reddit video links are downloaded through standalone `yt-dlp` available on `PATH` from `/usr/local/bin/yt-dlp`, using the cookie file from `REDDIT_COOKIES_PATH`. The runtime image does not contain Python, `ffmpeg`, or `ffprobe`; deploy compose mounts official standalone `yt-dlp` and static `ffmpeg`/`ffprobe` binaries from `data/bin` into `/usr/local/bin`. Reddit `fallback_url` is used only as a video-post signal, not as a download URL.
 - Instagram Reels are accepted only as `/reel/<shortcode>/` or `/reels/<shortcode>/` URLs and are downloaded through `yt-dlp` with the cookie file from `INSTAGRAM_COOKIES_PATH`. For Reels, `yt-dlp` prefers HLS/m3u8 video + m4a audio before the shared Telegram normalization step.
+- If Instagram returns auth/access failures such as login-required or rate-limit responses, the bot stores a blocked source state in SQLite and sends a local unavailable fallback for that request. Later Instagram jobs are rejected before `yt-dlp` starts until the cookie file modification time changes.
 - YouTube Shorts are accepted as `youtu.be/<id>`, `youtube.com/watch?v=<id>`, and `youtube.com/shorts/<id>`, normalized to `/shorts/<id>`, and downloaded through `yt-dlp` with the cookie file from `YOUTUBE_COOKIES_PATH`.
 - All video-source integrations use the same rule: video from Reddit, Instagram Reels, YouTube Shorts, or similar sites must use `yt-dlp` or an equivalent extractor as the primary download path so video and audio are assembled together; direct MP4 URLs do not bypass that path.
-- Image media is downloaded to a temporary file and sent through Telegram `sendPhoto`; galleries are downloaded into temporary files and sent through `sendMediaGroup`; video is downloaded to a temporary MP4 with a 50 MB cap and a 600-second duration cap, then sent through `sendVideo`. Normalized video is probed before dispatch so Telegram receives `width`, `height`, `duration`, and `supports_streaming` options. Temporary directories are cleaned after dispatch.
+- Image media is downloaded to a temporary file and sent through Telegram `sendPhoto`; galleries are downloaded into temporary files and sent through `sendMediaGroup`; video is downloaded to a temporary MP4 with a 50 MB cap and a 600-second duration cap, then sent through `sendVideo`. If a video job cannot start immediately, the bot sends a short local queue notice before normal video status messages begin. Normalized video is probed before dispatch so Telegram receives `width`, `height`, `duration`, and `supports_streaming` options. Temporary directories are cleaned after dispatch.
 - Reddit captions use the same local format as `/meme`: title, `r/<subreddit>`, and linked upvotes.
 - Reels/Shorts captions omit description/title and use the short format `<source>: <nickname> · likes: <a href="<source-url>"><N></a>`, matching the Reddit metadata-link style.
 - After successful direct Reddit/Reels/Shorts dispatch, the bot calls Telegram `deleteMessage` for the source link message; media is sent without replying to the source message so it does not point back to a deleted message. If Telegram rejects deletion because of permissions, the media message remains.
@@ -305,6 +310,10 @@ Stores normalized provider artifacts, raw response JSON, source metadata, status
 ### `meme_posts`
 
 Stores anti-repeat history for `/meme` and sent direct Reddit media links: `chat_id`, Reddit post id, subreddit, Telegram message id, title, permalink, media kind, primary media URL, upvotes, and sent timestamp. For galleries, primary media URL is stored as `NULL`. Cleanup deletes rows older than `memeHistoryRetentionDays`.
+
+### `source_states`
+
+Stores persistent runtime state for fragile external sources. The first current use is Instagram video access: after auth/rate-limit style `yt-dlp` failures the bot stores a blocked state plus the cookie file modification time seen at block time, then re-allows Instagram only after the cookie file changes.
 
 ### `app_state`
 

@@ -89,6 +89,15 @@ CREATE TABLE IF NOT EXISTS meme_posts (
   UNIQUE (chat_id, reddit_post_id)
 );
 
+CREATE TABLE IF NOT EXISTS source_states (
+  source_key TEXT PRIMARY KEY,
+  state TEXT NOT NULL,
+  reason TEXT,
+  blocked_at TEXT,
+  cookie_file_mtime_ms_at_block REAL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_chat_id_created_at
   ON messages(chat_id, created_at);
 
