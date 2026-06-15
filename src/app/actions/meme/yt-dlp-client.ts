@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { redditMediaActionConfig } from '../../../config/runtime/index.js';
 
 import {
   execMediaFileDefault,
@@ -115,7 +116,10 @@ async function fetchYtDlpMetadata(input: {
       '--no-playlist',
       input.url
     ],
-    { maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+    {
+      maxBuffer: MEDIA_EXEC_MAX_BUFFER,
+      timeoutMs: redditMediaActionConfig.telegramMedia.metadataTimeoutMs
+    }
   );
   const payload = JSON.parse(result.stdout) as unknown;
 

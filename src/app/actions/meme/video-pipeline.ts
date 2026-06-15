@@ -66,6 +66,9 @@ export type DownloadTelegramSafeVideoInput = {
   tempPrefix: string;
   maxBytes: number;
   maxDurationSeconds?: number | undefined;
+  downloadTimeoutMs?: number | undefined;
+  probeTimeoutMs?: number | undefined;
+  normalizeTimeoutMs?: number | undefined;
   ytDlpArgs: string[];
   durationSeconds?: number | null;
   processStatus?: ProcessStatusReporter | undefined;
@@ -96,7 +99,12 @@ export async function downloadTelegramSafeVideoWithYtDlp(
         path.join(tempDirectory, '%(id)s.%(ext)s'),
         input.url
       ],
-      { cwd: tempDirectory }
+      {
+        cwd: tempDirectory,
+        timeoutMs:
+          input.downloadTimeoutMs ??
+          redditMediaActionConfig.telegramMedia.videoDownloadTimeoutMs
+      }
     );
 
     const downloadedPath = await findDownloadedMp4(tempDirectory);
@@ -105,7 +113,10 @@ export async function downloadTelegramSafeVideoWithYtDlp(
     const probe = await probeVideo({
       execFile,
       filePath: downloadedPath,
-      cwd: tempDirectory
+      cwd: tempDirectory,
+      timeoutMs:
+        input.probeTimeoutMs ??
+        redditMediaActionConfig.telegramMedia.probeTimeoutMs
     });
     assertWithinMaxDuration(probe.durationSeconds, input.maxDurationSeconds);
 
@@ -116,7 +127,10 @@ export async function downloadTelegramSafeVideoWithYtDlp(
         execFile,
         inputPath: downloadedPath,
         outputPath,
-        cwd: tempDirectory
+        cwd: tempDirectory,
+        timeoutMs:
+          input.normalizeTimeoutMs ??
+          redditMediaActionConfig.telegramMedia.normalizeTimeoutMs
       });
       return outputPath;
     });
@@ -125,7 +139,10 @@ export async function downloadTelegramSafeVideoWithYtDlp(
     const normalizedProbe = await probeVideo({
       execFile,
       filePath: normalizedPath,
-      cwd: tempDirectory
+      cwd: tempDirectory,
+      timeoutMs:
+        input.probeTimeoutMs ??
+        redditMediaActionConfig.telegramMedia.probeTimeoutMs
     });
 
     return {
@@ -155,6 +172,7 @@ async function probeVideo(input: {
   execFile: MediaExecFile;
   filePath: string;
   cwd: string;
+  timeoutMs: number;
 }): Promise<VideoProbe> {
   const result = await input.execFile(
     FFPROBE_BIN,
@@ -167,7 +185,11 @@ async function probeVideo(input: {
       'json',
       input.filePath
     ],
-    { cwd: input.cwd, maxBuffer: MEDIA_EXEC_MAX_BUFFER }
+    {
+      cwd: input.cwd,
+      maxBuffer: MEDIA_EXEC_MAX_BUFFER,
+      timeoutMs: input.timeoutMs
+    }
   );
   const payload = JSON.parse(result.stdout) as unknown;
 
@@ -182,6 +204,7 @@ async function normalizeVideoForTelegram(input: {
   inputPath: string;
   outputPath: string;
   cwd: string;
+  timeoutMs: number;
 }): Promise<void> {
   await input.execFile(
     NICE_BIN,
@@ -212,7 +235,7 @@ async function normalizeVideoForTelegram(input: {
       '+faststart',
       input.outputPath
     ],
-    { cwd: input.cwd }
+    { cwd: input.cwd, timeoutMs: input.timeoutMs }
   );
 }
 

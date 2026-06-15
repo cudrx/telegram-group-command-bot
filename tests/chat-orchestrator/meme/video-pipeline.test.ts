@@ -303,4 +303,58 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
     await first.cleanup();
     await second.cleanup();
   });
+
+  test('passes stage-specific timeouts to media subprocesses', async () => {
+    const downloadTimeoutMs = 111_000;
+    const probeTimeoutMs = 22_000;
+    const normalizeTimeoutMs = 333_000;
+    const execFile = vi.fn().mockImplementation(
+      async (
+        file: string,
+        args: string[],
+        options?: {
+          cwd?: string | undefined;
+          maxBuffer?: number | undefined;
+          timeoutMs?: number | undefined;
+        }
+      ) => {
+        if (file === 'yt-dlp') {
+          const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+          expect(options?.timeoutMs).toBe(downloadTimeoutMs);
+          await writeFile(
+            path.join(path.dirname(outputTemplate), 'source.mp4'),
+            new Uint8Array([1, 2, 3])
+          );
+          return { stdout: '', stderr: '' };
+        }
+
+        if (file === 'ffprobe') {
+          expect(options?.timeoutMs).toBe(probeTimeoutMs);
+          return {
+            stdout: JSON.stringify({ format: { duration: '10' } }),
+            stderr: ''
+          };
+        }
+
+        expect(file).toBe('nice');
+        expect(options?.timeoutMs).toBe(normalizeTimeoutMs);
+        await writeFile(args.at(-1) ?? '', new Uint8Array([1, 2, 3]));
+        return { stdout: '', stderr: '' };
+      }
+    );
+
+    const result = await downloadTelegramSafeVideoWithYtDlp({
+      execFile,
+      url: 'https://example.com/video',
+      tempPrefix: 'pipeline-timeout-test-',
+      maxBytes: 50_000_000,
+      durationSeconds: 10,
+      downloadTimeoutMs,
+      probeTimeoutMs,
+      normalizeTimeoutMs,
+      ytDlpArgs: ['--cookies', '/tmp/cookies.txt', '-f', 'best']
+    });
+
+    await result.cleanup();
+  });
 });

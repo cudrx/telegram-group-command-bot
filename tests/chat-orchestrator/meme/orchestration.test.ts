@@ -9,6 +9,8 @@ import {
   DirectVideoTooLargeError,
   DirectVideoTooLongError
 } from '../../../src/app/actions/meme/video-pipeline.js';
+import { createVideoJobQueue } from '../../../src/app/video-job-queue.js';
+import { text } from '../../../src/locales/locale.js';
 import { createIncomingMessage } from '../../database/support.js';
 import { createTestChatPolicy } from '../../helpers/telegram-fixtures.js';
 import { FakeDatabaseClient } from '../support/fake-database.js';
@@ -41,6 +43,17 @@ function videoProbeResult(duration = 12): { stdout: string; stderr: string } {
     }),
     stderr: ''
   };
+}
+
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((innerResolve, innerReject) => {
+    resolve = innerResolve;
+    reject = innerReject;
+  });
+
+  return { promise, resolve, reject };
 }
 
 function redditListing(posts: Array<Record<string, unknown>>) {
@@ -382,6 +395,378 @@ describe('ChatOrchestrator /meme command', () => {
       })
     });
     expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
+  test('sends a queue notice when a second direct video job waits behind the first in the same chat', async () => {
+    const firstUpload = createDeferred<void>();
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'queued-instagram-reel-test-')
+    );
+    await writeFile(
+      path.join(dataDirectory, 'instagram-cookies.txt'),
+      '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
+    );
+    const db = new FakeDatabaseClient();
+    const execFile = vi.fn().mockImplementation(
+      async (
+        file: string,
+        args: string[],
+        options?: {
+          cwd?: string | undefined;
+          maxBuffer?: number | undefined;
+          timeoutMs?: number | undefined;
+        }
+      ) => {
+        if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+          return {
+            stdout: JSON.stringify({
+              id: 'DYKAmhRu8g-',
+              title: 'Video by bookstasyaa',
+              channel: 'bookstasyaa',
+              like_count: 3478,
+              duration: 6.8
+            }),
+            stderr: ''
+          };
+        }
+
+        if (file === 'ffprobe') return videoProbeResult();
+        if (file === 'nice') return writeNormalizedVideo(args);
+
+        expect(file).toBe('yt-dlp');
+        const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+        const tempDirectory = path.dirname(outputTemplate);
+        await writeFile(
+          path.join(tempDirectory, 'DYKAmhRu8g-.mp4'),
+          new Uint8Array([1, 2, 3, 4])
+        );
+        expect(options?.cwd).toBe(tempDirectory);
+        return { stdout: '', stderr: '' };
+      }
+    );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 700,
+      createdAt: '2026-05-21T10:00:01.000Z'
+    });
+    const memeDispatcher = vi
+      .fn()
+      .mockImplementationOnce(async () => {
+        await firstUpload.promise;
+        return { messageId: 610, createdAt: '2026-05-21T10:00:00.000Z' };
+      })
+      .mockResolvedValueOnce({
+        messageId: 611,
+        createdAt: '2026-05-21T10:00:02.000Z'
+      });
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      memeDispatcher,
+      videoJobQueue: createVideoJobQueue({
+        maxConcurrentJobs: 1,
+        maxConcurrentJobsPerChat: 1
+      }),
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    const firstJob = orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=abc',
+        entities: [],
+        messageId: 43
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(memeDispatcher).toHaveBeenCalledTimes(1);
+    });
+
+    const secondJob = orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=def',
+        entities: [],
+        messageId: 44
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(replyDispatcher).toHaveBeenCalledWith({
+        chatId: 1,
+        replyToMessageId: 44,
+        text: text.meme.videoQueuedFallback
+      });
+    });
+
+    firstUpload.resolve();
+    await firstJob;
+    await secondJob;
+
+    expect(memeDispatcher).toHaveBeenCalledTimes(2);
+  });
+
+  test('rejects direct Instagram jobs before yt-dlp when the source is locked and cookies are unchanged', async () => {
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'blocked-instagram-reel-test-')
+    );
+    const cookiesPath = path.join(dataDirectory, 'instagram-cookies.txt');
+    await writeFile(
+      cookiesPath,
+      '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
+    );
+    const cookieStat = await import('node:fs/promises').then(({ stat }) =>
+      stat(cookiesPath)
+    );
+    const db = new FakeDatabaseClient();
+    db.saveSourceState({
+      sourceKey: 'instagram',
+      state: 'blocked',
+      reason: 'auth_required',
+      blockedAt: '2026-05-21T09:00:00.000Z',
+      cookieFileMtimeMsAtBlock: cookieStat.mtimeMs,
+      updatedAt: '2026-05-21T09:00:00.000Z'
+    });
+    const execFile = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 701,
+      createdAt: '2026-05-21T10:00:01.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=abc',
+        entities: [],
+        messageId: 45
+      })
+    );
+
+    expect(execFile).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 45,
+      text: text.meme.instagramUnavailableFallback
+    });
+  });
+
+  test('rejects queued Instagram jobs at actual start when the source becomes locked while waiting', async () => {
+    const firstUpload = createDeferred<void>();
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'queued-instagram-lock-test-')
+    );
+    const cookiesPath = path.join(dataDirectory, 'instagram-cookies.txt');
+    await writeFile(
+      cookiesPath,
+      '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
+    );
+    const cookieStat = await import('node:fs/promises').then(({ stat }) =>
+      stat(cookiesPath)
+    );
+    const db = new FakeDatabaseClient();
+    const execFile = vi.fn().mockImplementation(
+      async (
+        file: string,
+        args: string[],
+        options?: {
+          cwd?: string | undefined;
+          maxBuffer?: number | undefined;
+          timeoutMs?: number | undefined;
+        }
+      ) => {
+        if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+          return {
+            stdout: JSON.stringify({
+              id: 'DYKAmhRu8g-',
+              title: 'Video by bookstasyaa',
+              channel: 'bookstasyaa',
+              like_count: 3478,
+              duration: 6.8
+            }),
+            stderr: ''
+          };
+        }
+
+        if (file === 'ffprobe') return videoProbeResult();
+        if (file === 'nice') return writeNormalizedVideo(args);
+
+        expect(file).toBe('yt-dlp');
+        const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+        const tempDirectory = path.dirname(outputTemplate);
+        await writeFile(
+          path.join(tempDirectory, 'DYKAmhRu8g-.mp4'),
+          new Uint8Array([1, 2, 3, 4])
+        );
+        expect(options?.cwd).toBe(tempDirectory);
+        return { stdout: '', stderr: '' };
+      }
+    );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 710,
+      createdAt: '2026-05-21T10:00:01.000Z'
+    });
+    const memeDispatcher = vi.fn().mockImplementationOnce(async () => {
+      await firstUpload.promise;
+      return { messageId: 610, createdAt: '2026-05-21T10:00:00.000Z' };
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      memeDispatcher,
+      videoJobQueue: createVideoJobQueue({
+        maxConcurrentJobs: 1,
+        maxConcurrentJobsPerChat: 1
+      }),
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    const firstJob = orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=abc',
+        entities: [],
+        messageId: 47
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(memeDispatcher).toHaveBeenCalledTimes(1);
+    });
+    const execCallsBeforeQueuedJobStarts = execFile.mock.calls.length;
+
+    const secondJob = orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=def',
+        entities: [],
+        messageId: 48
+      })
+    );
+
+    await vi.waitFor(() => {
+      expect(replyDispatcher).toHaveBeenCalledWith({
+        chatId: 1,
+        replyToMessageId: 48,
+        text: text.meme.videoQueuedFallback
+      });
+    });
+
+    db.saveSourceState({
+      sourceKey: 'instagram',
+      state: 'blocked',
+      reason: 'auth_required',
+      blockedAt: '2026-05-21T09:59:00.000Z',
+      cookieFileMtimeMsAtBlock: cookieStat.mtimeMs,
+      updatedAt: '2026-05-21T09:59:00.000Z'
+    });
+    firstUpload.resolve();
+
+    await firstJob;
+    await secondJob;
+
+    expect(execFile).toHaveBeenCalledTimes(execCallsBeforeQueuedJobStarts);
+    expect(memeDispatcher).toHaveBeenCalledTimes(1);
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 48,
+      text: text.meme.instagramUnavailableFallback
+    });
+  });
+
+  test('blocks Instagram source after auth-style yt-dlp failure', async () => {
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'instagram-lock-on-failure-test-')
+    );
+    const cookiesPath = path.join(dataDirectory, 'instagram-cookies.txt');
+    await writeFile(
+      cookiesPath,
+      '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
+    );
+    const cookieStat = await import('node:fs/promises').then(({ stat }) =>
+      stat(cookiesPath)
+    );
+    const db = new FakeDatabaseClient();
+    const execFile = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          [
+            'WARNING: [Instagram] Main webpage is locked behind the login page.',
+            'ERROR: [Instagram] Requested content is not available, rate-limit reached or login required.'
+          ].join('\n')
+        )
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 702,
+      createdAt: '2026-05-21T10:00:01.000Z'
+    });
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      env: {
+        sqlitePath: path.join(dataDirectory, 'bot.sqlite')
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/?igsh=abc',
+        entities: [],
+        messageId: 46
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 46,
+      text: text.meme.instagramUnavailableFallback
+    });
+    expect(db.getSourceState('instagram')).toEqual({
+      sourceKey: 'instagram',
+      state: 'blocked',
+      reason: 'auth_required',
+      blockedAt: '2026-05-21T10:00:00.000Z',
+      cookieFileMtimeMsAtBlock: cookieStat.mtimeMs,
+      updatedAt: '2026-05-21T10:00:00.000Z'
+    });
   });
 
   test('expands a direct Reddit video link without replying to the deleted source message', async () => {

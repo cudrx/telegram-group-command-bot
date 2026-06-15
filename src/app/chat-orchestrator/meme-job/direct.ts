@@ -12,6 +12,12 @@ import {
 import { downloadYoutubeShortWithYtDlp } from '../../actions/meme/youtube-short-client.js';
 import { downloadRedditVideoWithYtDlp } from '../../actions/meme/yt-dlp-client.js';
 import { runWithProcessStatus } from '../../process-status.js';
+import {
+  assertInstagramSourceAvailable,
+  InstagramSourceLockedError,
+  isInstagramSourceLockError,
+  markInstagramSourceBlocked
+} from '../../source-locks/instagram-source-lock.js';
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
 import { dispatchTextReply } from '../outbound-voice.js';
 import {
@@ -19,6 +25,7 @@ import {
   sendCandidate,
   sendDownloadedCandidate
 } from './send.js';
+import { runQueuedVideoJob } from './video-job.js';
 
 export async function runDirectMediaMemeJob(
   input: MemeJobInput & {
@@ -54,43 +61,50 @@ async function runDirectRedditVideoMemeJob(
     input.logger.warn('reddit_video_resolution_failed', serializeError(error));
 
     try {
-      const sentFallback = await runWithProcessStatus(
-        input.deps,
-        {
-          chatId: input.request.chatId,
-          status: {
-            preset: 'video_pipeline'
-          }
-        },
-        async (status) => {
-          const fallback = await downloadRedditVideoWithYtDlp({
-            text: input.text,
-            sqlitePath: input.deps.env.sqlitePath,
-            redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
-            redditCookiesPath: input.deps.env.redditCookiesPath,
-            maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
-            ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
-            processStatus: status,
-            ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
-          });
-
-          if (!fallback) {
-            return false;
-          }
-
-          await status.stage('upload');
-          await sendDownloadedCandidate(
-            input,
-            fallback.candidate,
-            fallback.downloaded,
+      const sentFallback = await runQueuedVideoJob({
+        job: input,
+        source: 'reddit',
+        run: () =>
+          runWithProcessStatus(
+            input.deps,
             {
-              reply: false
-            }
-          );
+              chatId: input.request.chatId,
+              status: {
+                preset: 'video_pipeline'
+              }
+            },
+            async (status) => {
+              const fallback = await downloadRedditVideoWithYtDlp({
+                text: input.text,
+                sqlitePath: input.deps.env.sqlitePath,
+                redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
+                redditCookiesPath: input.deps.env.redditCookiesPath,
+                maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
+                ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
+                processStatus: status,
+                ...(input.deps.execFile
+                  ? { execFile: input.deps.execFile }
+                  : {})
+              });
 
-          return true;
-        }
-      );
+              if (!fallback) {
+                return false;
+              }
+
+              await status.stage('upload');
+              await sendDownloadedCandidate(
+                input,
+                fallback.candidate,
+                fallback.downloaded,
+                {
+                  reply: false
+                }
+              );
+
+              return true;
+            }
+          )
+      });
       if (!sentFallback) return false;
     } catch (fallbackError) {
       if (await handleDirectVideoFailure(input, fallbackError)) {
@@ -127,28 +141,101 @@ async function runDirectRedditVideoMemeJob(
 async function runDirectYoutubeShortMemeJob(
   input: MemeJobInput & { text: string }
 ): Promise<boolean> {
-  let short: Awaited<ReturnType<typeof downloadYoutubeShortWithYtDlp>>;
-
   try {
-    short = await runWithProcessStatus(
-      input.deps,
-      {
-        chatId: input.request.chatId,
-        status: {
-          preset: 'video_pipeline'
+    const sentShort = await runQueuedVideoJob({
+      job: input,
+      source: 'youtube',
+      run: async () => {
+        const short = await runWithProcessStatus(
+          input.deps,
+          {
+            chatId: input.request.chatId,
+            status: {
+              preset: 'video_pipeline'
+            }
+          },
+          (status) =>
+            downloadYoutubeShortWithYtDlp({
+              text: input.text,
+              sqlitePath: input.deps.env.sqlitePath,
+              youtubeCookiesPath: input.deps.env.youtubeCookiesPath,
+              maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
+              captionMaxLength: memeActionConfig.caption.maxLength,
+              processStatus: status,
+              ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+            })
+        );
+        if (!short) return false;
+
+        try {
+          const sent = await runWithProcessStatus(
+            input.deps,
+            {
+              chatId: input.request.chatId,
+              status: {
+                preset: 'video_pipeline',
+                startStage: 'upload'
+              }
+            },
+            async (status) => {
+              await status.stage('upload');
+
+              return dispatchMemeMedia({
+                memeDispatcher: input.deps.memeDispatcher,
+                chatId: input.request.chatId,
+                replyToMessageId: null,
+                reply: false,
+                caption: short.caption,
+                media: short.downloaded
+              });
+            }
+          );
+
+          input.deps.db.saveBotMessage({
+            chatId: input.request.chatId,
+            chatType: input.request.chatType,
+            chatTitle: input.request.chatTitle,
+            messageId: sent.messageId,
+            text: short.caption,
+            createdAt: sent.createdAt,
+            userId: input.deps.bot.userId,
+            username: input.deps.bot.username,
+            displayName: input.deps.bot.displayName,
+            replyToMessageId: null,
+            outputMode: 'text',
+            mediaSnapshot: sent.mediaSnapshot ?? null
+          });
+
+          const storedMessage = input.deps.db.getMessageByTelegramMessageId(
+            input.request.chatId,
+            sent.messageId
+          );
+
+          if (storedMessage) {
+            input.mediaSupport?.startAutoReadForIncomingMessage(
+              storedMessage,
+              input.logger
+            );
+          }
+        } catch (error) {
+          if (await handleDirectVideoFailure(input, error)) {
+            return true;
+          }
+
+          input.logger.warn(
+            'youtube_short_dispatch_failed',
+            serializeError(error)
+          );
+          return true;
+        } finally {
+          await short.downloaded.cleanup();
         }
-      },
-      (status) =>
-        downloadYoutubeShortWithYtDlp({
-          text: input.text,
-          sqlitePath: input.deps.env.sqlitePath,
-          youtubeCookiesPath: input.deps.env.youtubeCookiesPath,
-          maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
-          captionMaxLength: memeActionConfig.caption.maxLength,
-          processStatus: status,
-          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
-        })
-    );
+
+        await deleteSourceMessage(input);
+        return true;
+      }
+    });
+    if (!sentShort) return false;
   } catch (error) {
     if (await handleDirectVideoFailure(input, error)) {
       return true;
@@ -158,99 +245,126 @@ async function runDirectYoutubeShortMemeJob(
     return false;
   }
 
-  if (!short) return false;
-
-  try {
-    const sent = await runWithProcessStatus(
-      input.deps,
-      {
-        chatId: input.request.chatId,
-        status: {
-          preset: 'video_pipeline',
-          startStage: 'upload'
-        }
-      },
-      async (status) => {
-        await status.stage('upload');
-
-        return dispatchMemeMedia({
-          memeDispatcher: input.deps.memeDispatcher,
-          chatId: input.request.chatId,
-          replyToMessageId: null,
-          reply: false,
-          caption: short.caption,
-          media: short.downloaded
-        });
-      }
-    );
-
-    input.deps.db.saveBotMessage({
-      chatId: input.request.chatId,
-      chatType: input.request.chatType,
-      chatTitle: input.request.chatTitle,
-      messageId: sent.messageId,
-      text: short.caption,
-      createdAt: sent.createdAt,
-      userId: input.deps.bot.userId,
-      username: input.deps.bot.username,
-      displayName: input.deps.bot.displayName,
-      replyToMessageId: null,
-      outputMode: 'text',
-      mediaSnapshot: sent.mediaSnapshot ?? null
-    });
-
-    const storedMessage = input.deps.db.getMessageByTelegramMessageId(
-      input.request.chatId,
-      sent.messageId
-    );
-
-    if (storedMessage) {
-      input.mediaSupport?.startAutoReadForIncomingMessage(
-        storedMessage,
-        input.logger
-      );
-    }
-  } catch (error) {
-    if (await handleDirectVideoFailure(input, error)) {
-      return true;
-    }
-
-    input.logger.warn('youtube_short_dispatch_failed', serializeError(error));
-    return true;
-  } finally {
-    await short.downloaded.cleanup();
-  }
-
-  await deleteSourceMessage(input);
   return true;
 }
 
 async function runDirectInstagramReelMemeJob(
   input: MemeJobInput & { text: string }
 ): Promise<boolean> {
-  let reel: Awaited<ReturnType<typeof downloadInstagramReelWithYtDlp>>;
-
   try {
-    reel = await runWithProcessStatus(
-      input.deps,
-      {
-        chatId: input.request.chatId,
-        status: {
-          preset: 'video_pipeline'
-        }
+    const sentReel = await runQueuedVideoJob({
+      job: input,
+      source: 'instagram',
+      beforeRun: async () => {
+        await assertInstagramSourceAvailable({
+          db: input.deps.db,
+          cookiesPath: input.deps.env.instagramCookiesPath,
+          now: input.deps.now(),
+          logger: input.logger
+        });
       },
-      (status) =>
-        downloadInstagramReelWithYtDlp({
-          text: input.text,
-          sqlitePath: input.deps.env.sqlitePath,
-          instagramCookiesPath: input.deps.env.instagramCookiesPath,
-          maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
-          captionMaxLength: memeActionConfig.caption.maxLength,
-          processStatus: status,
-          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
-        })
-    );
+      run: async () => {
+        const reel = await runWithProcessStatus(
+          input.deps,
+          {
+            chatId: input.request.chatId,
+            status: {
+              preset: 'video_pipeline'
+            }
+          },
+          (status) =>
+            downloadInstagramReelWithYtDlp({
+              text: input.text,
+              sqlitePath: input.deps.env.sqlitePath,
+              instagramCookiesPath: input.deps.env.instagramCookiesPath,
+              maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
+              captionMaxLength: memeActionConfig.caption.maxLength,
+              processStatus: status,
+              ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+            })
+        );
+        if (!reel) return false;
+
+        try {
+          const sent = await runWithProcessStatus(
+            input.deps,
+            {
+              chatId: input.request.chatId,
+              status: {
+                preset: 'video_pipeline',
+                startStage: 'upload'
+              }
+            },
+            async (status) => {
+              await status.stage('upload');
+
+              return dispatchMemeMedia({
+                memeDispatcher: input.deps.memeDispatcher,
+                chatId: input.request.chatId,
+                replyToMessageId: null,
+                reply: false,
+                caption: reel.caption,
+                media: reel.downloaded
+              });
+            }
+          );
+
+          input.deps.db.saveBotMessage({
+            chatId: input.request.chatId,
+            chatType: input.request.chatType,
+            chatTitle: input.request.chatTitle,
+            messageId: sent.messageId,
+            text: reel.caption,
+            createdAt: sent.createdAt,
+            userId: input.deps.bot.userId,
+            username: input.deps.bot.username,
+            displayName: input.deps.bot.displayName,
+            replyToMessageId: null,
+            outputMode: 'text',
+            mediaSnapshot: sent.mediaSnapshot ?? null
+          });
+
+          const storedMessage = input.deps.db.getMessageByTelegramMessageId(
+            input.request.chatId,
+            sent.messageId
+          );
+
+          if (storedMessage) {
+            input.mediaSupport?.startAutoReadForIncomingMessage(
+              storedMessage,
+              input.logger
+            );
+          }
+        } catch (error) {
+          if (await handleDirectVideoFailure(input, error)) {
+            return true;
+          }
+
+          input.logger.warn(
+            'instagram_reel_dispatch_failed',
+            serializeError(error)
+          );
+          return true;
+        } finally {
+          await reel.downloaded.cleanup();
+        }
+
+        await deleteSourceMessage(input);
+        return true;
+      }
+    });
+    if (!sentReel) return false;
   } catch (error) {
+    if (isInstagramSourceLockError(error)) {
+      await markInstagramSourceBlocked({
+        db: input.deps.db,
+        cookiesPath: input.deps.env.instagramCookiesPath,
+        reason: 'auth_required',
+        now: input.deps.now(),
+        logger: input.logger
+      });
+    }
+
     if (await handleDirectVideoFailure(input, error)) {
       return true;
     }
@@ -259,70 +373,6 @@ async function runDirectInstagramReelMemeJob(
     return false;
   }
 
-  if (!reel) return false;
-
-  try {
-    const sent = await runWithProcessStatus(
-      input.deps,
-      {
-        chatId: input.request.chatId,
-        status: {
-          preset: 'video_pipeline',
-          startStage: 'upload'
-        }
-      },
-      async (status) => {
-        await status.stage('upload');
-
-        return dispatchMemeMedia({
-          memeDispatcher: input.deps.memeDispatcher,
-          chatId: input.request.chatId,
-          replyToMessageId: null,
-          reply: false,
-          caption: reel.caption,
-          media: reel.downloaded
-        });
-      }
-    );
-
-    input.deps.db.saveBotMessage({
-      chatId: input.request.chatId,
-      chatType: input.request.chatType,
-      chatTitle: input.request.chatTitle,
-      messageId: sent.messageId,
-      text: reel.caption,
-      createdAt: sent.createdAt,
-      userId: input.deps.bot.userId,
-      username: input.deps.bot.username,
-      displayName: input.deps.bot.displayName,
-      replyToMessageId: null,
-      outputMode: 'text',
-      mediaSnapshot: sent.mediaSnapshot ?? null
-    });
-
-    const storedMessage = input.deps.db.getMessageByTelegramMessageId(
-      input.request.chatId,
-      sent.messageId
-    );
-
-    if (storedMessage) {
-      input.mediaSupport?.startAutoReadForIncomingMessage(
-        storedMessage,
-        input.logger
-      );
-    }
-  } catch (error) {
-    if (await handleDirectVideoFailure(input, error)) {
-      return true;
-    }
-
-    input.logger.warn('instagram_reel_dispatch_failed', serializeError(error));
-    return true;
-  } finally {
-    await reel.downloaded.cleanup();
-  }
-
-  await deleteSourceMessage(input);
   return true;
 }
 
@@ -375,6 +425,24 @@ async function handleDirectVideoFailure(
       text: text.meme.directVideoTooLargeFallback(
         Math.floor(memeActionConfig.telegramMedia.videoMaxBytes / 1_000_000)
       )
+    });
+    return true;
+  }
+
+  if (error instanceof InstagramSourceLockedError) {
+    await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: text.meme.instagramUnavailableFallback
+    });
+    return true;
+  }
+
+  if (isInstagramSourceLockError(error)) {
+    await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: text.meme.instagramUnavailableFallback
     });
     return true;
   }

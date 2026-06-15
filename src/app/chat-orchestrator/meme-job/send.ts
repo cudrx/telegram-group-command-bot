@@ -12,6 +12,7 @@ import { runWithProcessStatus } from '../../process-status.js';
 import type { ChatOrchestratorMediaSupport } from '../media/index.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { downloadResolvedMedia, getMemeChatAction } from './download.js';
+import { runQueuedVideoJob } from './video-job.js';
 
 export type MemeListingJobConfig = {
   subreddits: readonly string[];
@@ -28,6 +29,14 @@ export type MemeListingJobConfig = {
     videoMaxBytes: number;
     videoMaxDurationSeconds: number;
     downloadTimeoutMs: number;
+    metadataTimeoutMs: number;
+    videoDownloadTimeoutMs: number;
+    probeTimeoutMs: number;
+    normalizeTimeoutMs: number;
+  };
+  videoQueue: {
+    maxConcurrentJobs: number;
+    maxConcurrentJobsPerChat: number;
   };
   caption: {
     maxLength: number;
@@ -47,40 +56,55 @@ export async function sendCandidate(
   candidate: MemePostCandidate,
   options: { reply?: boolean } = {}
 ): Promise<void> {
-  const processStatusOptions = {
-    chatId: input.request.chatId,
-    replyToMessageId:
-      (options.reply ?? true) !== false ? input.request.triggerMessageId : null,
-    action: getMemeChatAction(candidate.media),
-    ...(options.reply !== undefined ? { reply: options.reply } : {}),
-    ...(candidate.media.kind === 'video'
-      ? {
-          status: {
-            preset: 'video_pipeline'
-          } as const
-        }
-      : {
-          status: {
-            preset: getMemeSearchStatusPreset(input),
-            startStage: 'download'
-          } as const
-        })
+  const runCandidate = async () => {
+    const processStatusOptions = {
+      chatId: input.request.chatId,
+      replyToMessageId:
+        (options.reply ?? true) !== false
+          ? input.request.triggerMessageId
+          : null,
+      action: getMemeChatAction(candidate.media),
+      ...(options.reply !== undefined ? { reply: options.reply } : {}),
+      ...(candidate.media.kind === 'video'
+        ? {
+            status: {
+              preset: 'video_pipeline'
+            } as const
+          }
+        : {
+            status: {
+              preset: getMemeSearchStatusPreset(input),
+              startStage: 'download'
+            } as const
+          })
+    };
+
+    await runWithProcessStatus(
+      input.deps,
+      processStatusOptions,
+      async (status) => {
+        const downloaded = await downloadResolvedMedia(
+          input.deps,
+          candidate.media,
+          status
+        );
+        await status.stage('upload');
+
+        await sendDownloadedCandidate(input, candidate, downloaded, options);
+      }
+    );
   };
 
-  await runWithProcessStatus(
-    input.deps,
-    processStatusOptions,
-    async (status) => {
-      const downloaded = await downloadResolvedMedia(
-        input.deps,
-        candidate.media,
-        status
-      );
-      await status.stage('upload');
+  if (candidate.media.kind !== 'video') {
+    await runCandidate();
+    return;
+  }
 
-      await sendDownloadedCandidate(input, candidate, downloaded, options);
-    }
-  );
+  await runQueuedVideoJob({
+    job: input,
+    source: 'reddit',
+    run: runCandidate
+  });
 }
 
 export async function sendDownloadedCandidate(

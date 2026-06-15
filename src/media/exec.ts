@@ -6,10 +6,16 @@ import { promisify } from 'node:util';
 
 export const MEDIA_EXEC_MAX_BUFFER = 64 * 1024 * 1024;
 
+export type MediaExecOptions = {
+  cwd?: string | undefined;
+  maxBuffer?: number | undefined;
+  timeoutMs?: number | undefined;
+};
+
 export type MediaExecFile = (
   file: string,
   args: string[],
-  options?: { cwd?: string | undefined; maxBuffer?: number | undefined }
+  options?: MediaExecOptions
 ) => Promise<{ stdout: string; stderr: string }>;
 
 const execFileAsync = promisify(execFileCallback);
@@ -19,9 +25,11 @@ export const execMediaFileDefault: MediaExecFile = async (
   args,
   options
 ) => {
+  const { timeoutMs, ...execOptions } = options ?? {};
   const result = await execFileAsync(file, args, {
-    ...options,
-    maxBuffer: options?.maxBuffer ?? MEDIA_EXEC_MAX_BUFFER
+    ...execOptions,
+    maxBuffer: execOptions.maxBuffer ?? MEDIA_EXEC_MAX_BUFFER,
+    ...(timeoutMs !== undefined ? { timeout: timeoutMs } : {})
   } satisfies ExecFileOptions);
 
   return {
