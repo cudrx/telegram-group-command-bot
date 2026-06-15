@@ -1,4 +1,5 @@
 import { memeActionConfig } from '../../../config/runtime/index.js';
+import { text } from '../../../locales/locale.js';
 import { formatMemeCaption } from '../../actions/meme/caption.js';
 import type { RedditListingTimeRange } from '../../actions/meme/reddit-listing-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
@@ -187,6 +188,32 @@ export async function sendMemeFallback(
   input: Pick<MemeJobInput, 'deps' | 'request' | 'config'>
 ): Promise<void> {
   const fallbackText = getMemeJobConfig(input).fallbackText;
+  const sent = await input.deps.replyDispatcher({
+    chatId: input.request.chatId,
+    replyToMessageId: input.request.triggerMessageId,
+    text: fallbackText
+  });
+
+  input.deps.db.saveBotMessage({
+    chatId: input.request.chatId,
+    chatType: input.request.chatType,
+    chatTitle: input.request.chatTitle,
+    messageId: sent.messageId,
+    text: fallbackText,
+    createdAt: sent.createdAt,
+    userId: input.deps.bot.userId,
+    username: input.deps.bot.username,
+    displayName: input.deps.bot.displayName,
+    replyToMessageId: input.request.triggerMessageId,
+    outputMode: 'text'
+  });
+}
+
+export async function sendMemeFloodWaitFallback(
+  input: Pick<MemeJobInput, 'deps' | 'request'>,
+  retryAfterSeconds: number
+): Promise<void> {
+  const fallbackText = text.meme.floodWaitFallback(retryAfterSeconds);
   const sent = await input.deps.replyDispatcher({
     chatId: input.request.chatId,
     replyToMessageId: input.request.triggerMessageId,

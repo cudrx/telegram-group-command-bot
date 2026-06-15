@@ -4,15 +4,28 @@ import { fetchRedditListingCandidates } from '../../actions/meme/reddit-listing-
 import { selectMemeSources } from '../../actions/meme/source-selection.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
 import { runWithProcessStatus } from '../../process-status.js';
+import { getTelegramRetryAfterSeconds } from '../../telegram-rate-limit.js';
 import {
   getMemeJobConfig,
   type MemeJobInput,
   sendCandidate,
-  sendMemeFallback
+  sendMemeFallback,
+  sendMemeFloodWaitFallback
 } from './send.js';
 
 export async function runMemeJob(input: MemeJobInput): Promise<void> {
   const { deps, request, logger } = input;
+  const activeFloodWaitSeconds =
+    deps.memeFloodGate?.getRetryAfterSeconds(request.chatId) ?? null;
+
+  if (activeFloodWaitSeconds !== null && activeFloodWaitSeconds > 0) {
+    await sendFloodWaitNotice(input, activeFloodWaitSeconds);
+    logger.debug('meme_job_rejected_flood_wait', {
+      replyToMessageId: request.triggerMessageId,
+      retryAfterSeconds: activeFloodWaitSeconds
+    });
+    return;
+  }
 
   try {
     logger.debug('meme_job_started', {
@@ -42,6 +55,10 @@ export async function runMemeJob(input: MemeJobInput): Promise<void> {
       replyToMessageId: request.triggerMessageId
     });
   } catch (error) {
+    if (error instanceof MemeFloodWaitError) {
+      return;
+    }
+
     logger.error('meme_job_failed', serializeError(error));
   }
 }
@@ -65,6 +82,10 @@ async function selectAndSendMeme(input: MemeJobInput): Promise<boolean> {
 
       if (sent) return true;
     } catch (error) {
+      if (error instanceof MemeFloodWaitError) {
+        throw error;
+      }
+
       input.logger.warn('meme_source_failed', {
         subreddit,
         ...serializeError(error)
@@ -106,6 +127,24 @@ async function selectAndSendFromSubreddit(
       await sendCandidate(input, candidate, { reply: false });
       return true;
     } catch (error) {
+      const retryAfterSeconds = getTelegramRetryAfterSeconds(error);
+      if (retryAfterSeconds !== null) {
+        input.deps.memeFloodGate?.block(
+          input.request.chatId,
+          retryAfterSeconds
+        );
+        input.logger.warn('meme_job_rate_limited', {
+          subreddit: candidate.subreddit,
+          redditPostId: candidate.redditPostId,
+          permalink: candidate.permalink,
+          mediaKind: candidate.media.kind,
+          retryAfterSeconds,
+          ...serializeError(error)
+        });
+        await sendFloodWaitNotice(input, retryAfterSeconds);
+        throw new MemeFloodWaitError(retryAfterSeconds);
+      }
+
       input.logger.warn('meme_candidate_failed', {
         subreddit: candidate.subreddit,
         redditPostId: candidate.redditPostId,
@@ -117,6 +156,24 @@ async function selectAndSendFromSubreddit(
   }
 
   return false;
+}
+
+class MemeFloodWaitError extends Error {
+  constructor(readonly retryAfterSeconds: number) {
+    super(`Telegram flood wait active for ${retryAfterSeconds} seconds.`);
+    this.name = 'MemeFloodWaitError';
+  }
+}
+
+async function sendFloodWaitNotice(
+  input: MemeJobInput,
+  retryAfterSeconds: number
+): Promise<void> {
+  try {
+    await sendMemeFloodWaitFallback(input, retryAfterSeconds);
+  } catch (error) {
+    input.logger.warn('meme_flood_wait_notice_failed', serializeError(error));
+  }
 }
 
 function shuffleCandidates(

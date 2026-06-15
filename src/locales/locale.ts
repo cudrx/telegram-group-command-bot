@@ -40,6 +40,8 @@ export const text = {
   meme: {
     fallback: 'Мемы закончились, идите трогайте траву.',
     videoQueuedFallback: 'Видео поставлено в очередь.',
+    floodWaitFallback: (retryAfterSeconds: number) =>
+      `Телеграм просит подождать ${retryAfterSeconds} сек. Попробуй позже.`,
     instagramUnavailableFallback:
       'Instagram временно недоступен. Попробуй позже.',
     directVideoTooLongFallback: (maxMinutes: number) =>

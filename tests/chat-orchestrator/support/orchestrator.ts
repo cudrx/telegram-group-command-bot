@@ -2,6 +2,10 @@ import { vi } from 'vitest';
 
 import { ChatOrchestrator } from '../../../src/app/chat-orchestrator/index.js';
 import type { MemeMediaDispatchInput } from '../../../src/app/chat-orchestrator/types.js';
+import {
+  createMemeFloodGate,
+  type MemeFloodGate
+} from '../../../src/app/meme-flood-gate.js';
 import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { VideoJobQueue } from '../../../src/app/video-job-queue.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
@@ -87,6 +91,7 @@ export function createOrchestrator(input: {
       timeoutMs?: number | undefined;
     }
   ) => Promise<{ stdout: string; stderr: string }>;
+  memeFloodGate?: MemeFloodGate;
   videoJobQueue?: VideoJobQueue;
   env?: Partial<AppEnv>;
   logger?: AppLogger;
@@ -187,6 +192,7 @@ export function createOrchestrator(input: {
     logger: input.logger ?? createLogger(),
     random: input.random ?? (() => 0),
     now: input.now ?? (() => '2026-04-13T09:00:10.000Z'),
+    memeFloodGate: input.memeFloodGate ?? createMemeFloodGate(),
     videoJobQueue: input.videoJobQueue
   });
 }

@@ -7,6 +7,7 @@ import {
 import { ChatOrchestrator } from './app/chat-orchestrator/index.js';
 import { createCleanupScheduler } from './app/database-cleanup.js';
 import { maybeAnnounceDeployUpdate } from './app/deploy-announcer.js';
+import { createMemeFloodGate } from './app/meme-flood-gate.js';
 import { createLlmClient, createOptionalProviders } from './app/providers.js';
 import { createTelegramDispatchers } from './app/telegram-dispatchers.js';
 import { createVideoJobQueue } from './app/video-job-queue.js';
@@ -54,6 +55,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   const qwen = createLlmClient({ env, logger });
   const providers = createOptionalProviders(env);
   const telegramDispatchers = createTelegramDispatchers(bot.api);
+  const memeFloodGate = createMemeFloodGate();
   const videoJobQueue = createVideoJobQueue({
     maxConcurrentJobs: memeActionConfig.videoQueue.maxConcurrentJobs,
     maxConcurrentJobsPerChat:
@@ -82,6 +84,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     logger,
     random: Math.random,
     now: () => new Date().toISOString(),
+    memeFloodGate,
     videoJobQueue
   });
   const cleanupScheduler = createCleanupScheduler({

@@ -23,6 +23,7 @@ import type {
   TextToSpeechProvider,
   VisionProvider
 } from '../../media/types.js';
+import type { MemeFloodGate } from '../meme-flood-gate.js';
 import type { TelegramChatAction } from '../typing-indicator.js';
 import type { VideoJobQueue } from '../video-job-queue.js';
 
@@ -151,5 +152,6 @@ export type ChatOrchestratorDeps = {
   logger: AppLogger;
   now: () => string;
   random: () => number;
+  memeFloodGate?: MemeFloodGate | undefined;
   videoJobQueue?: VideoJobQueue | undefined;
 };
