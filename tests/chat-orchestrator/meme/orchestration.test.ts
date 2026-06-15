@@ -1582,6 +1582,104 @@ describe('ChatOrchestrator /meme command', () => {
     });
   });
 
+  test('logs the Reddit post URL when a sex candidate fails before trying the next post', async () => {
+    const db = new FakeDatabaseClient();
+    const sexSubreddit = 'custom-sex-subreddit';
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+      warn: vi.fn(),
+      error: vi.fn(),
+      child: vi.fn()
+    };
+    logger.child.mockReturnValue(logger);
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditListing([
+          {
+            id: 'sex-failed',
+            subreddit: sexSubreddit,
+            title: 'bad dimensions',
+            url: 'https://i.redd.it/sex-failed.jpeg',
+            ups: 120
+          },
+          {
+            id: 'sex-success',
+            subreddit: sexSubreddit,
+            title: 'good dimensions',
+            url: 'https://i.redd.it/sex-success.jpeg',
+            ups: 110
+          }
+        ])
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Length': '3' }
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([4, 5, 6]), {
+          headers: { 'Content-Length': '3' }
+        })
+      );
+    const memeDispatcher = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "Call to 'sendPhoto' failed! (400: Bad Request: PHOTO_INVALID_DIMENSIONS)"
+        )
+      )
+      .mockResolvedValueOnce({
+        messageId: 522,
+        createdAt: '2026-05-11T10:00:01.000Z'
+      });
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      logger,
+      random: () => 0,
+      now: () => '2026-05-11T10:00:00.000Z',
+      env: {
+        telegramChatPolicies: [
+          createTestChatPolicy({
+            chatId: 1,
+            reddit_sources: {
+              sex: [sexSubreddit]
+            }
+          })
+        ]
+      },
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: '/sex',
+        entities: [{ type: 'bot_command', offset: 0, length: 4 }],
+        createdAt: '2026-05-11T10:00:00.000Z'
+      })
+    );
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      'meme_candidate_failed',
+      expect.objectContaining({
+        subreddit: sexSubreddit,
+        redditPostId: 'sex-failed',
+        mediaKind: 'image',
+        permalink: `https://www.reddit.com/r/${sexSubreddit}/comments/sex-failed/post_title/`,
+        errorMessage:
+          "Call to 'sendPhoto' failed! (400: Bad Request: PHOTO_INVALID_DIMENSIONS)"
+      })
+    );
+    expect(memeDispatcher).toHaveBeenCalledTimes(2);
+  });
+
   test('always sends sex video media as Telegram spoiler media', async () => {
     let dispatchedFilePath = '';
     const dataDirectory = await mkdtemp(

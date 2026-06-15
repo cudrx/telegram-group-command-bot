@@ -109,6 +109,7 @@ async function selectAndSendFromSubreddit(
       input.logger.warn('meme_candidate_failed', {
         subreddit: candidate.subreddit,
         redditPostId: candidate.redditPostId,
+        permalink: candidate.permalink,
         mediaKind: candidate.media.kind,
         ...serializeError(error)
       });
