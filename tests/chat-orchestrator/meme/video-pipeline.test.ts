@@ -196,6 +196,67 @@ describe('downloadTelegramSafeVideoWithYtDlp', () => {
     expect(existsSync(tempDirectory)).toBe(false);
   });
 
+  test('includes yt-dlp output details when no mp4 is produced', async () => {
+    const execFile = vi.fn().mockImplementation(
+      async (
+        file: string,
+        args: string[],
+        _options?: {
+          cwd?: string | undefined;
+          maxBuffer?: number | undefined;
+        }
+      ) => {
+        expect(file).toBe('yt-dlp');
+        const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+        await writeFile(
+          path.join(path.dirname(outputTemplate), 'source.webm'),
+          new Uint8Array([1, 2, 3])
+        );
+
+        return {
+          stdout: '[Merger] Merging formats into "source.webm"',
+          stderr: 'WARNING: requested mp4 merge was not possible'
+        };
+      }
+    );
+
+    await expect(
+      downloadTelegramSafeVideoWithYtDlp({
+        execFile,
+        url: 'https://example.com/video',
+        tempPrefix: 'pipeline-no-mp4-test-',
+        maxBytes: 50_000_000,
+        ytDlpArgs: []
+      })
+    ).rejects.toThrow(
+      'yt-dlp did not produce an mp4 file. Files: source.webm. stderr: WARNING: requested mp4 merge was not possible'
+    );
+
+    expect(execFile).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects estimated oversized videos before yt-dlp download', async () => {
+    const execFile = vi.fn();
+
+    await expect(
+      downloadTelegramSafeVideoWithYtDlp({
+        execFile,
+        url: 'https://example.com/video',
+        tempPrefix: 'pipeline-estimated-size-test-',
+        maxBytes: 50_000_000,
+        estimatedDownloadBytes: 76_000_000,
+        preDownloadRejectBytes: 75_000_000,
+        ytDlpArgs: []
+      })
+    ).rejects.toMatchObject({
+      name: 'DirectVideoTooLargeError',
+      actualBytes: 76_000_000,
+      maxBytes: 50_000_000
+    });
+
+    expect(execFile).not.toHaveBeenCalled();
+  });
+
   test('rejects downloaded videos longer than the duration cap before ffmpeg', async () => {
     let tempDirectory = '';
     const execFile = vi.fn().mockImplementation(

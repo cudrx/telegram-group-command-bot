@@ -10,6 +10,7 @@ import {
   findInstagramReelUrl,
   formatInstagramReelCaption
 } from '../../../src/app/actions/meme/instagram-reel-client.js';
+import type { DirectVideoTooLargeError } from '../../../src/app/actions/meme/video-pipeline.js';
 
 async function writeNormalizedVideo(args: string[]): Promise<{
   stdout: string;
@@ -247,6 +248,47 @@ describe('downloadInstagramReelWithYtDlp', () => {
 
     expect(result?.caption).toBe(
       'inst: bookstasyaa · likes: <a href="https://www.instagram.com/reel/DYKAmhRu8g-/">1</a>'
+    );
+  });
+
+  test('rejects clearly oversized Reels before downloading', async () => {
+    const execFile = vi.fn().mockResolvedValueOnce({
+      stdout: JSON.stringify({
+        id: 'DYKAmhRu8g-',
+        channel: 'bookstasyaa',
+        like_count: 1,
+        duration: 30,
+        requested_downloads: [
+          {
+            requested_formats: [
+              { filesize: 70_000_000 },
+              { filesize_approx: 6_000_000 }
+            ]
+          }
+        ]
+      }),
+      stderr: ''
+    });
+
+    await expect(
+      downloadInstagramReelWithYtDlp({
+        text: 'https://www.instagram.com/reel/DYKAmhRu8g-/',
+        sqlitePath: '/tmp/bot.sqlite',
+        maxBytes: 50_000_000,
+        captionMaxLength: 1024,
+        execFile
+      })
+    ).rejects.toMatchObject({
+      name: 'DirectVideoTooLargeError',
+      actualBytes: 76_000_000,
+      maxBytes: 50_000_000
+    } satisfies Partial<DirectVideoTooLargeError>);
+
+    expect(execFile).toHaveBeenCalledTimes(1);
+    const metadataArgs = execFile.mock.calls[0]?.[1] as string[];
+    expect(metadataArgs).toContain('-f');
+    expect(metadataArgs).toContain(
+      'bestvideo[protocol=m3u8_native][ext=mp4]+bestaudio[ext=m4a]/bestvideo[protocol^=m3u8][ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1][acodec^=mp4a]/best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best'
     );
   });
 

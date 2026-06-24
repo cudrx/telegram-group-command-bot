@@ -12,7 +12,8 @@ import type { DownloadedMemeMedia } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
   DirectVideoTooLongError,
-  downloadTelegramSafeVideoWithYtDlp
+  downloadTelegramSafeVideoWithYtDlp,
+  readYtDlpRequestedDownloadBytes
 } from './video-pipeline.js';
 
 const YT_DLP_BIN = 'yt-dlp';
@@ -76,6 +77,7 @@ export async function downloadInstagramReelWithYtDlp(input: {
     url: sourceUrl,
     tempPrefix: 'instagram-ytdlp-',
     maxBytes: input.maxBytes,
+    estimatedDownloadBytes: metadata.estimatedDownloadBytes,
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds,
     ...(input.processStatus ? { processStatus: input.processStatus } : {}),
@@ -143,6 +145,7 @@ async function fetchInstagramMetadata(input: {
   uploader: string | null;
   likeCount: number | null;
   durationSeconds: number | null;
+  estimatedDownloadBytes: number | null;
   webpageUrl: string | null;
 }> {
   const result = await input.execFile(
@@ -150,6 +153,8 @@ async function fetchInstagramMetadata(input: {
     [
       '--cookies',
       input.cookiesPath,
+      '-f',
+      INSTAGRAM_FORMAT_SELECTOR,
       '--dump-single-json',
       '--no-playlist',
       input.url
@@ -168,6 +173,7 @@ async function fetchInstagramMetadata(input: {
     uploader: readString(payload, 'uploader'),
     likeCount: readNumber(payload, 'like_count'),
     durationSeconds: readNumber(payload, 'duration'),
+    estimatedDownloadBytes: readYtDlpRequestedDownloadBytes(payload),
     webpageUrl: readString(payload, 'webpage_url')
   };
 }

@@ -12,7 +12,8 @@ import type { DownloadedMemeMedia } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
   DirectVideoTooLongError,
-  downloadTelegramSafeVideoWithYtDlp
+  downloadTelegramSafeVideoWithYtDlp,
+  readYtDlpRequestedDownloadBytes
 } from './video-pipeline.js';
 
 const YT_DLP_BIN = 'yt-dlp';
@@ -76,6 +77,7 @@ export async function downloadYoutubeShortWithYtDlp(input: {
     url: shortUrl,
     tempPrefix: 'youtube-ytdlp-',
     maxBytes: input.maxBytes,
+    estimatedDownloadBytes: metadata.estimatedDownloadBytes,
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds,
     ...(input.processStatus ? { processStatus: input.processStatus } : {}),
@@ -157,6 +159,7 @@ async function fetchYoutubeMetadata(input: {
   uploader: string | null;
   likeCount: number | null;
   durationSeconds: number | null;
+  estimatedDownloadBytes: number | null;
 }> {
   const result = await input.execFile(
     YT_DLP_BIN,
@@ -164,6 +167,10 @@ async function fetchYoutubeMetadata(input: {
       ...YOUTUBE_JS_RUNTIME_ARGS,
       '--cookies',
       input.cookiesPath,
+      '-f',
+      YOUTUBE_FORMAT_SELECTOR,
+      '-S',
+      'vcodec:h264,res,ext:mp4:m4a',
       '--dump-single-json',
       '--no-playlist',
       input.url
@@ -179,7 +186,8 @@ async function fetchYoutubeMetadata(input: {
     channel: readString(payload, 'channel'),
     uploader: readString(payload, 'uploader'),
     likeCount: readNumber(payload, 'like_count'),
-    durationSeconds: readNumber(payload, 'duration')
+    durationSeconds: readNumber(payload, 'duration'),
+    estimatedDownloadBytes: readYtDlpRequestedDownloadBytes(payload)
   };
 }
 

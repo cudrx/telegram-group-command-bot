@@ -5,7 +5,10 @@ import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
 
-import { DirectVideoTooLongError } from '../../../src/app/actions/meme/video-pipeline.js';
+import {
+  type DirectVideoTooLargeError,
+  DirectVideoTooLongError
+} from '../../../src/app/actions/meme/video-pipeline.js';
 import {
   downloadYoutubeShortWithYtDlp,
   findYoutubeShortUrl,
@@ -203,6 +206,47 @@ describe('downloadYoutubeShortWithYtDlp', () => {
     ).rejects.toBeInstanceOf(DirectVideoTooLongError);
 
     expect(execFile).toHaveBeenCalledTimes(1);
+  });
+
+  test('rejects clearly oversized Shorts before downloading', async () => {
+    const execFile = vi.fn().mockResolvedValueOnce({
+      stdout: JSON.stringify({
+        id: 'RsEXmvAefDg',
+        channel: 'Lunchb0xGaming',
+        like_count: 5035,
+        duration: 120,
+        requested_downloads: [
+          {
+            requested_formats: [
+              { filesize: 60_000_000 },
+              { filesize_approx: 16_000_000 }
+            ]
+          }
+        ]
+      }),
+      stderr: ''
+    });
+
+    await expect(
+      downloadYoutubeShortWithYtDlp({
+        text: 'https://www.youtube.com/shorts/RsEXmvAefDg',
+        sqlitePath: '/tmp/bot.sqlite',
+        maxBytes: 50_000_000,
+        captionMaxLength: 1024,
+        execFile
+      })
+    ).rejects.toMatchObject({
+      name: 'DirectVideoTooLargeError',
+      actualBytes: 76_000_000,
+      maxBytes: 50_000_000
+    } satisfies Partial<DirectVideoTooLargeError>);
+
+    expect(execFile).toHaveBeenCalledTimes(1);
+    const metadataArgs = execFile.mock.calls[0]?.[1] as string[];
+    expect(metadataArgs).toContain('-f');
+    expect(metadataArgs).toContain(
+      'bv*[ext=mp4][vcodec^=avc1][height<=854]+ba[ext=m4a]/b[ext=mp4][vcodec^=avc1][height<=854]/b[ext=mp4][height<=854]/b[ext=mp4]'
+    );
   });
 
   test('returns null when no supported YouTube URL is present', async () => {

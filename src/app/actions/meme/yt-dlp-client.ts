@@ -13,7 +13,8 @@ import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
   DirectVideoTooLongError,
-  downloadTelegramSafeVideoWithYtDlp
+  downloadTelegramSafeVideoWithYtDlp,
+  readYtDlpRequestedDownloadBytes
 } from './video-pipeline.js';
 
 const YT_DLP_BIN = 'yt-dlp';
@@ -71,6 +72,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
     url: reference.permalink,
     tempPrefix: 'reddit-ytdlp-',
     maxBytes: input.maxBytes,
+    estimatedDownloadBytes: metadata.estimatedDownloadBytes,
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds ?? null,
     ...(input.processStatus ? { processStatus: input.processStatus } : {}),
@@ -105,6 +107,7 @@ async function fetchYtDlpMetadata(input: {
   title: string | null;
   upvotes: number | null;
   durationSeconds: number | null;
+  estimatedDownloadBytes: number | null;
   hasSpoiler: boolean;
 }> {
   const result = await input.execFile(
@@ -112,6 +115,8 @@ async function fetchYtDlpMetadata(input: {
     [
       '--cookies',
       input.cookiesPath,
+      '-f',
+      REDDIT_FORMAT_SELECTOR,
       '--dump-single-json',
       '--no-playlist',
       input.url
@@ -128,6 +133,7 @@ async function fetchYtDlpMetadata(input: {
     title: readString(payload, 'title'),
     upvotes: readNumber(payload, 'like_count') ?? readNumber(payload, 'ups'),
     durationSeconds: readNumber(payload, 'duration'),
+    estimatedDownloadBytes: readYtDlpRequestedDownloadBytes(payload),
     hasSpoiler: (readNumber(payload, 'age_limit') ?? 0) > 0
   };
 }

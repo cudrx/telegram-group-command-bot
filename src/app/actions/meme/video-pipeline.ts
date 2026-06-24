@@ -65,6 +65,8 @@ export type DownloadTelegramSafeVideoInput = {
   url: string;
   tempPrefix: string;
   maxBytes: number;
+  estimatedDownloadBytes?: number | null | undefined;
+  preDownloadRejectBytes?: number | undefined;
   maxDurationSeconds?: number | undefined;
   downloadTimeoutMs?: number | undefined;
   probeTimeoutMs?: number | undefined;
@@ -81,12 +83,19 @@ export async function downloadTelegramSafeVideoWithYtDlp(
   input: DownloadTelegramSafeVideoInput
 ): Promise<DownloadedMemeMedia> {
   const execFile = input.execFile ?? execMediaFileDefault;
+  assertWithinEstimatedMaxBytes({
+    estimatedBytes: input.estimatedDownloadBytes,
+    rejectBytes:
+      input.preDownloadRejectBytes ??
+      redditMediaActionConfig.telegramMedia.videoPreDownloadRejectBytes,
+    maxBytes: input.maxBytes
+  });
   const tempDirectory = await mkdtemp(path.join(os.tmpdir(), input.tempPrefix));
 
   try {
     await input.processStatus?.stage('metadata');
     await input.processStatus?.stage('download');
-    await execFile(
+    const downloadResult = await execFile(
       YT_DLP_BIN,
       [
         ...input.ytDlpArgs,
@@ -107,7 +116,10 @@ export async function downloadTelegramSafeVideoWithYtDlp(
       }
     );
 
-    const downloadedPath = await findDownloadedMp4(tempDirectory);
+    const downloadedPath = await findDownloadedMp4(
+      tempDirectory,
+      downloadResult
+    );
     await assertWithinMaxBytes(downloadedPath, input.maxBytes);
     await input.processStatus?.stage('probe');
     const probe = await probeVideo({
@@ -259,15 +271,58 @@ async function runWithNormalizationLock<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
-async function findDownloadedMp4(directory: string): Promise<string> {
-  const entries = await readdir(directory);
+async function findDownloadedMp4(
+  directory: string,
+  result: { stdout: string; stderr: string }
+): Promise<string> {
+  const entries = (await readdir(directory)).sort();
   const mp4 = entries.find((entry) => entry.toLowerCase().endsWith('.mp4'));
 
   if (!mp4) {
-    throw new Error('yt-dlp did not produce an mp4 file.');
+    throw new Error(formatMissingMp4Error(entries, result));
   }
 
   return path.join(directory, mp4);
+}
+
+function formatMissingMp4Error(
+  entries: string[],
+  result: { stdout: string; stderr: string }
+): string {
+  const details = [
+    `Files: ${entries.length > 0 ? entries.join(', ') : 'none'}`,
+    formatOutputDetail('stderr', result.stderr),
+    formatOutputDetail('stdout', result.stdout)
+  ].filter((detail) => detail.length > 0);
+
+  return `yt-dlp did not produce an mp4 file. ${details.join('. ')}`;
+}
+
+function formatOutputDetail(label: string, value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  return `${label}: ${truncateDiagnostic(trimmed)}`;
+}
+
+function truncateDiagnostic(value: string): string {
+  const maxLength = 1_000;
+
+  return value.length > maxLength ? `${value.slice(0, maxLength)}...` : value;
+}
+
+function assertWithinEstimatedMaxBytes(input: {
+  estimatedBytes: number | null | undefined;
+  rejectBytes: number;
+  maxBytes: number;
+}): void {
+  if (
+    input.estimatedBytes !== null &&
+    input.estimatedBytes !== undefined &&
+    input.estimatedBytes > input.rejectBytes
+  ) {
+    throw new DirectVideoTooLargeError(input.estimatedBytes, input.maxBytes);
+  }
 }
 
 async function assertWithinMaxBytes(
@@ -341,6 +396,51 @@ function readPositiveInteger(value: unknown): number | null {
   }
 
   return value;
+}
+
+export function readYtDlpRequestedDownloadBytes(value: unknown): number | null {
+  if (!isRecord(value) || !Array.isArray(value.requested_downloads)) {
+    return null;
+  }
+
+  let total = 0;
+  let found = false;
+
+  for (const download of value.requested_downloads) {
+    const formats = isRecord(download) ? download.requested_formats : null;
+    if (Array.isArray(formats)) {
+      for (const format of formats) {
+        const bytes = readFormatBytes(format);
+        if (bytes === null) return null;
+        total += bytes;
+        found = true;
+      }
+      continue;
+    }
+
+    const bytes = readFormatBytes(download);
+    if (bytes === null) return null;
+    total += bytes;
+    found = true;
+  }
+
+  return found ? total : null;
+}
+
+function readFormatBytes(value: unknown): number | null {
+  if (!isRecord(value)) return null;
+
+  const filesize = value.filesize;
+  if (typeof filesize === 'number' && Number.isFinite(filesize)) {
+    return filesize;
+  }
+
+  const approx = value.filesize_approx;
+  if (typeof approx === 'number' && Number.isFinite(approx)) {
+    return approx;
+  }
+
+  return null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

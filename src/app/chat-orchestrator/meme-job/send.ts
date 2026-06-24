@@ -28,6 +28,7 @@ export type MemeListingJobConfig = {
   telegramMedia: {
     imageMaxBytes: number;
     videoMaxBytes: number;
+    videoPreDownloadRejectBytes: number;
     videoMaxDurationSeconds: number;
     downloadTimeoutMs: number;
     metadataTimeoutMs: number;

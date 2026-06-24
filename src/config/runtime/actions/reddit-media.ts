@@ -11,6 +11,7 @@ const redditMediaSharedConfig = {
   telegramMedia: {
     imageMaxBytes: 10_000_000,
     videoMaxBytes: 50_000_000, // Default Telegram Bot API upload limit for bot-sent video files.
+    videoPreDownloadRejectBytes: 75_000_000,
     videoMaxDurationSeconds: 600,
     downloadTimeoutMs: 30_000,
     metadataTimeoutMs: 45_000,
