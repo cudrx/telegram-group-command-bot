@@ -52,7 +52,7 @@ certificates.
 
 - `/summarize` - summarize recent human messages in the chat.
 - `/decide` - judge the current dispute; with lookup configured, it can verify external facts.
-- `/answer` - answer the replied-to message or the latest message before the command.
+- `/answer` - answer the replied-to message or the latest message before the command, using one fast web lookup only when needed.
 - `/translate` - translate the replied-to message content into the target language.
 - `/read` - speak a replied-to text message.
 - `/transcribe` - transcribe a replied-to Telegram video.

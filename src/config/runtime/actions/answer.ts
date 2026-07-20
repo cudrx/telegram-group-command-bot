@@ -1,5 +1,6 @@
 export const answerActionConfig = {
   contextLimit: 16,
+  lookupTimeoutMs: 3_000,
   outboundTts: {
     maxChars: 250,
     baseProbability: 0.25,

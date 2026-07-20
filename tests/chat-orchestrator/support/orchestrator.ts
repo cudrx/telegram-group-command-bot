@@ -10,6 +10,10 @@ import type { TelegramChatAction } from '../../../src/app/typing-indicator.js';
 import type { VideoJobQueue } from '../../../src/app/video-job-queue.js';
 import type { AppEnv } from '../../../src/config/env/index.js';
 import type { AssistantIntent, ChatState } from '../../../src/domain/models.js';
+import type {
+  GenerateAnswerInput,
+  GenerateAnswerResult
+} from '../../../src/llm/openai-compatible-client/index.js';
 import type { AppLogger } from '../../../src/logging/logger.js';
 import type {
   LookupIntent,
@@ -37,6 +41,9 @@ export function createOrchestrator(input: {
       intent: LookupIntent;
       replyContext: unknown;
     }) => Promise<ReturnType<typeof createLookupPlanResult>>;
+    generateAnswer?: (
+      input: GenerateAnswerInput
+    ) => Promise<GenerateAnswerResult>;
   };
   replyDispatcher: (input: {
     chatId: number;
@@ -144,6 +151,23 @@ export function createOrchestrator(input: {
     db: input.db as never,
     qwen: {
       ...input.qwen,
+      generateAnswer:
+        input.qwen.generateAnswer ??
+        (async (answerInput: GenerateAnswerInput) => {
+          const result = await input.qwen.generateReply({
+            ...answerInput,
+            intent: 'answer',
+            lookupContext: null
+          });
+
+          return {
+            decision: { mode: 'direct' as const, text: result.text },
+            model: result.model,
+            latencyMs: result.latencyMs,
+            attemptCount: result.attemptCount,
+            promptTokensEstimate: result.promptTokensEstimate
+          };
+        }),
       planLookup:
         input.qwen.planLookup ??
         vi.fn().mockResolvedValue(

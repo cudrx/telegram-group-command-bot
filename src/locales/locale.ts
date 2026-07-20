@@ -8,7 +8,9 @@ export const text = {
     displayName: 'Пруфик'
   },
   answer: {
-    usageFallback: 'Сделай reply на сообщение с вопросом и отправь /answer.'
+    usageFallback: 'Сделай reply на сообщение с вопросом и отправь /answer.',
+    failedFallback: 'Не получилось ответить. Попробуй ещё раз.',
+    lookupFailedFallback: 'Не смог быстро проверить это по внешним источникам.'
   },
   translate: {
     headers: {

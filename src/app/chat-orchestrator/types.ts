@@ -10,6 +10,8 @@ import type {
   StoredMessage
 } from '../../domain/models.js';
 import type {
+  GenerateAnswerInput,
+  GenerateAnswerResult,
   LlmReplyResult,
   LookupPlanResult
 } from '../../llm/openai-compatible-client/index.js';
@@ -92,6 +94,7 @@ export type EditMessageTextDispatcher = (input: {
 }) => Promise<void>;
 
 export type LlmClient = {
+  generateAnswer(input: GenerateAnswerInput): Promise<GenerateAnswerResult>;
   generateReply(input: {
     assistantInstructions: string;
     targetDisplayName: string;

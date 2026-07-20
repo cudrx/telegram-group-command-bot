@@ -11,6 +11,8 @@ export const PROMPT_FILE_PATHS = {
   decide: 'llm/reply/decide.md',
   read: 'llm/reply/read.md',
   answer: 'llm/reply/answer.md',
+  answerGrounded: 'llm/reply/answer-grounded.md',
+  answerPreflight: 'llm/planner/answer-preflight.md',
   translate: 'llm/reply/translate.md',
   systemAnswer: 'llm/system/answer.md',
   systemRead: 'llm/system/read.md',

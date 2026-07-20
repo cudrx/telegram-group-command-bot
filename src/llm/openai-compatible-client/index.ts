@@ -1,5 +1,10 @@
 import OpenAI from 'openai';
 
+import {
+  type GenerateAnswerInput,
+  type GenerateAnswerResult,
+  generateAnswer
+} from './answer.js';
 import { formatDeployUpdate } from './deploy-update.js';
 import { planLookup } from './lookup.js';
 import { generateReply } from './reply.js';
@@ -13,6 +18,13 @@ import type {
   PlanLookupInput
 } from './types.js';
 
+export type {
+  AnswerDecision,
+  AnswerResearchContext,
+  AnswerResearchPlan,
+  GenerateAnswerInput,
+  GenerateAnswerResult
+} from './answer.js';
 export type {
   GenerateReplyInput,
   LlmClientConfig,
@@ -50,6 +62,16 @@ export class OpenAiCompatibleLlmClient {
       createCompletion: this.createCompletion,
       options: this.options,
       input
+    });
+  }
+
+  async generateAnswer(
+    input: GenerateAnswerInput
+  ): Promise<GenerateAnswerResult> {
+    return generateAnswer({
+      config: this.config,
+      createCompletion: this.createCompletion,
+      request: input
     });
   }
 

@@ -58,7 +58,7 @@ Behavior:
 
 Lookup:
 
-- `TAVILY_API_KEY` - lookup for `/decide` and `/answer`.
+- `TAVILY_API_KEY` - lookup for `/decide` and the research route of `/answer`.
 - `LOOKUP_TIMEOUT_MS`
 - `LOOKUP_MAX_QUERIES`
 - `LOOKUP_MAX_RESULTS`
@@ -286,7 +286,7 @@ Rollback:
 
 - Use a separate test bot and test group for Telegram smoke checks.
 - Start with explicit `/answer`, `/translate`, `/summarize`, `/decide`, `/read`, `/transcribe`.
-- Check `/answer` both as a reply and without a reply: without a reply, it answers the latest message before the command.
+- Check `/answer` both as a reply and without a reply: without a reply, it answers the latest message before the command. Cover both a context-contained question (direct route) and a current factual question (single lookup route).
 - `/translate` and `/read` require a reply to the target message.
 - `/transcribe` requires a reply to a Telegram video message. It should work on videos sent by users and videos sent by this bot, ignore command arguments and links, extract audio with `ffmpeg`, return the transcript as text, and avoid creating `media_artifacts` rows.
 - `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.

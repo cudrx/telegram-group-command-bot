@@ -165,7 +165,7 @@ Outbound voice:
 9. `ChatOrchestrator` builds a request and calls `action.handle(...)`.
 10. `/read` runs a local TTS flow without the LLM.
 11. `/meme` and `/sex` run a separate flow that selects a Reddit top-month post from the current chat's configured `reddit_sources`, downloads image/video media, and sends it with a locally formatted caption.
-12. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job: context is assembled, current Moscow date/time is added, lookup/media context is added when needed, and the LLM is called.
+12. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job. `/answer` makes one JSON-mode call that either answers directly or requests one web query; only the research route performs lookup and a second grounded call.
 13. The reply is formatted for Telegram HTML.
 14. `/answer` may be sent as voice when it passes the local TTS policy; local placeholder and fallback replies are text-only.
 15. The outgoing bot message is stored in SQLite with `output_mode`.
@@ -181,10 +181,11 @@ Outbound voice:
 ## Lookup Flow
 
 - Lookup is available when `TAVILY_API_KEY` is set.
-- The LLM planner decides whether lookup is useful for `/decide` or `/answer`; `/translate` does not use lookup.
+- `/decide` uses the shared lookup planner. `/answer` combines routing and direct answering in its first JSON-mode call.
 - The provider has timeouts, maximum query count, and maximum result count.
-- Without a provider, or after fallback, replies are based only on chat context.
+- `/answer` permits one lookup capped at three seconds. Provider failure returns a local unable-to-verify message instead of generating an ungrounded answer.
 - Lookup results enter the prompt as a separate external-evidence block.
+- Grounded `/answer` output includes status, evidence quality, outcome, and request-local source IDs; unknown IDs are rejected.
 
 ## Media Flow
 
@@ -217,6 +218,7 @@ Behavior:
 - Text after the command is ignored.
 - The reply anchor can be a human message or another bot's message, but not this bot's own message.
 - Can use lookup and media context from the target message.
+- A context-contained answer takes one LLM call. A research answer takes one lookup and one additional grounded LLM call.
 
 ### `/translate`
 
