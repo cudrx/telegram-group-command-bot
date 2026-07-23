@@ -759,7 +759,7 @@ describe('ChatOrchestrator /meme command', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 46,
-      text: text.meme.instagramUnavailableFallback
+      text: 'Requested content is not available, rate-limit reached or login required.'
     });
     expect(db.getSourceState('instagram')).toEqual({
       sourceKey: 'instagram',
@@ -768,6 +768,57 @@ describe('ChatOrchestrator /meme command', () => {
       blockedAt: '2026-05-21T10:00:00.000Z',
       cookieFileMtimeMsAtBlock: cookieStat.mtimeMs,
       updatedAt: '2026-05-21T10:00:00.000Z'
+    });
+  });
+
+  test('replies with the Instagram error text and keeps the source message', async () => {
+    const db = new FakeDatabaseClient();
+    const instagramError =
+      "This content may be inappropriate: It's unavailable for certain audiences. You can manage your sensitive content preferences in Settings.";
+    const execFile = vi
+      .fn()
+      .mockRejectedValue(
+        new Error(
+          [
+            'Command failed: yt-dlp https://www.instagram.com/reel/DbFoLZmNuAt/',
+            'WARNING: [Instagram] Video info extraction failed: HTTP Error 400: Bad Request',
+            `ERROR: [Instagram] DbFoLZmNuAt: ${instagramError}`
+          ].join('\n')
+        )
+      );
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 703,
+      createdAt: '2026-05-21T10:00:01.000Z'
+    });
+    const deleteMessageDispatcher = vi.fn();
+    const orchestrator = createOrchestrator({
+      db,
+      execFile,
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: 'https://www.instagram.com/reel/DbFoLZmNuAt/',
+        entities: [],
+        messageId: 47
+      })
+    );
+
+    expect(replyDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      replyToMessageId: 47,
+      text: instagramError
+    });
+    expect(deleteMessageDispatcher).not.toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 47
     });
   });
 

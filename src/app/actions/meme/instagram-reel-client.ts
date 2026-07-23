@@ -26,6 +26,24 @@ export type InstagramReelDownloadResult = {
   downloaded: DownloadedMemeMedia;
 };
 
+export function extractInstagramErrorText(error: unknown): string | null {
+  const outputs = readErrorOutputs(error);
+
+  for (const output of outputs) {
+    const matches = Array.from(
+      output.matchAll(/^ERROR: \[Instagram\] (.+)$/gmu),
+      (match) => match[1]?.trim()
+    ).filter((message): message is string => Boolean(message));
+    const message = matches.at(-1);
+
+    if (!message) continue;
+
+    return message.replace(/^[^\s:]+:\s+/u, '');
+  }
+
+  return null;
+}
+
 export function findInstagramReelUrl(text: string): string | null {
   const matches = text.match(/https?:\/\/[^\s<>"']+/g) ?? [];
 
@@ -225,4 +243,12 @@ function readNumber(value: unknown, key: string): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object';
+}
+
+function readErrorOutputs(error: unknown): string[] {
+  if (!isRecord(error)) return [String(error)];
+
+  return [error.stderr, error.message].filter(
+    (output): output is string => typeof output === 'string'
+  );
 }

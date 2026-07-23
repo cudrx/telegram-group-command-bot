@@ -1,7 +1,10 @@
 import { memeActionConfig } from '../../../config/runtime/index.js';
 import { text } from '../../../locales/locale.js';
 import { serializeError } from '../../../logging/logger.js';
-import { downloadInstagramReelWithYtDlp } from '../../actions/meme/instagram-reel-client.js';
+import {
+  downloadInstagramReelWithYtDlp,
+  extractInstagramErrorText
+} from '../../actions/meme/instagram-reel-client.js';
 import { fetchRedditPostCandidate } from '../../actions/meme/reddit-post-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import type { MemePostCandidate } from '../../actions/meme/types.js';
@@ -363,6 +366,16 @@ async function runDirectInstagramReelMemeJob(
         now: input.deps.now(),
         logger: input.logger
       });
+    }
+
+    const instagramErrorText = extractInstagramErrorText(error);
+    if (instagramErrorText) {
+      await dispatchTextReply({
+        deps: input.deps,
+        request: input.request,
+        text: instagramErrorText
+      });
+      return true;
     }
 
     if (await handleDirectVideoFailure(input, error)) {
