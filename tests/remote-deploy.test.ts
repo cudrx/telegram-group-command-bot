@@ -22,9 +22,9 @@ if [[ "$*" == *"compose"*"up -d --wait --wait-timeout 30 bot"* ]]; then
   printf 'up-image-tag=%s\\n' "\${IMAGE_TAG:-}" >> "$DOCKER_CALLS_PATH"
 fi
 
-if [[ "$*" == *"compose"*"images -q bot"* ]]; then
-  printf '%s\\n' 'sha256:previous'
-elif [[ "$*" == "inspect --format={{.Config.Image}} sha256:previous" ]]; then
+if [[ "$*" == *"compose"*"ps -q bot"* ]]; then
+  printf '%s\\n' 'previous-container'
+elif [[ "$*" == "inspect --format={{.Config.Image}} previous-container" ]]; then
   printf '%s\\n' 'ghcr.io/example/bot:previous-sha'
 elif [[ "$*" == *"compose"*"up -d --wait --wait-timeout 30 bot"* ]] && [[ "\${IMAGE_TAG:-}" != "previous-sha" ]]; then
   exit "\${FAKE_DOCKER_UP_EXIT:-0}"
@@ -80,11 +80,9 @@ describe('remote deploy', () => {
     const { calls, status } = runDeploy('1');
 
     expect(status).toBe(1);
+    expect(calls).toContain('compose --env-file .env -f compose.yml ps -q bot');
     expect(calls).toContain(
-      'compose --env-file .env -f compose.yml images -q bot'
-    );
-    expect(calls).toContain(
-      'inspect --format={{.Config.Image}} sha256:previous'
+      'inspect --format={{.Config.Image}} previous-container'
     );
     expect(
       calls.filter(

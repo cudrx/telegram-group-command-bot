@@ -12,11 +12,11 @@ cd "${DEPLOY_PATH}"
 
 echo "${SERVER_GHCR_TOKEN}" | docker login ghcr.io -u "${SERVER_GHCR_USERNAME}" --password-stdin
 
-previous_image_id="$(docker compose --env-file .env -f compose.yml images -q bot 2>/dev/null || true)"
+previous_container_id="$(docker compose --env-file .env -f compose.yml ps -q bot 2>/dev/null || true)"
 previous_image_ref=""
 
-if [[ -n "${previous_image_id}" ]]; then
-  previous_image_ref="$(docker inspect --format='{{.Config.Image}}' "${previous_image_id}")"
+if [[ -n "${previous_container_id}" ]]; then
+  previous_image_ref="$(docker inspect --format='{{.Config.Image}}' "${previous_container_id}")"
 fi
 
 IMAGE_TAG="${IMAGE_TAG}" docker compose --env-file .env -f compose.yml pull bot
