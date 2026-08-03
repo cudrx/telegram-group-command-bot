@@ -1,6 +1,11 @@
 import type { AppLogger } from '../logging/logger.js';
 
-export type VideoJobSource = 'instagram' | 'reddit' | 'youtube' | 'other';
+export type VideoJobSource =
+  | 'instagram'
+  | 'reddit'
+  | 'tiktok'
+  | 'youtube'
+  | 'other';
 export type VideoJob<T> = {
   chatId: number;
   source: VideoJobSource;

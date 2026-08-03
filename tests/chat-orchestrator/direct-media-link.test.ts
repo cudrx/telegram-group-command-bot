@@ -34,6 +34,17 @@ describe('detectDirectMediaLink', () => {
     ).toEqual({ kind: 'youtube_short' });
   });
 
+  test('detects TikTok video and short share links', () => {
+    expect(
+      detectDirectMediaLink(
+        'https://www.tiktok.com/@creator/video/7512345678901234567'
+      )
+    ).toEqual({ kind: 'tiktok' });
+    expect(detectDirectMediaLink('https://vm.tiktok.com/ZMexample/')).toEqual({
+      kind: 'tiktok'
+    });
+  });
+
   test('ignores ordinary text and unsupported links', () => {
     expect(detectDirectMediaLink('обычно болтаем')).toBeNull();
     expect(detectDirectMediaLink('https://example.com/video')).toBeNull();

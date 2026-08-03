@@ -11,6 +11,7 @@ The bot stores chat history, runs explicit command flows, can use web lookup and
 - Stores chats, messages, replies, edits, media artifacts, sent meme history, and app state in SQLite.
 - Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, and `/sex`.
 - Expands supported Reddit post links, Instagram Reels, and YouTube Shorts without calling the LLM.
+- Expands supported Reddit, Instagram, YouTube, and TikTok links into Telegram-safe media.
 - Queues heavy video jobs with bounded global and per-chat concurrency.
 - Keeps user-facing local fallbacks as text even when outbound voice is enabled.
 

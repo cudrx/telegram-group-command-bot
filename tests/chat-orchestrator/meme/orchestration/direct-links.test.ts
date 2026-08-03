@@ -286,6 +286,72 @@ describe('ChatOrchestrator /meme command — direct links', () => {
     expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
+  test('expands a direct TikTok link in a private chat', async () => {
+    const sourceUrl =
+      'https://www.tiktok.com/@creator/video/7512345678901234567';
+    const execFile = vi
+      .fn()
+      .mockImplementation(async (file: string, args: string[]) => {
+        if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
+          return {
+            stdout: JSON.stringify({
+              uploader: 'creator',
+              like_count: 321,
+              duration: 9
+            }),
+            stderr: ''
+          };
+        }
+
+        if (file === 'ffprobe') return videoProbeResult(9);
+        if (file === 'nice') return writeNormalizedVideo(args);
+
+        const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+        await writeFile(
+          path.join(path.dirname(outputTemplate), 'tiktok.mp4'),
+          new Uint8Array([1, 2, 3, 4])
+        );
+        return { stdout: '', stderr: '' };
+      });
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 612,
+      createdAt: '2026-05-21T10:00:00.000Z'
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db: new FakeDatabaseClient(),
+      execFile,
+      qwen: { generateReply: vi.fn() },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: sourceUrl,
+        entities: [],
+        messageId: 45
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        reply: false,
+        caption: `tt: creator · likes: <a href="${sourceUrl}">321</a>`,
+        media: expect.objectContaining({ kind: 'video' })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 45
+    });
+  });
+
   test('sends a queue notice when a second direct video job waits behind the first in the same chat', async () => {
     const firstUpload = createDeferred<void>();
     const dataDirectory = await mkdtemp(

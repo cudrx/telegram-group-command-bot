@@ -2,7 +2,7 @@
 
 ## Scope
 
-The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, and explicit command flows. The only automatic trigger outside commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, and YouTube Shorts links.
+The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, and explicit command flows. The only automatic trigger outside commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, YouTube Shorts links, and TikTok video links.
 
 The bot responds to these commands:
 
@@ -26,7 +26,7 @@ Regular bot mentions, regular private-chat text, unauthorized chats, and private
 - Lookup context is added as untrusted evidence, not as instructions.
 - Media recognition results are stored as TTL artifacts; source files are temporary.
 - `/meme` and `/sex` keep downloaded Reddit media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
-- Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels and YouTube Shorts use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
+- Direct Reddit media links use the same temporary download/dispatch/cleanup approach, store sent Reddit posts in `meme_posts`, and try to delete the source link message after successful dispatch. Direct Instagram Reels, YouTube Shorts, and TikTok videos use the same temporary media flow but are stored only as regular bot media messages, without `meme_posts` rows. Delete failures are logged.
 - Heavy video jobs run through an in-process queue with bounded global concurrency and per-chat concurrency so one chat cannot occupy all video slots.
 - Instagram source access can enter a persistent blocked state in SQLite after auth/rate-limit style `yt-dlp` failures. Blocked Instagram jobs do not start again until the cookie file changes on disk.
 - TTS does not decide reply content: text is generated or read from the replied-to message first, then a local policy decides whether voice can be sent. Local usage/fallback messages are always sent as text.
