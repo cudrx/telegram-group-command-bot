@@ -90,7 +90,7 @@ export const text = {
   },
   llm: {
     replySystem: `You are a neutral Telegram assistant. Respond helpfully and concisely in ${language.targetLanguageName}.`,
-    deployUpdateSystem: `You format concise Telegram release updates in ${language.targetLanguageName}.`,
+    deployUpdateSystem: `You write concise, idiomatic Telegram release updates in ${language.targetLanguageName}. Infer the user-visible meaning from commit messages. Never translate commit messages literally. Use Telegram-compatible HTML only and never use Markdown.`,
     evalSystem: `You are a careful Telegram chat assistant. Answer in ${language.targetLanguageName}.`,
     sections: {
       decide: {

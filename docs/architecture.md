@@ -320,4 +320,4 @@ Stores persistent runtime state for fragile external sources. The first current 
 ### `app_state`
 
 Small runtime key-value state.
-- Deploy announcements are formatted once per new deploy `sha` and sent to every configured chat where `features.deploy_announcements` is enabled. SQLite stores one shared `last_announced_deploy_sha`, so the same deploy is not reformatted or resent after a successful announce cycle.
+- Deploy announcements are formatted once per new deploy `sha` and sent to every configured chat where `features.deploy_announcements` is enabled. Commit subjects are treated as factual source material: the formatter describes their user-visible meaning in idiomatic Russian instead of translating them literally, and emits Telegram-compatible HTML without Markdown. SQLite stores one shared `last_announced_deploy_sha`, so the same deploy is not reformatted or resent after a successful announce cycle.
