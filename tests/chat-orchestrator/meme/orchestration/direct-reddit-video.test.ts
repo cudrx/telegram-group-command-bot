@@ -116,7 +116,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
           fileSize: 4,
           durationSeconds: 42,
           caption:
-            'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>'
+            'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a> · <a href="https://t.me/tom">@tom</a>'
         }
       });
     });
@@ -160,7 +160,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
         reply: false,
         hasSpoiler: true,
         caption:
-          'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>',
+          'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a> · <a href="https://t.me/tom">@tom</a>',
         media: expect.objectContaining({ kind: 'video' })
       })
     );
@@ -178,7 +178,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       upvotes: 24123
     });
     expect(db.getMessageByTelegramMessageId(1, 510)).toMatchObject({
-      text: 'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a>',
+      text: 'AI vs creativity from a pro-AI greedy corpo\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑24123</a> · <a href="https://t.me/tom">@tom</a>',
       isBot: true,
       replyToMessageId: null,
       mediaSnapshot: expect.objectContaining({

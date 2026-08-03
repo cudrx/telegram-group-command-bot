@@ -22,6 +22,10 @@ import {
   isInstagramSourceLockError,
   markInstagramSourceBlocked
 } from '../../source-locks/instagram-source-lock.js';
+import {
+  appendDirectMediaAuthor,
+  formatDirectMediaAuthor
+} from '../direct-media-author.js';
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
 import { dispatchTextReply } from '../outbound-voice.js';
 import {
@@ -91,7 +95,7 @@ async function runDirectTiktokMemeJob(
                 chatId: input.request.chatId,
                 replyToMessageId: null,
                 reply: false,
-                caption: video.caption,
+                caption: getDirectMediaCaption(input, video.caption),
                 media: video.downloaded
               });
             }
@@ -102,7 +106,7 @@ async function runDirectTiktokMemeJob(
             chatType: input.request.chatType,
             chatTitle: input.request.chatTitle,
             messageId: sent.messageId,
-            text: video.caption,
+            text: getDirectMediaCaption(input, video.caption),
             createdAt: sent.createdAt,
             userId: input.deps.bot.userId,
             username: input.deps.bot.username,
@@ -199,7 +203,8 @@ async function runDirectRedditVideoMemeJob(
                 fallback.candidate,
                 fallback.downloaded,
                 {
-                  reply: false
+                  reply: false,
+                  ...getDirectMediaCaptionOptions(input)
                 }
               );
 
@@ -227,7 +232,10 @@ async function runDirectRedditVideoMemeJob(
   if (!candidate) return false;
 
   try {
-    await sendCandidate(input, candidate, { reply: false });
+    await sendCandidate(input, candidate, {
+      reply: false,
+      ...getDirectMediaCaptionOptions(input)
+    });
   } catch (error) {
     if (await handleDirectVideoFailure(input, error)) {
       return true;
@@ -287,7 +295,7 @@ async function runDirectYoutubeShortMemeJob(
                 chatId: input.request.chatId,
                 replyToMessageId: null,
                 reply: false,
-                caption: short.caption,
+                caption: getDirectMediaCaption(input, short.caption),
                 media: short.downloaded
               });
             }
@@ -298,7 +306,7 @@ async function runDirectYoutubeShortMemeJob(
             chatType: input.request.chatType,
             chatTitle: input.request.chatTitle,
             messageId: sent.messageId,
-            text: short.caption,
+            text: getDirectMediaCaption(input, short.caption),
             createdAt: sent.createdAt,
             userId: input.deps.bot.userId,
             username: input.deps.bot.username,
@@ -405,7 +413,7 @@ async function runDirectInstagramReelMemeJob(
                 chatId: input.request.chatId,
                 replyToMessageId: null,
                 reply: false,
-                caption: reel.caption,
+                caption: getDirectMediaCaption(input, reel.caption),
                 media: reel.downloaded
               });
             }
@@ -416,7 +424,7 @@ async function runDirectInstagramReelMemeJob(
             chatType: input.request.chatType,
             chatTitle: input.request.chatTitle,
             messageId: sent.messageId,
-            text: reel.caption,
+            text: getDirectMediaCaption(input, reel.caption),
             createdAt: sent.createdAt,
             userId: input.deps.bot.userId,
             username: input.deps.bot.username,
@@ -569,4 +577,33 @@ function isTelegramRequestEntityTooLargeError(error: unknown): boolean {
     'error_code' in error &&
     error.error_code === 413
   );
+}
+
+function getDirectMediaCaption(input: MemeJobInput, caption: string): string {
+  return appendDirectMediaAuthor(caption, {
+    chatType: input.request.chatType,
+    fromUserId: input.request.fromUserId ?? null,
+    fromUsername: input.request.fromUsername ?? null,
+    fromDisplayName: input.request.fromDisplayName
+  });
+}
+
+function getDirectMediaCaptionOptions(input: MemeJobInput): {
+  captionSuffix?: string;
+} {
+  if (
+    input.request.chatType !== 'group' &&
+    input.request.chatType !== 'supergroup'
+  ) {
+    return {};
+  }
+
+  return {
+    captionSuffix: formatDirectMediaAuthor({
+      chatType: input.request.chatType,
+      fromUserId: input.request.fromUserId ?? null,
+      fromUsername: input.request.fromUsername ?? null,
+      fromDisplayName: input.request.fromDisplayName
+    })
+  };
 }

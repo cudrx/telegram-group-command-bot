@@ -69,7 +69,7 @@ describe('ChatOrchestrator /meme command — direct Reddit media', () => {
         replyToMessageId: null,
         reply: false,
         caption:
-          'direct image\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/imgdirect/direct_image/">↑1234</a>',
+          'direct image\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/imgdirect/direct_image/">↑1234</a> · <a href="https://t.me/tom">@tom</a>',
         media: expect.objectContaining({ kind: 'image' })
       })
     );
@@ -169,7 +169,7 @@ describe('ChatOrchestrator /meme command — direct Reddit media', () => {
         reply: false,
         hasSpoiler: true,
         caption:
-          'direct gallery\n\nr/pics · <a href="https://www.reddit.com/r/pics/comments/galdirect/direct_gallery/">↑4321</a>',
+          'direct gallery\n\nr/pics · <a href="https://www.reddit.com/r/pics/comments/galdirect/direct_gallery/">↑4321</a> · <a href="https://t.me/tom">@tom</a>',
         media: {
           kind: 'gallery',
           items: [
@@ -324,7 +324,7 @@ describe('ChatOrchestrator /meme command — direct Reddit media', () => {
         replyToMessageId: null,
         reply: false,
         caption:
-          'AI vs Creativity from yt-dlp\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑661</a>',
+          'AI vs Creativity from yt-dlp\n\nr/SipsTea · <a href="https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/">↑661</a> · <a href="https://t.me/tom">@tom</a>',
         media: expect.objectContaining({ kind: 'video' })
       })
     );
@@ -471,7 +471,7 @@ describe('ChatOrchestrator /meme command — direct Reddit media', () => {
         replyToMessageId: null,
         reply: false,
         caption:
-          'The Bubba Scrub invented under pressure\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑9001</a>',
+          'The Bubba Scrub invented under pressure\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑9001</a> · <a href="https://t.me/tom">@tom</a>',
         media: expect.objectContaining({ kind: 'video' })
       })
     );
@@ -591,7 +591,7 @@ describe('ChatOrchestrator /meme command — direct Reddit media', () => {
         replyToMessageId: null,
         reply: false,
         caption:
-          'The Bubba Scrub from yt-dlp\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑777</a>',
+          'The Bubba Scrub from yt-dlp\n\nr/nextfuckinglevel · <a href="https://www.reddit.com/r/nextfuckinglevel/comments/1tja210/the_bubba_scrub_invented_under_pressure_by_james/">↑777</a> · <a href="https://t.me/tom">@tom</a>',
         media: expect.objectContaining({ kind: 'video' })
       })
     );

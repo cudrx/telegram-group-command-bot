@@ -286,7 +286,7 @@ describe('ChatOrchestrator /meme command — direct links', () => {
     expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
-  test('expands a direct TikTok link in a private chat', async () => {
+  test('expands a direct TikTok link in a group and credits its sender', async () => {
     const sourceUrl =
       'https://www.tiktok.com/@creator/video/7512345678901234567';
     const execFile = vi
@@ -330,11 +330,12 @@ describe('ChatOrchestrator /meme command — direct links', () => {
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        authorizedMode: 'private_link_sender',
-        chatType: 'private',
+        chatType: 'group',
         text: sourceUrl,
         entities: [],
-        messageId: 45
+        messageId: 45,
+        fromUsername: 'tg_nick',
+        fromDisplayName: 'Tom'
       })
     );
 
@@ -342,7 +343,7 @@ describe('ChatOrchestrator /meme command — direct links', () => {
       expect.objectContaining({
         chatId: 1,
         reply: false,
-        caption: `tt: creator · likes: <a href="${sourceUrl}">321</a>`,
+        caption: `tt: creator · likes: <a href="${sourceUrl}">321</a> · <a href="https://t.me/tg_nick">@tg_nick</a>`,
         media: expect.objectContaining({ kind: 'video' })
       })
     );

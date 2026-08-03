@@ -115,6 +115,8 @@ export type ReplyRequest = {
   chatType: string;
   chatTitle: string | null;
   triggerMessageId: number;
+  fromUserId?: number | null;
+  fromUsername?: string | null;
   fromDisplayName: string;
   createdAt: string;
   intent: AssistantIntent;

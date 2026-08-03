@@ -56,7 +56,7 @@ export type MemeJobInput = {
 export async function sendCandidate(
   input: MemeJobInput,
   candidate: MemePostCandidate,
-  options: { reply?: boolean } = {}
+  options: { reply?: boolean; captionSuffix?: string } = {}
 ): Promise<void> {
   const runCandidate = async () => {
     const processStatusOptions = {
@@ -113,7 +113,7 @@ export async function sendDownloadedCandidate(
   input: MemeJobInput,
   candidate: MemePostCandidate,
   downloaded: DownloadedMemeMedia,
-  options: { reply?: boolean } = {}
+  options: { reply?: boolean; captionSuffix?: string } = {}
 ): Promise<void> {
   try {
     const reply = options.reply ?? true;
@@ -122,13 +122,16 @@ export async function sendDownloadedCandidate(
     const media = shouldForceSpoiler
       ? forceSpoilerOnDownloadedMedia(downloaded)
       : downloaded;
-    const caption = formatMemeCaption({
+    const baseCaption = formatMemeCaption({
       title: candidate.title,
       subreddit: candidate.subreddit,
       upvotes: candidate.upvotes,
       permalink: candidate.permalink,
       maxLength: getMemeJobConfig(input).caption.maxLength
     });
+    const caption = options.captionSuffix
+      ? `${baseCaption} · ${options.captionSuffix}`
+      : baseCaption;
 
     const sent = await dispatchMemeMedia({
       memeDispatcher: input.deps.memeDispatcher,
