@@ -87,6 +87,9 @@ export class OpenAiCompatibleLlmClient {
   async formatDeployUpdate(input: {
     shortSha: string;
     commits: string[];
+    productContext: string;
+    changedFiles: string[];
+    documentationChanges: string;
   }): Promise<LlmReplyResult> {
     return formatDeployUpdate({
       config: this.config,

@@ -18,6 +18,9 @@ export async function maybeAnnounceDeployUpdate(input: {
     formatDeployUpdate(input: {
       shortSha: string;
       commits: string[];
+      productContext: string;
+      changedFiles: string[];
+      documentationChanges: string;
     }): Promise<LlmReplyResult>;
   };
   loadDeployMetadata?: () => DeployMetadataLoadResult;
@@ -46,7 +49,10 @@ export async function maybeAnnounceDeployUpdate(input: {
   try {
     const result = await input.llm.formatDeployUpdate({
       shortSha: loaded.metadata.shortSha,
-      commits: loaded.metadata.commits
+      commits: loaded.metadata.commits,
+      productContext: loaded.metadata.productContext,
+      changedFiles: loaded.metadata.changedFiles,
+      documentationChanges: loaded.metadata.documentationChanges
     });
     const text = formatTelegramHtmlReply(result.text);
     const sentChatIds = await sendDeployAnnouncementToChats({

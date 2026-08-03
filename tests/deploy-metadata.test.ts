@@ -31,7 +31,10 @@ describe('loadDeployMetadata', () => {
         shortSha: '9c59b85',
         branch: 'main',
         builtAt: '2026-04-19T10:00:00.000Z',
-        commits: ['fix: handle telegram media captions']
+        commits: ['fix: handle telegram media captions'],
+        productContext: '',
+        changedFiles: [],
+        documentationChanges: ''
       }
     });
   });

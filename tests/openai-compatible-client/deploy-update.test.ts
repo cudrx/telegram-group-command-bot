@@ -30,7 +30,10 @@ describe('OpenAiCompatibleLlmClient deploy update', () => {
     await expect(
       client.formatDeployUpdate({
         shortSha: '9c59b85',
-        commits: ['fix: handle telegram media captions']
+        commits: ['fix: handle telegram media captions'],
+        productContext: 'Telegram media bot.',
+        changedFiles: ['src/media.ts'],
+        documentationChanges: 'Media captions are supported.'
       })
     ).resolves.toMatchObject({
       text: '<b>Исправлено</b>\n\n• Бот теперь понимает подписи к видео.',

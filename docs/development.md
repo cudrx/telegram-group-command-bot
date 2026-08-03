@@ -276,7 +276,7 @@ Use the official standalone Linux `yt-dlp` binary. Use static `ffmpeg` and
 Linux distribution into the Debian-based container, because their shared
 libraries may be unavailable.
 
-Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. The bot formats one announcement per new `sha`, reuses that text for every configured chat with `features.deploy_announcements: true`, and deduplicates future restarts through SQLite `app_state`.
+Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. Besides commit subjects, it contains changed file paths, the README product overview, and a limited diff of `README.md`, `docs/architecture.md`, and `docs/development.md` for the deployed commit range. The bot formats one announcement per new `sha`, reuses that text for every configured chat with `features.deploy_announcements: true`, and deduplicates future restarts through SQLite `app_state`.
 
 Rollback:
 

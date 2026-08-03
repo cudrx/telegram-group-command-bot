@@ -11,7 +11,10 @@ const deployMetadataSchema = z.object({
   shortSha: z.string().min(1),
   branch: z.string().min(1),
   builtAt: z.string().datetime().nullable(),
-  commits: z.array(z.string().min(1))
+  commits: z.array(z.string().min(1)),
+  productContext: z.string().default(''),
+  changedFiles: z.array(z.string()).default([]),
+  documentationChanges: z.string().default('')
 });
 
 export type DeployMetadata = z.infer<typeof deployMetadataSchema>;

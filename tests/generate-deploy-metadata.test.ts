@@ -28,7 +28,10 @@ describe('generate deploy metadata', () => {
       sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
       branch: 'main',
       now: () => '2026-04-19T10:00:00.000Z',
-      gitLog
+      gitLog,
+      productContext: 'Telegram media bot.',
+      changedFiles: ['src/media.ts'],
+      documentationChanges: 'Media links are expanded.'
     });
 
     expect(gitLog).toHaveBeenCalledWith(
@@ -39,7 +42,10 @@ describe('generate deploy metadata', () => {
       shortSha: 'f3f896a',
       branch: 'main',
       builtAt: '2026-04-19T10:00:00.000Z',
-      commits: ['fix: captions', 'feat: announcements']
+      commits: ['fix: captions', 'feat: announcements'],
+      productContext: 'Telegram media bot.',
+      changedFiles: ['src/media.ts'],
+      documentationChanges: 'Media links are expanded.'
     });
   });
 
@@ -130,7 +136,10 @@ describe('generate deploy metadata', () => {
       shortSha: 'f3f896a',
       branch: 'main',
       builtAt: '2026-04-19T10:00:00.000Z',
-      commits: ['fix: captions']
+      commits: ['fix: captions'],
+      productContext: 'Telegram media bot.',
+      changedFiles: ['src/media.ts'],
+      documentationChanges: 'Media captions are supported.'
     });
 
     expect(JSON.parse(readFileSync(outputPath, 'utf8'))).toEqual({
@@ -138,7 +147,10 @@ describe('generate deploy metadata', () => {
       shortSha: 'f3f896a',
       branch: 'main',
       builtAt: '2026-04-19T10:00:00.000Z',
-      commits: ['fix: captions']
+      commits: ['fix: captions'],
+      productContext: 'Telegram media bot.',
+      changedFiles: ['src/media.ts'],
+      documentationChanges: 'Media captions are supported.'
     });
   });
 });

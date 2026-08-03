@@ -17,6 +17,9 @@ export async function formatDeployUpdate(params: {
   input: {
     shortSha: string;
     commits: string[];
+    productContext: string;
+    changedFiles: string[];
+    documentationChanges: string;
   };
 }): Promise<LlmReplyResult> {
   const { config, createCompletion, options, input } = params;

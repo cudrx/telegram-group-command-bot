@@ -41,7 +41,10 @@ describe('maybeAnnounceDeployUpdate', () => {
 
     expect(deps.llm.formatDeployUpdate).toHaveBeenCalledWith({
       shortSha: 'sha-1',
-      commits: ['fix: handle telegram media captions']
+      commits: ['fix: handle telegram media captions'],
+      productContext: 'Telegram media bot.',
+      changedFiles: ['src/media.ts'],
+      documentationChanges: 'Media captions are supported.'
     });
     expect(deps.llm.formatDeployUpdate).toHaveBeenCalledTimes(1);
     expect(deps.sendMessage).toHaveBeenNthCalledWith(1, {
@@ -149,7 +152,10 @@ function createDeps(
           shortSha: 'sha-1',
           branch: 'main',
           builtAt: '2026-04-19T09:59:00.000Z',
-          commits: ['fix: handle telegram media captions']
+          commits: ['fix: handle telegram media captions'],
+          productContext: 'Telegram media bot.',
+          changedFiles: ['src/media.ts'],
+          documentationChanges: 'Media captions are supported.'
         }
       })),
     sendMessage: overrides.sendMessage ?? vi.fn().mockResolvedValue(undefined),
