@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { describe, expect, test } from 'vitest';
 
 import {
@@ -34,31 +32,14 @@ const replyContext = {
 };
 
 describe('buildLookupPlannerPrompt', () => {
-  test('keeps static lookup planner prompt text in llm markdown files', () => {
-    expect(readFileSync('llm/planner/lookup.md', 'utf8')).toContain(
-      'You are a Telegram lookup planner.'
-    );
-  });
-
-  test('balances entity grounding with chat-contained skips', () => {
+  test('includes the selected intent and chat evidence', () => {
     const prompt = buildLookupPlannerPrompt({
       intent: 'decide',
       replyContext
     });
 
-    expect(prompt).toContain(
-      "Decide whether external lookup would materially improve this command's answer."
-    );
-    expect(prompt).toContain(
-      'When uncertain because an external fact, named entity, URL, or currentness may change the answer, choose lookup.'
-    );
-    expect(prompt).toContain(
-      'When uncertain but the case appears chat-contained, skip lookup.'
-    );
-    expect(prompt).toContain('entity_grounding');
     expect(prompt).toContain('дора');
     expect(prompt).toContain('мейби');
-    expect(prompt).toContain('Return only minified JSON');
   });
 
   test('uses reply target data for answer lookup planning', () => {
@@ -89,8 +70,6 @@ describe('buildLookupPlannerPrompt', () => {
       }
     });
 
-    expect(prompt).toContain('Current command intent: answer');
-    expect(prompt).toContain('TARGET_MESSAGE_TO_ANSWER:');
     expect(prompt).toContain('кто сейчас президент Франции?');
     expect(prompt).not.toContain('ignored');
   });

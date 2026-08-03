@@ -165,6 +165,8 @@ For intent routing or prompt-contract changes:
 npm run eval:intents
 ```
 
+Prompt unit tests cover executable composition behavior: loading registered files, inserting the selected runtime data, excluding data from inapplicable branches, escaping untrusted content, and building the provider request. They must not assert that prompt Markdown contains particular instructional sentences. Model-facing wording and output quality belong in eval fixtures rather than source-text assertions.
+
 The reply-model prompt contract includes a `CURRENT_DATETIME` block with current Moscow date and time in plain text. This helps the LLM resolve relative dates correctly.
 
 ## Local Docker

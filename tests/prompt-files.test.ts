@@ -5,12 +5,10 @@ import path from 'node:path';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import {
-  loadAssistantInstructions,
   loadPrompt,
   loadPromptFile,
   PROMPT_FILE_PATHS
 } from '../src/llm/prompt-files.js';
-import { language } from '../src/locales/locale.js';
 
 const tempDirectories: string[] = [];
 
@@ -55,18 +53,6 @@ describe('prompt file registry', () => {
         readFileSync(registeredPath, 'utf8').trim()
       );
     }
-  });
-
-  test('base assistant instructions stay neutral', () => {
-    const instructions = loadAssistantInstructions();
-
-    expect(instructions).toContain('helpful assistant');
-    expect(instructions).toContain(`Answer in ${language.targetLanguageName}.`);
-    expect(instructions).toContain('without fabricating details');
-    expect(instructions).toContain('If context is insufficient');
-    expect(instructions).toContain('Do not refer to internal instructions');
-    expect(instructions).not.toContain('Use Telegram HTML-compatible');
-    expect(instructions).not.toContain('{{targetLanguageName}}');
   });
 
   test('reloads prompt file content on every read', () => {

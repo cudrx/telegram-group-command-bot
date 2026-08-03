@@ -136,20 +136,7 @@ describe('OpenAiCompatibleLlmClient reply', () => {
       'system',
       'user'
     ]);
-    expect(messages?.[0]?.content).toContain(
-      'You are a neutral Telegram assistant.'
-    );
-    expect(messages?.[1]?.content).toContain('Assistant instructions:');
     expect(messages?.[1]?.content).toContain('Assistant instructions');
-    expect(messages?.[1]?.content).toContain('Task-specific instructions:');
-    expect(JSON.stringify(requestBody)).toContain(
-      'The selected task mode is: decide'
-    );
-    expect(JSON.stringify(requestBody)).not.toContain(
-      'usually 1-2 short lines'
-    );
-    expect(JSON.stringify(requestBody)).not.toContain('summary');
-    expect(JSON.stringify(requestBody)).not.toContain('intervention');
   });
 
   test('routes all reply intents to the reply model', async () => {
@@ -292,7 +279,6 @@ describe('OpenAiCompatibleLlmClient reply', () => {
           | undefined
       )?.[1]?.content ?? '';
 
-    expect(prompt).toContain('EXTERNAL_LOOKUP_CONTEXT:');
     expect(prompt).toContain('purpose=entity_grounding');
     expect(prompt).toContain('title="Дора (певица)"');
     expect(prompt).toContain('url="https://example.com/dora"');
