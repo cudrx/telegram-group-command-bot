@@ -10,6 +10,11 @@ services:
       NODE_ENV: production
       SQLITE_PATH: /app/data/bot.sqlite
       PATH: /usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.kill(1, 0)"]
+      interval: 2s
+      timeout: 2s
+      retries: 5
     volumes:
       - ./data:/app/data
       - ./data/bin/yt-dlp:/usr/local/bin/yt-dlp:ro

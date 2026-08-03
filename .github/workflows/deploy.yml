@@ -45,9 +45,6 @@ jobs:
       - name: Test
         run: npm test
 
-      - name: Build
-        run: npm run build
-
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -104,7 +101,7 @@ jobs:
           context: .
           push: true
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=min
           tags: |
             ${{ steps.image.outputs.name }}:latest
             ${{ steps.image.outputs.name }}:${{ github.sha }}

@@ -218,7 +218,8 @@ starting `yt-dlp`. The block clears automatically only after the cookie file at
 
 CI workflow: `.github/workflows/ci.yml`.
 
-On `push`, `pull_request`, and manual `workflow_dispatch`, it runs:
+On non-`main` pushes, pull requests targeting `main`, and manual
+`workflow_dispatch`, it runs:
 
 1. `npm ci`
 2. `npm run lint`
@@ -231,6 +232,13 @@ On `push`, `pull_request`, and manual `workflow_dispatch`, it runs:
 Deploy workflow: `.github/workflows/deploy.yml`.
 
 Deploys run automatically on `push` to `main` and manually through GitHub Actions `Run workflow`. The workflow uploads compose/assets, publishes the Docker image to GHCR, and runs pull/up on the server through `deploy/remote-deploy.sh`.
+
+The deploy workflow runs lint, typecheck, and tests once before the Docker build.
+The image is tagged with the commit SHA, and the server waits for the container
+healthcheck after starting that exact tag. If the new container does not become
+healthy, the remote deploy script restores the previously running image and
+keeps the workflow failed. Tagged images are retained for rollback; deploy only
+prunes dangling layers.
 
 GitHub Secrets:
 
