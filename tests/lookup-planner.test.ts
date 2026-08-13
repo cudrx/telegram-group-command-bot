@@ -28,23 +28,28 @@ const replyContext = {
       isBot: false,
       replyToMessageId: null
     }
-  ]
+  ],
+  contextMetadata: { truncated: true, includedMessageCount: 1 }
 };
 
 describe('buildLookupPlannerPrompt', () => {
   test('includes the selected intent and chat evidence', () => {
     const prompt = buildLookupPlannerPrompt({
       intent: 'decide',
+      currentDateTime: 'Friday, 17 April 2026, 23:15 Moscow time',
       replyContext
     });
 
     expect(prompt).toContain('дора');
     expect(prompt).toContain('мейби');
+    expect(prompt).toContain('Friday, 17 April 2026, 23:15 Moscow time');
+    expect(prompt).toContain('contextTruncated=true');
   });
 
   test('uses reply target data for answer lookup planning', () => {
     const prompt = buildLookupPlannerPrompt({
       intent: 'answer',
+      currentDateTime: 'Friday, 17 April 2026, 23:15 Moscow time',
       replyContext: {
         triggerMessage: {
           chatId: 1,

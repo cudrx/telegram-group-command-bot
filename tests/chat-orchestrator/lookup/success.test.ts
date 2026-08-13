@@ -73,6 +73,7 @@ describe('ChatOrchestrator lookup success', () => {
 
     expect(planLookup).toHaveBeenCalledWith({
       intent: 'decide',
+      currentDateTime: 'Monday, 13 April 2026, 12:00 Moscow time',
       replyContext: expect.objectContaining({
         priorContextMessages: [expect.objectContaining({ messageId: 1 })]
       })

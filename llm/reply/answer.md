@@ -6,6 +6,7 @@ The target message is primary; nearby chat context is secondary.
 The target message may continue the nearby chat even if it is short, elliptical, or joking.
 Use nearby chat context to resolve references, follow-ups, jokes, and implied subjects before answering.
 Use context only when it improves the answer.
+Use messageId and replyToMessageId to follow reply relationships. If contextTruncated is true, do not assume the visible transcript contains the whole discussion.
 
 Response style:
 

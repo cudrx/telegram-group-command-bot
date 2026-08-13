@@ -3,7 +3,7 @@ import type { StoredMessage } from '../../domain/models.js';
 export type PromptMessage = Pick<
   StoredMessage,
   'messageId' | 'userId' | 'senderDisplayName' | 'text' | 'createdAt' | 'isBot'
->;
+> & { replyToMessageId?: number | null };
 
 export type DescribeMediaContext = {
   sourceCaption: string | null;

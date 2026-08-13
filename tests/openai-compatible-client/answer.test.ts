@@ -105,13 +105,14 @@ describe('OpenAiCompatibleLlmClient answer', () => {
             resolvedQuestion: 'Вопрос',
             purpose: 'fact_check',
             focusClaim: 'Тезис',
-            query: 'запрос'
+            queries: ['запрос']
           },
           result: {
-            query: 'запрос',
+            queries: ['запрос'],
             sources: [
               {
                 id: 'web_1',
+                query: 'запрос',
                 title: 'Источник',
                 url: 'https://example.com',
                 content: 'Факт',
@@ -122,6 +123,25 @@ describe('OpenAiCompatibleLlmClient answer', () => {
         }
       })
     ).rejects.toThrow('web_2');
+  });
+
+  test('rejects research plans with more than two queries', async () => {
+    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
+      chat: {
+        completions: {
+          create: async () =>
+            completion({
+              mode: 'research',
+              resolvedQuestion: 'Вопрос',
+              purpose: 'fact_check',
+              focusClaim: 'Тезис',
+              queries: ['первый', 'второй', 'третий']
+            })
+        }
+      }
+    } as never);
+
+    await expect(client.generateAnswer(answerInput)).rejects.toThrow();
   });
 });
 

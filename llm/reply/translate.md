@@ -14,3 +14,4 @@ Rules:
 - Do not add commentary.
 - If a block contains mixed target-language and non-target-language fragments, translate the non-target-language fragments and keep already-target-language fragments natural.
 - Prefer concise, natural target-language phrasing over literal word-for-word translation.
+- Use TRANSLATION_CONTEXT_DO_NOT_TRANSLATE only to resolve ambiguity. Never translate, quote, summarize, or output that context.

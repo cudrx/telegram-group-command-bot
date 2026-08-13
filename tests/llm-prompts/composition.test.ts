@@ -50,11 +50,13 @@ describe('buildIntentPrompt composition', () => {
           isBot: false,
           replyToMessageId: null
         },
-        priorContextMessages: []
+        priorContextMessages: [],
+        contextMetadata: { truncated: true, includedMessageCount: 0 }
       }
     });
 
     expect(prompt).toContain('unique replied-to question');
+    expect(prompt).toContain('contextTruncated=true');
     expect(prompt).not.toContain('command-only-secret');
   });
 });

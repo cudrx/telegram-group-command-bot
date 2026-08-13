@@ -40,6 +40,7 @@ describe('OpenAiCompatibleLlmClient lookup', () => {
 
     const result = await client.planLookup({
       intent: 'decide',
+      currentDateTime: 'Friday, 17 April 2026, 23:15 Moscow time',
       replyContext: createReplyInput().replyContext
     });
 
@@ -86,6 +87,7 @@ describe('OpenAiCompatibleLlmClient lookup', () => {
     await expect(
       client.planLookup({
         intent: 'decide',
+        currentDateTime: 'Friday, 17 April 2026, 23:15 Moscow time',
         replyContext: createReplyInput().replyContext
       })
     ).resolves.toMatchObject({
@@ -109,6 +111,7 @@ describe('OpenAiCompatibleLlmClient lookup', () => {
     await expect(
       client.planLookup({
         intent: 'decide',
+        currentDateTime: 'Friday, 17 April 2026, 23:15 Moscow time',
         replyContext: createReplyInput().replyContext
       })
     ).resolves.toMatchObject({

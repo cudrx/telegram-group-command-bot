@@ -60,5 +60,6 @@ export type GenerateReplyInput = {
 
 export type PlanLookupInput = {
   intent: LookupIntent;
+  currentDateTime: string;
   replyContext: ReplyContext;
 };

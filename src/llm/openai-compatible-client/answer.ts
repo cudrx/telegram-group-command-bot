@@ -19,7 +19,7 @@ const researchPlanSchema = z
       'link_extraction'
     ]),
     focusClaim: z.string().trim().min(1),
-    query: z.string().trim().min(1)
+    queries: z.array(z.string().trim().min(1)).min(1).max(2)
   })
   .strict();
 
@@ -60,9 +60,10 @@ export type AnswerDecision =
 export type AnswerResearchContext = {
   plan: AnswerResearchPlan;
   result: {
-    query: string;
+    queries: string[];
     sources: Array<{
       id: string;
+      query: string;
       title: string;
       url: string;
       content: string;

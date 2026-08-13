@@ -44,7 +44,7 @@ export function getContextLimitForIntent(
     case 'answer':
       return env.answerContextLimit;
     case 'translate':
-      return 0;
+      return 5;
   }
 }
 

@@ -132,7 +132,7 @@ LLM layer:
 - deploy announcement formatting;
 - reply generation.
 
-Static prompt text lives in `llm/`. The shared reply shell also receives `CURRENT_DATETIME` with current Moscow date and time in plain text so all reply intents resolve relative dates consistently.
+Static prompt text lives in `llm/`. The shared reply shell and lookup planner receive the current Moscow date and time in plain text so reply intents and lookup decisions resolve relative dates consistently. Transcript rows include message and reply-target IDs, plus metadata indicating whether the configured context window omitted older human messages.
 
 ### `src/media`
 
@@ -219,13 +219,14 @@ Behavior:
 - Text after the command is ignored.
 - The reply anchor can be a human message or another bot's message, but not this bot's own message.
 - Can use lookup and media context from the target message.
-- A context-contained answer takes one LLM call. A research answer takes one lookup and one additional grounded LLM call.
+- A context-contained answer takes one LLM call. A research answer performs one or two parallel lookups and one additional grounded LLM call.
 
 ### `/translate`
 
 - Runs as a reply to a target message and always translates into the target language.
 - Text after the command is ignored.
 - Can translate this bot's own messages; this exception supports the `/answer` -> `/translate` chain.
+- Receives up to three recent neighboring human messages as non-output context for resolving ambiguous wording.
 - Translates only target-message blocks: text, caption, image OCR text, audio/video-note transcript, or image description.
 - Each block is checked locally; blocks that already look like the target language are not sent to the LLM and are not duplicated in the reply.
 - If all found blocks already look like the target language, the bot sends a local fallback without the LLM.

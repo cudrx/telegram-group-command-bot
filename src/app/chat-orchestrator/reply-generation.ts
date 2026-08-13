@@ -112,6 +112,7 @@ export async function executeReplyGeneration(input: {
 
   const lookupContext = await buildLookupContext(deps, {
     intent: request.intent,
+    currentDateTime: formatMoscowCurrentDateTime(deps.now()),
     replyContext,
     logger
   });
@@ -143,35 +144,71 @@ async function generateAnswer(
       throw new Error('Answer preflight returned grounded output');
     }
 
+    const researchPlan = first.decision;
+
     if (!deps.lookupProvider) {
       return createLocalReplyResult(text.answer.lookupFailedFallback);
     }
 
-    const lookup = await deps.lookupProvider
-      .search({
-        query: first.decision.query,
-        maxResults: deps.env.lookupMaxResults,
-        timeoutMs: Math.min(
-          deps.env.lookupTimeoutMs,
-          answerActionConfig.lookupTimeoutMs
-        )
-      })
-      .catch((error: unknown) => {
-        logger.warn('answer_lookup_failed', serializeError(error));
-        return null;
-      });
+    const lookupResults = await Promise.allSettled(
+      researchPlan.queries.map((query) =>
+        deps.lookupProvider?.search({
+          query,
+          maxResults: deps.env.lookupMaxResults,
+          timeoutMs: Math.min(
+            deps.env.lookupTimeoutMs,
+            answerActionConfig.lookupTimeoutMs
+          )
+        })
+      )
+    );
+    const primaryLookup = lookupResults[0];
 
-    if (!lookup) {
+    if (!primaryLookup || primaryLookup.status === 'rejected') {
+      logger.warn(
+        'answer_lookup_failed',
+        serializeError(
+          primaryLookup?.status === 'rejected'
+            ? primaryLookup.reason
+            : new Error('Required answer lookup returned no result.')
+        )
+      );
+
       return createLocalReplyResult(text.answer.lookupFailedFallback);
     }
+
+    const lookups = lookupResults.flatMap((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        return [result.value];
+      }
+
+      logger.warn(
+        'answer_lookup_failed',
+        serializeError(
+          result.status === 'rejected'
+            ? result.reason
+            : new Error('Answer lookup returned no result.')
+        )
+      );
+
+      return [];
+    });
+
+    if (lookups.length === 0) {
+      return createLocalReplyResult(text.answer.lookupFailedFallback);
+    }
+
+    const sources = lookups.flatMap((lookup) =>
+      lookup.sources.map((source) => ({ query: lookup.query, ...source }))
+    );
 
     const second = await deps.qwen.generateAnswer({
       ...input,
       research: {
-        plan: first.decision,
+        plan: researchPlan,
         result: {
-          query: lookup.query,
-          sources: lookup.sources.map((source, index) => ({
+          queries: researchPlan.queries,
+          sources: sources.map((source, index) => ({
             id: `web_${index + 1}`,
             ...source
           }))

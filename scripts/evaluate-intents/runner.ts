@@ -125,15 +125,18 @@ async function evaluateAnswer(
     throw new Error(`${fixture.id}: invalid preflight mode`);
   }
 
+  const researchPlan = first.decision;
+
   const lookup = createEvalLookupContext(fixture);
   const grounded = await llm.generateAnswer({
     ...input,
     research: {
-      plan: first.decision,
+      plan: researchPlan,
       result: {
-        query: lookup?.query ?? first.decision.query,
+        queries: researchPlan.queries,
         sources: (lookup?.sources ?? []).map((source, index) => ({
           id: `web_${index + 1}`,
+          query: researchPlan.queries[0] ?? '',
           ...source
         }))
       }

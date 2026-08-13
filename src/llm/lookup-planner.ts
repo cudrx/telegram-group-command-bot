@@ -6,10 +6,14 @@ import type {
   LookupPurpose
 } from '../lookup/types.js';
 import { loadPrompt } from './prompt-files.js';
-import { formatConversationForLlm } from './prompts.js';
+import {
+  formatConversationForLlm,
+  formatReplyContextMetadata
+} from './prompts.js';
 
 export function buildLookupPlannerPrompt(input: {
   intent: LookupIntent;
+  currentDateTime: string;
   replyContext: ReplyContext;
 }): string {
   const targetSection =
@@ -22,6 +26,10 @@ export function buildLookupPlannerPrompt(input: {
         ]
       : [
           'CHAT_CONTEXT_DATA:',
+          formatReplyContextMetadata({
+            messages: input.replyContext.priorContextMessages,
+            metadata: input.replyContext.contextMetadata
+          }),
           formatConversationForLlm(input.replyContext.priorContextMessages)
         ];
 
@@ -29,6 +37,7 @@ export function buildLookupPlannerPrompt(input: {
     loadPrompt('lookup'),
     '',
     `Current command intent: ${input.intent}`,
+    `Current Moscow date and time: ${input.currentDateTime}`,
     '',
     ...targetSection,
     '',

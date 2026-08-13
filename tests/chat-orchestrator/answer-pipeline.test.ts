@@ -81,28 +81,31 @@ describe('ChatOrchestrator answer pipeline', () => {
     });
   });
 
-  test('research path uses one lookup and a second model call', async () => {
+  test('research path runs up to two lookups and combines their sources', async () => {
     const plan = {
       mode: 'research',
       resolvedQuestion: 'Актуальный вопрос?',
       purpose: 'freshness',
       focusClaim: 'Актуальный факт',
-      query: 'актуальный факт официальный источник'
+      queries: [
+        'актуальный факт официальный источник',
+        'актуальный факт независимый источник'
+      ]
     };
-    const search = vi.fn().mockResolvedValue({
-      provider: 'tavily',
-      query: plan.query,
+    const search = vi.fn(async ({ query }: { query: string }) => ({
+      provider: 'tavily' as const,
+      query,
       sources: [
         {
-          title: 'Источник',
-          url: 'https://example.com',
+          title: `Источник ${query}`,
+          url: `https://example.com/${query.endsWith('источник') ? 'source' : 'other'}`,
           content: 'Факт',
           score: 0.9
         }
       ],
       responseTimeMs: 100,
       usageCredits: 1
-    });
+    }));
     const flow = setup({
       decisions: [
         plan,
@@ -121,17 +124,33 @@ describe('ChatOrchestrator answer pipeline', () => {
     await flow.run();
 
     expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
-    expect(search).toHaveBeenCalledWith({
-      query: plan.query,
+    expect(search).toHaveBeenCalledTimes(2);
+    expect(search).toHaveBeenNthCalledWith(1, {
+      query: plan.queries[0],
+      maxResults: 3,
+      timeoutMs: 3000
+    });
+    expect(search).toHaveBeenNthCalledWith(2, {
+      query: plan.queries[1],
       maxResults: 3,
       timeoutMs: 3000
     });
     expect(flow.generateAnswer).toHaveBeenLastCalledWith(
       expect.objectContaining({
         research: {
-          plan: expect.objectContaining({ query: plan.query }),
+          plan: expect.objectContaining({ queries: plan.queries }),
           result: expect.objectContaining({
-            sources: [expect.objectContaining({ id: 'web_1' })]
+            queries: plan.queries,
+            sources: [
+              expect.objectContaining({
+                id: 'web_1',
+                query: plan.queries[0]
+              }),
+              expect.objectContaining({
+                id: 'web_2',
+                query: plan.queries[1]
+              })
+            ]
           })
         }
       })
@@ -149,7 +168,7 @@ describe('ChatOrchestrator answer pipeline', () => {
           resolvedQuestion: 'Вопрос',
           purpose: 'freshness',
           focusClaim: 'Факт',
-          query: 'запрос'
+          queries: ['запрос']
         }
       ],
       lookupProvider: {
@@ -163,6 +182,117 @@ describe('ChatOrchestrator answer pipeline', () => {
     expect(flow.replyDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         text: 'Не смог быстро проверить это по внешним источникам.'
+      })
+    );
+  });
+
+  test('returns fallback when the required first lookup fails', async () => {
+    const queries = ['первый запрос', 'второй запрос'];
+    const search = vi.fn(async ({ query }: { query: string }) => {
+      if (query === queries[0]) throw new Error('first query failed');
+
+      return {
+        provider: 'tavily' as const,
+        query,
+        sources: [
+          {
+            title: 'Рабочий источник',
+            url: 'https://example.com/working',
+            content: 'Факт',
+            score: 0.8
+          }
+        ],
+        responseTimeMs: 100,
+        usageCredits: 1
+      };
+    });
+    const flow = setup({
+      decisions: [
+        {
+          mode: 'research',
+          resolvedQuestion: 'Вопрос',
+          purpose: 'fact_check',
+          focusClaim: 'Факт',
+          queries
+        },
+        {
+          mode: 'grounded',
+          status: 'answered',
+          outcome: 'confirmed',
+          evidenceBasis: 'original_source',
+          usedSourceIds: ['web_1'],
+          text: 'Ответ по доступному источнику.'
+        }
+      ],
+      lookupProvider: { search }
+    });
+
+    await flow.run();
+
+    expect(flow.generateAnswer).toHaveBeenCalledOnce();
+    expect(flow.replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: 'Не смог быстро проверить это по внешним источникам.'
+      })
+    );
+  });
+
+  test('uses first lookup evidence when the optional second lookup fails', async () => {
+    const queries = ['первый запрос', 'второй запрос'];
+    const search = vi.fn(async ({ query }: { query: string }) => {
+      if (query === queries[1]) throw new Error('second query failed');
+
+      return {
+        provider: 'tavily' as const,
+        query,
+        sources: [
+          {
+            title: 'Основной источник',
+            url: 'https://example.com/primary',
+            content: 'Факт',
+            score: 0.9
+          }
+        ],
+        responseTimeMs: 100,
+        usageCredits: 1
+      };
+    });
+    const flow = setup({
+      decisions: [
+        {
+          mode: 'research',
+          resolvedQuestion: 'Вопрос',
+          purpose: 'fact_check',
+          focusClaim: 'Факт',
+          queries
+        },
+        {
+          mode: 'grounded',
+          status: 'answered',
+          outcome: 'confirmed',
+          evidenceBasis: 'original_source',
+          usedSourceIds: ['web_1'],
+          text: 'Ответ по основному источнику.'
+        }
+      ],
+      lookupProvider: { search }
+    });
+
+    await flow.run();
+
+    expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
+    expect(flow.generateAnswer).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        research: expect.objectContaining({
+          result: expect.objectContaining({
+            sources: [
+              expect.objectContaining({
+                id: 'web_1',
+                query: queries[0]
+              })
+            ]
+          })
+        })
       })
     );
   });

@@ -9,6 +9,7 @@ import { formatJsonForPrompt, sanitizePromptText } from './sanitize.js';
 import {
   formatCommandMessage,
   formatReplyContextMessages,
+  formatReplyContextMetadata,
   formatSingleMessage
 } from './transcript.js';
 import type { DescribeMediaContext } from './types.js';
@@ -40,9 +41,13 @@ export function getIntentDataSections(input: {
         input.mediaContext?.visionInterpretation ??
           'No media interpretation context.'
       ),
-      nearbyChatContext: formatReplyContextMessages(
-        input.replyContext.priorContextMessages
-      ),
+      nearbyChatContext: [
+        formatReplyContextMetadata({
+          messages: input.replyContext.priorContextMessages,
+          metadata: input.replyContext.contextMetadata
+        }),
+        formatReplyContextMessages(input.replyContext.priorContextMessages)
+      ].join('\n'),
       currentCommandMessage: formatCommandMessage(
         input.replyContext.triggerMessage
       ),
@@ -78,14 +83,25 @@ export function getIntentDataSections(input: {
       audioTranscript: formatJsonForPrompt(
         input.mediaContext?.audioTranscript ?? null
       ),
-      chatContext: formatReplyContextMessages(
-        input.replyContext.priorContextMessages
-      ),
+      chatContext: [
+        formatReplyContextMetadata({
+          messages: input.replyContext.priorContextMessages,
+          metadata: input.replyContext.contextMetadata
+        }),
+        formatReplyContextMessages(input.replyContext.priorContextMessages)
+      ].join('\n'),
       commandName: input.intent
     });
   }
 
   if (input.intent === 'translate') {
+    const translationContextMessages = input.replyContext.priorContextMessages
+      .filter(
+        (message) =>
+          message.messageId !== input.replyContext.replyAnchorMessage?.messageId
+      )
+      .slice(-3);
+
     return [
       'TARGET_MESSAGE_TO_TRANSLATE:',
       formatSingleMessage(input.replyContext.replyAnchorMessage),
@@ -93,7 +109,17 @@ export function getIntentDataSections(input: {
       'TRANSLATE_BLOCKS:',
       formatTranslateBlocksForPrompt(
         input.replyContext.replyAnchorMessage?.text
-      )
+      ),
+      '',
+      'TRANSLATION_CONTEXT_DO_NOT_TRANSLATE:',
+      formatReplyContextMetadata({
+        messages: translationContextMessages,
+        metadata: {
+          truncated: input.replyContext.contextMetadata?.truncated ?? false,
+          includedMessageCount: translationContextMessages.length
+        }
+      }),
+      formatReplyContextMessages(translationContextMessages)
     ].join('\n');
   }
 
@@ -101,9 +127,13 @@ export function getIntentDataSections(input: {
     currentCommandMessage: formatCommandMessage(
       input.replyContext.triggerMessage
     ),
-    chatContext: formatReplyContextMessages(
-      input.replyContext.priorContextMessages
-    )
+    chatContext: [
+      formatReplyContextMetadata({
+        messages: input.replyContext.priorContextMessages,
+        metadata: input.replyContext.contextMetadata
+      }),
+      formatReplyContextMessages(input.replyContext.priorContextMessages)
+    ].join('\n')
   });
 }
 

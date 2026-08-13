@@ -14,6 +14,7 @@ export async function buildLookupContext(
   deps: Pick<ChatOrchestratorDeps, 'env' | 'lookupProvider' | 'qwen'>,
   input: {
     intent: AssistantIntent;
+    currentDateTime: string;
     replyContext: ReplyContext;
     logger: AppLogger;
   }
@@ -37,6 +38,7 @@ export async function buildLookupContext(
   try {
     plan = await deps.qwen.planLookup({
       intent: lookupIntent,
+      currentDateTime: input.currentDateTime,
       replyContext: input.replyContext
     });
   } catch (error) {

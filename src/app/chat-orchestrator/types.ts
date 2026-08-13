@@ -106,6 +106,7 @@ export type LlmClient = {
   }): Promise<LlmReplyResult>;
   planLookup(input: {
     intent: LookupIntent;
+    currentDateTime: string;
     replyContext: ReplyContext;
   }): Promise<LookupPlanResult>;
 };

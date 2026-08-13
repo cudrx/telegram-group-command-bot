@@ -21,6 +21,8 @@ Rules:
 - Do not write 'Summary:' or English summary headings.
 - Do not use Markdown markers like **bold**.
 - Do not write phrases like "summarization complete" or "there is not enough data for precise analysis".
+- Use messageId and replyToMessageId to follow reply relationships.
+- If contextTruncated is true, summarize only the visible portion without implying that it is the full discussion.
 
 Required response shape:
 - First line exactly: <b>{{summarizeShortSummaryLabel}}</b>

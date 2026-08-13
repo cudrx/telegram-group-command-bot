@@ -92,6 +92,10 @@ export type ReplyContext = {
   triggerMessage: StoredMessage | null;
   replyAnchorMessage: StoredMessage | null;
   priorContextMessages: StoredMessage[];
+  contextMetadata?: {
+    truncated: boolean;
+    includedMessageCount: number;
+  };
 };
 
 export type ChatState = {

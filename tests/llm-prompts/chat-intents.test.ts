@@ -40,6 +40,8 @@ describe('buildIntentPrompt chat intent inputs', () => {
     });
 
     expect(prompt).toContain('visible chat evidence');
+    expect(prompt).toContain('contextTruncated=false');
+    expect(prompt).toContain('includedMessageCount=1');
     expect(prompt).not.toContain('command-only-secret');
   });
 
@@ -70,11 +72,34 @@ describe('buildIntentPrompt chat intent inputs', () => {
           isBot: false,
           replyToMessageId: null
         },
-        priorContextMessages: []
+        priorContextMessages: [
+          {
+            chatId: 1,
+            messageId: 1,
+            userId: 3,
+            senderDisplayName: 'Bob',
+            text: 'We are discussing a great concert.',
+            createdAt: '2026-04-03T11:58:00.000Z',
+            isBot: false,
+            replyToMessageId: null
+          },
+          {
+            chatId: 1,
+            messageId: 2,
+            userId: 2,
+            senderDisplayName: 'Alice',
+            text: 'Hello world',
+            createdAt: '2026-04-03T11:59:00.000Z',
+            isBot: false,
+            replyToMessageId: null
+          }
+        ]
       }
     });
 
     expect(prompt).toContain('Hello world');
+    expect(prompt).toContain('We are discussing a great concert.');
+    expect(prompt.match(/Hello world/g)).toHaveLength(2);
     expect(prompt).not.toContain('command-only-secret');
   });
 });

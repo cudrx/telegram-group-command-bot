@@ -11,7 +11,7 @@ export function formatConversationForLlm(messages: PromptMessage[]): string {
         ? `bot ${sanitizePromptText(message.senderDisplayName)}`
         : `user#${message.userId ?? 'unknown'} ${sanitizePromptText(message.senderDisplayName)}`;
 
-      return `[${formatMoscowCurrentDateTime(message.createdAt)}] actor=${actor} content="${sanitizePromptText(message.text)}"`;
+      return `[${formatMoscowCurrentDateTime(message.createdAt)}] messageId=${message.messageId} replyToMessageId=${message.replyToMessageId ?? 'null'} actor=${actor} content="${sanitizePromptText(message.text)}"`;
     })
     .join('\n');
 }
@@ -41,6 +41,21 @@ export function formatReplyContextMessages(messages: PromptMessage[]): string {
   return renderPromptTemplate(loadPrompt('systemTranscript'), {
     transcript: formatConversationForLlm(messages)
   });
+}
+
+export function formatReplyContextMetadata(input: {
+  messages: PromptMessage[];
+  metadata:
+    | {
+        truncated: boolean;
+        includedMessageCount: number;
+      }
+    | undefined;
+}): string {
+  return [
+    `contextTruncated=${input.metadata?.truncated ?? false}`,
+    `includedMessageCount=${input.metadata?.includedMessageCount ?? input.messages.length}`
+  ].join('\n');
 }
 
 function extractCommandText(text: string): string {

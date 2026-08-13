@@ -109,6 +109,10 @@ test('builds command reply context from the current command and recent human con
     true
   );
   expect(context.replyAnchorMessage).toBe(null);
+  expect(context.contextMetadata).toEqual({
+    truncated: false,
+    includedMessageCount: 2
+  });
   expect('anchorBotMessage' in context).toBe(false);
   expect('anchorParentMessage' in context).toBe(false);
 });
@@ -366,6 +370,42 @@ test('returns an empty reply context when the trigger message is missing', () =>
   expect(context).toEqual({
     triggerMessage: null,
     replyAnchorMessage: null,
-    priorContextMessages: []
+    priorContextMessages: [],
+    contextMetadata: { truncated: false, includedMessageCount: 0 }
+  });
+});
+
+test('marks context as truncated when older human messages are omitted', () => {
+  const db = new FakeDatabaseClient();
+
+  db.seedStoredMessages(
+    1,
+    Array.from({ length: 5 }, (_, index) => ({
+      chatId: 1,
+      messageId: index + 1,
+      userId: index + 10,
+      senderDisplayName: `User ${index + 1}`,
+      text: `message ${index + 1}`,
+      createdAt: `2026-04-10T12:00:0${index}.000Z`,
+      isBot: false,
+      replyToMessageId: index === 0 ? null : index
+    }))
+  );
+
+  const context = buildReplyContext({
+    db,
+    chatId: 1,
+    triggerMessageId: 5,
+    contextLimit: 3,
+    intent: 'decide',
+    botUserId: 77
+  });
+
+  expect(
+    context.priorContextMessages.map((message) => message.messageId)
+  ).toEqual([3, 4]);
+  expect(context.contextMetadata).toEqual({
+    truncated: true,
+    includedMessageCount: 2
   });
 });

@@ -27,6 +27,12 @@ export function buildReplyContext(input: {
     return emptyReplyContext();
   }
 
+  const priorContext = buildPriorContextMessages(input.db, {
+    chatId: input.chatId,
+    triggerMessageId: input.triggerMessageId,
+    contextLimit: input.contextLimit
+  });
+
   return {
     triggerMessage,
     replyAnchorMessage: buildReplyAnchorMessage(input.db, {
@@ -35,11 +41,11 @@ export function buildReplyContext(input: {
       intent: input.intent,
       botUserId: input.botUserId
     }),
-    priorContextMessages: buildPriorContextMessages(input.db, {
-      chatId: input.chatId,
-      triggerMessageId: input.triggerMessageId,
-      contextLimit: input.contextLimit
-    })
+    priorContextMessages: priorContext.messages,
+    contextMetadata: {
+      truncated: priorContext.truncated,
+      includedMessageCount: priorContext.messages.length
+    }
   };
 }
 
@@ -106,29 +112,46 @@ function buildPriorContextMessages(
     triggerMessageId: number;
     contextLimit: number;
   }
-): StoredMessage[] {
+): { messages: StoredMessage[]; truncated: boolean } {
   const priorContextLimit = Math.max(input.contextLimit - 1, 0);
 
   if (priorContextLimit === 0) {
-    return [];
+    return { messages: [], truncated: false };
   }
 
-  const lookbackLimit = Math.max(input.contextLimit * 4, priorContextLimit);
-  const priorMessages = db.getMessagesBefore(
-    input.chatId,
-    input.triggerMessageId,
-    lookbackLimit
-  );
-  const humanMessages = priorMessages.filter((message) => !message.isBot);
+  const batchSize = Math.max(input.contextLimit * 4, 32);
+  const humanMessages: StoredMessage[] = [];
+  let beforeMessageId = input.triggerMessageId;
 
-  return compactTranscript(humanMessages.slice(-priorContextLimit));
+  while (humanMessages.length <= priorContextLimit) {
+    const batch = db.getMessagesBefore(
+      input.chatId,
+      beforeMessageId,
+      batchSize
+    );
+
+    if (batch.length === 0) break;
+
+    humanMessages.unshift(...batch.filter((message) => !message.isBot));
+    beforeMessageId = batch[0]?.messageId ?? beforeMessageId;
+
+    if (batch.length < batchSize) break;
+  }
+
+  const messages = compactTranscript(humanMessages.slice(-priorContextLimit));
+
+  return {
+    messages,
+    truncated: humanMessages.length > messages.length
+  };
 }
 
 function emptyReplyContext(): ReplyContext {
   return {
     triggerMessage: null,
     replyAnchorMessage: null,
-    priorContextMessages: []
+    priorContextMessages: [],
+    contextMetadata: { truncated: false, includedMessageCount: 0 }
   };
 }
 

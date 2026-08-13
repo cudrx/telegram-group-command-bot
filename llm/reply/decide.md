@@ -15,6 +15,7 @@ What to evaluate:
 - whether participants are arguing about facts, labels, semantics, or different evaluation criteria
 - whether someone reframed the dispute more accurately than others
 - whether the argument ended with a practical compromise
+- reply relationships identified by messageId and replyToMessageId
 
 Rules:
 - Use external facts only when EXTERNAL_LOOKUP_CONTEXT is present.
@@ -39,6 +40,7 @@ Rules:
 - Prefer short bullets over dense prose.
 - Keep verdict concise and concrete.
 - Do not repeat the same point in multiple sections.
+- If contextTruncated is true, limit the verdict to the visible part of the dispute.
 
 Required response shape:
 

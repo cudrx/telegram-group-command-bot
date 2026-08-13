@@ -12,4 +12,6 @@ Usually skip lookup for common slang, obvious jokes, simple paraphrases, persona
 When uncertain because an external fact, named entity, URL, or currentness may change the answer, choose lookup.
 When uncertain but the case appears chat-contained, skip lookup.
 Subjective disputes can still need lookup if identifying the subject changes the answer.
+Use the supplied current Moscow date and time when resolving relative dates and freshness.
+Use messageId and replyToMessageId to follow reply relationships. If contextTruncated is true, do not assume the visible transcript is complete.
 Return only minified JSON with shape {"shouldLookup":boolean,"purpose":"none|entity_grounding|fact_check|freshness|link_extraction","reason":"short reason","queries":["one concise search query"],"confidence":"high|medium|low"}

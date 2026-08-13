@@ -11,7 +11,8 @@ describe('formatConversationForLlm', () => {
         senderDisplayName: 'Tom',
         text: 'погнали',
         createdAt: '2026-04-03T12:00:00.000Z',
-        isBot: false
+        isBot: false,
+        replyToMessageId: 99
       },
       {
         messageId: 102,
@@ -24,10 +25,10 @@ describe('formatConversationForLlm', () => {
     ]);
 
     expect(formatted).toContain(
-      '[Friday, 3 April 2026, 15:00 Moscow time] actor=user#1 Tom content="погнали"'
+      '[Friday, 3 April 2026, 15:00 Moscow time] messageId=101 replyToMessageId=99 actor=user#1 Tom content="погнали"'
     );
     expect(formatted).toContain(
-      '[Friday, 3 April 2026, 15:01 Moscow time] actor=bot Bot content="я уже здесь"'
+      '[Friday, 3 April 2026, 15:01 Moscow time] messageId=102 replyToMessageId=null actor=bot Bot content="я уже здесь"'
     );
     expect(formatted).not.toContain('2026-04-03T12:00:00.000Z');
   });
@@ -45,7 +46,7 @@ describe('formatConversationForLlm', () => {
     ]);
 
     expect(formatted).toContain(
-      '[Monday, 11 May 2026, 00:41 Moscow time] actor=user#1 Артём content="какой сегодня день? и сколько времени?"'
+      '[Monday, 11 May 2026, 00:41 Moscow time] messageId=301 replyToMessageId=null actor=user#1 Артём content="какой сегодня день? и сколько времени?"'
     );
     expect(formatted).not.toContain('2026-05-10T21:41:00.000Z');
   });
