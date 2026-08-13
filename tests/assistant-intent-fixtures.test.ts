@@ -10,13 +10,16 @@ describe('intent eval fixtures', () => {
     );
 
     expect(coveredIntents).toEqual(
-      new Set(['answer', 'decide', 'summarize', 'translate'])
+      new Set(['answer', 'decide', 'summarize', 'translate', 'read'])
     );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual([
       'answer-factual-question',
+      'answer-does-not-mirror-hostility',
       'summarize-basic-discussion',
       'decide-basic-dispute',
-      'translate-basic-message'
+      'decide-two-sided-dispute',
+      'translate-basic-message',
+      'read-preserves-source-language'
     ]);
   });
 

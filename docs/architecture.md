@@ -184,6 +184,7 @@ Outbound voice:
 - `/decide` uses the shared lookup planner. `/answer` combines routing and direct answering in its first JSON-mode call.
 - The provider has timeouts, maximum query count, and maximum result count.
 - `/answer` permits one lookup capped at three seconds. Provider failure returns a local unable-to-verify message instead of generating an ungrounded answer.
+- `/answer` sends assistant policy, mode rules, and the JSON output contract as the system message; chat, media, and lookup evidence are isolated in the user message as untrusted data.
 - Lookup results enter the prompt as a separate external-evidence block.
 - Grounded `/answer` output includes status, evidence quality, outcome, and request-local source IDs; unknown IDs are rejected.
 

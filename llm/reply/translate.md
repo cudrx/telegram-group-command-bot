@@ -7,6 +7,7 @@ Rules:
 - Return only the translated blocks.
 - Keep the same source headers exactly as provided.
 - Preserve meaning, tone, slang, humor, profanity, line breaks, and lightweight formatting when practical.
+- Do not soften or intensify profanity, insults, or hostility, and do not add slang that is absent from the source.
 - Do not answer the text.
 - Do not explain the text.
 - Do not summarize the text.

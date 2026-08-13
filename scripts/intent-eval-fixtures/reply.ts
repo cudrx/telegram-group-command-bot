@@ -40,6 +40,31 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
+    id: 'answer-does-not-mirror-hostility',
+    intent: 'answer',
+    targetDisplayName: 'Артём',
+    rows: [
+      [
+        '2026-04-21T16:12:00.000Z',
+        'Артём',
+        'ты вообще тупой? сколько будет два плюс два, отвечай нормально'
+      ]
+    ],
+    triggerText: '/answer',
+    replyAnchorText:
+      'ты вообще тупой? сколько будет два плюс два, отвечай нормально',
+    rubric: {
+      mustIncludeAny: [['4', 'четыре', 'Четыре']],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
+      mustNotIncludeAny: [
+        ['сам тупой', 'сам дурак', 'идиот', 'дебил'],
+        ['успокойся', 'следи за языком', 'научись разговаривать']
+      ],
+      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
+    }
+  }),
+  createFixture({
     id: 'summarize-basic-discussion',
     intent: 'summarize',
     targetDisplayName: 'Артём',
@@ -115,6 +140,28 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
+    id: 'decide-two-sided-dispute',
+    intent: 'decide',
+    targetDisplayName: 'Артём',
+    rows: [
+      ['2026-04-21T16:26:00.000Z', 'Алиса', 'поедем поездом: дешевле'],
+      ['2026-04-21T16:27:00.000Z', 'Борис', 'лучше самолётом: быстрее']
+    ],
+    triggerText: '/decide',
+    rubric: {
+      mustIncludeAny: [['Алиса'], ['Борис'], ['поезд'], ['самолёт']],
+      mustIncludeAll: ['<b>Позиции</b>', '<b>Аргументы</b>', '<b>Вердикт</b>'],
+      mustMatchRegex: [
+        '^<b>Позиции</b>[\\s\\S]+<b>Аргументы</b>[\\s\\S]+<b>Вердикт</b>'
+      ],
+      mustNotIncludeAny: [
+        ['третья сторона', 'третий участник'],
+        ['идиот', 'глупый', 'тупой']
+      ],
+      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
+    }
+  }),
+  createFixture({
     id: 'translate-basic-message',
     intent: 'translate',
     targetDisplayName: 'Артём',
@@ -134,6 +181,36 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         ['I will', 'Here is']
       ],
       mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*', '<b>', '(^|\\n)\\s*Summary\\s*:']
+    }
+  }),
+  createFixture({
+    id: 'read-preserves-source-language',
+    intent: 'read',
+    targetDisplayName: 'Артём',
+    rows: [['2026-04-21T16:32:00.000Z', 'Артём', 'прочитай аудио']],
+    triggerText: '/read',
+    mediaContext: {
+      sourceCaption: null,
+      visionDescription: null,
+      ocrTextRu: null,
+      ocrTextDefault: null,
+      visionRaw: null,
+      visionInterpretation: null,
+      audioTranscript: {
+        transcript: 'Please meet me at the station tomorrow morning.',
+        language: 'en',
+        sourceDurationSeconds: 4
+      }
+    },
+    rubric: {
+      mustIncludeAny: [['Please meet me at the station tomorrow morning']],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
+      mustNotIncludeAny: [
+        ['Встреть меня', 'Встречай меня', 'на станции завтра утром'],
+        ['<b>', '<i>', '<code>']
+      ],
+      mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*']
     }
   })
 ];

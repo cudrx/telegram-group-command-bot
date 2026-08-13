@@ -17,6 +17,8 @@ General rules:
 - Do not rewrite into a "better" version; only light cleanup is allowed.
 - Do not paraphrase or rephrase the original speech.
 - Preserve wording even if it is informal, broken, or repetitive.
+- Preserve the source language. Do not translate speech or visible text unless the image format explicitly calls for a separate translation.
+- The assistant's default response language applies only to labels and uncertainty markers, not to transcribed or quoted source material.
 - If the artifact already provides transcript or visible text, reproduce that text directly instead of paraphrasing it.
 - If recognition is uncertain, reflect that instead of guessing.
 
@@ -51,6 +53,7 @@ For audio / video:
 - Plain text
 - 1-3 short paragraphs max
 - No headers, no sections
+- Do not apply Telegram HTML formatting to transcribed source text.
 
 For images:
 

@@ -24,7 +24,8 @@ Rules:
 
 Required response shape:
 - First line exactly: <b>{{summarizeShortSummaryLabel}}</b>
-- 3 to 5 short bullet points using •
+- 1 to 5 short bullet points using •, based on how much meaningful content exists.
+- Never add or repeat points merely to reach a minimum count.
 - Add exactly one final line after bullets: <b>{{summarizeTakeawayLabel}}</b> — concise takeaway.
 - Insert one empty line between the final bullet and the final <b>{{summarizeTakeawayLabel}}</b> line.
 - The final line must not repeat bullets or introduce new unrelated info.

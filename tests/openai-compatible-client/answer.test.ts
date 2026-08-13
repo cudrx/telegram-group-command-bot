@@ -35,6 +35,51 @@ describe('OpenAiCompatibleLlmClient answer', () => {
     expect(request?.model).toBe('reply-model');
   });
 
+  test('keeps answer instructions in the system message and chat data in the user message', async () => {
+    let request: Record<string, unknown> | undefined;
+    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
+      chat: {
+        completions: {
+          create: async (input: Record<string, unknown>) => {
+            request = input;
+            return completion({ mode: 'direct', text: 'Ответ.' });
+          }
+        }
+      }
+    } as never);
+
+    await client.generateAnswer({
+      ...answerInput,
+      assistantInstructions: 'unique assistant policy',
+      replyContext: {
+        ...answerInput.replyContext,
+        replyAnchorMessage: {
+          chatId: 1,
+          messageId: 2,
+          userId: 7,
+          senderDisplayName: 'Alice',
+          text: 'unique untrusted target message',
+          createdAt: '2026-04-03T12:00:00.000Z',
+          isBot: false,
+          replyToMessageId: null
+        }
+      }
+    });
+
+    const messages = request?.messages as Array<{
+      role: string;
+      content: string;
+    }>;
+    expect(messages[0]).toMatchObject({ role: 'system' });
+    expect(messages[0]?.content).toContain('unique assistant policy');
+    expect(messages[0]?.content).not.toContain(
+      'unique untrusted target message'
+    );
+    expect(messages[1]).toMatchObject({ role: 'user' });
+    expect(messages[1]?.content).toContain('unique untrusted target message');
+    expect(messages[1]?.content).not.toContain('unique assistant policy');
+  });
+
   test('validates grounded source ids', async () => {
     const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
       chat: {

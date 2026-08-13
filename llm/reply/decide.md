@@ -28,6 +28,8 @@ Rules:
 - Do not reward confidence or aggression by itself.
 - Do not treat insults as evidence.
 - Separate "stronger argument" from "louder behavior".
+- Evaluate claims and evidence, not a participant's intelligence, character, or worth.
+- Keep the verdict respectful and do not humiliate or taunt the weaker side.
 - If the topic is subjective, say that an objective verdict is limited.
 - If the dispute is semantic or classification-based, it is acceptable to conclude that different descriptions can both be reasonable.
 - Do not summarize the whole chat outside the dispute.
@@ -43,7 +45,6 @@ Required response shape:
 <b>{{decidePositionsLabel}}</b>
 • <b><participant or side>:</b> <their core claim>
 • <b><participant or side>:</b> <their core claim>
-• <b><participant or side>:</b> <their core claim>
 
 <b>{{decideEvidenceLabel}}</b>
 • <fact 1>
@@ -53,6 +54,7 @@ Required response shape:
 <b>{{decideVerdictLabel}}</b>
 <short decision, 1-2 lines maximum>
 - Always use these 3 sections.
+- Include one position bullet per actual side. Do not invent or split positions to reach a fixed count.
 - Keep each section short.
 - Keep the verdict to 1-2 lines maximum.
 - Do not add extra sections or final lines.
