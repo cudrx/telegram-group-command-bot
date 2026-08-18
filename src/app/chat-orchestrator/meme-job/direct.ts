@@ -209,35 +209,46 @@ async function runDirectSocialGalleryJob(input: {
     const gallery = await input.resolve();
     if (!gallery) return false;
 
-    const sent = await runWithProcessStatus(
-      input.input.deps,
-      {
-        chatId: input.input.request.chatId,
-        status: { preset: 'meme_search', startStage: 'download' }
-      },
-      async (status) => {
-        const downloaded = await downloadResolvedMedia(
-          input.input.deps,
-          gallery.media,
-          status
-        );
+    const containsVideo = hasGalleryVideo(gallery.media);
+    const sendGallery = () =>
+      runWithProcessStatus(
+        input.input.deps,
+        {
+          chatId: input.input.request.chatId,
+          status: containsVideo
+            ? { preset: 'video_pipeline' }
+            : { preset: 'meme_search', startStage: 'download' }
+        },
+        async (status) => {
+          const downloaded = await downloadResolvedMedia(
+            input.input.deps,
+            gallery.media,
+            status
+          );
 
-        try {
-          await status.stage('upload');
+          try {
+            await status.stage('upload');
 
-          return await dispatchMemeMedia({
-            memeDispatcher: input.input.deps.memeDispatcher,
-            chatId: input.input.request.chatId,
-            replyToMessageId: null,
-            reply: false,
-            caption: getDirectMediaCaption(input.input, gallery.caption),
-            media: downloaded
-          });
-        } finally {
-          await downloaded.cleanup();
+            return await dispatchMemeMedia({
+              memeDispatcher: input.input.deps.memeDispatcher,
+              chatId: input.input.request.chatId,
+              replyToMessageId: null,
+              reply: false,
+              caption: getDirectMediaCaption(input.input, gallery.caption),
+              media: downloaded
+            });
+          } finally {
+            await downloaded.cleanup();
+          }
         }
-      }
-    );
+      );
+    const sent = containsVideo
+      ? await runQueuedVideoJob({
+          job: input.input,
+          source: input.source,
+          run: sendGallery
+        })
+      : await sendGallery();
     const caption = getDirectMediaCaption(input.input, gallery.caption);
     input.input.deps.db.saveBotMessage({
       chatId: input.input.request.chatId,
@@ -286,6 +297,15 @@ async function runDirectSocialGalleryJob(input: {
     );
     return false;
   }
+}
+
+function hasGalleryVideo(
+  media: Parameters<typeof downloadResolvedMedia>[1]
+): boolean {
+  return (
+    media.kind === 'gallery' &&
+    media.items.some((item) => item.kind === 'video')
+  );
 }
 
 function isTiktokGalleryCandidate(text: string): boolean {

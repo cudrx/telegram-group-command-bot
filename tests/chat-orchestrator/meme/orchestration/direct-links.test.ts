@@ -3,6 +3,10 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
+import type {
+  VideoJob,
+  VideoJobQueue
+} from '../../../../src/app/video-job-queue.js';
 import { createVideoJobQueue } from '../../../../src/app/video-job-queue.js';
 import { text } from '../../../../src/locales/locale.js';
 import { createIncomingMessage } from '../../../database/support.js';
@@ -25,22 +29,61 @@ describe('ChatOrchestrator /meme command — direct links', () => {
       cookiesPath,
       '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
     );
-    const execFile = vi.fn().mockResolvedValue({
-      stdout: JSON.stringify([
-        [2, { category: 'instagram' }],
-        [
-          3,
-          'https://cdn.example/one.webp',
-          { extension: 'webp', num: 1, username: 'creator', likes: 99 }
-        ],
-        [
-          3,
-          'https://cdn.example/two.webp',
-          { extension: 'webp', num: 2, username: 'creator', likes: 99 }
-        ]
-      ]),
-      stderr: ''
-    });
+    const videoUrl = 'https://cdn.example/carousel-video.mp4';
+    const execFile = vi
+      .fn()
+      .mockImplementation(async (file: string, args: string[]) => {
+        if (file === 'gallery-dl') {
+          return {
+            stdout: JSON.stringify([
+              [2, { category: 'instagram' }],
+              [
+                3,
+                'https://cdn.example/one.webp',
+                {
+                  extension: 'webp',
+                  num: 1,
+                  username: 'creator',
+                  likes: 99
+                }
+              ],
+              [
+                3,
+                videoUrl,
+                {
+                  extension: 'mp4',
+                  num: 2,
+                  username: 'creator',
+                  likes: 99
+                }
+              ],
+              [
+                3,
+                'https://cdn.example/two.webp',
+                {
+                  extension: 'webp',
+                  num: 3,
+                  username: 'creator',
+                  likes: 99
+                }
+              ]
+            ]),
+            stderr: ''
+          };
+        }
+
+        if (file === 'ffprobe') return videoProbeResult(8);
+        if (file === 'nice') return writeNormalizedVideo(args);
+
+        expect(file).toBe('yt-dlp');
+        expect(args).toContain(videoUrl);
+        const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
+        await writeFile(
+          path.join(path.dirname(outputTemplate), 'carousel-video.mp4'),
+          new Uint8Array([1, 2, 3, 4])
+        );
+        return { stdout: '', stderr: '' };
+      });
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(new Uint8Array([1, 2, 3]), {
         status: 200,
@@ -59,6 +102,12 @@ describe('ChatOrchestrator /meme command — direct links', () => {
       });
     });
     const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const videoJobQueue: VideoJobQueue = {
+      async enqueue<T>(job: VideoJob<T>): Promise<T> {
+        return job.run();
+      }
+    };
+    const enqueue = vi.spyOn(videoJobQueue, 'enqueue');
     const orchestrator = createOrchestrator({
       db: new FakeDatabaseClient(),
       execFile,
@@ -68,6 +117,7 @@ describe('ChatOrchestrator /meme command — direct links', () => {
       replyDispatcher: vi.fn(),
       memeDispatcher,
       deleteMessageDispatcher,
+      videoJobQueue,
       now: () => '2026-05-21T10:00:00.000Z'
     });
 
@@ -86,6 +136,13 @@ describe('ChatOrchestrator /meme command — direct links', () => {
       expect.arrayContaining(['--cookies', cookiesPath, sourceUrl]),
       expect.any(Object)
     );
+    expect(enqueue).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        source: 'instagram',
+        triggerMessageId: 42
+      })
+    );
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
         reply: false,
@@ -95,6 +152,13 @@ describe('ChatOrchestrator /meme command — direct links', () => {
           items: [
             expect.objectContaining({
               filePath: expect.stringContaining('.webp')
+            }),
+            expect.objectContaining({
+              kind: 'video',
+              filePath: expect.stringContaining('normalized.mp4'),
+              durationSeconds: 8,
+              width: 720,
+              height: 1280
             }),
             expect.objectContaining({
               filePath: expect.stringContaining('.webp')
@@ -107,7 +171,8 @@ describe('ChatOrchestrator /meme command — direct links', () => {
       chatId: 1,
       messageId: 42
     });
-    expect(dispatchedPaths).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(dispatchedPaths).toHaveLength(3);
     expect(dispatchedPaths.every((filePath) => !existsSync(filePath))).toBe(
       true
     );

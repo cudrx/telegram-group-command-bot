@@ -1,5 +1,5 @@
 import { InputFile } from 'grammy';
-import type { InputMediaPhoto } from 'grammy/types';
+import type { InputMediaPhoto, InputMediaVideo } from 'grammy/types';
 import type { MediaMessageSnapshot } from '../domain/models.js';
 import type {
   DeleteMessageDispatcher,
@@ -57,7 +57,7 @@ type TelegramApi = {
   ): Promise<TelegramSentMessage>;
   sendMediaGroup(
     chatId: number,
-    media: ReadonlyArray<InputMediaPhoto>,
+    media: ReadonlyArray<InputMediaPhoto | InputMediaVideo>,
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage[]>;
   deleteMessage(chatId: number, messageId: number): Promise<unknown>;
@@ -117,8 +117,11 @@ export function createTelegramDispatchers(
         replyParameters
       });
       const firstSent = sentBatches[0]?.[0];
+      const firstItem = media.items[0];
       const mediaSnapshot = firstSent
-        ? toSentPhotoSnapshot(firstSent, caption)
+        ? firstItem?.kind === 'video'
+          ? toSentVideoSnapshot(firstSent, caption)
+          : toSentPhotoSnapshot(firstSent, caption)
         : null;
 
       return {
@@ -198,7 +201,7 @@ export function createTelegramDispatchers(
 async function sendTelegramGalleryMedia(input: {
   api: Pick<TelegramApi, 'sendMediaGroup'>;
   chatId: number;
-  items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+  items: GalleryDispatchItem[];
   caption: string;
   replyParameters: Record<string, unknown>;
 }): Promise<TelegramSentMessage[][]> {
@@ -220,19 +223,50 @@ async function sendTelegramGalleryMedia(input: {
 }
 
 function toTelegramGalleryMedia(
-  items: Array<{ filePath: string; hasSpoiler?: boolean }>,
+  items: GalleryDispatchItem[],
   caption: string,
   options: { includeCaption: boolean }
-): InputMediaPhoto[] {
-  return items.map((item, index) => ({
-    type: 'photo',
-    media: new InputFile(item.filePath),
-    ...(options.includeCaption && index === 0
-      ? { caption, parse_mode: 'HTML' }
-      : {}),
-    ...(item.hasSpoiler ? { has_spoiler: true } : {})
-  }));
+): Array<InputMediaPhoto | InputMediaVideo> {
+  return items.map((item, index) => {
+    const common = {
+      media: new InputFile(item.filePath),
+      ...(options.includeCaption && index === 0
+        ? { caption, parse_mode: 'HTML' as const }
+        : {}),
+      ...(item.hasSpoiler ? { has_spoiler: true } : {})
+    };
+
+    if (item.kind === 'video') {
+      return {
+        type: 'video',
+        ...common,
+        supports_streaming: true,
+        ...(item.durationSeconds != null
+          ? { duration: Math.max(0, Math.round(item.durationSeconds)) }
+          : {}),
+        ...(item.width != null
+          ? { width: Math.max(0, Math.round(item.width)) }
+          : {}),
+        ...(item.height != null
+          ? { height: Math.max(0, Math.round(item.height)) }
+          : {})
+      };
+    }
+
+    return { type: 'photo', ...common };
+  });
 }
+
+type GalleryDispatchItem =
+  | { kind?: 'image'; filePath: string; hasSpoiler?: boolean }
+  | {
+      kind: 'video';
+      filePath: string;
+      durationSeconds?: number | null;
+      width?: number | null;
+      height?: number | null;
+      hasSpoiler?: boolean;
+    };
 
 function chunkGalleryItems<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];

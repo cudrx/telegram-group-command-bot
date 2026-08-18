@@ -53,15 +53,38 @@ function toDispatchMedia(media: DownloadedMemeMedia):
     }
   | {
       kind: 'gallery';
-      items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+      items: Array<
+        | { kind?: 'image'; filePath: string; hasSpoiler?: boolean }
+        | {
+            kind: 'video';
+            filePath: string;
+            durationSeconds?: number | null;
+            width?: number | null;
+            height?: number | null;
+            hasSpoiler?: boolean;
+          }
+      >;
     } {
   if (media.kind === 'gallery') {
     return {
       kind: 'gallery',
-      items: media.items.map((item) => ({
-        filePath: item.filePath,
-        ...(item.hasSpoiler ? { hasSpoiler: true } : {})
-      }))
+      items: media.items.map((item) =>
+        item.kind === 'video'
+          ? {
+              kind: 'video' as const,
+              filePath: item.filePath,
+              ...(item.durationSeconds !== undefined
+                ? { durationSeconds: item.durationSeconds }
+                : {}),
+              ...(item.width !== undefined ? { width: item.width } : {}),
+              ...(item.height !== undefined ? { height: item.height } : {}),
+              ...(item.hasSpoiler ? { hasSpoiler: true } : {})
+            }
+          : {
+              filePath: item.filePath,
+              ...(item.hasSpoiler ? { hasSpoiler: true } : {})
+            }
+      )
     };
   }
 

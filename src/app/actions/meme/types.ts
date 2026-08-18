@@ -23,11 +23,20 @@ export interface ResolvedMemeVideo {
   hasSpoiler?: boolean;
 }
 
-export interface ResolvedMemeGalleryItem {
-  mediaUrl: string;
-  extension: ResolvedMemeImage['extension'];
-  hasSpoiler?: boolean;
-}
+export type ResolvedMemeGalleryItem =
+  | {
+      kind?: 'image';
+      mediaUrl: string;
+      extension: ResolvedMemeImage['extension'];
+      hasSpoiler?: boolean;
+    }
+  | {
+      kind: 'video';
+      mediaUrl: string;
+      extension: 'mp4';
+      downloadStrategy: 'yt-dlp';
+      hasSpoiler?: boolean;
+    };
 
 export interface ResolvedMemeGallery {
   kind: 'gallery';
@@ -73,11 +82,23 @@ export type DownloadedMemeMedia =
     }
   | {
       kind: 'gallery';
-      items: Array<{
-        filePath: string;
-        extension: ResolvedMemeImage['extension'];
-        hasSpoiler?: boolean;
-      }>;
+      items: Array<
+        | {
+            kind?: 'image';
+            filePath: string;
+            extension: ResolvedMemeImage['extension'];
+            hasSpoiler?: boolean;
+          }
+        | {
+            kind: 'video';
+            filePath: string;
+            extension: 'mp4';
+            durationSeconds?: number | null;
+            width?: number | null;
+            height?: number | null;
+            hasSpoiler?: boolean;
+          }
+      >;
       cleanup: () => Promise<void>;
     };
 

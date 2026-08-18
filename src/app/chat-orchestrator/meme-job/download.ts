@@ -4,6 +4,7 @@ import type {
   DownloadedMemeMedia,
   ResolvedMemeMedia
 } from '../../actions/meme/types.js';
+import { downloadTelegramSafeVideoWithYtDlp } from '../../actions/meme/video-pipeline.js';
 import { downloadRedditVideoWithYtDlp } from '../../actions/meme/yt-dlp-client.js';
 import type { ProcessStatusReporter } from '../../process-status.js';
 import type { ChatOrchestratorDeps } from '../types.js';
@@ -33,7 +34,7 @@ export async function downloadResolvedMedia(
   }
 
   if (media.kind === 'gallery') {
-    return downloadGalleryMedia(deps, media);
+    return downloadGalleryMedia(deps, media, processStatus);
   }
 
   await processStatus?.stage('download');
@@ -73,13 +74,33 @@ export function getMemeChatAction(
 
 async function downloadGalleryMedia(
   deps: ChatOrchestratorDeps,
-  media: Extract<ResolvedMemeMedia, { kind: 'gallery' }>
+  media: Extract<ResolvedMemeMedia, { kind: 'gallery' }>,
+  processStatus?: ProcessStatusReporter
 ): Promise<DownloadedMemeMedia> {
-  const downloadedItems: Awaited<ReturnType<typeof downloadMemeMediaToTemp>>[] =
-    [];
+  const downloadedItems: Array<
+    Exclude<DownloadedMemeMedia, { kind: 'gallery' }>
+  > = [];
 
   try {
     for (const [index, item] of media.items.entries()) {
+      if (item.kind === 'video') {
+        const downloaded = await downloadTelegramSafeVideoWithYtDlp({
+          url: item.mediaUrl,
+          tempPrefix: `instagram-gallery-video-${index + 1}-`,
+          maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
+          maxDurationSeconds:
+            memeActionConfig.telegramMedia.videoMaxDurationSeconds,
+          ytDlpArgs: [],
+          ...(processStatus ? { processStatus } : {}),
+          ...(deps.execFile ? { execFile: deps.execFile } : {})
+        });
+        if (downloaded.kind !== 'video') {
+          throw new Error(`Gallery item ${index + 1} did not produce video.`);
+        }
+        downloadedItems.push(downloaded);
+        continue;
+      }
+
       const downloaded = await downloadMemeMediaToTemp({
         url: item.mediaUrl,
         filename: `meme-gallery-${index + 1}.${item.extension}`,
@@ -87,7 +108,11 @@ async function downloadGalleryMedia(
         timeoutMs: memeActionConfig.telegramMedia.downloadTimeoutMs,
         ...(deps.fetch ? { fetch: deps.fetch } : {})
       });
-      downloadedItems.push(downloaded);
+      downloadedItems.push({
+        kind: 'image',
+        extension: item.extension,
+        ...downloaded
+      });
     }
   } catch (error) {
     await cleanupDownloadedItems(downloadedItems);
@@ -103,9 +128,27 @@ async function downloadGalleryMedia(
         throw new Error(`Gallery item ${index + 1} was not downloaded.`);
       }
 
+      if (downloaded.kind === 'video') {
+        return {
+          kind: 'video' as const,
+          filePath: downloaded.filePath,
+          extension: downloaded.extension,
+          ...(downloaded.durationSeconds !== undefined
+            ? { durationSeconds: downloaded.durationSeconds }
+            : {}),
+          ...(downloaded.width !== undefined
+            ? { width: downloaded.width }
+            : {}),
+          ...(downloaded.height !== undefined
+            ? { height: downloaded.height }
+            : {}),
+          ...(item.hasSpoiler ? { hasSpoiler: true } : {})
+        };
+      }
+
       return {
         filePath: downloaded.filePath,
-        extension: item.extension,
+        extension: downloaded.extension,
         ...(item.hasSpoiler ? { hasSpoiler: true } : {})
       };
     }),

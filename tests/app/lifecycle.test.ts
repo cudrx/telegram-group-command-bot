@@ -323,6 +323,76 @@ describe('createApplication lifecycle', () => {
     });
   });
 
+  test('sends mixed photo and video galleries in one Telegram media group', async () => {
+    const { createApplication } = await importCreateApplication();
+    await createApplication(createEnv());
+
+    botSendMediaGroup.mockResolvedValue([
+      { message_id: 50, date: 1_744_000_004 }
+    ]);
+
+    const orchestratorDeps = chatOrchestratorConstructor.mock.calls[0]?.[0] as
+      | {
+          memeDispatcher?: (input: {
+            chatId: number;
+            caption: string;
+            media: {
+              kind: 'gallery';
+              items: Array<
+                | { filePath: string }
+                | {
+                    kind: 'video';
+                    filePath: string;
+                    durationSeconds: number;
+                    width: number;
+                    height: number;
+                  }
+              >;
+            };
+          }) => Promise<{ messageId: number; createdAt: string }>;
+        }
+      | undefined;
+
+    await orchestratorDeps?.memeDispatcher?.({
+      chatId: -1001,
+      caption: 'mixed',
+      media: {
+        kind: 'gallery',
+        items: [
+          { filePath: '/tmp/one.jpg' },
+          {
+            kind: 'video',
+            filePath: '/tmp/two.mp4',
+            durationSeconds: 8,
+            width: 720,
+            height: 1280
+          }
+        ]
+      }
+    });
+
+    expect(botSendMediaGroup).toHaveBeenCalledWith(
+      -1001,
+      [
+        {
+          type: 'photo',
+          media: expect.objectContaining({ source: '/tmp/one.jpg' }),
+          caption: 'mixed',
+          parse_mode: 'HTML'
+        },
+        {
+          type: 'video',
+          media: expect.objectContaining({ source: '/tmp/two.mp4' }),
+          duration: 8,
+          width: 720,
+          height: 1280,
+          supports_streaming: true
+        }
+      ],
+      {}
+    );
+  });
+
   test('announces deploy updates to chats with deploy_announcements before polling starts', async () => {
     const { createApplication } = await importCreateApplication();
     const basePolicy = createTestChatPolicy();

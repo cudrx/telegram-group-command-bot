@@ -37,9 +37,7 @@ export async function resolveInstagramGalleryWithGalleryDl(input: {
     sourceUrl,
     args: ['--cookies', cookiesPath]
   });
-  if (resolved.hasVideo) return null;
-
-  const rows = resolved.images;
+  const rows = resolved.rows;
   const first = rows[0];
   if (!first) return null;
 
@@ -66,9 +64,9 @@ export async function resolveTiktokGalleryWithGalleryDl(input: {
     sourceUrl,
     args: []
   });
-  if (resolved.hasVideo) return null;
+  if (resolved.rows.some((row) => row.extension === 'mp4')) return null;
 
-  const rows = resolved.images;
+  const rows = resolved.rows;
   const first = rows[0];
   if (!first) return null;
 
@@ -120,7 +118,7 @@ export function findInstagramPostUrl(text: string): string | null {
 
 type GalleryRow = {
   mediaUrl: string;
-  extension: 'jpg' | 'jpeg' | 'png' | 'webp';
+  extension: 'jpg' | 'jpeg' | 'png' | 'webp' | 'mp4';
   num: number;
   metadata: Record<string, unknown>;
 };
@@ -129,7 +127,7 @@ async function resolveGalleryRows(input: {
   execFile: MediaExecFile;
   sourceUrl: string;
   args: string[];
-}): Promise<{ images: GalleryRow[]; hasVideo: boolean }> {
+}): Promise<{ rows: GalleryRow[] }> {
   const result = await input.execFile(
     GALLERY_DL_BIN,
     [...input.args, '--resolve-json', input.sourceUrl],
@@ -139,10 +137,9 @@ async function resolveGalleryRows(input: {
     }
   );
   const payload = JSON.parse(result.stdout) as unknown;
-  if (!Array.isArray(payload)) return { images: [], hasVideo: false };
+  if (!Array.isArray(payload)) return { rows: [] };
 
-  let hasVideo = false;
-  const images = payload
+  const rows = payload
     .flatMap((value): GalleryRow[] => {
       if (!Array.isArray(value) || value[0] !== 3) return [];
 
@@ -150,17 +147,17 @@ async function resolveGalleryRows(input: {
       const metadata = value[2];
       if (typeof mediaUrl !== 'string' || !isRecord(metadata)) return [];
 
-      if (metadata.extension === 'mp4' || metadata.extension === 'webm') {
-        hasVideo = true;
-        return [];
-      }
-
-      const extension = readImageExtension(metadata.extension);
+      const extension = readMediaExtension(metadata.extension);
       if (!extension) return [];
+      const resolvedMediaUrl =
+        extension === 'mp4'
+          ? (readString(metadata, 'video_url') ?? mediaUrl)
+          : mediaUrl;
+      if (resolvedMediaUrl.startsWith('ytdl:')) return [];
 
       return [
         {
-          mediaUrl,
+          mediaUrl: resolvedMediaUrl,
           extension,
           num: readNumber(metadata, 'num') ?? Number.MAX_SAFE_INTEGER,
           metadata
@@ -169,29 +166,36 @@ async function resolveGalleryRows(input: {
     })
     .sort((left, right) => left.num - right.num);
 
-  return { images, hasVideo };
+  return { rows };
 }
 
 function toResolvedMedia(rows: GalleryRow[]): ResolvedMemeMedia {
-  const items = rows.map(({ mediaUrl, extension }) => ({
-    mediaUrl,
-    extension
-  }));
+  const items = rows.map(({ mediaUrl, extension }) =>
+    extension === 'mp4'
+      ? {
+          kind: 'video' as const,
+          mediaUrl,
+          extension,
+          downloadStrategy: 'yt-dlp' as const
+        }
+      : { mediaUrl, extension }
+  );
   const first = items[0];
 
   if (items.length === 1 && first) {
-    return { kind: 'image', ...first };
+    return first.kind === 'video' ? first : { kind: 'image', ...first };
   }
 
   return { kind: 'gallery', items };
 }
 
-function readImageExtension(value: unknown): GalleryRow['extension'] | null {
+function readMediaExtension(value: unknown): GalleryRow['extension'] | null {
   if (
     value === 'jpg' ||
     value === 'jpeg' ||
     value === 'png' ||
-    value === 'webp'
+    value === 'webp' ||
+    value === 'mp4'
   ) {
     return value;
   }

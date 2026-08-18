@@ -46,8 +46,8 @@ header when a plain Netscape cookie file is not enough for subreddit listings.
 
 Media features require external runtime tools mounted into Docker from
 `data/bin`: official standalone Linux `yt-dlp` and `gallery-dl`, plus static
-`ffmpeg` and `ffprobe`. `gallery-dl` resolves direct Instagram photo posts and
-TikTok Photo Mode galleries. The production image contains the Node.js app and
+`ffmpeg` and `ffprobe`. `gallery-dl` resolves direct Instagram carousel posts,
+including mixed photo/video carousels, and TikTok Photo Mode galleries. The production image contains the Node.js app and
 minimal OS certificates.
 
 ## Main Commands

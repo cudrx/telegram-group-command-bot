@@ -92,12 +92,20 @@ describe('resolveInstagramGalleryWithGalleryDl', () => {
     });
   });
 
-  test('rejects mixed Instagram image and video carousels', async () => {
+  test('preserves mixed Instagram image and video carousel order', async () => {
     const execFile = vi.fn().mockResolvedValue({
       stdout: JSON.stringify([
         [2, { category: 'instagram' }],
         [3, 'https://cdn.example/photo.jpg', { extension: 'jpg', num: 1 }],
-        [3, 'https://cdn.example/video.mp4', { extension: 'mp4', num: 2 }]
+        [
+          3,
+          'ytdl:https://www.instagram.com/p/mixed/2.mp4',
+          {
+            extension: 'mp4',
+            num: 2,
+            video_url: 'https://cdn.example/video.mp4'
+          }
+        ]
       ]),
       stderr: ''
     });
@@ -108,7 +116,25 @@ describe('resolveInstagramGalleryWithGalleryDl', () => {
         sqlitePath: '/data/bot.sqlite',
         execFile
       })
-    ).resolves.toBeNull();
+    ).resolves.toEqual(
+      expect.objectContaining({
+        media: {
+          kind: 'gallery',
+          items: [
+            {
+              mediaUrl: 'https://cdn.example/photo.jpg',
+              extension: 'jpg'
+            },
+            {
+              kind: 'video',
+              mediaUrl: 'https://cdn.example/video.mp4',
+              extension: 'mp4',
+              downloadStrategy: 'yt-dlp'
+            }
+          ]
+        }
+      })
+    );
   });
 });
 

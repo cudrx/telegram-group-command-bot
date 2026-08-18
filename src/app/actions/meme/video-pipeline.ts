@@ -163,7 +163,9 @@ export async function downloadTelegramSafeVideoWithYtDlp(
       extension: 'mp4',
       ...(input.durationSeconds !== undefined
         ? { durationSeconds: input.durationSeconds }
-        : {}),
+        : normalizedProbe.durationSeconds !== null
+          ? { durationSeconds: normalizedProbe.durationSeconds }
+          : {}),
       ...(normalizedProbe.width !== null
         ? { width: normalizedProbe.width }
         : {}),

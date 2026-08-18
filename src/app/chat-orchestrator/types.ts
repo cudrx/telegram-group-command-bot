@@ -74,7 +74,17 @@ export type MemeMediaDispatchInput = {
       }
     | {
         kind: 'gallery';
-        items: Array<{ filePath: string; hasSpoiler?: boolean }>;
+        items: Array<
+          | { kind?: 'image'; filePath: string; hasSpoiler?: boolean }
+          | {
+              kind: 'video';
+              filePath: string;
+              durationSeconds?: number | null;
+              width?: number | null;
+              height?: number | null;
+              hasSpoiler?: boolean;
+            }
+        >;
       };
 };
 
