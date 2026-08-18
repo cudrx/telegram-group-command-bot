@@ -5,6 +5,7 @@ import path from 'node:path';
 
 import { describe, expect, test, vi } from 'vitest';
 
+import { findInstagramPostUrl } from '../../../src/app/actions/meme/gallery-dl-client.js';
 import {
   downloadInstagramReelWithYtDlp,
   findInstagramReelUrl,
@@ -43,6 +44,22 @@ describe('findInstagramReelUrl', () => {
   test('ignores unsupported Instagram URLs', () => {
     expect(
       findInstagramReelUrl('https://www.instagram.com/bookstasyaa/')
+    ).toBeNull();
+  });
+});
+
+describe('findInstagramPostUrl', () => {
+  test('extracts Instagram post URLs and strips query params', () => {
+    expect(
+      findInstagramPostUrl(
+        'смотри https://www.instagram.com/p/DaBUYYOjNgA/?igsh=abc'
+      )
+    ).toBe('https://www.instagram.com/p/DaBUYYOjNgA/');
+  });
+
+  test('does not classify Reels as gallery posts', () => {
+    expect(
+      findInstagramPostUrl('https://www.instagram.com/reel/DYKAmhRu8g-/')
     ).toBeNull();
   });
 });

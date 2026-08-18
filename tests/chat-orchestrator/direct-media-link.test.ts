@@ -22,6 +22,12 @@ describe('detectDirectMediaLink', () => {
     ).toEqual({ kind: 'instagram_reel' });
   });
 
+  test('detects Instagram gallery post links', () => {
+    expect(
+      detectDirectMediaLink('https://www.instagram.com/p/DaBUYYOjNgA/?igsh=abc')
+    ).toEqual({ kind: 'instagram_gallery' });
+  });
+
   test('detects YouTube Shorts-compatible links', () => {
     expect(detectDirectMediaLink('https://youtu.be/5sMdQW_YYOo')).toEqual({
       kind: 'youtube_short'

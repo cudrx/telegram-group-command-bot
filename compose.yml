@@ -18,6 +18,7 @@ services:
       - ./data:/app/data
       - ./llm:/app/llm:ro
       - ./data/bin/yt-dlp:/usr/local/bin/yt-dlp:ro
+      - ./data/bin/gallery-dl:/usr/local/bin/gallery-dl:ro
       - ./data/bin/ffmpeg:/usr/local/bin/ffmpeg:ro
       - ./data/bin/ffprobe:/usr/local/bin/ffprobe:ro
     logging:

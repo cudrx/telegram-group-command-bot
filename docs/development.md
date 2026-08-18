@@ -186,13 +186,14 @@ SQLite is stored in mounted persistent storage.
 
 If Docker returns `permission denied`, use `sudo` or add the user to the `docker` group and start a new session.
 
-For Reddit video, Instagram Reels, and YouTube Shorts, runtime media tools are
-mounted into the container from persistent storage. `data/bin/yt-dlp` must be
-the official standalone Linux binary, and `data/bin/ffmpeg` plus
-`data/bin/ffprobe` must be static binaries, such as the John Van Sickle static
-builds. The Docker image includes Node.js 24 and OS certificate authorities, but
-the media tools live in persistent storage. The compose files mount those tools
-read-only into `/usr/local/bin` and put `/usr/local/bin` first on `PATH`.
+For direct social media links, runtime media tools are mounted into the
+container from persistent storage. `data/bin/yt-dlp` and
+`data/bin/gallery-dl` must be official standalone Linux binaries, and
+`data/bin/ffmpeg` plus `data/bin/ffprobe` must be static binaries, such as the
+John Van Sickle static builds. The Docker image includes Node.js 24 and OS
+certificate authorities, but the media tools live in persistent storage. The
+compose files mount those tools read-only into `/usr/local/bin` and put
+`/usr/local/bin` first on `PATH`.
 Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same
 pipeline: `yt-dlp metadata -> duration/early-size caps -> yt-dlp download ->
 ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`.
@@ -208,10 +209,10 @@ Media subprocesses have explicit hard timeouts for metadata fetch, video
 download, probing, and normalization so a stuck `yt-dlp`, `ffprobe`, or
 `ffmpeg` process cannot hold a queue slot forever.
 
-Instagram has an additional source lock. If `yt-dlp` returns auth/access
+Instagram has an additional source lock. If `yt-dlp` or `gallery-dl` returns auth/access
 failures such as login-required or rate-limit responses, the bot stores a
 persistent blocked state in SQLite and refuses new Instagram jobs before
-starting `yt-dlp`. The block clears automatically only after the cookie file at
+starting another extractor. The block clears automatically only after the cookie file at
 `INSTAGRAM_COOKIES_PATH` changes on disk.
 
 ## CI
@@ -304,6 +305,7 @@ Rollback:
 - `/meme` and `/sex` make an external request to a Reddit top-month listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts require mounted standalone `yt-dlp` plus static `ffmpeg` and `ffprobe`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
 - Direct Reddit media link smoke: make standalone `yt-dlp` plus static `ffmpeg` and `ffprobe` available inside the container through `/usr/local/bin`, configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, gallery, or `reddit_video` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should send `sendPhoto`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
 - Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, reject clearly oversized selected formats above 75 MB before download, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Reel is over 10 minutes, clearly over the pre-download size cap, or over 50 MB after download/normalization, the bot should reply with a local limit-specific error instead of sending video.
+- Direct Instagram/TikTok gallery smoke: make standalone `gallery-dl` available at `/usr/local/bin/gallery-dl`, then send an Instagram `/p/<shortcode>/` photo carousel or TikTok `/photo/<id>` Photo Mode link. The bot should resolve ordered still-image URLs, ignore TikTok soundtrack audio, download images with the normal per-image cap, send one photo or media groups split at Telegram's 10-item limit, clean temporary files, and try to delete the source message. Instagram extraction uses `INSTAGRAM_COOKIES_PATH` and the existing source lock.
 - Instagram lock smoke: with a deliberately stale `INSTAGRAM_COOKIES_PATH`, send a Reel URL and verify the bot replies with the local Instagram-unavailable fallback and stores a blocked source state. Without changing the cookie file, send another Reel URL and verify `yt-dlp` does not start again. Replace the cookie file on disk, then send a new Reel URL and verify the bot allows one fresh attempt.
 - Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, reject clearly oversized selected formats above 75 MB before download, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Short is over 10 minutes, clearly over the pre-download size cap, or over 50 MB after download/normalization, the bot should reply with a local limit-specific error instead of sending video.
 - YouTube Shorts require a runtime container with Node.js 24: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.

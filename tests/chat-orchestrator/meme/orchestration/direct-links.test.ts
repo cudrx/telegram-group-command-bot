@@ -15,6 +15,104 @@ import {
 } from './support.js';
 
 describe('ChatOrchestrator /meme command — direct links', () => {
+  test('expands a direct Instagram photo carousel and cleans downloaded files', async () => {
+    const sourceUrl = 'https://www.instagram.com/p/DaBUYYOjNgA/';
+    const dataDirectory = await mkdtemp(
+      path.join(os.tmpdir(), 'direct-instagram-gallery-test-')
+    );
+    const cookiesPath = path.join(dataDirectory, 'instagram-cookies.txt');
+    await writeFile(
+      cookiesPath,
+      '.instagram.com\tTRUE\t/\tTRUE\t2147483647\tsessionid\tabc123'
+    );
+    const execFile = vi.fn().mockResolvedValue({
+      stdout: JSON.stringify([
+        [2, { category: 'instagram' }],
+        [
+          3,
+          'https://cdn.example/one.webp',
+          { extension: 'webp', num: 1, username: 'creator', likes: 99 }
+        ],
+        [
+          3,
+          'https://cdn.example/two.webp',
+          { extension: 'webp', num: 2, username: 'creator', likes: 99 }
+        ]
+      ]),
+      stderr: ''
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-length': '3' }
+      })
+    );
+    let dispatchedPaths: string[] = [];
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedPaths = input.media.items.map(
+        (item: { filePath: string }) => item.filePath
+      );
+
+      return Promise.resolve({
+        messageId: 609,
+        createdAt: '2026-05-21T10:00:00.000Z'
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db: new FakeDatabaseClient(),
+      execFile,
+      fetch: fetchMock,
+      env: { sqlitePath: path.join(dataDirectory, 'bot.sqlite') },
+      qwen: { generateReply: vi.fn() },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        authorizedMode: 'private_link_sender',
+        chatType: 'private',
+        text: `${sourceUrl}?igsh=abc`,
+        entities: [],
+        messageId: 42
+      })
+    );
+
+    expect(execFile).toHaveBeenCalledWith(
+      'gallery-dl',
+      expect.arrayContaining(['--cookies', cookiesPath, sourceUrl]),
+      expect.any(Object)
+    );
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reply: false,
+        caption: `inst: creator · likes: <a href="${sourceUrl}">99</a>`,
+        media: {
+          kind: 'gallery',
+          items: [
+            expect.objectContaining({
+              filePath: expect.stringContaining('.webp')
+            }),
+            expect.objectContaining({
+              filePath: expect.stringContaining('.webp')
+            })
+          ]
+        }
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 42
+    });
+    expect(dispatchedPaths).toHaveLength(2);
+    expect(dispatchedPaths.every((filePath) => !existsSync(filePath))).toBe(
+      true
+    );
+  });
+
   test('expands a direct Instagram Reel link for private link-only users without saving meme history', async () => {
     let dispatchedFilePath = '';
     const dataDirectory = await mkdtemp(
@@ -350,6 +448,88 @@ describe('ChatOrchestrator /meme command — direct links', () => {
     expect(deleteMessageDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       messageId: 45
+    });
+  });
+
+  test('expands a TikTok Photo Mode post without downloading its soundtrack', async () => {
+    const sourceUrl =
+      'https://www.tiktok.com/@creator/photo/7579672560401452311';
+    const metadata = {
+      author: { uniqueId: 'creator' },
+      stats: { diggCount: 62000 }
+    };
+    const execFile = vi.fn().mockResolvedValue({
+      stdout: JSON.stringify([
+        [2, { category: 'tiktok' }],
+        [
+          3,
+          'https://cdn.example/one.jpeg',
+          { ...metadata, extension: 'jpeg', num: 1 }
+        ],
+        [
+          3,
+          'https://cdn.example/two.jpeg',
+          { ...metadata, extension: 'jpeg', num: 2 }
+        ],
+        [
+          3,
+          'https://cdn.example/sound.mp3',
+          { ...metadata, extension: 'mp3', num: 0 }
+        ]
+      ]),
+      stderr: ''
+    });
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([1, 2, 3]), {
+        status: 200,
+        headers: { 'content-length': '3' }
+      })
+    );
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 613,
+      createdAt: '2026-05-21T10:00:00.000Z'
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db: new FakeDatabaseClient(),
+      execFile,
+      fetch: fetchMock,
+      qwen: { generateReply: vi.fn() },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher,
+      now: () => '2026-05-21T10:00:00.000Z'
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        chatType: 'group',
+        text: sourceUrl,
+        entities: [],
+        messageId: 46,
+        fromUsername: 'tg_nick',
+        fromDisplayName: 'Tom'
+      })
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reply: false,
+        caption: `tt: creator · likes: <a href="${sourceUrl}">62000</a> · <a href="https://t.me/tg_nick">@tg_nick</a>`,
+        media: expect.objectContaining({
+          kind: 'gallery',
+          items: expect.arrayContaining([
+            expect.objectContaining({
+              filePath: expect.stringContaining('.jpeg')
+            })
+          ])
+        })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 46
     });
   });
 

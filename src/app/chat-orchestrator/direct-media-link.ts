@@ -1,3 +1,4 @@
+import { findInstagramPostUrl } from '../actions/meme/gallery-dl-client.js';
 import { findInstagramReelUrl } from '../actions/meme/instagram-reel-client.js';
 import {
   findRedditPostReference,
@@ -8,6 +9,7 @@ import { findYoutubeShortUrl } from '../actions/meme/youtube-short-client.js';
 
 export type DirectMediaLinkKind =
   | 'reddit'
+  | 'instagram_gallery'
   | 'instagram_reel'
   | 'youtube_short'
   | 'tiktok';
@@ -23,6 +25,10 @@ export function detectDirectMediaLink(text: string): DirectMediaLink | null {
 
   if (findInstagramReelUrl(text)) {
     return { kind: 'instagram_reel' };
+  }
+
+  if (findInstagramPostUrl(text)) {
+    return { kind: 'instagram_gallery' };
   }
 
   if (findYoutubeShortUrl(text)) {

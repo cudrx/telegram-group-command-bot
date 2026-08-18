@@ -109,8 +109,10 @@ function parseTiktokUrl(value: string): string | null {
   }
 
   const parts = parsed.pathname.split('/').filter(Boolean);
-  const videoIndex = parts.findIndex((part) => part.toLowerCase() === 'video');
-  if (videoIndex < 1 || !parts[videoIndex + 1]) return null;
+  const mediaIndex = parts.findIndex((part) =>
+    ['video', 'photo'].includes(part.toLowerCase())
+  );
+  if (mediaIndex < 1 || !parts[mediaIndex + 1]) return null;
 
   parsed.hash = '';
   return parsed.toString();

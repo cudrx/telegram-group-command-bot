@@ -22,6 +22,11 @@ describe('findTiktokUrl', () => {
     expect(findTiktokUrl('https://vm.tiktok.com/ZMexample/).')).toBe(
       'https://vm.tiktok.com/ZMexample/'
     );
+    expect(
+      findTiktokUrl(
+        'https://www.tiktok.com/@creator/photo/7579672560401452311?lang=en'
+      )
+    ).toBe('https://www.tiktok.com/@creator/photo/7579672560401452311?lang=en');
   });
 
   test('ignores profiles and non-TikTok links', () => {

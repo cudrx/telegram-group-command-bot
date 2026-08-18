@@ -2,6 +2,10 @@ import { memeActionConfig } from '../../../config/runtime/index.js';
 import { text } from '../../../locales/locale.js';
 import { serializeError } from '../../../logging/logger.js';
 import {
+  resolveInstagramGalleryWithGalleryDl,
+  resolveTiktokGalleryWithGalleryDl
+} from '../../actions/meme/gallery-dl-client.js';
+import {
   downloadInstagramReelWithYtDlp,
   extractInstagramErrorText
 } from '../../actions/meme/instagram-reel-client.js';
@@ -28,6 +32,7 @@ import {
 } from '../direct-media-author.js';
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
 import { dispatchTextReply } from '../outbound-voice.js';
+import { downloadResolvedMedia } from './download.js';
 import {
   type MemeJobInput,
   sendCandidate,
@@ -53,12 +58,29 @@ export async function runDirectMediaMemeJob(
     return runDirectTiktokMemeJob(input);
   }
 
+  if (input.kind === 'instagram_gallery') {
+    return runDirectInstagramGalleryMemeJob(input);
+  }
+
   return runDirectInstagramReelMemeJob(input);
 }
 
 async function runDirectTiktokMemeJob(
   input: MemeJobInput & { text: string }
 ): Promise<boolean> {
+  if (isTiktokGalleryCandidate(input.text)) {
+    const sentGallery = await runDirectSocialGalleryJob({
+      input,
+      source: 'tiktok',
+      resolve: () =>
+        resolveTiktokGalleryWithGalleryDl({
+          text: input.text,
+          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+        })
+    });
+    if (sentGallery) return true;
+  }
+
   try {
     const sentVideo = await runQueuedVideoJob({
       job: input,
@@ -148,6 +170,130 @@ async function runDirectTiktokMemeJob(
   }
 
   return true;
+}
+
+async function runDirectInstagramGalleryMemeJob(
+  input: MemeJobInput & { text: string }
+): Promise<boolean> {
+  return runDirectSocialGalleryJob({
+    input,
+    source: 'instagram',
+    beforeResolve: () =>
+      assertInstagramSourceAvailable({
+        db: input.deps.db,
+        cookiesPath: input.deps.env.instagramCookiesPath,
+        now: input.deps.now(),
+        logger: input.logger
+      }),
+    resolve: () =>
+      resolveInstagramGalleryWithGalleryDl({
+        text: input.text,
+        sqlitePath: input.deps.env.sqlitePath,
+        instagramCookiesPath: input.deps.env.instagramCookiesPath,
+        ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+      })
+  });
+}
+
+async function runDirectSocialGalleryJob(input: {
+  input: MemeJobInput;
+  source: 'instagram' | 'tiktok';
+  beforeResolve?: () => Promise<unknown>;
+  resolve: () => Promise<{
+    caption: string;
+    media: Parameters<typeof downloadResolvedMedia>[1];
+  } | null>;
+}): Promise<boolean> {
+  try {
+    await input.beforeResolve?.();
+    const gallery = await input.resolve();
+    if (!gallery) return false;
+
+    const sent = await runWithProcessStatus(
+      input.input.deps,
+      {
+        chatId: input.input.request.chatId,
+        status: { preset: 'meme_search', startStage: 'download' }
+      },
+      async (status) => {
+        const downloaded = await downloadResolvedMedia(
+          input.input.deps,
+          gallery.media,
+          status
+        );
+
+        try {
+          await status.stage('upload');
+
+          return await dispatchMemeMedia({
+            memeDispatcher: input.input.deps.memeDispatcher,
+            chatId: input.input.request.chatId,
+            replyToMessageId: null,
+            reply: false,
+            caption: getDirectMediaCaption(input.input, gallery.caption),
+            media: downloaded
+          });
+        } finally {
+          await downloaded.cleanup();
+        }
+      }
+    );
+    const caption = getDirectMediaCaption(input.input, gallery.caption);
+    input.input.deps.db.saveBotMessage({
+      chatId: input.input.request.chatId,
+      chatType: input.input.request.chatType,
+      chatTitle: input.input.request.chatTitle,
+      messageId: sent.messageId,
+      text: caption,
+      createdAt: sent.createdAt,
+      userId: input.input.deps.bot.userId,
+      username: input.input.deps.bot.username,
+      displayName: input.input.deps.bot.displayName,
+      replyToMessageId: null,
+      outputMode: 'text',
+      mediaSnapshot: sent.mediaSnapshot ?? null
+    });
+
+    const storedMessage = input.input.deps.db.getMessageByTelegramMessageId(
+      input.input.request.chatId,
+      sent.messageId
+    );
+    if (storedMessage) {
+      input.input.mediaSupport?.startAutoReadForIncomingMessage(
+        storedMessage,
+        input.input.logger
+      );
+    }
+
+    await deleteSourceMessage(input.input);
+    return true;
+  } catch (error) {
+    if (input.source === 'instagram' && isInstagramSourceLockError(error)) {
+      await markInstagramSourceBlocked({
+        db: input.input.deps.db,
+        cookiesPath: input.input.deps.env.instagramCookiesPath,
+        reason: 'auth_required',
+        now: input.input.deps.now(),
+        logger: input.input.logger
+      });
+    }
+
+    if (await handleDirectVideoFailure(input.input, error)) return true;
+
+    input.input.logger.warn(
+      `${input.source}_gallery_dl_failed`,
+      serializeError(error)
+    );
+    return false;
+  }
+}
+
+function isTiktokGalleryCandidate(text: string): boolean {
+  return (
+    /https?:\/\/(?:[^/]+\.)?tiktok\.com\/(?:@[^/]+\/photo\/|[^\s]+)/iu.test(
+      text
+    ) && !/https?:\/\/(?:www\.)?tiktok\.com\/@[^/]+\/video\//iu.test(text)
+  );
 }
 
 async function runDirectRedditVideoMemeJob(
