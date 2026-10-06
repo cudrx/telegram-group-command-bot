@@ -35,7 +35,7 @@ build-docker-dev:
   stage: build
   image: docker:${DOCKER_VERSION}-cli
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "master"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH'
   before_script:
     - docker version
   script:
@@ -50,10 +50,10 @@ build-docker-prod:
     - if: '$CI_COMMIT_TAG'
   before_script:
     - |
-      if git merge-base --is-ancestor "$CI_COMMIT_SHA" origin/master; then
-        echo "Success: The tag $CI_COMMIT_TAG belongs to the master branch history."
+      if git merge-base --is-ancestor "$CI_COMMIT_SHA" "origin/$CI_DEFAULT_BRANCH"; then
+        echo "Success: The tag $CI_COMMIT_TAG belongs to the $CI_DEFAULT_BRANCH branch history."
       else
-        echo "Error: The tag $CI_COMMIT_TAG does not belong to the master branch."
+        echo "Error: The tag $CI_COMMIT_TAG does not belong to the $CI_DEFAULT_BRANCH branch."
         exit 1
       fi
   script:
