@@ -78,8 +78,8 @@ release:
     tag_name: '$CI_COMMIT_TAG'
     name: 'Release $CI_COMMIT_TAG'
     description: 'Release $CI_COMMIT_TAG'
-  assets:
-    links:
-      - name: 'Docker image $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG-prod'
-        url: '$CI_PROJECT_URL/container_registry'
-        link_type: image
+    assets:
+      links:
+        - name: 'Docker image $CI_REGISTRY_IMAGE:$CI_COMMIT_TAG-prod'
+          url: '$CI_PROJECT_URL/container_registry'
+          link_type: image
