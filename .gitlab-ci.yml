@@ -4,3 +4,8 @@ include:
   - local: '/.gitlab/test.yml'
   - local: '/.gitlab/build.yml'
   - local: '/.gitlab/deploy.yml'
+
+stages:
+  - pre-build
+  - build
+  - release
