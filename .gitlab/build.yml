@@ -12,14 +12,19 @@
     - VERSION="$BUILD_VERSION" docker buildx bake --builder ci-rootless -f docker/docker-bake.hcl "$BUILD_TARGET" --push
 
 build-docker-dev:
-  extends:
-    - .docker-build
-    - .dev
+  extends: .docker-build
+  variables:
+    BUILD_TARGET: 'dev'
+    BUILD_VERSION: '$CI_COMMIT_SHORT_SHA'
+  rules: !reference [.rules-dev, rules]
 
 build-docker-prod:
-  extends:
-    - .docker-build
-    - .prod
+  extends: .docker-build
+  variables:
+    BUILD_TARGET: 'prod'
+    BUILD_VERSION: '$CI_COMMIT_TAG'
+    GIT_DEPTH: '0'
+  rules: !reference [.rules-prod, rules]
   before_script:
     - |
       git fetch origin "+refs/heads/$CI_DEFAULT_BRANCH:refs/remotes/origin/$CI_DEFAULT_BRANCH"
