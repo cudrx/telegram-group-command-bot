@@ -1,0 +1,13 @@
+stages:
+  - pre-build
+  - build
+  - release
+
+lint:
+  extends: .rules-test
+  stage: pre-build
+  image: node:${NODE_VERSION}-alpine
+  before_script:
+    - npm ci --ignore-scripts
+  script:
+    - npm run lint

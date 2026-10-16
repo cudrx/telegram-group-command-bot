@@ -1,0 +1,21 @@
+variables:
+  NODE_VERSION: '24'
+  DOCKER_VERSION: '29'
+  BUILDKIT_VERSION: 'v0.26.0'
+  GLAB_VERSION: 'v1.58.0'
+  REGISTRY: 'registry.gitlab.com/cudrx'
+  IMAGE_NAME: 'telegram-group-command-bot'
+  FF_NETWORK_PER_BUILD: 'true'
+
+.dev:
+  extends: .rules-dev
+  variables:
+    BUILD_TARGET: 'dev'
+    BUILD_VERSION: '$CI_COMMIT_SHORT_SHA'
+
+.prod:
+  extends: .rules-prod
+  variables:
+    BUILD_TARGET: 'prod'
+    BUILD_VERSION: '$CI_COMMIT_TAG'
+    GIT_DEPTH: '0'

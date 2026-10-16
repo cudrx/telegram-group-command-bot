@@ -1,0 +1,20 @@
+release:
+  extends: .rules-prod
+  stage: release
+  image: registry.gitlab.com/gitlab-org/cli:${GLAB_VERSION}
+  needs:
+    - build-docker-prod
+  script:
+    - ':'
+  release:
+    tag_name: '$CI_COMMIT_TAG'
+    name: 'Release $CI_COMMIT_TAG'
+    description: 'Release $CI_COMMIT_TAG'
+    assets:
+      links:
+        - name: 'Docker image $REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG-prod-amd64'
+          url: '$CI_PROJECT_URL/container_registry'
+          link_type: image
+        - name: 'Docker image $REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG-prod-arm64'
+          url: '$CI_PROJECT_URL/container_registry'
+          link_type: image
