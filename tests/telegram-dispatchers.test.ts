@@ -3,6 +3,52 @@ import { describe, expect, test, vi } from 'vitest';
 import { createTelegramDispatchers } from '../src/app/telegram-dispatchers.js';
 
 describe('createTelegramDispatchers', () => {
+  test('sends GIF files as animations with caption, spoiler and reply', async () => {
+    const sendAnimation = vi.fn().mockResolvedValue({
+      message_id: 55,
+      date: 1_747_000_000,
+      animation: {
+        file_id: 'animation-file',
+        mime_type: 'video/mp4',
+        duration: 3
+      }
+    });
+    const sendPhoto = vi.fn();
+    const dispatchers = createTelegramDispatchers({
+      sendMessage: vi.fn(),
+      editMessageText: vi.fn(),
+      sendVoice: vi.fn(),
+      sendPhoto,
+      sendVideo: vi.fn(),
+      sendAnimation,
+      sendMediaGroup: vi.fn(),
+      deleteMessage: vi.fn(),
+      sendChatAction: vi.fn()
+    });
+    const sent = await dispatchers.memeDispatcher({
+      chatId: 1,
+      replyToMessageId: 10,
+      caption: 'GIF caption',
+      hasSpoiler: true,
+      media: { kind: 'animation', filePath: '/tmp/original.gif' }
+    });
+    expect(sendAnimation).toHaveBeenCalledWith(
+      1,
+      expect.anything(),
+      expect.objectContaining({
+        caption: 'GIF caption',
+        parse_mode: 'HTML',
+        has_spoiler: true,
+        reply_parameters: { message_id: 10 }
+      })
+    );
+    expect(sendPhoto).not.toHaveBeenCalled();
+    expect(sent).toMatchObject({
+      messageId: 55,
+      mediaSnapshot: { fileId: 'animation-file', durationSeconds: 3 }
+    });
+  });
+
   test('splits large galleries into Telegram-sized albums', async () => {
     const sendMediaGroup = vi
       .fn()
@@ -28,6 +74,7 @@ describe('createTelegramDispatchers', () => {
       sendVoice: vi.fn(),
       sendPhoto: vi.fn(),
       sendVideo: vi.fn(),
+      sendAnimation: vi.fn(),
       sendMediaGroup,
       deleteMessage: vi.fn(),
       sendChatAction: vi.fn()

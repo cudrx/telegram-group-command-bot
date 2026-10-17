@@ -8,7 +8,7 @@ import type {
 
 export type MediaArtifactStatus = 'success' | 'failed' | 'partial';
 
-export type MemeMediaKind = 'image' | 'video' | 'gallery';
+export type MemeMediaKind = 'image' | 'video' | 'animation' | 'gallery';
 export type SourceStateKey = 'instagram';
 export type SourceStateStatus = 'healthy' | 'blocked';
 

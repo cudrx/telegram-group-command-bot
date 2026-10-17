@@ -58,8 +58,8 @@ minimal OS certificates.
 - `/translate` - translate the replied-to message content into the target language.
 - `/read` - speak a replied-to text message.
 - `/transcribe` - transcribe a replied-to Telegram video.
-- `/meme` - send a fresh Reddit image, gallery, or video meme.
-- `/sex` - send fresh Reddit image, gallery, or video media from its own subreddit pool.
+- `/meme` - send a fresh Reddit image, GIF animation, gallery, or video meme.
+- `/sex` - send fresh Reddit image, GIF animation, gallery, or video media from its own subreddit pool.
 
 ## Project Map
 

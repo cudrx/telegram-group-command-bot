@@ -41,7 +41,7 @@ export async function dispatchMemeMedia(input: {
 
 function toDispatchMedia(media: DownloadedMemeMedia):
   | {
-      kind: 'image';
+      kind: 'image' | 'animation';
       filePath: string;
     }
   | {
@@ -101,7 +101,7 @@ function toDispatchMedia(media: DownloadedMemeMedia):
   }
 
   return {
-    kind: 'image',
+    kind: media.kind,
     filePath: media.filePath
   };
 }

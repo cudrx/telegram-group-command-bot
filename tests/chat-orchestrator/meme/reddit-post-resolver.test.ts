@@ -3,6 +3,31 @@ import { describe, expect, test } from 'vitest';
 import { resolveRedditPostMedia } from '../../../src/app/actions/meme/reddit-post-resolver.js';
 
 describe('resolveRedditPostMedia', () => {
+  test('preserves the original GIF instead of selecting a static preview', () => {
+    const candidate = resolveRedditPostMedia(
+      redditPost({
+        url: 'https://i.redd.it/q1bjnetaq1wh1.gif',
+        is_video: false,
+        spoiler: true,
+        preview: {
+          images: [
+            {
+              source: {
+                url: 'https://preview.redd.it/q1bjnetaq1wh1.gif?format=png8'
+              }
+            }
+          ]
+        }
+      })
+    );
+    expect(candidate?.media).toEqual({
+      kind: 'animation',
+      extension: 'gif',
+      mediaUrl: 'https://i.redd.it/q1bjnetaq1wh1.gif',
+      hasSpoiler: true
+    });
+  });
+
   test('resolves Reddit-hosted video posts', () => {
     expect(
       resolveRedditPostMedia(

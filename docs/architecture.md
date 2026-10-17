@@ -270,9 +270,10 @@ Behavior:
 - Source is Reddit listing JSON from a hardcoded subreddit pool. `/meme` and `/sex` use separate runtime subreddit lists.
 - Each run selects up to three subreddits; for each one, Reddit cookies are used to request `/r/<subreddit>/top/.json?t=month&limit=10`.
 - Post ids sent in the last 14 days are filtered through `meme_posts`.
-- Supports Reddit image URLs from `i.redd.it`, Reddit galleries from `gallery_data`/`media_metadata`, and Reddit video posts from `secure_media.reddit_video`/`media.reddit_video`.
+- Supports Reddit image URLs and original GIF animations from `i.redd.it`, Reddit galleries from `gallery_data`/`media_metadata`, and Reddit video posts from `secure_media.reddit_video`/`media.reddit_video`.
 - NSFW and spoiler posts are allowed and sent with Telegram's spoiler flag. For galleries, the spoiler flag is applied to every album item. External/self/text and unsupported posts are skipped.
 - If a candidate fails to download, is too large, or Telegram dispatch fails, the bot logs `WARN` through the logger/admin notifier and tries another shuffled candidate from the same listing, then the next subreddit.
+- Original Reddit GIF posts are downloaded directly with the existing 50 MB video-size cap and sent through `sendAnimation`, preserving captions and spoilers. No MP4 variant, yt-dlp, or conversion is required; temporary files are cleaned after dispatch.
 - Images and gallery items are downloaded directly into temporary files; Reddit-hosted video is downloaded through `yt-dlp` with cookies. Direct Reddit MP4/fallback URLs are not download paths for video. Temporary files are cleaned up in `finally`.
 - Video jobs for `/meme`, `/sex`, and direct supported video links are admitted through the shared queue only after a specific video candidate is chosen. Listing fetches and candidate selection stay outside the queue.
 - After successful dispatch, memes store Telegram media metadata; later recognition uses the shared media auto-read flow.

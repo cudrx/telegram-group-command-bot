@@ -86,6 +86,78 @@ describe('ChatOrchestrator /meme command — direct Reddit media', () => {
     expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
+  test('expands a direct Reddit GIF link without an MP4 variant with the standard meme caption', async () => {
+    let dispatchedFilePath = '';
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        redditPostResponse({
+          id: 'gifdirect',
+          subreddit: 'memes',
+          title: 'direct GIF',
+          permalink: '/r/memes/comments/gifdirect/direct_gif/',
+          ups: 1234,
+          url: 'https://i.redd.it/direct-animation.gif'
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(new Uint8Array([1, 2, 3]), {
+          headers: { 'Content-Length': '3' }
+        })
+      );
+    const memeDispatcher = vi.fn().mockImplementation((input) => {
+      dispatchedFilePath = input.media.filePath;
+
+      return Promise.resolve({
+        messageId: 515,
+        createdAt: '2026-05-22T10:00:00.000Z'
+      });
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      qwen: {
+        generateReply: vi.fn()
+      },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: 'https://www.reddit.com/r/memes/comments/gifdirect/direct_gif/',
+        entities: [],
+        messageId: 47,
+        chatType: 'supergroup'
+      })
+    );
+
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        chatId: 1,
+        replyToMessageId: null,
+        reply: false,
+        caption:
+          'direct GIF\n\nr/memes · <a href="https://www.reddit.com/r/memes/comments/gifdirect/direct_gif/">↑1234</a> · <a href="https://t.me/tom">@tom</a>',
+        media: expect.objectContaining({ kind: 'animation' })
+      })
+    );
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 47
+    });
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: 'gifdirect',
+      mediaKind: 'animation',
+      mediaUrl: 'https://i.redd.it/direct-animation.gif'
+    });
+    expect(dispatchedFilePath).not.toBe('');
+    expect(existsSync(dispatchedFilePath)).toBe(false);
+  });
+
   test('expands a direct Reddit gallery link and marks every item as spoiler', async () => {
     const dispatchedFilePaths: string[] = [];
     const db = new FakeDatabaseClient();

@@ -19,6 +19,7 @@ type TelegramSentMessage = {
     file_unique_id?: string;
     file_size?: number;
   }>;
+  animation?: TelegramSentMessage['video'];
   video?: {
     file_id: string;
     file_unique_id?: string;
@@ -46,6 +47,11 @@ type TelegramApi = {
     options?: Record<string, unknown>
   ): Promise<TelegramSentMessage>;
   sendPhoto(
+    chatId: number,
+    file: InputFile,
+    options?: Record<string, unknown>
+  ): Promise<TelegramSentMessage>;
+  sendAnimation(
     chatId: number,
     file: InputFile,
     options?: Record<string, unknown>
@@ -137,15 +143,22 @@ export function createTelegramDispatchers(
       ...linkPreviewOptions,
       ...replyParameters
     };
-    const sent =
-      media.kind === 'video'
-        ? await api.sendVideo(chatId, new InputFile(media.filePath), {
-            ...options,
-            ...toTelegramVideoOptions(media)
-          })
-        : await api.sendPhoto(chatId, new InputFile(media.filePath), options);
+    const file = new InputFile(media.filePath);
+    let sent: TelegramSentMessage;
+
+    if (media.kind === 'video') {
+      sent = await api.sendVideo(chatId, file, {
+        ...options,
+        ...toTelegramVideoOptions(media)
+      });
+    } else if (media.kind === 'animation') {
+      sent = await api.sendAnimation(chatId, file, options);
+    } else {
+      sent = await api.sendPhoto(chatId, file, options);
+    }
+
     const mediaSnapshot =
-      media.kind === 'video'
+      media.kind === 'video' || media.kind === 'animation'
         ? toSentVideoSnapshot(sent, caption)
         : toSentPhotoSnapshot(sent, caption);
 
@@ -344,7 +357,7 @@ function toSentVideoSnapshot(
   sent: TelegramSentMessage,
   caption: string
 ): MediaMessageSnapshot | null {
-  const video = sent.video;
+  const video = sent.video ?? sent.animation;
 
   if (!video) return null;
 

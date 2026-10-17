@@ -43,7 +43,7 @@ export async function downloadResolvedMedia(
     url: media.mediaUrl,
     filename: `meme-media.${media.extension}`,
     maxBytes:
-      media.kind === 'video'
+      media.kind === 'video' || media.kind === 'animation'
         ? memeActionConfig.telegramMedia.videoMaxBytes
         : memeActionConfig.telegramMedia.imageMaxBytes,
     timeoutMs: memeActionConfig.telegramMedia.downloadTimeoutMs,
@@ -59,6 +59,10 @@ export async function downloadResolvedMedia(
     };
   }
 
+  if (media.kind === 'animation') {
+    return { kind: 'animation', extension: media.extension, ...downloaded };
+  }
+
   return {
     kind: 'image',
     extension: media.extension,
@@ -69,7 +73,9 @@ export async function downloadResolvedMedia(
 export function getMemeChatAction(
   media: ResolvedMemeMedia
 ): 'upload_photo' | 'upload_video' {
-  return media.kind === 'video' ? 'upload_video' : 'upload_photo';
+  return media.kind === 'video' || media.kind === 'animation'
+    ? 'upload_video'
+    : 'upload_photo';
 }
 
 async function downloadGalleryMedia(
@@ -78,7 +84,7 @@ async function downloadGalleryMedia(
   processStatus?: ProcessStatusReporter
 ): Promise<DownloadedMemeMedia> {
   const downloadedItems: Array<
-    Exclude<DownloadedMemeMedia, { kind: 'gallery' }>
+    Exclude<DownloadedMemeMedia, { kind: 'gallery' | 'animation' }>
   > = [];
 
   try {

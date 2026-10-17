@@ -56,6 +56,22 @@ function resolveMedia(
   if (gallery) return gallery;
 
   const directUrl = getRequiredString(post.url);
+  if (directUrl) {
+    const parsed = parseUrl(directUrl);
+    if (
+      parsed &&
+      isRedditImageHost(parsed.hostname) &&
+      parsed.pathname.toLowerCase().endsWith('.gif')
+    ) {
+      return {
+        kind: 'animation',
+        mediaUrl: decodeHtmlEntities(directUrl),
+        extension: 'gif',
+        ...(hasSpoiler ? { hasSpoiler: true } : {})
+      };
+    }
+  }
+
   const imageMedia = directUrl ? resolveImage(directUrl, hasSpoiler) : null;
   if (imageMedia) return imageMedia;
 
