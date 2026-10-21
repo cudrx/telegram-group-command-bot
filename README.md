@@ -12,6 +12,7 @@ The bot stores chat history, runs explicit command flows, can use web lookup and
 - Supports `/summarize`, `/decide`, `/answer`, `/translate`, `/read`, `/transcribe`, `/meme`, and `/sex`.
 - Expands supported Reddit post links, Instagram Reels, and YouTube Shorts without calling the LLM.
 - Expands supported Reddit, Instagram, YouTube, and TikTok links into Telegram-safe media.
+- Sends videos from Reddit posts, including Streamable links.
 - Queues heavy video jobs with bounded global and per-chat concurrency.
 - Keeps user-facing local fallbacks as text even when outbound voice is enabled.
 
@@ -43,6 +44,8 @@ Replace the required placeholders in `.env` before starting. Then edit `data/tel
 For Reddit-based `/meme`, `/sex`, and direct Reddit link expansion, you can also
 set `REDDIT_COOKIE_HEADER_PATH` to a file containing a full browser `Cookie`
 header when a plain Netscape cookie file is not enough for subreddit listings.
+If Reddit rejects that header with HTTP 401/403, the bot warns the admin to
+refresh it.
 
 Media features require external runtime tools mounted into Docker from
 `data/bin`: official standalone Linux `yt-dlp` and `gallery-dl`, plus static

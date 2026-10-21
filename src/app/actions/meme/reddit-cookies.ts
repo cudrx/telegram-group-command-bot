@@ -1,6 +1,25 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
+export class RedditCookieHeaderRejectedError extends Error {
+  constructor(readonly status: number) {
+    super(
+      `Reddit: HTTP ${status}. Обновите cookies в REDDIT_COOKIE_HEADER_PATH.`
+    );
+    this.name = 'RedditCookieHeaderRejectedError';
+  }
+}
+
+export function assertRedditCookieHeaderAccepted(
+  status: number,
+  headerPath: string | null | undefined,
+  cookieHeader: string | null
+): void {
+  if (headerPath && cookieHeader && (status === 401 || status === 403)) {
+    throw new RedditCookieHeaderRejectedError(status);
+  }
+}
+
 export async function readRedditCookieHeader(
   input:
     | string

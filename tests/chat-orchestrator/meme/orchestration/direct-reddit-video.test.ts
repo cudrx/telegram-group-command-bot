@@ -17,7 +17,10 @@ import {
 } from './support.js';
 
 describe('ChatOrchestrator /meme command — direct Reddit video', () => {
-  test('expands a direct Reddit video link without replying to the deleted source message', async () => {
+  test.each([
+    'reddit',
+    'streamable'
+  ])('expands a direct Reddit %s video link without replying to the deleted source message', async (provider) => {
     let dispatchedFilePath = '';
     const dataDirectory = await mkdtemp(
       path.join(os.tmpdir(), 'direct-reddit-video-test-')
@@ -46,13 +49,27 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
                     ups: 24123,
                     over_18: true,
                     spoiler: true,
-                    secure_media: {
-                      reddit_video: {
-                        fallback_url:
-                          'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
-                        duration: 42
-                      }
-                    }
+                    url:
+                      provider === 'streamable'
+                        ? 'https://streamable.com/idugt5'
+                        : 'https://v.redd.it/video123',
+                    is_video: provider === 'reddit',
+                    secure_media:
+                      provider === 'streamable'
+                        ? {
+                            type: 'streamable.com',
+                            oembed: {
+                              provider_name: 'Streamable',
+                              type: 'video'
+                            }
+                          }
+                        : {
+                            reddit_video: {
+                              fallback_url:
+                                'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
+                              duration: 42
+                            }
+                          }
                   }
                 }
               ]

@@ -1,4 +1,7 @@
-import { readRedditCookieHeader } from './reddit-cookies.js';
+import {
+  assertRedditCookieHeaderAccepted,
+  readRedditCookieHeader
+} from './reddit-cookies.js';
 import { resolveRedditPostMedia } from './reddit-post-resolver.js';
 import type { MemePostCandidate } from './types.js';
 
@@ -63,9 +66,16 @@ export async function resolveRedditPostReference(input: {
   }
 
   const redirectedUrl = response.url;
-  if (!redirectedUrl) return null;
+  const reference = redirectedUrl ? parseRedditPostUrl(redirectedUrl) : null;
+  if (reference) return reference;
 
-  return parseRedditPostUrl(redirectedUrl);
+  assertRedditCookieHeaderAccepted(
+    response.status,
+    input.redditCookieHeaderPath,
+    cookieHeader
+  );
+
+  return null;
 }
 
 export async function fetchRedditVideoCandidate(input: {
@@ -110,6 +120,12 @@ export async function fetchRedditPostCandidate(input: {
   }
 
   if (!response.ok) {
+    assertRedditCookieHeaderAccepted(
+      response.status,
+      input.redditCookieHeaderPath,
+      cookieHeader
+    );
+
     throw new Error(
       `Reddit post request failed for ${reference.jsonUrl} with status ${response.status}`
     );

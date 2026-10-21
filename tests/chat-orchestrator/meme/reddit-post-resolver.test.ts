@@ -3,6 +3,47 @@ import { describe, expect, test } from 'vitest';
 import { resolveRedditPostMedia } from '../../../src/app/actions/meme/reddit-post-resolver.js';
 
 describe('resolveRedditPostMedia', () => {
+  test.each([
+    'https://streamable.com/idugt5',
+    'https://www.streamable.com/idugt5'
+  ])('resolves embedded Streamable video before its static preview: %s', (url) => {
+    const candidate = resolveRedditPostMedia(
+      redditPost({
+        id: '1xbds51',
+        subreddit: 'nba',
+        permalink:
+          '/r/nba/comments/1xbds51/lebron_james_heated_with_a_knicks_fan_aint/',
+        url,
+        is_video: false,
+        spoiler: true,
+        secure_media: {
+          type: 'streamable.com',
+          oembed: { provider_name: 'Streamable', type: 'video' }
+        },
+        preview: {
+          images: [{ source: { url: 'https://preview.redd.it/thumbnail.jpg' } }]
+        }
+      })
+    );
+    expect(candidate?.media).toEqual({
+      kind: 'video',
+      mediaUrl:
+        'https://www.reddit.com/r/nba/comments/1xbds51/lebron_james_heated_with_a_knicks_fan_aint/',
+      extension: 'mp4',
+      durationSeconds: null,
+      downloadStrategy: 'yt-dlp',
+      hasSpoiler: true
+    });
+  });
+
+  test('does not treat another host mentioning Streamable as a video', () => {
+    expect(
+      resolveRedditPostMedia(
+        redditPost({ url: 'https://streamable.com.example.org/idugt5' })
+      )
+    ).toBeNull();
+  });
+
   test('preserves the original GIF instead of selecting a static preview', () => {
     const candidate = resolveRedditPostMedia(
       redditPost({

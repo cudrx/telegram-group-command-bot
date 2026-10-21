@@ -1,4 +1,7 @@
-import { readRedditCookieHeader } from './reddit-cookies.js';
+import {
+  assertRedditCookieHeaderAccepted,
+  readRedditCookieHeader
+} from './reddit-cookies.js';
 import { resolveRedditPostMedia } from './reddit-post-resolver.js';
 import type {
   FetchMemeSourceCandidatesInput,
@@ -69,6 +72,12 @@ export async function fetchRedditListingCandidates(
   });
 
   if (!response.ok) {
+    assertRedditCookieHeaderAccepted(
+      response.status,
+      input.redditCookieHeaderPath,
+      cookieHeader
+    );
+
     if (response.status === 403 || response.status === 404) return [];
 
     throw new Error(

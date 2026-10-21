@@ -41,7 +41,7 @@ function resolveMedia(
   const redditVideo = getRedditVideo(post);
   const fallbackUrl = getRequiredString(redditVideo?.fallback_url);
 
-  if (fallbackUrl) {
+  if (fallbackUrl || isStreamableVideo(post.url)) {
     return {
       kind: 'video',
       mediaUrl: permalink,
@@ -174,6 +174,16 @@ function getRedditVideo(
   const mediaVideo = isRecord(media?.reddit_video) ? media.reddit_video : null;
 
   return mediaVideo;
+}
+
+function isStreamableVideo(value: unknown): boolean {
+  const url = getRequiredString(value);
+  const parsed = url ? parseUrl(url) : null;
+
+  return (
+    parsed?.hostname === 'streamable.com' ||
+    parsed?.hostname === 'www.streamable.com'
+  );
 }
 
 function getRequiredString(value: unknown): string | undefined {
