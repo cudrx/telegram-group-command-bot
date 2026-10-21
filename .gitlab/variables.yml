@@ -1,0 +1,8 @@
+variables:
+  NODE_VERSION: '24'
+  DOCKER_VERSION: '29'
+  BUILDKIT_VERSION: 'v0.26.0'
+  GLAB_VERSION: 'v1.58.0'
+  REGISTRY: 'registry.gitlab.com/cudrx'
+  IMAGE_NAME: 'telegram-group-command-bot'
+  FF_NETWORK_PER_BUILD: 'true'
