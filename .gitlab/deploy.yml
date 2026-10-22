@@ -9,12 +9,15 @@ release:
   release:
     tag_name: '$CI_COMMIT_TAG'
     name: 'Release $CI_COMMIT_TAG'
-    description: 'Release $CI_COMMIT_TAG'
+    description: |
+      Release $CI_COMMIT_TAG
+      Docker images:
+      ```sh
+      docker pull $REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG-prod-amd64
+      docker pull $REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG-prod-arm64
+      ```
     assets:
       links:
-        - name: 'Docker image $REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG-prod-amd64'
-          url: '$CI_PROJECT_URL/container_registry'
-          link_type: image
-        - name: 'Docker image $REGISTRY/$IMAGE_NAME:$CI_COMMIT_TAG-prod-arm64'
+        - name: 'Production Docker images'
           url: '$CI_PROJECT_URL/container_registry'
           link_type: image
