@@ -50,9 +50,11 @@ refresh it.
 
 Production runs on a single VPS with K3s: one Pod contains the bot, a video
 worker (`yt-dlp`, `ffmpeg`, `ffprobe`, Node.js), and a `gallery-dl` worker.
-The bot sends HTTP jobs over Pod loopback; workers share temporary media files
-with it. SQLite and chat configuration live on a persistent volume. All three
-containers run as UID/GID 1000. The bot image contains no Python or media tools.
+The bot waits for both workers before polling, then sends HTTP jobs over Pod
+loopback; workers share temporary media files with it. Production images are
+pinned by digest for deployment and rollback. SQLite and chat configuration
+live on a persistent volume. All three containers run as UID/GID 1000. The bot
+image contains no Python or media tools.
 
 For a local container run, use `docker compose -f .github/compose.yml up -d --build`.
 The first build installs media dependencies; subsequent builds reuse cached

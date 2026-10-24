@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-: "${IMAGE_PREFIX:?IMAGE_PREFIX is required}"
+: "${BOT_IMAGE:?BOT_IMAGE is required}"
+: "${VIDEO_IMAGE:?VIDEO_IMAGE is required}"
+: "${GALLERY_IMAGE:?GALLERY_IMAGE is required}"
 : "${IMAGE_TAG:?IMAGE_TAG is required}"
 : "${DEPLOY_METADATA_FILE:?DEPLOY_METADATA_FILE is required}"
 namespace=telegram-bot
+for image in "$BOT_IMAGE" "$VIDEO_IMAGE" "$GALLERY_IMAGE"; do
+  [[ "$image" =~ @sha256:[a-f0-9]{64}$ ]] || { echo 'Deployment requires image digests' >&2; exit 1; }
+done
 
 previous="$(kubectl -n "$namespace" get deployment telegram-bot --ignore-not-found -o name)"
 METADATA_CONFIGMAP="$(kubectl -n "$namespace" create configmap "deploy-metadata-${IMAGE_TAG}" \
@@ -14,7 +19,7 @@ export METADATA_CONFIGMAP
 
 manifest="$(mktemp)"
 trap 'rm -f "$manifest"' EXIT
-envsubst '${IMAGE_PREFIX} ${IMAGE_TAG} ${METADATA_CONFIGMAP}' < .github/deployment.yml > "$manifest"
+envsubst '${BOT_IMAGE} ${VIDEO_IMAGE} ${GALLERY_IMAGE} ${IMAGE_TAG} ${METADATA_CONFIGMAP}' < .github/deployment.yml > "$manifest"
 kubectl -n "$namespace" apply -f "$manifest"
 
 if ! kubectl -n "$namespace" rollout status deployment/telegram-bot --timeout=300s; then

@@ -39,6 +39,9 @@ esac
       ...process.env,
       PATH: `${root}/bin:${process.env.PATH}`,
       IMAGE_PREFIX: 'ghcr.io/example/bot',
+      BOT_IMAGE: `ghcr.io/example/bot@sha256:${'a'.repeat(64)}`,
+      VIDEO_IMAGE: `ghcr.io/example/bot-video@sha256:${'b'.repeat(64)}`,
+      GALLERY_IMAGE: `ghcr.io/example/bot-gallery@sha256:${'c'.repeat(64)}`,
       IMAGE_TAG: '0123456789012345678901234567890123456789',
       DEPLOY_METADATA_FILE: join(root, 'metadata.json'),
       TEST_CALLS: calls,
@@ -64,7 +67,16 @@ describe('Kubernetes deployment', () => {
     const result = deploy();
     expect(result.status).toBe(0);
     expect(result.manifest).toContain(
-      'ghcr.io/example/bot-video:0123456789012345678901234567890123456789'
+      `ghcr.io/example/bot-video@sha256:${'b'.repeat(64)}`
+    );
+    expect(result.manifest).toContain(
+      `ghcr.io/example/bot@sha256:${'a'.repeat(64)}`
+    );
+    expect(result.manifest).toContain(
+      `ghcr.io/example/bot-gallery@sha256:${'c'.repeat(64)}`
+    );
+    expect(result.manifest).toContain(
+      'telegram-bot/commit: "0123456789012345678901234567890123456789"'
     );
     expect(result.manifest).toContain(
       'name: deploy-metadata-0123456789012345678901234567890123456789-contenthash'

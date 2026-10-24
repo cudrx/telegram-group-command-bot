@@ -15,6 +15,8 @@ spec:
       app: telegram-bot
   template:
     metadata:
+      annotations:
+        telegram-bot/commit: "${IMAGE_TAG}"
       labels:
         app: telegram-bot
     spec:
@@ -32,7 +34,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: bot
-          image: ${IMAGE_PREFIX}:${IMAGE_TAG}
+          image: ${BOT_IMAGE}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -66,7 +68,7 @@ spec:
               subPath: deploy-metadata.json
               readOnly: true
         - name: video
-          image: ${IMAGE_PREFIX}-video:${IMAGE_TAG}
+          image: ${VIDEO_IMAGE}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -85,7 +87,7 @@ spec:
             - { name: data, mountPath: /app/data, readOnly: true }
             - { name: media, mountPath: /media }
         - name: gallery
-          image: ${IMAGE_PREFIX}-gallery:${IMAGE_TAG}
+          image: ${GALLERY_IMAGE}
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:

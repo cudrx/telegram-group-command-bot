@@ -27,7 +27,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     env:
-      IMAGE_PREFIX: ${{ needs.build.outputs.image-prefix }}
+      BOT_IMAGE: ${{ needs.build.outputs.bot-image }}
+      VIDEO_IMAGE: ${{ needs.build.outputs.video-image }}
+      GALLERY_IMAGE: ${{ needs.build.outputs.gallery-image }}
       IMAGE_TAG: ${{ github.sha }}
       KUBECONFIG: ${{ github.workspace }}/.kubeconfig
       DEPLOY_METADATA_FILE: .github/generated/deploy-metadata.json
@@ -57,9 +59,9 @@ jobs:
       - name: Read deployed commit
         id: deployed
         run: |
-          image="$(kubectl -n telegram-bot get deployment telegram-bot --ignore-not-found -o jsonpath='{.spec.template.spec.containers[?(@.name=="bot")].image}')"
-          if [[ -n "$image" ]]; then
-            echo "sha=${image##*:}" >> "$GITHUB_OUTPUT"
+          sha="$(kubectl -n telegram-bot get deployment telegram-bot --ignore-not-found -o jsonpath='{.spec.template.metadata.annotations.telegram-bot/commit}')"
+          if [[ -n "$sha" ]]; then
+            echo "sha=${sha}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Generate deploy metadata

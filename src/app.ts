@@ -15,7 +15,10 @@ import type { AppEnv } from './config/env/index.js';
 import { memeActionConfig } from './config/runtime/index.js';
 import { DatabaseClient } from './database/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
-import { createRemoteMediaExec } from './media/service-client.js';
+import {
+  createRemoteMediaExec,
+  waitForMediaServices
+} from './media/service-client.js';
 import {
   normalizeEditedTextMessage,
   normalizeTextMessage
@@ -210,6 +213,13 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
   return {
     async start() {
+      if (env.mediaVideoUrl && env.mediaGalleryUrl) {
+        await waitForMediaServices({
+          videoUrl: env.mediaVideoUrl,
+          galleryUrl: env.mediaGalleryUrl
+        });
+      }
+
       cleanupScheduler.start();
       const deployAnnouncementChatIds = env.telegramChatPolicies
         .filter((policy) => policy.features.deploy_announcements)

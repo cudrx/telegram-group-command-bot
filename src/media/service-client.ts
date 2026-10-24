@@ -8,6 +8,45 @@ import {
   type MediaOperation
 } from './service-protocol.js';
 
+export async function waitForMediaServices(input: {
+  videoUrl: string;
+  galleryUrl: string;
+  timeoutMs?: number;
+  pollMs?: number;
+}): Promise<void> {
+  const signal = AbortSignal.timeout(input.timeoutMs ?? 120_000);
+  try {
+    while (true) {
+      signal.throwIfAborted();
+      const ready = await Promise.all(
+        [input.videoUrl, input.galleryUrl].map(async (url) => {
+          try {
+            const response = await fetch(`${url.replace(/\/$/, '')}/health`, {
+              signal: AbortSignal.any([signal, AbortSignal.timeout(2000)])
+            });
+            await response.body?.cancel();
+            return response.ok;
+          } catch {
+            return false;
+          }
+        })
+      );
+      signal.throwIfAborted();
+      if (ready.every(Boolean)) return;
+
+      await delay(input.pollMs ?? 250, undefined, { signal });
+    }
+  } catch (error) {
+    if (signal.aborted)
+      throw new Error(
+        'Media workers did not become ready before startup timeout',
+        { cause: error }
+      );
+
+    throw error;
+  }
+}
+
 export function createRemoteMediaExec(input: {
   videoUrl: string;
   galleryUrl: string;

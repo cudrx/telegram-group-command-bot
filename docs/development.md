@@ -236,8 +236,10 @@ invocation. There is no dev/prod or architecture matrix; the runner's native
 Linux architecture is used. Images share build stages and separate GHA caches.
 Container smoke checks verify UID/GID, SQLite write access, CLI startup, HTTP
 jobs, H.264/AAC encoding, ffprobe JSON, and Opus extraction without external
-media sites. Main publishes commit-tagged images to GHCR and smoke-tests them
-before deployment. There is no `latest` deployment tag.
+media sites. Main publishes commit-tagged images to GHCR, extracts each
+target's digest from Bake metadata, and smoke-tests those exact digests.
+Deployment and rollback use the same digest references, including repeated
+builds of one commit. Non-publishing CI smoke-tests locally loaded tags.
 
 GitLab keeps its original pipeline, Dockerfile contents, dev/prod targets,
 architecture matrix, registry, and release jobs. Only paths changed:
@@ -331,10 +333,15 @@ kubectl -n telegram-bot exec data-import -- chown -R 1000:1000 /data
 kubectl -n telegram-bot delete pod data-import
 ```
 
-Copy your two JSON configuration files and cookie files even for a fresh
-installation. `data/bin` is unnecessary. Do not restart the old bot after
-Kubernetes begins polling with the same token. Verify the first deployment
-with a separate test chat before depending on it in the main group.
+Copy your two JSON configuration files even for a fresh installation, plus
+cookie files required by your sources. An absent yt-dlp cookie file starts
+with a private empty jar; the operator file is never created or overwritten.
+`data/bin` is unnecessary. Do not restart the old bot after
+Kubernetes begins polling with the same token. The bot waits for both worker
+health endpoints before announcements and polling, retrying for up to 120
+seconds. If either stays unavailable, startup fails and Kubernetes restarts
+the bot. Verify the first deployment with a separate test chat before depending
+on it in the main group.
 
 ### GitHub deployment credentials
 
@@ -397,10 +404,12 @@ remove the temporary local credential file.
    Later non-documentation pushes to main deploy automatically.
 
 The deploy job no longer SSHs into the server, copies app assets, runs Compose,
-or prunes Docker images. It uses the Kubernetes API. Deploy metadata is an
+or prunes Docker images. It uses the Kubernetes API. Deploy metadata is a
 ConfigMap named by commit SHA and a content hash, mounted as
 `/app/data/deploy-metadata.json`. It retains the existing announcement format
-and SQLite deduplication. Metadata ConfigMaps are not automatically pruned so
+and SQLite deduplication. The Pod template stores the source commit in
+`telegram-bot/commit`; deployment metadata reads that annotation because image
+references now contain digests. Metadata ConfigMaps are not automatically pruned so
 rollback can still mount earlier ones. After retiring old revisions, an
 administrator can remove their unreferenced metadata ConfigMaps.
 

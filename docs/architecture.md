@@ -331,7 +331,9 @@ individual container restart but is discarded with the Pod. The `bot-data`
 PVC stores SQLite, cookies, and chat/access JSON configuration. Workers mount
 it read-only and copy cookie files to private per-job temporary files, so
 extractors cannot modify the operator's cookies or trigger spurious source
-unlocking. Cookie paths must resolve inside `/app/data`.
+unlocking. Cookie paths must resolve inside `/app/data`. If a yt-dlp cookie
+file is absent, the worker uses a private empty jar instead of rejecting the
+request. Existing files remain unchanged.
 
 The transport exposes POST `/jobs`, GET `/jobs/<id>`, DELETE `/jobs/<id>`, and
 GET `/health`. Operations cover metadata, download, probe, normalization,
@@ -341,15 +343,22 @@ and the bot retains its existing video and normalization queues. A request's
 deadline covers submission and polling; timeout, cancellation, and worker
 shutdown kill the process group including ffmpeg descendants. Lost jobs fail
 through existing local fallbacks; the bot never retries them using local CLI.
-Finished results expire after a minute and are deleted when consumed.
+Finished results expire after a minute and are deleted when consumed. HTTP
+request bodies use streaming UTF-8 decoding so characters split across chunks
+reach the CLI intact.
 
 `replicas: 1` and Deployment strategy `Recreate` prevent overlapping bot
 instances during rollout. A brief deployment interruption is expected. All
 containers run as UID/GID 1000 with privilege escalation disabled and Linux
 capabilities dropped. Startup/readiness/liveness probes check local process
-health, not external providers. A metadata ConfigMap named by commit and content
-hash is part of the Pod revision, so rollout undo restores all three images and announcements
-together. SQLite data is not rolled back by a Deployment rollback.
+health, not external providers. Before announcements and polling, the bot
+waits for both media health endpoints, with a 120-second startup deadline.
+CI exports each published image digest from Bake metadata, and both smoke
+checks and Deployment use those digests. The source commit is a Pod-template
+annotation (`telegram-bot/commit`), preserved by rollback. A metadata ConfigMap
+named by commit and content hash is part of the Pod revision, so rollout undo
+restores all three images and announcements together. SQLite data is not
+rolled back by a Deployment rollback.
 
 GitHub infrastructure files are in `.github/`, with only the mandatory
 `workflows/` subdirectory. GitLab infrastructure is in `.gitlab/`, retaining

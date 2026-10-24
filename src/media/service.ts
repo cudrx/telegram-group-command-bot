@@ -107,17 +107,28 @@ export function createMediaService(config: ServiceConfig) {
   async function execute(input: MediaJobRequest, job: Job) {
     let cookieDirectory: string | undefined;
     try {
+      const tool = MEDIA_OPERATIONS[input.operation];
       const args = [...input.args];
       const cookiesIndex = args.indexOf('--cookies');
       const cookies = args[cookiesIndex + 1];
       if (cookiesIndex >= 0 && cookies) {
         cookieDirectory = await mkdtemp(path.join(tmpdir(), 'media-cookies-'));
         const copy = path.join(cookieDirectory, 'cookies.txt');
-        await copyFile(cookies, copy);
+        try {
+          await copyFile(cookies, copy);
+        } catch (error) {
+          if (
+            tool !== 'yt-dlp' ||
+            (error as NodeJS.ErrnoException).code !== 'ENOENT'
+          ) {
+            throw error;
+          }
+
+          // yt-dlp accepts a missing jar and saves it at the private job path.
+        }
         args[cookiesIndex + 1] = copy;
       }
 
-      const tool = MEDIA_OPERATIONS[input.operation];
       const executable = config.executables?.[tool] ?? tool;
       const result = await runMediaProcess({
         file: input.operation === 'normalize' ? 'nice' : executable,
@@ -170,6 +181,7 @@ function send(response: ServerResponse, status: number, payload?: unknown) {
 }
 
 async function readBody(request: IncomingMessage): Promise<unknown> {
+  request.setEncoding('utf8');
   let body = '';
   for await (const chunk of request) {
     body += chunk;
@@ -230,8 +242,23 @@ async function validateJob(
     const cookie = args[index - 1] === '--cookies';
     if (cookie) {
       if (!within(arg, config.dataRoot)) return null;
-      if (!within(await realpath(arg), await realpath(config.dataRoot)))
-        return null;
+      let resolvedCookie: string;
+      try {
+        resolvedCookie = await realpath(arg);
+      } catch (error) {
+        if (
+          MEDIA_OPERATIONS[value.operation] !== 'yt-dlp' ||
+          (error as NodeJS.ErrnoException).code !== 'ENOENT'
+        ) {
+          throw error;
+        }
+
+        resolvedCookie = path.join(
+          await realpath(path.dirname(arg)),
+          path.basename(arg)
+        );
+      }
+      if (!within(resolvedCookie, await realpath(config.dataRoot))) return null;
     } else if (path.isAbsolute(arg) && !within(arg, config.mediaRoot))
       return null;
   }

@@ -56,6 +56,17 @@ if (!kind) {
         '/media/smoke.mp4'
       ]);
       assert.equal(JSON.parse(probe.stdout).streams[0].width, 160);
+      const metadata = await exec('yt-dlp', [
+        '--enable-file-urls',
+        '--cookies',
+        '/app/data/optional-cookies.txt',
+        '--dump-single-json',
+        'file:///media/smoke.mp4'
+      ]);
+      assert.equal(JSON.parse(metadata.stdout).id, 'smoke');
+      await assert.rejects(readFile('/app/data/optional-cookies.txt'), {
+        code: 'ENOENT'
+      });
       await exec('ffmpeg', [
         '-y',
         '-i',

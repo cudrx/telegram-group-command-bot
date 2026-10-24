@@ -1,13 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { createServer, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 import { createMediaService } from '../../src/media/service.js';
-import { createRemoteMediaExec } from '../../src/media/service-client.js';
+import {
+  createRemoteMediaExec,
+  waitForMediaServices
+} from '../../src/media/service-client.js';
 
 let root: string;
 let url: string;
@@ -35,7 +39,7 @@ if (url === 'fixture:hang') {
   console.log('x'.repeat(10000));
 } else {
   const cookies = args.indexOf('--cookies');
-  const cookie = cookies < 0 ? null : fs.readFileSync(args[cookies + 1], 'utf8');
+  const cookie = cookies < 0 || !fs.existsSync(args[cookies + 1]) ? null : fs.readFileSync(args[cookies + 1], 'utf8');
   if (cookies >= 0) fs.writeFileSync(args[cookies + 1], 'updated cookie');
   fs.writeFileSync('result.mp4', 'video bytes');
   console.log(JSON.stringify({ cookie, args }));
@@ -68,6 +72,102 @@ function client() {
 }
 
 describe('media service over HTTP', () => {
+  test('retries unhealthy workers until both are ready', async () => {
+    let requests = 0;
+    const gallery = createServer((_request, response) => {
+      response.writeHead(++requests === 1 ? 503 : 200).end();
+    });
+    gallery.listen(0, '127.0.0.1');
+    await once(gallery, 'listening');
+    try {
+      await waitForMediaServices({
+        videoUrl: url,
+        galleryUrl: `http://127.0.0.1:${(gallery.address() as AddressInfo).port}`,
+        pollMs: 10,
+        timeoutMs: 1000
+      });
+      expect(requests).toBeGreaterThanOrEqual(2);
+    } finally {
+      await new Promise<void>((resolve) => {
+        gallery.close(() => resolve());
+        gallery.closeAllConnections();
+      });
+    }
+  });
+
+  test('bounds startup wait even if a worker accepts connections without responding', async () => {
+    const gallery = createServer(() => {});
+    gallery.listen(0, '127.0.0.1');
+    await once(gallery, 'listening');
+    try {
+      await expect(
+        waitForMediaServices({
+          videoUrl: url,
+          galleryUrl: `http://127.0.0.1:${(gallery.address() as AddressInfo).port}`,
+          pollMs: 10,
+          timeoutMs: 100
+        })
+      ).rejects.toThrow(/startup timeout/);
+    } finally {
+      await new Promise<void>((resolve) => {
+        gallery.close(() => resolve());
+        gallery.closeAllConnections();
+      });
+    }
+  });
+
+  test('allows yt-dlp to create a private cookie jar when operator cookies are absent', async () => {
+    const cookies = join(root, 'missing-cookies.txt');
+    const result = await client()(
+      'yt-dlp',
+      ['--cookies', cookies, '--dump-single-json', 'fixture:ok'],
+      { cwd: root }
+    );
+    expect(JSON.parse(result.stdout).cookie).toBeNull();
+    await expect(readFile(cookies)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
+  test('preserves UTF-8 arguments split between HTTP chunks', async () => {
+    const id = randomUUID();
+    const source = 'fixture:Привет';
+    const body = Buffer.from(
+      JSON.stringify({
+        id,
+        operation: 'metadata',
+        args: ['--dump-single-json', source],
+        cwd: root,
+        timeoutMs: 1000,
+        maxBuffer: 1024
+      })
+    );
+    const split = body.indexOf(Buffer.from('П')) + 1;
+    const status = await new Promise<number | undefined>((resolve, reject) => {
+      const request = httpRequest(
+        `${url}/jobs`,
+        { method: 'POST' },
+        (response) => {
+          response.resume();
+          response.on('end', () => resolve(response.statusCode));
+        }
+      );
+      request.on('error', reject);
+      request.write(body.subarray(0, split));
+      setTimeout(() => request.end(body.subarray(split)), 40);
+    });
+    expect(status).toBe(202);
+    let result: { status: string; result?: { stdout: string } } | undefined;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      result = await (await fetch(`${url}/jobs/${id}`)).json();
+      if (result?.status !== 'running') break;
+      await delay(10);
+    }
+    expect(result?.status).toBe('succeeded');
+    expect(JSON.parse(result?.result?.stdout ?? '{}').args).toEqual([
+      '--dump-single-json',
+      source
+    ]);
+  });
+
   test('returns CLI JSON and shares produced files with the bot', async () => {
     const result = await client()(
       'yt-dlp',
