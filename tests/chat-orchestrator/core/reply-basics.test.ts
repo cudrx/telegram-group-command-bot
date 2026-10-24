@@ -33,18 +33,16 @@ describe('ChatOrchestrator reply basics', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/decide',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+        text: '@fun_bot кто прав в споре',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         assistantInstructions: loadAssistantInstructions(),
-        targetDisplayName: 'Tom',
-        intent: 'decide',
+        intent: 'answer',
         currentDateTime: 'Monday, 13 April 2026, 12:00 Moscow time',
-        lookupContext: null,
         mediaContext: null,
         replyContext: expect.objectContaining({
           triggerMessage: expect.objectContaining({ messageId: 2 }),

@@ -24,7 +24,7 @@ function createPolicy(
 }
 
 describe('ChatOrchestrator multichat gating', () => {
-  test('silently ignores /answer when the chat disables answer', async () => {
+  test('silently ignores mentions when the chat disables assistant', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi.fn();
     const replyDispatcher = vi.fn();
@@ -38,11 +38,11 @@ describe('ChatOrchestrator multichat gating', () => {
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        text: '/answer кто прав?',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot кто прав?',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         accessContext: {
           kind: 'configured_chat',
-          policy: createPolicy({ commands: { answer: false } })
+          policy: createPolicy({ features: { assistant: false } })
         }
       })
     );
@@ -149,13 +149,13 @@ describe('ChatOrchestrator multichat gating', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToUserId: 555,
         accessContext: {
           kind: 'configured_chat',
-          policy: createPolicy({ commands: { answer: true } })
+          policy: createPolicy({ features: { assistant: true } })
         }
       })
     );

@@ -9,9 +9,9 @@ const subredditListSchema = z.array(z.string().trim().min(1)).min(1);
 
 const chatCommandsSchema = z
   .object({
-    answer: z.boolean(),
-    summarize: z.boolean(),
-    decide: z.boolean(),
+    answer: z.boolean().optional(),
+    summarize: z.boolean().optional(),
+    decide: z.boolean().optional(),
     translate: z.boolean(),
     read: z.boolean(),
     transcribe: z.boolean(),
@@ -22,6 +22,7 @@ const chatCommandsSchema = z
 
 const chatFeaturesSchema = z
   .object({
+    assistant: z.boolean().optional(),
     direct_links: z.boolean(),
     deploy_announcements: z.boolean()
   })
@@ -79,8 +80,23 @@ const chatPolicySchema = z
     (value): ChatPolicy => ({
       chatId: value.chatId,
       label: value.label,
-      commands: value.commands,
-      features: value.features,
+      commands: {
+        translate: value.commands.translate,
+        read: value.commands.read,
+        transcribe: value.commands.transcribe,
+        meme: value.commands.meme,
+        sex: value.commands.sex
+      },
+      features: {
+        ...value.features,
+        assistant:
+          value.features.assistant ??
+          Boolean(
+            value.commands.answer ||
+              value.commands.summarize ||
+              value.commands.decide
+          )
+      },
       reddit_sources: value.reddit_sources
     })
   );

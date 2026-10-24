@@ -29,8 +29,8 @@ describe('ChatOrchestrator formatting and logging', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/summarize',
-        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
+        text: '@fun_bot подведи итог обсуждения',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -65,8 +65,8 @@ describe('ChatOrchestrator formatting and logging', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/summarize',
-        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
+        text: '@fun_bot подведи итог обсуждения',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -77,7 +77,7 @@ describe('ChatOrchestrator formatting and logging', () => {
     expect(logger.debug).toHaveBeenCalledWith(
       'reply_job_completed',
       expect.objectContaining({
-        intent: 'summarize',
+        intent: 'answer',
         llmModel: 'reply-model'
       })
     );

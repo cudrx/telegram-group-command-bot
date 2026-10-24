@@ -7,7 +7,10 @@ export {
   filterFixtures,
   parseEvalFilters
 } from './evaluate-intents/filters.js';
-export { createEvalLookupContext } from './evaluate-intents/lookup-context.js';
+export {
+  createEvalLookupSources,
+  matchesLookupExpectation
+} from './evaluate-intents/lookup-context.js';
 export { formatMarkdown, printResult } from './evaluate-intents/reporting.js';
 export {
   evaluateRubric,

@@ -45,7 +45,6 @@ LLM:
 
 - `LLM_BASE_URL`
 - `LLM_REPLY_MODEL`
-- `LLM_PLANNER_MODEL`
 - `LLM_REPLY_TEMPERATURE`
 - `LLM_TIMEOUT_MS`
 - `LLM_MAX_RETRIES`
@@ -58,9 +57,8 @@ Behavior:
 
 Lookup:
 
-- `TAVILY_API_KEY` - lookup for `/decide` and the research route of `/answer`.
-- `LOOKUP_TIMEOUT_MS`
-- `LOOKUP_MAX_QUERIES`
+- `TAVILY_API_KEY` - external verification for assistant requests when the first model call returns research.
+- `LOOKUP_TIMEOUT_MS` - timeout for each assistant search request, default 7,000 ms. The assistant uses this value directly without an additional scenario-specific cap; parallel searches share the same configured limit.
 - `LOOKUP_MAX_RESULTS`
 
 Media and voice providers:
@@ -79,8 +77,8 @@ Logging and runtime:
 
 `TELEGRAM_CHAT_CONFIG_PATH` should point to a JSON array of chat policies. Each policy includes:
 
-- `commands` - boolean flags for slash commands such as `answer`, `summarize`, `decide`, `translate`, `read`, `transcribe`, `meme`, and `sex`.
-- `features` - boolean flags for non-command behavior such as `direct_links` and `deploy_announcements`.
+- `commands` - boolean flags for utility commands: `translate`, `read`, `transcribe`, `meme`, and `sex`. Retired `answer`, `summarize`, and `decide` keys are optional compatibility inputs; they do not register commands.
+- `features` - boolean flags for `assistant`, `direct_links`, and `deploy_announcements`. If `assistant` is omitted, it inherits the logical OR of legacy `commands.answer`, `commands.summarize`, and `commands.decide`; explicit true/false overrides those flags. With neither new nor legacy flags it defaults to false.
 - `reddit_sources` - optional per-chat subreddit lists for Reddit-backed commands:
   - `meme` is required and must be non-empty when `commands.meme=true`
   - `sex` is required and must be non-empty when `commands.sex=true`
@@ -95,6 +93,18 @@ Unknown command names, unknown feature names, duplicate chat ids, invalid JSON, 
 `config/examples/.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
 
 Runtime settings that are not secrets and do not require deploy-specific overrides live in `src/config/runtime/`. Values are grouped by scenario (`actions/answer`, `actions/read`, `actions/meme`, `actions/sex`) and external provider (`providers/llm`, `providers/media`, `providers/tts`, `providers/lookup`). Settings that differ between environments go through `src/config/env/schema.ts`; defaults come from runtime config.
+
+## Assistant Context and Evaluation
+
+`src/config/runtime/actions/answer.ts` holds experimental assistant context limits (the internal name does not register `/answer`): up to 80 candidates from a 128-message recent scan, up to 16 predecessors around an explicit target, and explicit reply ancestry up to 16 links. Heuristics prioritize reply ancestors, target neighbors, recency, request terms, and author participation. These scores are candidate retrieval hints, not confirmed conversation links. No full-history scan, background clustering, or extra retrieval round is used.
+
+History is fitted once after cached media enrichment, preserving retrieval priorities. It uses at most an estimated 8,000 tokens and only the remaining space within the 16,000-token full prompt budget after instructions, target media, schema, and web evidence. Individual message text is clipped at 6,000 characters with a visible marker. Optional history is dropped before rejecting a request; the local fallback applies only when mandatory input alone exceeds the budget. Unrelated media recognition does not block a reply; unfinished neighboring media is marked unavailable. Estimates use UTF-8 bytes divided by three, not a provider tokenizer or billed usage. Tune these settings against real chats, latency, and API usage.
+
+The first model decision is `direct`, `clarify`, or `research`, with numeric `context.messageIds` from the supplied candidate pool, capped at 64. Unknown/cross-chat IDs fail validation. The research call receives selected original messages and their available explicit parents. Direct answers and clarifications require one completion; research uses two, excluding configured transport retries and existing media recognition. A clarification does not search chat history or the web. Users continue through another explicit mention.
+
+Assistant completions use `response_format: {type: 'json_object'}`. JSON mode ensures JSON syntax; the response schema is validated locally. The canonical context is `{"messageIds": [...]}`. A model-supplied array in `context` is wrapped into that object before the same numeric-ID, count, and candidate-membership checks. Strings, message objects, and unavailable IDs are rejected. This normalization does not make another model call.
+
+`npm run eval:intents -- --intent=answer` covers summaries, disputes, interleaved conversations, local slang, irony, previous bot corrections, old reply chains, missing subjects, bare mentions, injection, and audio. Answer fixtures use production retrieval, cached-media enrichment, and prompt budget fitting, including media-priority and long-audio regression cases. Research checks cover the selected route, expected search purpose, and query terms before grounding against fixture evidence. Web evidence in this suite is fixture-provided; it tests LLM routing and grounding without making live Tavily calls. Reports retain the actual system/user prompts for each completion, route, selected IDs, context precision/recall against fixtures, call count, estimated prompt tokens, and LLM latency. Rubric checks are limited lexical checks and require human review for nuanced humor; they are not proof of production quality. Save a baseline from the previous revision before rollout when comparing quality and cost.
 
 ## Local Run
 
@@ -115,7 +125,6 @@ If you use a different OpenAI-compatible provider, change:
 ```dotenv
 LLM_BASE_URL=https://api.deepseek.com
 LLM_REPLY_MODEL=deepseek-v4-flash
-LLM_PLANNER_MODEL=deepseek-v4-flash
 ```
 
 For detailed debugging:
@@ -296,8 +305,10 @@ Rollback:
 ## Manual Smoke Checks
 
 - Use a separate test bot and test group for Telegram smoke checks.
-- Start with explicit `/answer`, `/translate`, `/summarize`, `/decide`, `/read`, `/transcribe`.
-- Check `/answer` both as a reply and without a reply: without a reply, it answers the latest message before the command. Cover both a context-contained question (direct route) and a current factual question (single lookup route).
+- Start with explicit `@bot_username` questions, summary requests, disputes, and `/translate`, `/read`, `/transcribe`.
+- Check bare mentions, full requests, replies to old human messages, and corrections replying to bot answers. Confirm replies without mentions remain silent. Cover direct, clarification, and research routes, disabled `features.assistant`, and link-only private users.
+- Check two interleaved discussions and a question selecting only one, then a summary of both. Confirm `/answer`, `/summarize`, and `/decide` no longer trigger responses.
+- Disable BotFather privacy mode or configure administrator access so normal group messages reach the bot for context. Missing Telegram history cannot be reconstructed from API knowledge.
 - `/translate` and `/read` require a reply to the target message.
 - `/transcribe` requires a reply to a Telegram video message. It should work on videos sent by users and videos sent by this bot, ignore command arguments and links, extract audio with `ffmpeg`, return the transcript as text, and avoid creating `media_artifacts` rows.
 - `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.

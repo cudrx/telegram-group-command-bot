@@ -5,7 +5,6 @@ export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
     rawEnv.LLM_API_KEY !== undefined ||
     rawEnv.LLM_BASE_URL !== undefined ||
     rawEnv.LLM_REPLY_MODEL !== undefined ||
-    rawEnv.LLM_PLANNER_MODEL !== undefined ||
     rawEnv.LLM_REPLY_TEMPERATURE !== undefined ||
     rawEnv.LLM_TIMEOUT_MS !== undefined ||
     rawEnv.LLM_MAX_RETRIES !== undefined;
@@ -28,13 +27,11 @@ export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
         LLM_API_KEY: rawEnv.LLM_API_KEY,
         LLM_BASE_URL: rawEnv.LLM_BASE_URL,
         LLM_REPLY_MODEL: rawEnv.LLM_REPLY_MODEL,
-        LLM_PLANNER_MODEL: rawEnv.LLM_PLANNER_MODEL,
         LLM_REPLY_TEMPERATURE: rawEnv.LLM_REPLY_TEMPERATURE,
         LLM_TIMEOUT_MS: rawEnv.LLM_TIMEOUT_MS,
         LLM_MAX_RETRIES: rawEnv.LLM_MAX_RETRIES,
         TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
         LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
-        LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,
         LOOKUP_MAX_RESULTS: rawEnv.LOOKUP_MAX_RESULTS
       }
     : {
@@ -42,9 +39,6 @@ export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
         LLM_BASE_URL:
           rawEnv.QWEN_BASE_URL ?? llmProviderConfig.legacyQwenDefaults.baseUrl,
         LLM_REPLY_MODEL:
-          rawEnv.QWEN_REPLY_MODEL ??
-          llmProviderConfig.legacyQwenDefaults.replyModel,
-        LLM_PLANNER_MODEL:
           rawEnv.QWEN_REPLY_MODEL ??
           llmProviderConfig.legacyQwenDefaults.replyModel,
         LLM_REPLY_TEMPERATURE:
@@ -58,7 +52,6 @@ export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
           llmProviderConfig.legacyQwenDefaults.maxRetries,
         TAVILY_API_KEY: rawEnv.TAVILY_API_KEY,
         LOOKUP_TIMEOUT_MS: rawEnv.LOOKUP_TIMEOUT_MS,
-        LOOKUP_MAX_QUERIES: rawEnv.LOOKUP_MAX_QUERIES,
         LOOKUP_MAX_RESULTS: rawEnv.LOOKUP_MAX_RESULTS
       };
 }

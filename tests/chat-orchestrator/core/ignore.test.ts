@@ -88,7 +88,7 @@ describe('ChatOrchestrator ignore paths', () => {
     expect(sendChatAction).not.toHaveBeenCalled();
   });
 
-  test('ignores ordinary mentions and does not call the LLM', async () => {
+  test('ignores mentions of another bot', async () => {
     const db = new FakeDatabaseClient();
     const generateReply = vi
       .fn()
@@ -102,8 +102,8 @@ describe('ChatOrchestrator ignore paths', () => {
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        text: '@fun_bot кто прав?',
-        entities: [{ type: 'mention', offset: 0, length: 8 }]
+        text: '@other_bot кто прав?',
+        entities: [{ type: 'mention', offset: 0, length: 10 }]
       })
     );
 

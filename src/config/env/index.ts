@@ -1,11 +1,7 @@
 import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 
-import {
-  answerActionConfig,
-  decideActionConfig,
-  summarizeActionConfig
-} from '../runtime/index.js';
+import { answerActionConfig } from '../runtime/index.js';
 import {
   DATABASE_CLEANUP_INTERVAL_HOURS,
   LOOKUP_PROVIDER,
@@ -44,7 +40,6 @@ export function parseEnv(
     llmApiKey: parsed.LLM_API_KEY,
     llmBaseUrl: parsed.LLM_BASE_URL,
     llmReplyModel: parsed.LLM_REPLY_MODEL,
-    llmPlannerModel: parsed.LLM_PLANNER_MODEL ?? parsed.LLM_REPLY_MODEL,
     llmReplyTemperature: parsed.LLM_REPLY_TEMPERATURE,
     llmTimeoutMs: parsed.LLM_TIMEOUT_MS,
     llmMaxRetries: parsed.LLM_MAX_RETRIES,
@@ -63,15 +58,12 @@ export function parseEnv(
       parsed.YOUTUBE_COOKIES_PATH ??
       resolveDefaultCookiesPath(parsed.SQLITE_PATH, 'youtube-cookies.txt'),
     answerContextLimit: answerActionConfig.contextLimit,
-    summarizeContextLimit: summarizeActionConfig.contextLimit,
-    decideContextLimit: decideActionConfig.contextLimit,
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS,
     lookupProvider: LOOKUP_PROVIDER,
     tavilyApiKey: parsed.TAVILY_API_KEY ?? null,
     lookupTimeoutMs: parsed.LOOKUP_TIMEOUT_MS,
-    lookupMaxQueries: parsed.LOOKUP_MAX_QUERIES,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,
     ocrSpaceApiKey: parsed.OCR_SPACE_API_KEY ?? null,
     sttProvider: STT_PROVIDER,

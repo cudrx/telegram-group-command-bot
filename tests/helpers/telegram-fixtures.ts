@@ -4,9 +4,6 @@ export const TEST_CONFIGURED_CHAT_ID = -1009000001111;
 export const TEST_OPERATOR_CHAT_ID = 900000222;
 
 export const FULLY_ENABLED_CHAT_COMMANDS: ChatPolicy['commands'] = {
-  answer: true,
-  summarize: true,
-  decide: true,
   translate: true,
   read: true,
   transcribe: true,
@@ -15,6 +12,7 @@ export const FULLY_ENABLED_CHAT_COMMANDS: ChatPolicy['commands'] = {
 };
 
 export const FULLY_ENABLED_CHAT_FEATURES: ChatPolicy['features'] = {
+  assistant: true,
   direct_links: true,
   deploy_announcements: false
 };

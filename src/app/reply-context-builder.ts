@@ -4,6 +4,10 @@ import type {
   ReplyContext,
   StoredMessage
 } from '../domain/models.js';
+import {
+  buildAssistantContext,
+  resolveReplyAnchor
+} from './assistant-context.js';
 
 type ReplyContextDb = Pick<
   DatabaseClient,
@@ -17,6 +21,7 @@ export function buildReplyContext(input: {
   contextLimit: number;
   intent: AssistantIntent;
   botUserId: number;
+  replyToMessageSnapshot?: StoredMessage | null;
 }): ReplyContext {
   const triggerMessage = input.db.getMessageByTelegramMessageId(
     input.chatId,
@@ -27,6 +32,10 @@ export function buildReplyContext(input: {
     return emptyReplyContext();
   }
 
+  if (input.intent === 'answer') {
+    return buildAssistantContext({ ...input, triggerMessage });
+  }
+
   const priorContext = buildPriorContextMessages(input.db, {
     chatId: input.chatId,
     triggerMessageId: input.triggerMessageId,
@@ -35,74 +44,20 @@ export function buildReplyContext(input: {
 
   return {
     triggerMessage,
-    replyAnchorMessage: buildReplyAnchorMessage(input.db, {
-      chatId: input.chatId,
-      triggerMessage,
-      intent: input.intent,
-      botUserId: input.botUserId
-    }),
+    replyAnchorMessage:
+      input.intent === 'translate'
+        ? resolveReplyAnchor(
+            input.db,
+            triggerMessage,
+            input.replyToMessageSnapshot
+          )
+        : null,
     priorContextMessages: priorContext.messages,
     contextMetadata: {
       truncated: priorContext.truncated,
       includedMessageCount: priorContext.messages.length
     }
   };
-}
-
-function buildReplyAnchorMessage(
-  db: ReplyContextDb,
-  input: {
-    chatId: number;
-    triggerMessage: StoredMessage;
-    intent: AssistantIntent;
-    botUserId: number;
-  }
-): StoredMessage | null {
-  if (!usesReplyAnchor(input.intent)) {
-    return null;
-  }
-
-  const anchor = input.triggerMessage.replyToMessageId
-    ? db.getMessageByTelegramMessageId(
-        input.chatId,
-        input.triggerMessage.replyToMessageId
-      )
-    : buildAnswerPreviousMessageAnchor(db, {
-        chatId: input.chatId,
-        triggerMessage: input.triggerMessage,
-        intent: input.intent
-      });
-
-  if (
-    !anchor ||
-    (anchor.userId === input.botUserId && input.intent !== 'translate')
-  ) {
-    return null;
-  }
-
-  return anchor;
-}
-
-function buildAnswerPreviousMessageAnchor(
-  db: ReplyContextDb,
-  input: {
-    chatId: number;
-    triggerMessage: StoredMessage;
-    intent: AssistantIntent;
-  }
-): StoredMessage | null {
-  if (input.intent !== 'answer') {
-    return null;
-  }
-
-  return (
-    db.getMessagesBefore(input.chatId, input.triggerMessage.messageId, 1)[0] ??
-    null
-  );
-}
-
-function usesReplyAnchor(intent: AssistantIntent): boolean {
-  return intent === 'answer' || intent === 'translate';
 }
 
 function buildPriorContextMessages(
@@ -138,7 +93,7 @@ function buildPriorContextMessages(
     if (batch.length < batchSize) break;
   }
 
-  const messages = compactTranscript(humanMessages.slice(-priorContextLimit));
+  const messages = humanMessages.slice(-priorContextLimit);
 
   return {
     messages,
@@ -153,20 +108,4 @@ function emptyReplyContext(): ReplyContext {
     priorContextMessages: [],
     contextMetadata: { truncated: false, includedMessageCount: 0 }
   };
-}
-
-function compactTranscript(
-  messages: Array<StoredMessage | null>
-): StoredMessage[] {
-  const transcriptById = new Map<number, StoredMessage>();
-
-  for (const message of messages) {
-    if (message) {
-      transcriptById.set(message.messageId, message);
-    }
-  }
-
-  return Array.from(transcriptById.values()).sort(
-    (left, right) => left.messageId - right.messageId
-  );
 }

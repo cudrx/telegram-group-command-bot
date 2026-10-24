@@ -12,7 +12,7 @@ describe('decideAnswerTts', () => {
   test('skips non-answer intents', () => {
     expect(
       decideAnswerTts({
-        intent: 'summarize',
+        intent: 'translate',
         text: 'коротко',
         chatState: baseState,
         random: () => 0

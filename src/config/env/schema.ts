@@ -21,7 +21,6 @@ export const envSchema = z.object({
     .string()
     .min(1)
     .default(llmProviderConfig.genericDefaults.replyModel),
-  LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce
     .number()
     .min(0)
@@ -55,12 +54,6 @@ export const envSchema = z.object({
     .int()
     .positive()
     .default(lookupProviderConfig.defaults.timeoutMs),
-  LOOKUP_MAX_QUERIES: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(3)
-    .default(lookupProviderConfig.defaults.maxQueries),
   LOOKUP_MAX_RESULTS: z.coerce
     .number()
     .int()

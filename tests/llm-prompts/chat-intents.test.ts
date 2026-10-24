@@ -1,13 +1,10 @@
 import { describe, expect, test } from 'vitest';
-
-import { buildIntentPrompt } from '../../src/llm/prompts.js';
+import { promptFor } from './support.js';
 
 describe('buildIntentPrompt chat intent inputs', () => {
-  test.each([
-    'summarize',
-    'decide'
-  ] as const)('selects %s mode without treating command arguments as chat data', (intent) => {
-    const prompt = buildIntentPrompt({
+  test('includes the assistant request and candidate history', () => {
+    const intent = 'answer';
+    const prompt = promptFor({
       assistantInstructions: 'custom assistant instructions',
       targetDisplayName: 'Tom',
       intent,
@@ -42,11 +39,11 @@ describe('buildIntentPrompt chat intent inputs', () => {
     expect(prompt).toContain('visible chat evidence');
     expect(prompt).toContain('contextTruncated=false');
     expect(prompt).toContain('includedMessageCount=1');
-    expect(prompt).not.toContain('command-only-secret');
+    expect(prompt).toContain('command-only-secret');
   });
 
   test('uses the replied-to message as translate input', () => {
-    const prompt = buildIntentPrompt({
+    const prompt = promptFor({
       assistantInstructions: 'custom assistant instructions',
       targetDisplayName: 'Tom',
       intent: 'translate',

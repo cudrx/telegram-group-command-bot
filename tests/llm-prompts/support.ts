@@ -1,3 +1,5 @@
+import { buildAnswerMessages } from '../../src/llm/openai-compatible-client/answer.js';
+import { buildIntentPrompt } from '../../src/llm/prompts.js';
 export function createPromptReplyContext(commandText: string) {
   return {
     triggerMessage: {
@@ -13,4 +15,17 @@ export function createPromptReplyContext(commandText: string) {
     replyAnchorMessage: null,
     priorContextMessages: []
   };
+}
+
+export function promptFor(
+  input: Omit<Parameters<typeof buildIntentPrompt>[0], 'intent'> & {
+    intent: 'answer' | 'read' | 'translate';
+  }
+): string {
+  if (input.intent === 'answer')
+    return buildAnswerMessages(input)
+      .map((message) => message.content)
+      .join('\n\n');
+
+  return buildIntentPrompt({ ...input, intent: input.intent });
 }

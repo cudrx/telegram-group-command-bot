@@ -29,8 +29,6 @@ describe('parseEnv defaults', () => {
     expect(env.logLevel).toBe('info');
     expect(env.logColor).toBe(true);
     expect(Object.hasOwn(env, 'assistantInstructionsFile')).toBe(false);
-    expect(env.summarizeContextLimit).toBe(128);
-    expect(env.decideContextLimit).toBe(64);
     expect(env.replyMinTypingMs).toBe(900);
     expect(env.replyMaxTypingMs).toBe(2200);
     expect(env.replyTypingRefreshMs).toBe(4000);
@@ -45,9 +43,7 @@ describe('parseEnv defaults', () => {
       DECIDE_CONTEXT_LIMIT: '56'
     });
 
-    expect(env.answerContextLimit).toBe(16);
-    expect(env.summarizeContextLimit).toBe(128);
-    expect(env.decideContextLimit).toBe(64);
+    expect(env.answerContextLimit).toBe(80);
   });
 
   test('ignores legacy MESSAGE_CONTEXT_LIMIT', () => {
@@ -58,9 +54,7 @@ describe('parseEnv defaults', () => {
     });
 
     expect(Object.hasOwn(env, 'messageContextLimit')).toBe(false);
-    expect(env.answerContextLimit).toBe(16);
-    expect(env.summarizeContextLimit).toBe(128);
-    expect(env.decideContextLimit).toBe(64);
+    expect(env.answerContextLimit).toBe(80);
   });
 
   test('ignores retired assistant instructions file env var', () => {

@@ -88,13 +88,12 @@ describe('OpenAiCompatibleLlmClient reply', () => {
       expect.objectContaining({
         kind: 'reply',
         model: 'reply-model',
-        intent: 'decide',
+        intent: 'translate',
         hasEnglishSummaryHeading: true,
         hasMarkdownBold: true,
         violations: expect.arrayContaining([
           'english_summary_heading',
-          'markdown_bold',
-          'missing_decide_shape'
+          'markdown_bold'
         ])
       })
     );
@@ -161,126 +160,12 @@ describe('OpenAiCompatibleLlmClient reply', () => {
       }
     } as never);
 
-    await client.generateReply(createReplyInput('summarize'));
-    await client.generateReply(createReplyInput('decide'));
+    await client.generateReply(createReplyInput('translate'));
     await client.generateReply(createReplyInput('read'));
-    await client.generateReply(createReplyInput('answer'));
 
     expect(requestBodies.map((body) => body.model)).toEqual([
       'reply-model',
-      'reply-model',
-      'reply-model',
       'reply-model'
     ]);
-  });
-
-  test('includes lookup context in the final reply prompt', async () => {
-    let requestBody: Record<string, unknown> | undefined;
-    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
-      chat: {
-        completions: {
-          create: async (input: Record<string, unknown>) => {
-            requestBody = input;
-
-            return {
-              choices: [
-                {
-                  message: {
-                    content: 'ready'
-                  }
-                }
-              ]
-            };
-          }
-        }
-      }
-    } as never);
-
-    type ReplyInput = Parameters<OpenAiCompatibleLlmClient['generateReply']>[0];
-    const hasLookupContext: 'lookupContext' extends keyof ReplyInput
-      ? true
-      : false = true;
-    void hasLookupContext;
-
-    const replyInput = {
-      assistantInstructions: 'Assistant instructions',
-      targetDisplayName: 'Tom',
-      intent: 'decide',
-      currentDateTime: 'Sunday, 10 May 2026, 19:09 Moscow time',
-      replyContext: {
-        triggerMessage: {
-          chatId: 1,
-          messageId: 3,
-          userId: 42,
-          senderDisplayName: 'Tom',
-          text: '/decide кто прав',
-          createdAt: '2026-04-03T12:02:00.000Z',
-          isBot: false,
-          replyToMessageId: null
-        },
-        replyAnchorMessage: null,
-        priorContextMessages: []
-      },
-      lookupContext: {
-        status: 'used',
-        provider: 'tavily',
-        intent: 'decide',
-        decision: {
-          shouldLookup: true,
-          purpose: 'entity_grounding',
-          reason: 'Need grounding.',
-          queries: ['Дора Мэйби Бэйби певицы кто такие'],
-          confidence: 'high'
-        },
-        query: 'Дора Мэйби Бэйби певицы кто такие',
-        sources: [
-          {
-            title: 'Дора (певица)',
-            url: 'https://example.com/dora',
-            content: 'Дора - российская певица.',
-            score: 0.91
-          }
-        ],
-        responseTimeMs: 123,
-        usageCredits: 1,
-        errorMessage: null
-      }
-    } as ReplyInput & {
-      lookupContext: {
-        status: 'used';
-        provider: 'tavily';
-        intent: 'decide';
-        decision: {
-          shouldLookup: boolean;
-          purpose: string;
-          reason: string;
-          queries: string[];
-          confidence: 'high';
-        };
-        query: string;
-        sources: Array<{
-          title: string;
-          url: string;
-          content: string;
-          score: number;
-        }>;
-        responseTimeMs: number;
-        usageCredits: number;
-        errorMessage: null;
-      };
-    };
-
-    await client.generateReply(replyInput);
-
-    const prompt =
-      (
-        requestBody?.messages as
-          | Array<{ role: string; content: string }>
-          | undefined
-      )?.[1]?.content ?? '';
-
-    expect(prompt).toContain('purpose=entity_grounding');
-    expect(prompt).toContain('title="Дора (певица)"');
-    expect(prompt).toContain('url="https://example.com/dora"');
   });
 });

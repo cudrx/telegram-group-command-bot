@@ -3,9 +3,6 @@
     "chatId": -1001234567890,
     "label": "main",
     "commands": {
-      "answer": true,
-      "decide": true,
-      "summarize": true,
       "meme": true,
       "read": true,
       "sex": true,
@@ -13,6 +10,7 @@
       "translate": true
     },
     "features": {
+      "assistant": true,
       "direct_links": true,
       "deploy_announcements": true
     },
@@ -25,16 +23,14 @@
     "chatId": -1002222222222,
     "label": "quiet-chat",
     "commands": {
-      "answer": true,
-      "decide": true,
       "meme": true,
       "read": false,
       "sex": false,
-      "summarize": true,
       "transcribe": false,
       "translate": true
     },
     "features": {
+      "assistant": true,
       "direct_links": false,
       "deploy_announcements": false
     },

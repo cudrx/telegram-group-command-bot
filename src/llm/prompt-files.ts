@@ -7,8 +7,6 @@ export const PROMPT_FILE_PATHS = {
   base: 'llm/assistant/base.md',
   global: 'llm/reply/global.md',
   replyShell: 'llm/reply/shell.md',
-  summarize: 'llm/reply/summarize.md',
-  decide: 'llm/reply/decide.md',
   read: 'llm/reply/read.md',
   answer: 'llm/reply/answer.md',
   answerGrounded: 'llm/reply/answer-grounded.md',
@@ -16,13 +14,10 @@ export const PROMPT_FILE_PATHS = {
   translate: 'llm/reply/translate.md',
   systemAnswer: 'llm/system/answer.md',
   systemRead: 'llm/system/read.md',
-  systemGeneric: 'llm/system/generic.md',
   systemTranscript: 'llm/system/transcript.md',
   cloudflareVisionSystem: 'llm/vision/cloudflare-system.md',
   cloudflareVisionUser: 'llm/vision/cloudflare-user.md',
   cloudflareVisionImageRawUser: 'llm/vision/cloudflare-image-raw-user.md',
-  lookup: 'llm/planner/lookup.md',
-  lookupContext: 'llm/reply/lookup-context.md',
   updateAnnouncement: 'llm/deploy/update-announcement.md'
 } as const;
 

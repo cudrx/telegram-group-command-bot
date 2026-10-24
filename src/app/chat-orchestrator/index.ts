@@ -6,9 +6,11 @@ import {
   isCommandEnabledForAccessContext,
   isFeatureEnabledForAccessContext
 } from '../actions/index.js';
+import { hasAssistantMention } from '../assistant-mention.js';
 import { detectDirectMediaLink } from './direct-media-link.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
 import { runDirectMediaMemeJob } from './meme-job/direct.js';
+import { runReplyJob } from './reply-job.js';
 import type {
   ChatOrchestratorDeps,
   IncomingMessage,
@@ -71,10 +73,22 @@ export class ChatOrchestrator {
       entities: message.entities
     });
 
+    const assistantMention =
+      accessContext.kind !== 'private_link_sender' &&
+      !hasLeadingBotCommand(message) &&
+      hasAssistantMention(message, this.deps.bot.username) &&
+      isFeatureEnabledForAccessContext(accessContext, 'assistant');
+
     logger.debug('incoming_message_evaluated', {
       commandText: resolvedAction?.commandText ?? null,
-      decision: resolvedAction ? 'command' : 'ignore',
-      intent: resolvedAction?.action.intent
+      decision: resolvedAction
+        ? 'command'
+        : assistantMention
+          ? 'assistant'
+          : 'ignore',
+      intent:
+        resolvedAction?.action.intent ??
+        (assistantMention ? 'answer' : undefined)
     });
 
     if (
@@ -112,6 +126,28 @@ export class ChatOrchestrator {
         deps: this.deps,
         mediaSupport: this.mediaSupport,
         request,
+        logger
+      });
+      return;
+    }
+
+    if (assistantMention) {
+      await runReplyJob({
+        deps: this.deps,
+        mediaSupport: this.mediaSupport,
+        request: {
+          chatId: message.chatId,
+          chatType: message.chatType,
+          chatTitle: message.chatTitle,
+          triggerMessageId: message.messageId,
+          fromUserId: message.fromUserId,
+          fromUsername: message.fromUsername,
+          fromDisplayName: message.fromDisplayName,
+          createdAt: message.createdAt,
+          intent: 'answer',
+          replyToMessageSnapshot: message.replyToMessageSnapshot,
+          replyToMediaSnapshot: message.replyToMediaSnapshot
+        },
         logger
       });
       return;

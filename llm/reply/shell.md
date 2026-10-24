@@ -30,4 +30,3 @@ Task-specific instructions:
 {{intentPrompt}}
 
 {{dataSections}}
-{{lookupSections}}

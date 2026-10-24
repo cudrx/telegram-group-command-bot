@@ -1,3 +1,5 @@
+import { answerActionConfig } from '../../config/runtime/index.js';
+import type { StoredMessage } from '../../domain/models.js';
 import { formatMoscowCurrentDateTime } from '../current-datetime.js';
 import { loadPrompt } from '../prompt-files.js';
 import { renderPromptTemplate } from './render.js';
@@ -60,4 +62,14 @@ export function formatReplyContextMetadata(input: {
 
 function extractCommandText(text: string): string {
   return text.trim().split(/\s+/, 1)[0] ?? '';
+}
+
+export function boundMessage(message: StoredMessage): StoredMessage {
+  const max = answerActionConfig.context.maxMessageChars;
+  if (message.text.length <= max) return message;
+
+  return {
+    ...message,
+    text: `${message.text.slice(0, max)} [message text truncated]`
+  };
 }

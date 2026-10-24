@@ -3,6 +3,7 @@ import type {
   ReplyGenerationIntent
 } from '../../src/domain/models.js';
 import type { DescribeMediaContext } from '../../src/llm/prompts.js';
+import type { LookupSource } from '../../src/lookup/types.js';
 
 export type IntentEvalRubric = {
   mustIncludeAny: string[][];
@@ -19,6 +20,8 @@ export type IntentEvalFixture = {
   assistantInstructions: string;
   currentDateTime: string;
   replyContext: ReplyContext;
+  expectedMode?: 'direct' | 'clarify' | 'research';
+  expectedMessageIds?: number[];
   mediaContext?: DescribeMediaContext;
   lookupExpectation?: {
     shouldLookup: boolean;
@@ -29,6 +32,7 @@ export type IntentEvalFixture = {
       | 'freshness'
       | 'link_extraction';
     includeTerms: string[];
+    sources?: LookupSource[];
   };
   rubric: IntentEvalRubric;
 };

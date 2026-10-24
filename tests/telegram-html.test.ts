@@ -29,36 +29,12 @@ describe('formatTelegramHtmlReply', () => {
     );
   });
 
-  test('normalizes common model markdown for summarize replies', () => {
-    const formatted = formatTelegramHtmlReply(
-      [
-        'Summary:',
-        '- Участники тестируют команды (`/summarize`, `/answer`).',
-        '- **Краткий ориентир:** бот проверяют на спорных репликах.',
-        '- Takeaway: чат работает как полигон для отладки.'
-      ].join('\n'),
-      { intent: 'summarize' }
-    );
-
-    expect(formatted).toBe(
-      [
-        '• Участники тестируют команды (<code>/summarize</code>, <code>/answer</code>).',
-        '• <b>Краткий ориентир:</b> бот проверяют на спорных репликах.',
-        '<b>Вывод</b> — чат работает как полигон для отладки.'
-      ].join('\n')
-    );
-  });
-
-  test('keeps intent-specific formatting isolated between reply types', () => {
-    expect(formatTelegramHtmlReply('Следить дальше: 1) нефть; 2) курс.')).toBe(
-      'Следить дальше: 1) нефть; 2) курс.'
-    );
-
+  test('formats summary content without adding or enforcing mode-specific headings', () => {
     expect(
-      formatTelegramHtmlReply('Summary:\nTakeaway: всё работает', {
-        intent: 'summarize'
-      })
-    ).toBe('<b>Вывод</b> — всё работает');
+      formatTelegramHtmlReply(
+        '**Итог**\n- договорились взять поезд\n- причина: цена'
+      )
+    ).toBe('<b>Итог</b>\n• договорились взять поезд\n• причина: цена');
   });
 
   test('does not normalize markdown headings for generic replies', () => {

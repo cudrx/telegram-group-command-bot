@@ -12,6 +12,16 @@ export type EvalResult = {
   prompt: string;
   response: string;
   rubric: RubricResult;
+  conversation?: {
+    mode: string;
+    selectedMessageIds: number[];
+    contextPrecision: number | null;
+    contextRecall: number | null;
+    passed: boolean;
+    llmCalls: number;
+    promptTokensEstimate: number;
+    latencyMs: number;
+  };
 };
 
 export type EvalFilters = {

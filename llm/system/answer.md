@@ -19,11 +19,11 @@ TARGET_MEDIA_RAW:
 TARGET_MEDIA_INTERPRETATION:
 {{targetMediaInterpretation}}
 
-NEARBY_CHAT_CONTEXT:
+TARGET_AUDIO_TRANSCRIPT:
+{{targetAudioTranscript}}
+
+CONVERSATION_CANDIDATES:
 {{nearbyChatContext}}
 
-CURRENT_COMMAND_MESSAGE:
+CURRENT_REQUEST:
 {{currentCommandMessage}}
-
-COMMAND_ARGUMENT_POLICY:
-If the command message has extra text after /{{commandName}}, ignore it. Use TARGET_MESSAGE_TO_ANSWER.

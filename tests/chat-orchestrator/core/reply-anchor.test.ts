@@ -38,8 +38,8 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToUserId: 555
       })
@@ -83,8 +83,8 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage({
       ...createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToUserId: 555
       }),
@@ -120,7 +120,7 @@ describe('ChatOrchestrator reply anchors', () => {
     });
   });
 
-  test('uses previous message as answer request anchor when no reply exists', async () => {
+  test('keeps preceding context without replacing the current mention request', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
@@ -150,8 +150,8 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -160,11 +160,8 @@ describe('ChatOrchestrator reply anchors', () => {
         intent: 'answer',
         replyContext: expect.objectContaining({
           triggerMessage: expect.objectContaining({ messageId: 2 }),
-          replyAnchorMessage: expect.objectContaining({
-            messageId: 1,
-            isBot: false,
-            text: 'кто такой джон голт?'
-          })
+          replyAnchorMessage: null,
+          priorContextMessages: [expect.objectContaining({ messageId: 1 })]
         })
       })
     );
@@ -175,7 +172,7 @@ describe('ChatOrchestrator reply anchors', () => {
     });
   });
 
-  test('returns local answer placeholder when no usable reply anchor exists', async () => {
+  test('answers a standalone mention request without requiring a reply anchor', async () => {
     const db = new FakeDatabaseClient();
     const logger = createLogger();
     const generateReply = vi
@@ -195,16 +192,16 @@ describe('ChatOrchestrator reply anchors', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer кто сильнее лев или тигр',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+        text: '@fun_bot кто сильнее лев или тигр',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
-    expect(generateReply).not.toHaveBeenCalled();
+    expect(generateReply).toHaveBeenCalledOnce();
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Сделай reply на сообщение с вопросом и отправь /answer.'
+      text: 'не надо'
     });
     expect(logger.warn).not.toHaveBeenCalledWith(
       'answer_anchor_missing',

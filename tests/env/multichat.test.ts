@@ -56,6 +56,64 @@ const validChatPolicies = [
 ];
 
 describe('parseEnv multichat config', () => {
+  test.each([
+    true,
+    false
+  ])('explicit assistant=%s overrides retired command flags', (assistant) => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+        {
+          chatId: -1001234567890,
+          commands: {
+            answer: !assistant,
+            summarize: !assistant,
+            decide: !assistant,
+            translate: true,
+            read: true,
+            transcribe: true,
+            meme: false,
+            sex: false
+          },
+          features: {
+            assistant,
+            direct_links: false,
+            deploy_announcements: false
+          }
+        }
+      ]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      )
+    });
+    expect(env.telegramChatPolicies[0]?.features.assistant).toBe(assistant);
+  });
+
+  test('new utility-only config defaults assistant access to disabled', () => {
+    const env = parseRawEnv({
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key',
+      TELEGRAM_CHAT_CONFIG_PATH: writeChatConfigFile([
+        {
+          chatId: -1001234567890,
+          commands: {
+            translate: true,
+            read: true,
+            transcribe: true,
+            meme: false,
+            sex: false
+          },
+          features: { direct_links: false, deploy_announcements: false }
+        }
+      ]),
+      TELEGRAM_ACCESS_CONFIG_PATH: writeAccessConfigFile(
+        createTestAccessConfig()
+      )
+    });
+    expect(env.telegramChatPolicies[0]?.features.assistant).toBe(false);
+  });
+
   test('parses TELEGRAM_CHAT_CONFIG_PATH and TELEGRAM_ACCESS_CONFIG_PATH', () => {
     const env = parseRawEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',
@@ -71,9 +129,6 @@ describe('parseEnv multichat config', () => {
         chatId: -1001234567890,
         label: 'main',
         commands: {
-          answer: true,
-          summarize: true,
-          decide: true,
           translate: false,
           read: true,
           transcribe: false,
@@ -81,6 +136,7 @@ describe('parseEnv multichat config', () => {
           sex: false
         },
         features: {
+          assistant: true,
           direct_links: true,
           deploy_announcements: true
         },
@@ -93,9 +149,6 @@ describe('parseEnv multichat config', () => {
         chatId: -1002222222222,
         label: null,
         commands: {
-          answer: false,
-          summarize: true,
-          decide: false,
           translate: true,
           read: false,
           transcribe: true,
@@ -103,6 +156,7 @@ describe('parseEnv multichat config', () => {
           sex: false
         },
         features: {
+          assistant: true,
           direct_links: false,
           deploy_announcements: false
         },

@@ -212,8 +212,8 @@ describe('auto-read media intake', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 11,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 10,
         replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, 10),
         replyToMediaSnapshot:
@@ -235,9 +235,11 @@ describe('auto-read media intake', () => {
     expect(replyDispatcher).toHaveBeenCalledTimes(1);
   });
 
-  test('decide waits for context media and skips LLM after failed required media', async () => {
+  test('marks unavailable neighboring media without blocking a text request', async () => {
     const db = new FakeDatabaseClient();
-    const generateReply = vi.fn();
+    const generateReply = vi
+      .fn()
+      .mockResolvedValue(createReplyResult('Уточни содержание голосового.'));
     const replyDispatcher = createReplyDispatcher();
     const orchestrator = createOrchestrator({
       db,
@@ -246,7 +248,6 @@ describe('auto-read media intake', () => {
       speechToTextProvider: {
         transcribe: vi.fn().mockRejectedValue(new Error('should not call'))
       },
-      env: { decideContextLimit: 8 },
       telegramFileApi: {
         getFile: vi.fn().mockRejectedValue(new Error('download failed'))
       }
@@ -272,8 +273,8 @@ describe('auto-read media intake', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 11,
-        text: '/decide',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+        text: '@fun_bot кто прав в споре',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -282,13 +283,25 @@ describe('auto-read media intake', () => {
         expect.objectContaining({ artifactStatus: 'failed' })
       );
     });
-    expect(generateReply).not.toHaveBeenCalled();
+    expect(generateReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replyContext: expect.objectContaining({
+          priorContextMessages: [
+            expect.objectContaining({
+              text: expect.stringContaining('Recognition unavailable')
+            })
+          ]
+        })
+      })
+    );
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 11,
       text: 'Думаю'
     });
-    expect(replyDispatcher).toHaveBeenCalledTimes(1);
+    expect(replyDispatcher).toHaveBeenLastCalledWith(
+      expect.objectContaining({ text: 'Уточни содержание голосового.' })
+    );
   });
 
   test('starts image processing for an incoming photo without a command or reply', async () => {

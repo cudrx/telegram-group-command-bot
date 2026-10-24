@@ -1,18 +1,15 @@
 import { describe, expect, test } from 'vitest';
 
-import { buildIntentPrompt } from '../../src/llm/prompts.js';
-import { createPromptReplyContext } from './support.js';
+import { createPromptReplyContext, promptFor } from './support.js';
 
 describe('buildIntentPrompt composition', () => {
   test.each([
-    'summarize',
-    'decide',
     'read',
     'answer'
   ] as const)('includes the supplied current time for %s', (intent) => {
     const currentDateTime =
       'Monday, 11 May 2026, 00:41 Moscow time unique-value';
-    const prompt = buildIntentPrompt({
+    const prompt = promptFor({
       assistantInstructions: 'custom assistant instructions',
       targetDisplayName: 'Tom',
       intent,
@@ -23,8 +20,8 @@ describe('buildIntentPrompt composition', () => {
     expect(prompt).toContain(currentDateTime);
   });
 
-  test('uses the replied-to message for answer and excludes command arguments', () => {
-    const prompt = buildIntentPrompt({
+  test('includes both the mention request and explicit reply target', () => {
+    const prompt = promptFor({
       assistantInstructions: 'custom assistant instructions',
       targetDisplayName: 'Tom',
       intent: 'answer',
@@ -35,7 +32,7 @@ describe('buildIntentPrompt composition', () => {
           messageId: 3,
           userId: 1,
           senderDisplayName: 'Tom',
-          text: '/answer command-only-secret',
+          text: '@fun_bot unique-request-details',
           createdAt: '2026-04-03T12:00:00.000Z',
           isBot: false,
           replyToMessageId: 2
@@ -57,6 +54,6 @@ describe('buildIntentPrompt composition', () => {
 
     expect(prompt).toContain('unique replied-to question');
     expect(prompt).toContain('contextTruncated=true');
-    expect(prompt).not.toContain('command-only-secret');
+    expect(prompt).toContain('unique-request-details');
   });
 });

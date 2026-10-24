@@ -15,7 +15,7 @@ type LogPayload = {
 };
 
 export function estimateTokens(prompt: string): number {
-  return Math.max(1, Math.ceil(prompt.length / 4));
+  return Math.max(1, Math.ceil(Buffer.byteLength(prompt, 'utf8') / 3));
 }
 
 export function toSingleLinePreview(text: string, maxLength = 240): string {
@@ -46,7 +46,7 @@ export function warnOnReplyFormatGuardrailViolation(
   reply: string,
   model: string
 ): void {
-  const violations = getIntentOutputShapeViolations(intent, reply);
+  const violations = getIntentOutputShapeViolations(reply);
   const hasEnglishSummaryHeading = violations.includes(
     'english_summary_heading'
   );

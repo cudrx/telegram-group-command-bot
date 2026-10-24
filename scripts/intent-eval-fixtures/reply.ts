@@ -7,12 +7,12 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     intent: 'answer',
     targetDisplayName: 'Артём',
     rows: [['2026-04-21T16:10:00.000Z', 'Артём', 'кто такой путин?']],
-    triggerText: '/answer',
+    triggerText: '@hrupa_bot',
     replyAnchorText: 'кто такой путин?',
     lookupExpectation: {
-      shouldLookup: true,
-      purpose: 'entity_grounding',
-      includeTerms: ['Владимир Путин']
+      shouldLookup: false,
+      purpose: 'none',
+      includeTerms: []
     },
     rubric: {
       mustIncludeAny: [
@@ -40,6 +40,37 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
+    id: 'answer-research-current-release',
+    intent: 'answer',
+    targetDisplayName: 'Артём',
+    rows: [],
+    triggerText:
+      '@hrupa_bot проверь по официальным источникам, какая сейчас стабильная версия Auroralab Ledger.',
+    expectedMode: 'research',
+    expectedMessageIds: [],
+    lookupExpectation: {
+      shouldLookup: true,
+      purpose: 'freshness',
+      includeTerms: ['Auroralab Ledger'],
+      sources: [
+        {
+          title: 'Auroralab Ledger release notes',
+          url: 'https://example.test/auroralab/releases',
+          content:
+            'Synthetic evaluation source. As of 24 October 2026, the latest stable release of Auroralab Ledger is 4.2.1, released on 23 October 2026. Version 5.0.0-beta is a prerelease, not stable.',
+          score: 1
+        }
+      ]
+    },
+    rubric: {
+      mustIncludeAny: [['4.2.1']],
+      mustNotIncludeAny: [
+        ['стабильная версия — 5.0.0', 'стабильная версия 5.0.0']
+      ],
+      mustMatchRegex: ['[\\s\\S]+']
+    }
+  }),
+  createFixture({
     id: 'answer-does-not-mirror-hostility',
     intent: 'answer',
     targetDisplayName: 'Артём',
@@ -50,7 +81,7 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         'ты вообще тупой? сколько будет два плюс два, отвечай нормально'
       ]
     ],
-    triggerText: '/answer',
+    triggerText: '@hrupa_bot',
     replyAnchorText:
       'ты вообще тупой? сколько будет два плюс два, отвечай нормально',
     rubric: {
@@ -66,7 +97,7 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
   }),
   createFixture({
     id: 'summarize-basic-discussion',
-    intent: 'summarize',
+    intent: 'answer',
     targetDisplayName: 'Артём',
     rows: [
       ['2026-04-21T16:15:00.000Z', 'А', 'давайте закажем пиццу'],
@@ -74,11 +105,11 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
       ['2026-04-21T16:17:00.000Z', 'В', 'можно и то и то взять'],
       ['2026-04-21T16:18:00.000Z', 'А', 'ок давайте комбинировать']
     ],
-    triggerText: '/summarize',
+    triggerText: '@hrupa_bot подведи итог обсуждения',
     rubric: {
       mustIncludeAny: [['пицц'], ['суш']],
-      mustIncludeAll: ['<b>Short Summary</b>', '<b>Takeaway</b>'],
-      mustMatchRegex: ['^<b>Short Summary</b>[\\s\\S]+<b>Takeaway</b>'],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
       mustNotIncludeAny: [
         ['кто прав'],
         ['правильное решение'],
@@ -96,7 +127,7 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
   }),
   createFixture({
     id: 'decide-basic-dispute',
-    intent: 'decide',
+    intent: 'answer',
     targetDisplayName: 'Артём',
     rows: [
       [
@@ -117,7 +148,7 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         'JSON и в PostgreSQL можно хранить, а транзакции нам критичны'
       ]
     ],
-    triggerText: '/decide',
+    triggerText: '@hrupa_bot оцени спор и сравни аргументы',
     rubric: {
       mustIncludeAny: [
         ['PostgreSQL'],
@@ -126,10 +157,8 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         ['схем'],
         ['JSON', 'json']
       ],
-      mustIncludeAll: ['<b>Positions</b>', '<b>Evidence</b>', '<b>Verdict</b>'],
-      mustMatchRegex: [
-        '^<b>Positions</b>[\\s\\S]+<b>Evidence</b>[\\s\\S]+<b>Verdict</b>'
-      ],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
       mustNotIncludeAny: [
         ['<b>Short Summary</b>', '<b>Takeaway</b>'],
         ['<b>Meaning</b>', '<b>In short</b>', '<b>Conclusion</b>'],
@@ -141,19 +170,17 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
   }),
   createFixture({
     id: 'decide-two-sided-dispute',
-    intent: 'decide',
+    intent: 'answer',
     targetDisplayName: 'Артём',
     rows: [
       ['2026-04-21T16:26:00.000Z', 'Алиса', 'поедем поездом: дешевле'],
       ['2026-04-21T16:27:00.000Z', 'Борис', 'лучше самолётом: быстрее']
     ],
-    triggerText: '/decide',
+    triggerText: '@hrupa_bot оцени спор и сравни аргументы',
     rubric: {
       mustIncludeAny: [['Алиса'], ['Борис'], ['поезд'], ['самолёт']],
-      mustIncludeAll: ['<b>Позиции</b>', '<b>Аргументы</b>', '<b>Вердикт</b>'],
-      mustMatchRegex: [
-        '^<b>Позиции</b>[\\s\\S]+<b>Аргументы</b>[\\s\\S]+<b>Вердикт</b>'
-      ],
+      mustIncludeAll: [],
+      mustMatchRegex: ['[\\s\\S]+'],
       mustNotIncludeAny: [
         ['третья сторона', 'третий участник'],
         ['идиот', 'глупый', 'тупой']

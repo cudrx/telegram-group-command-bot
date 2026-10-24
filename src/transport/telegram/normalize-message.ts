@@ -136,9 +136,9 @@ function normalizeMessageTextPayload(message: TelegramTextPayloadMessage): {
   entities: Array<{ type: string; offset: number; length: number }>;
 } | null {
   if ('text' in message && typeof message.text === 'string') {
-    const text = message.text.trim();
+    const text = message.text;
 
-    if (text.length === 0) {
+    if (text.trim().length === 0) {
       return null;
     }
 
@@ -149,9 +149,9 @@ function normalizeMessageTextPayload(message: TelegramTextPayloadMessage): {
   }
 
   if ('caption' in message && typeof message.caption === 'string') {
-    const text = message.caption.trim();
+    const text = message.caption;
 
-    if (text.length === 0) {
+    if (text.trim().length === 0) {
       return null;
     }
 

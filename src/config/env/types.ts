@@ -1,7 +1,4 @@
 export const CHAT_COMMANDS = [
-  'answer',
-  'summarize',
-  'decide',
   'translate',
   'read',
   'transcribe',
@@ -9,7 +6,11 @@ export const CHAT_COMMANDS = [
   'sex'
 ] as const;
 
-export const CHAT_FEATURES = ['direct_links', 'deploy_announcements'] as const;
+export const CHAT_FEATURES = [
+  'assistant',
+  'direct_links',
+  'deploy_announcements'
+] as const;
 
 export type ChatCommand = (typeof CHAT_COMMANDS)[number];
 export type ChatFeature = (typeof CHAT_FEATURES)[number];
@@ -35,7 +36,6 @@ export type ParsedEnv = {
   llmApiKey: string;
   llmBaseUrl: string;
   llmReplyModel: string;
-  llmPlannerModel: string;
   llmReplyTemperature: number;
   llmTimeoutMs: number;
   llmMaxRetries: number;
@@ -48,15 +48,12 @@ export type ParsedEnv = {
   instagramCookiesPath: string | null;
   youtubeCookiesPath: string | null;
   answerContextLimit: number;
-  summarizeContextLimit: number;
-  decideContextLimit: number;
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
   lookupProvider: 'tavily';
   tavilyApiKey: string | null;
   lookupTimeoutMs: number;
-  lookupMaxQueries: number;
   lookupMaxResults: number;
   ocrSpaceApiKey: string | null;
   sttProvider: 'gladia';

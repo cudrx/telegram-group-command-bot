@@ -10,6 +10,7 @@ import {
 
 function setup(input: {
   decisions: unknown[];
+  lookupTimeoutMs?: number;
   lookupProvider?: LookupProvider | null;
 }) {
   const db = new FakeDatabaseClient();
@@ -29,7 +30,6 @@ function setup(input: {
   }
 
   const generateReply = vi.fn().mockResolvedValue(createReplyResult('старый'));
-  const planLookup = vi.fn();
   const replyDispatcher = vi.fn().mockResolvedValue({
     messageId: 1001,
     createdAt: '2026-04-03T12:00:30.000Z'
@@ -40,7 +40,8 @@ function setup(input: {
       : input.lookupProvider;
   const orchestrator = createOrchestrator({
     db,
-    qwen: { generateReply, planLookup, generateAnswer },
+    qwen: { generateReply, generateAnswer },
+    env: { lookupTimeoutMs: input.lookupTimeoutMs ?? 7000 },
     lookupProvider,
     replyDispatcher
   });
@@ -48,15 +49,14 @@ function setup(input: {
   return {
     generateAnswer,
     generateReply,
-    planLookup,
     lookupProvider,
     replyDispatcher,
     run: () =>
       orchestrator.handleIncomingMessage(
         createIncomingMessage({
           messageId: 2,
-          text: '/answer',
-          entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+          text: '@fun_bot',
+          entities: [{ type: 'mention', offset: 0, length: 8 }],
           replyToMessageId: 1,
           replyToUserId: 42
         })
@@ -66,13 +66,16 @@ function setup(input: {
 
 describe('ChatOrchestrator answer pipeline', () => {
   test('direct path uses one model call and no lookup', async () => {
-    const flow = setup({ decisions: [{ mode: 'direct', text: 'Ответ.' }] });
+    const flow = setup({
+      decisions: [
+        { mode: 'direct', context: { messageIds: [1] }, text: 'Ответ.' }
+      ]
+    });
 
     await flow.run();
 
     expect(flow.generateAnswer).toHaveBeenCalledOnce();
     expect(flow.generateReply).not.toHaveBeenCalled();
-    expect(flow.planLookup).not.toHaveBeenCalled();
     expect(flow.lookupProvider?.search).not.toHaveBeenCalled();
     expect(flow.replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
@@ -81,9 +84,12 @@ describe('ChatOrchestrator answer pipeline', () => {
     });
   });
 
-  test('research path runs up to two lookups and combines their sources', async () => {
+  test.each([
+    1500, 7000, 12000
+  ])('research combines both lookups using the configured %d ms timeout', async (lookupTimeoutMs) => {
     const plan = {
       mode: 'research',
+      context: { messageIds: [1] },
       resolvedQuestion: 'Актуальный вопрос?',
       purpose: 'freshness',
       focusClaim: 'Актуальный факт',
@@ -107,6 +113,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       usageCredits: 1
     }));
     const flow = setup({
+      lookupTimeoutMs,
       decisions: [
         plan,
         {
@@ -128,12 +135,12 @@ describe('ChatOrchestrator answer pipeline', () => {
     expect(search).toHaveBeenNthCalledWith(1, {
       query: plan.queries[0],
       maxResults: 3,
-      timeoutMs: 3000
+      timeoutMs: lookupTimeoutMs
     });
     expect(search).toHaveBeenNthCalledWith(2, {
       query: plan.queries[1],
       maxResults: 3,
-      timeoutMs: 3000
+      timeoutMs: lookupTimeoutMs
     });
     expect(flow.generateAnswer).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -165,6 +172,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       decisions: [
         {
           mode: 'research',
+          context: { messageIds: [1] },
           resolvedQuestion: 'Вопрос',
           purpose: 'freshness',
           focusClaim: 'Факт',
@@ -210,6 +218,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       decisions: [
         {
           mode: 'research',
+          context: { messageIds: [1] },
           resolvedQuestion: 'Вопрос',
           purpose: 'fact_check',
           focusClaim: 'Факт',
@@ -261,6 +270,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       decisions: [
         {
           mode: 'research',
+          context: { messageIds: [1] },
           resolvedQuestion: 'Вопрос',
           purpose: 'fact_check',
           focusClaim: 'Факт',

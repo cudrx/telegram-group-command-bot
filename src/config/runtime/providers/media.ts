@@ -1,6 +1,5 @@
 export const mediaProviderConfig = {
   maxFileBytes: 10_000_000,
-  nearbyScanLimit: 10,
   artifactKinds: {
     imageDescription: 'vision_description',
     ocrTextRu: 'ocr_text_ru',

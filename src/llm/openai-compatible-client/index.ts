@@ -6,16 +6,13 @@ import {
   generateAnswer
 } from './answer.js';
 import { formatDeployUpdate } from './deploy-update.js';
-import { planLookup } from './lookup.js';
 import { generateReply } from './reply.js';
 import type {
   ChatCompletionsCreate,
   GenerateReplyInput,
   LlmClientConfig,
   LlmClientOptions,
-  LlmReplyResult,
-  LookupPlanResult,
-  PlanLookupInput
+  LlmReplyResult
 } from './types.js';
 
 export type {
@@ -29,9 +26,7 @@ export type {
   GenerateReplyInput,
   LlmClientConfig,
   LlmClientOptions,
-  LlmReplyResult,
-  LookupPlanResult,
-  PlanLookupInput
+  LlmReplyResult
 } from './types.js';
 
 export class OpenAiCompatibleLlmClient {
@@ -54,15 +49,6 @@ export class OpenAiCompatibleLlmClient {
     this.createCompletion = this.client.chat.completions.create.bind(
       this.client.chat.completions
     );
-  }
-
-  async planLookup(input: PlanLookupInput): Promise<LookupPlanResult> {
-    return planLookup({
-      config: this.config,
-      createCompletion: this.createCompletion,
-      options: this.options,
-      input
-    });
   }
 
   async generateAnswer(
