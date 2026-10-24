@@ -23,7 +23,7 @@ An explicit `@bot_username` mention starts the assistant in enabled groups or th
 
 Requirements:
 
-- Node.js `22` LTS
+- Node.js `24` LTS
 - npm `11+`
 - Telegram bot token
 - OpenAI-compatible LLM API key
@@ -48,11 +48,18 @@ header when a plain Netscape cookie file is not enough for subreddit listings.
 If Reddit rejects that header with HTTP 401/403, the bot warns the admin to
 refresh it.
 
-Media features require external runtime tools mounted into Docker from
-`data/bin`: official standalone Linux `yt-dlp` and `gallery-dl`, plus static
-`ffmpeg` and `ffprobe`. `gallery-dl` resolves direct Instagram carousel posts,
-including mixed photo/video carousels, and TikTok Photo Mode galleries. The production image contains the Node.js app and
-minimal OS certificates.
+Production runs on a single VPS with K3s: one Pod contains the bot, a video
+worker (`yt-dlp`, `ffmpeg`, `ffprobe`, Node.js), and a `gallery-dl` worker.
+The bot sends HTTP jobs over Pod loopback; workers share temporary media files
+with it. SQLite and chat configuration live on a persistent volume. All three
+containers run as UID/GID 1000. The bot image contains no Python or media tools.
+
+For a local container run, use `docker compose -f .github/compose.yml up -d --build`.
+The first build installs media dependencies; subsequent builds reuse cached
+layers. The mounted `data` directory must be writable by UID/GID 1000.
+Native runs need CLI tools on `PATH` unless both `MEDIA_VIDEO_URL` and
+`MEDIA_GALLERY_URL` are configured. See [development](docs/development.md#production-on-k3s)
+for VPS setup, data migration, and GitHub UI settings.
 
 ## Assistant Requests
 

@@ -180,29 +180,32 @@ The reply-model prompt contract includes a `CURRENT_DATETIME` block with current
 
 ## Local Docker
 
-The root `compose.yml` starts a local container with bind mounts.
+Use the GitHub Compose file for local testing of all three containers:
 
 ```bash
-npm run build
-docker compose config
-docker compose up -d
-docker compose ps
-docker compose logs bot --tail=100 -f
-docker compose down
+docker compose -f .github/compose.yml config --quiet
+docker compose -f .github/compose.yml up -d --build
+docker compose -f .github/compose.yml logs --tail=100 -f
+docker compose -f .github/compose.yml down
 ```
 
-SQLite is stored in mounted persistent storage.
+All containers run as `node:node` (UID/GID 1000). The `data` bind mount must be
+writable by that user. Workers mount it read-only; they copy cookies before
+running extractors. Media files use a separate named volume mounted at
+`/media`. No media executables need to be placed in `data/bin`. There are no
+published ports. The first build downloads apt/pip packages; later builds
+cache tool installation separately from source compilation.
 
-If Docker returns `permission denied`, use `sudo` or add the user to the `docker` group and start a new session.
+GitHub's `.github/Dockerfile` has three runtime targets. `bot` contains the
+app and npm production dependencies. `video` contains the HTTP worker,
+ffmpeg/ffprobe, yt-dlp, its EJS dependency, and Node.js. `gallery` contains the
+HTTP worker and gallery-dl. Worker images do not include the bot's npm
+packages. Tool versions are explicit build arguments and updates require an
+image rebuild. `USER node:node` controls runtime privileges; it does not
+reconfigure the host Docker daemon. No separate rootless BuildKit service is
+required. Native and GitLab runs keep local CLI execution unless both
+`MEDIA_VIDEO_URL` and `MEDIA_GALLERY_URL` are set.
 
-For direct social media links, runtime media tools are mounted into the
-container from persistent storage. `data/bin/yt-dlp` and
-`data/bin/gallery-dl` must be official standalone Linux binaries, and
-`data/bin/ffmpeg` plus `data/bin/ffprobe` must be static binaries, such as the
-John Van Sickle static builds. The Docker image includes Node.js 24 and OS
-certificate authorities, but the media tools live in persistent storage. The
-compose files mount those tools read-only into `/usr/local/bin` and put
-`/usr/local/bin` first on `PATH`.
 Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same
 pipeline: `yt-dlp metadata -> duration/early-size caps -> yt-dlp download ->
 ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`.
@@ -226,81 +229,188 @@ starting another extractor. The block clears automatically only after the cookie
 
 ## CI
 
-CI workflow: `.github/workflows/ci.yml`.
+`.github/workflows/ci.yml` runs on non-main pushes, PRs to main, and manual
+runs. It is also a reusable workflow called by Deploy. It installs npm
+dependencies, runs lint/typecheck/tests, and builds three images in one Bake
+invocation. There is no dev/prod or architecture matrix; the runner's native
+Linux architecture is used. Images share build stages and separate GHA caches.
+Container smoke checks verify UID/GID, SQLite write access, CLI startup, HTTP
+jobs, H.264/AAC encoding, ffprobe JSON, and Opus extraction without external
+media sites. Main publishes commit-tagged images to GHCR and smoke-tests them
+before deployment. There is no `latest` deployment tag.
 
-On non-`main` pushes, pull requests targeting `main`, and manual
-`workflow_dispatch`, it runs:
+GitLab keeps its original pipeline, Dockerfile contents, dev/prod targets,
+architecture matrix, registry, and release jobs. Only paths changed:
+`.gitlab/Dockerfile` and `.gitlab/docker-bake.hcl` now sit alongside its CI
+files. No GitLab UI change is required.
 
-1. `npm ci`
-2. `npm run lint`
-3. `npm run typecheck`
-4. `npm test`
-5. `npm run build`
+## Production on K3s
 
-## Production Deploy
+This deployment targets one Linux amd64 VPS running K3s. It uses one Pod with
+three containers, one persistent data claim, and a temporary media `emptyDir`.
+There is no Helm, Argo CD, broker, Ingress, or load balancer. The production
+pipeline applies `.github/deployment.yml`, waits up to five minutes, and
+runs `rollout undo` on a failed update. Updates use `Recreate`: expect brief
+downtime, with no overlapping long-polling bot processes. Initial deployment
+failures have no previous revision to restore. Pod replacement discards
+unfinished jobs. Database backups remain necessary; rollback restores code
+and metadata, not database contents.
 
-Deploy workflow: `.github/workflows/deploy.yml`.
+### One-time VPS setup
 
-Deploys run automatically on `push` to `main` and manually through GitHub Actions `Run workflow`. The workflow uploads compose/assets, publishes the Docker image to GHCR, and runs pull/up on the server through `deploy/remote-deploy.sh`.
+Install a single-node K3s server using the
+[official installation instructions](https://docs.k3s.io/quick-start). Set
+`--tls-san` to the VPS hostname/IP used by GitHub Actions. Traefik and ServiceLB
+are unnecessary for this bot and can be disabled:
 
-The deploy workflow runs lint, typecheck, and tests once before the Docker build.
-The image is tagged with the commit SHA, and the server waits for the container
-healthcheck after starting that exact tag. If the new container does not become
-healthy, the remote deploy script restores the previously running image and
-keeps the workflow failed. Tagged images are retained for rollback; deploy only
-prunes dangling layers.
-
-GitHub Secrets:
-
-- `DEPLOY_HOST`
-- `DEPLOY_PORT`
-- `DEPLOY_USER`
-- `DEPLOY_PATH`
-- `DEPLOY_SSH_KEY`
-- `SERVER_GHCR_USERNAME`
-- `SERVER_GHCR_TOKEN`
-
-The server directory next to the deploy compose file should contain an environment file and persistent storage directory. Start from `config/examples/.env.example`, then add the deploy-only image coordinates below. The persistent storage must include the two JSON config files referenced below:
-
-```text
-data/telegram-chat-config.json
-data/telegram-access-config.json
+```bash
+curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
+sudo INSTALL_K3S_EXEC='server --disable traefik --disable servicelb --tls-san YOUR_VPS_HOST' sh /tmp/install-k3s.sh
+sudo k3s kubectl get nodes
 ```
 
-Minimum server values:
+The following setup commands run on the VPS as an administrator with its K3s
+kubeconfig. Keep `/etc/rancher/k3s/k3s.yaml` private; do not upload the admin
+kubeconfig into GitHub. The Kubernetes API at `https://YOUR_VPS_HOST:6443`
+needs to be reachable by the Actions runner with a valid TLS certificate.
+Application ports 3000/8081/8082 stay private.
 
-```dotenv
-GHCR_IMAGE=ghcr.io/<github-owner>/telegram-group-command-bot
-IMAGE_TAG=latest
+For example, run setup from a root shell on the VPS with
+`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` before using plain `kubectl`.
+
+From a checkout, create the namespace, local-path PVC, and scoped deploy role:
+
+```bash
+kubectl apply -f .github/bootstrap.yml
+kubectl -n telegram-bot create secret generic bot-env --from-env-file=.env
+kubectl -n telegram-bot create secret docker-registry ghcr \
+  --docker-server=ghcr.io --docker-username=YOUR_GITHUB_USER \
+  --docker-password=YOUR_READ_PACKAGES_TOKEN
 ```
 
-`deploy/compose.yml` already forces `NODE_ENV=production` and
-`SQLITE_PATH=/app/data/bot.sqlite`. The shared example env already points chat
-and access config to `data/...`, which resolves inside the container through the
-`./data:/app/data` bind mount.
+Prepare `.env` from `config/examples/.env.example`, with literal values
+without surrounding shell quotes for `--from-env-file`. Provider credentials
+stay in this Kubernetes Secret. JSON chat/access files and cookies stay in
+`/app/data` on the PVC. Defaults from the example resolve there. Custom cookie
+paths must also be inside `/app/data`. The `ghcr` token needs `read:packages`
+and access to all three image packages; a workflow's temporary GITHUB_TOKEN
+is not suitable for future cluster pulls. The PVC is 5 GiB with K3s's
+`local-path` storage class. Keep the PVC when redeploying. Back up its data
+outside the VPS: single-node storage does not survive losing the server.
 
-Optional provider keys are added there as well.
+### Import existing data before first deployment
 
-The server persistent storage must also contain executable media tools:
+Stop the old Compose bot before copying SQLite so no process writes to it.
+Back up the stopped `data` directory, including SQLite WAL/SHM files if present.
+Use a temporary Pod that mounts the claim; this also binds K3s local-path
+storage before the application starts:
 
-```text
-data/bin/yt-dlp
-data/bin/ffmpeg
-data/bin/ffprobe
+```bash
+kubectl -n telegram-bot apply -f - <<'YAML'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: data-import
+spec:
+  automountServiceAccountToken: false
+  restartPolicy: Never
+  containers:
+    - name: import
+      image: busybox:1.37.0
+      command: [sh, -c, 'sleep 3600']
+      volumeMounts:
+        - { name: data, mountPath: /data }
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: bot-data
+YAML
+kubectl -n telegram-bot wait --for=condition=Ready pod/data-import --timeout=120s
+kubectl -n telegram-bot cp data/. data-import:/data
+kubectl -n telegram-bot exec data-import -- chown -R 1000:1000 /data
+kubectl -n telegram-bot delete pod data-import
 ```
 
-Use the official standalone Linux `yt-dlp` binary. Use static `ffmpeg` and
-`ffprobe` binaries; do not bind-mount host distribution binaries from another
-Linux distribution into the Debian-based container, because their shared
-libraries may be unavailable.
+Copy your two JSON configuration files and cookie files even for a fresh
+installation. `data/bin` is unnecessary. Do not restart the old bot after
+Kubernetes begins polling with the same token. Verify the first deployment
+with a separate test chat before depending on it in the main group.
 
-Deploy metadata is written to persistent storage; inside the container the bot reads it as `/app/data/deploy-metadata.json`. Besides commit subjects, it contains changed file paths, the README product overview, and a limited diff of `README.md`, `docs/architecture.md`, and `docs/development.md` for the deployed commit range. The bot formats one announcement per new `sha`, reuses that text for every configured chat with `features.deploy_announcements: true`, and deduplicates future restarts through SQLite `app_state`.
+### GitHub deployment credentials
 
-Rollback:
+`.github/bootstrap.yml` creates ServiceAccount `github-deploy` with permissions
+inside `telegram-bot` only. It can update the deployment and metadata ConfigMaps
+and inspect rollout state. It cannot read Secrets, delete PVCs, or administer
+the cluster. The workload itself does not mount Kubernetes API credentials.
 
-1. Set the old `IMAGE_TAG` in the server `.env`.
-2. Run `docker compose --env-file .env -f compose.yml pull bot`.
-3. Run `docker compose --env-file .env -f compose.yml up -d bot`.
+For this minimal VPS setup, create a manually managed service-account token
+for GitHub's kubeconfig. Rotate it by replacing the Secret and updating the
+GitHub environment secret. This is a static credential; a future OIDC setup
+can replace it without changing the workload.
+
+```bash
+kubectl -n telegram-bot apply -f - <<'YAML'
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-deploy-token
+  annotations:
+    kubernetes.io/service-account.name: github-deploy
+type: kubernetes.io/service-account-token
+YAML
+kubectl -n telegram-bot wait --for=jsonpath='{.data.token}' secret/github-deploy-token --timeout=60s
+umask 077
+token="$(kubectl -n telegram-bot get secret github-deploy-token -o jsonpath='{.data.token}' | base64 -d)"
+ca_file="$(mktemp)"
+kubectl -n telegram-bot get secret github-deploy-token -o jsonpath='{.data.ca\.crt}' | base64 -d > "$ca_file"
+kubectl --kubeconfig=github-deploy.kubeconfig config set-cluster k3s --server=https://YOUR_VPS_HOST:6443 --certificate-authority="$ca_file" --embed-certs=true
+kubectl --kubeconfig=github-deploy.kubeconfig config set-credentials github-deploy --token="$token"
+kubectl --kubeconfig=github-deploy.kubeconfig config set-context production --cluster=k3s --user=github-deploy --namespace=telegram-bot
+kubectl --kubeconfig=github-deploy.kubeconfig config use-context production
+rm -f "$ca_file"
+unset token
+```
+
+Wait for Kubernetes to populate the token Secret before exporting it. Store
+`github-deploy.kubeconfig` securely; never commit it. After adding it to GitHub,
+remove the temporary local credential file.
+
+### GitHub UI
+
+1. Repository **Settings → Environments**: create `production`, restrict its
+   deployment branches to `main`, and add environment secret **KUBE_CONFIG**
+   with the complete scoped kubeconfig above. Optional required reviewers can
+   gate deployments. Add environment variable **KUBECTL_VERSION** matching the
+   cluster's minor version (for example `v1.35.0` for a 1.35 cluster).
+2. **Settings → Actions → General**: enable Actions and allow the actions used
+   by these workflows. The Deploy workflow explicitly requests `packages: write`
+   to publish GHCR images using GITHUB_TOKEN; no registry write PAT is needed.
+3. Check each GHCR package grants this repository Actions access and grants
+   the cluster's read token/account pull access. Keep commit tags referenced
+   by retained Deployment revisions. Publishing new packages may require the
+   organization to allow package creation.
+4. Remove obsolete deployment secrets (`DEPLOY_HOST`, `DEPLOY_PORT`,
+   `DEPLOY_USER`, `DEPLOY_PATH`, `DEPLOY_SSH_KEY`, `SERVER_GHCR_USERNAME`,
+   `SERVER_GHCR_TOKEN`) after the first successful migration. They are no longer
+   used by GitHub Actions. GitLab UI needs no changes.
+5. Run **Actions → Deploy → Run workflow** on `main` for the first rollout.
+   Later non-documentation pushes to main deploy automatically.
+
+The deploy job no longer SSHs into the server, copies app assets, runs Compose,
+or prunes Docker images. It uses the Kubernetes API. Deploy metadata is an
+ConfigMap named by commit SHA and a content hash, mounted as
+`/app/data/deploy-metadata.json`. It retains the existing announcement format
+and SQLite deduplication. Metadata ConfigMaps are not automatically pruned so
+rollback can still mount earlier ones. After retiring old revisions, an
+administrator can remove their unreferenced metadata ConfigMaps.
+
+Manual rollback:
+
+```bash
+kubectl -n telegram-bot rollout undo deployment/telegram-bot
+kubectl -n telegram-bot rollout status deployment/telegram-bot --timeout=300s
+kubectl -n telegram-bot logs deployment/telegram-bot -c bot --tail=100
+```
 
 ## Manual Smoke Checks
 
@@ -313,12 +423,12 @@ Rollback:
 - `/transcribe` requires a reply to a Telegram video message. It should work on videos sent by users and videos sent by this bot, ignore command arguments and links, extract audio with `ffmpeg`, return the transcript as text, and avoid creating `media_artifacts` rows.
 - `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.
 - Editing an already stored message should update future context without sending a new reply by itself.
-- `/meme` and `/sex` make an external request to a Reddit top-month listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/GIF/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts require mounted standalone `yt-dlp` plus static `ffmpeg` and `ffprobe`. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
+- `/meme` and `/sex` make an external request to a Reddit top-month listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/GIF/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts require the video worker, or locally installed tools for native runs. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
 - Reddit GIF smoke: send a Reddit post whose `url` is an `i.redd.it/*.gif` and has no MP4 variant. The original GIF should be downloaded within the 50 MB cap and uploaded via `sendAnimation`, with caption/spoiler preserved and the temporary file removed. GIF sending does not require yt-dlp or ffmpeg.
 - Reddit Streamable smoke: send a Reddit link to a post with a Streamable video. Verify that the bot sends the video with the Reddit caption.
-- Direct Reddit media link smoke: make standalone `yt-dlp` plus static `ffmpeg` and `ffprobe` available inside the container through `/usr/local/bin`, configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, GIF, gallery, or `reddit_video` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should send `sendPhoto`, `sendAnimation`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
+- Direct Reddit media link smoke: start the video worker (or install local CLI tools for native runs), configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, GIF, gallery, or `reddit_video` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should send `sendPhoto`, `sendAnimation`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
 - Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, reject clearly oversized selected formats above 75 MB before download, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Reel is over 10 minutes, clearly over the pre-download size cap, or over 50 MB after download/normalization, the bot should reply with a local limit-specific error instead of sending video.
-- Direct Instagram/TikTok gallery smoke: make standalone `gallery-dl` available at `/usr/local/bin/gallery-dl`, then send an Instagram `/p/<shortcode>/` carousel or TikTok `/photo/<id>` Photo Mode link. The bot should preserve source order, ignore TikTok soundtrack audio, download images with the normal per-image cap, and send one item or media groups split at Telegram's 10-item limit. For a mixed Instagram carousel, the whole operation should use the existing Instagram video queue, each video should pass through the shared `yt-dlp`/`ffprobe`/`ffmpeg` pipeline, and Telegram media groups should contain photos and videos in their original order. Temporary files should be cleaned and the source message deleted after a successful dispatch. Instagram extraction uses `INSTAGRAM_COOKIES_PATH` and the existing source lock.
+- Direct Instagram/TikTok gallery smoke: start the gallery worker (or install gallery-dl locally for native runs), then send an Instagram `/p/<shortcode>/` carousel or TikTok `/photo/<id>` Photo Mode link. The bot should preserve source order, ignore TikTok soundtrack audio, download images with the normal per-image cap, and send one item or media groups split at Telegram's 10-item limit. For a mixed Instagram carousel, the whole operation should use the existing Instagram video queue, each video should pass through the shared `yt-dlp`/`ffprobe`/`ffmpeg` pipeline, and Telegram media groups should contain photos and videos in their original order. Temporary files should be cleaned and the source message deleted after a successful dispatch. Instagram extraction uses `INSTAGRAM_COOKIES_PATH` and the existing source lock.
 - Instagram lock smoke: with a deliberately stale `INSTAGRAM_COOKIES_PATH`, send a Reel URL and verify the bot replies with the local Instagram-unavailable fallback and stores a blocked source state. Without changing the cookie file, send another Reel URL and verify `yt-dlp` does not start again. Replace the cookie file on disk, then send a new Reel URL and verify the bot allows one fresh attempt.
 - Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, reject clearly oversized selected formats above 75 MB before download, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Short is over 10 minutes, clearly over the pre-download size cap, or over 50 MB after download/normalization, the bot should reply with a local limit-specific error instead of sending video.
 - YouTube Shorts require a runtime container with Node.js 24: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.

@@ -1,0 +1,71 @@
+services:
+  bot:
+    build:
+      context: ..
+      dockerfile: .github/Dockerfile
+      target: bot
+    init: true
+    restart: unless-stopped
+    user: '1000:1000'
+    env_file: ../.env
+    environment:
+      NODE_ENV: production
+      SQLITE_PATH: /app/data/bot.sqlite
+      TMPDIR: /media
+      MEDIA_VIDEO_URL: http://video:8081
+      MEDIA_GALLERY_URL: http://gallery:8082
+    volumes:
+      - ../data:/app/data
+      - media:/media
+    depends_on:
+      video:
+        condition: service_healthy
+      gallery:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+  video:
+    build:
+      context: ..
+      dockerfile: .github/Dockerfile
+      target: video
+    init: true
+    restart: unless-stopped
+    user: '1000:1000'
+    environment:
+      MEDIA_HOST: 0.0.0.0
+    volumes:
+      - ../data:/app/data:ro
+      - media:/media
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:8081/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+  gallery:
+    build:
+      context: ..
+      dockerfile: .github/Dockerfile
+      target: gallery
+    init: true
+    restart: unless-stopped
+    user: '1000:1000'
+    environment:
+      MEDIA_HOST: 0.0.0.0
+    volumes:
+      - ../data:/app/data:ro
+      - media:/media
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:8082/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 5s
+      timeout: 2s
+      retries: 10
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+volumes:
+  media:

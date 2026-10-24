@@ -166,7 +166,7 @@ function runFromCli(): void {
   });
   const outputPath =
     process.env.DEPLOY_METADATA_OUTPUT ??
-    'deploy/generated/deploy-metadata.json';
+    '.github/generated/deploy-metadata.json';
 
   writeDeployMetadata(outputPath, metadata);
 }

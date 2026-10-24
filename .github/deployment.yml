@@ -1,0 +1,115 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: telegram-bot
+  labels:
+    app: telegram-bot
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 300
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: telegram-bot
+  template:
+    metadata:
+      labels:
+        app: telegram-bot
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
+      imagePullSecrets:
+        - name: ghcr
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: bot
+          image: ${IMAGE_PREFIX}:${IMAGE_TAG}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          envFrom:
+            - secretRef:
+                name: bot-env
+          env:
+            - { name: NODE_ENV, value: production }
+            - { name: SQLITE_PATH, value: /app/data/bot.sqlite }
+            - { name: TMPDIR, value: /media }
+            - { name: MEDIA_VIDEO_URL, value: 'http://127.0.0.1:8081' }
+            - { name: MEDIA_GALLERY_URL, value: 'http://127.0.0.1:8082' }
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { memory: 512Mi }
+          startupProbe:
+            httpGet: { path: /health, port: 3000 }
+            periodSeconds: 5
+            failureThreshold: 36
+          readinessProbe:
+            httpGet: { path: /health, port: 3000 }
+          livenessProbe:
+            httpGet: { path: /health, port: 3000 }
+            periodSeconds: 20
+          volumeMounts:
+            - { name: data, mountPath: /app/data }
+            - { name: media, mountPath: /media }
+            - name: metadata
+              mountPath: /app/data/deploy-metadata.json
+              subPath: deploy-metadata.json
+              readOnly: true
+        - name: video
+          image: ${IMAGE_PREFIX}-video:${IMAGE_TAG}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 100m, memory: 192Mi }
+            limits: { cpu: '1', memory: 768Mi }
+          readinessProbe:
+            exec:
+              command: [node, -e, 'fetch("http://127.0.0.1:8081/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+          livenessProbe:
+            exec:
+              command: [node, -e, 'fetch("http://127.0.0.1:8081/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+            periodSeconds: 20
+          volumeMounts:
+            - { name: data, mountPath: /app/data, readOnly: true }
+            - { name: media, mountPath: /media }
+        - name: gallery
+          image: ${IMAGE_PREFIX}-gallery:${IMAGE_TAG}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+          readinessProbe:
+            exec:
+              command: [node, -e, 'fetch("http://127.0.0.1:8082/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+          livenessProbe:
+            exec:
+              command: [node, -e, 'fetch("http://127.0.0.1:8082/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+            periodSeconds: 20
+          volumeMounts:
+            - { name: data, mountPath: /app/data, readOnly: true }
+            - { name: media, mountPath: /media }
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: bot-data
+        - name: media
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: metadata
+          configMap:
+            name: ${METADATA_CONFIGMAP}

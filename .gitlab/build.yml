@@ -9,7 +9,7 @@
     - printf '%s' "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" --username "$CI_REGISTRY_USER" --password-stdin
     - docker buildx create --name ci-rootless --driver remote tcp://buildkit:1234
   script:
-    - VERSION="$BUILD_VERSION" docker buildx bake --builder ci-rootless -f docker/docker-bake.hcl "$BUILD_TARGET" --push
+    - VERSION="$BUILD_VERSION" docker buildx bake --builder ci-rootless -f .gitlab/docker-bake.hcl "$BUILD_TARGET" --push
 
 build-docker-dev:
   extends: .docker-build

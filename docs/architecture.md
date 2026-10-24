@@ -279,7 +279,7 @@ Behavior:
 - `ChatOrchestrator` gives command resolution priority in regular modes; for `private_link_sender`, a bot-command entity at the beginning of the message stops processing entirely. If no command is handled and direct links are enabled for that access context, the text is checked for Reddit post URLs, Reddit share links like `/r/<subreddit>/s/<token>`, Instagram Reel URLs, and YouTube Shorts-compatible URLs.
 - The resolver fetches Reddit post JSON through `/.json` with cookies and accepts public Reddit image, gallery, Reddit-hosted video, and embedded Streamable video posts. Instagram `/p/<shortcode>/` posts and TikTok Photo Mode links are resolved through `gallery-dl`; image-only results reuse the same image/gallery download and Telegram dispatch path. Mixed Instagram image/video carousels preserve source order and run as one existing Instagram video-queue job; every video item reuses the shared `yt-dlp`/`ffprobe`/`ffmpeg` pipeline before the mixed Telegram media groups are sent. Self/text posts are ignored.
 - NSFW and spoiler direct Reddit media are sent with Telegram's spoiler flag; for galleries, the flag is applied to every album item.
-- Direct Reddit video links are downloaded through standalone `yt-dlp` available on `PATH` from `/usr/local/bin/yt-dlp`, using the cookie file from `REDDIT_COOKIES_PATH`. The runtime image does not contain Python, `ffmpeg`, or `ffprobe`; deploy compose mounts official standalone `yt-dlp` and static `ffmpeg`/`ffprobe` binaries from `data/bin` into `/usr/local/bin`. Reddit `fallback_url` is used only as a video-post signal, not as a download URL.
+- Direct Reddit video links are downloaded through `yt-dlp` using `REDDIT_COOKIES_PATH`. In GitHub production, media commands go through an HTTP adapter to separate video and gallery containers. The video worker includes yt-dlp, ffmpeg, ffprobe, and Node.js for YouTube. The gallery worker resolves gallery JSON. The bot image includes neither Python nor these tools. Native/GitLab runs without worker URLs keep local CLI execution. Reddit `fallback_url` is only a video-post signal, not a download URL.
 - Instagram Reels are accepted as `/reel/<shortcode>/` or `/reels/<shortcode>/` URLs and are downloaded through `yt-dlp` with the cookie file from `INSTAGRAM_COOKIES_PATH`. Instagram carousel posts are accepted as `/p/<shortcode>/` and resolved through `gallery-dl` with the same cookies. Direct video URLs discovered inside mixed carousels are passed to the existing `yt-dlp` video pipeline rather than downloaded by separate carousel-specific code. For Reels, `yt-dlp` prefers HLS/m3u8 video + m4a audio before the shared Telegram normalization step.
 - TikTok `/photo/<id>` posts and photo-mode short links are resolved through `gallery-dl`. Still images are kept in source order, while the optional MP3 soundtrack is ignored. Ordinary `/video/<id>` links continue through `yt-dlp`.
 - If Instagram returns auth/access failures such as login-required or rate-limit responses, the bot stores a blocked source state in SQLite and sends a local unavailable fallback for that request. Later Instagram jobs are rejected before `yt-dlp` starts until the cookie file modification time changes.
@@ -317,3 +317,41 @@ Stores persistent runtime state for fragile external sources. The first current 
 
 Small runtime key-value state.
 - Deploy announcements are formatted once per new deploy `sha` and sent to every configured chat where `features.deploy_announcements` is enabled. Deploy metadata includes commit subjects, changed file paths, a short product overview extracted from README, and a size-limited diff of user-facing documentation. The formatter treats all inputs as factual source material, describes their user-visible meaning in idiomatic Russian instead of translating literally, and emits Telegram-compatible HTML without Markdown. When no concrete user-visible effect is supported, it still produces a neutral internal-improvements announcement without inventing specifics. SQLite stores one shared `last_announced_deploy_sha`, so the same deploy is not reformatted or resent after a successful announce cycle.
+
+## Production Containers
+
+GitHub production uses one K3s Deployment with one Pod and three containers:
+`bot`, `video`, and `gallery`. The containers are colocated because the pipeline
+shares media files. HTTP runs on loopback ports 8081 and 8082; no Kubernetes
+Service, Ingress, or public application port is needed for long polling.
+
+The bot creates per-operation temporary directories under `TMPDIR=/media`.
+All containers mount the same disk-backed `emptyDir` there. It survives an
+individual container restart but is discarded with the Pod. The `bot-data`
+PVC stores SQLite, cookies, and chat/access JSON configuration. Workers mount
+it read-only and copy cookie files to private per-job temporary files, so
+extractors cannot modify the operator's cookies or trigger spurious source
+unlocking. Cookie paths must resolve inside `/app/data`.
+
+The transport exposes POST `/jobs`, GET `/jobs/<id>`, DELETE `/jobs/<id>`, and
+GET `/health`. Operations cover metadata, download, probe, normalization,
+audio extraction, and gallery resolution. Job state is in memory; there is no
+broker or durable retry queue. Up to four CLI processes can run per worker,
+and the bot retains its existing video and normalization queues. A request's
+deadline covers submission and polling; timeout, cancellation, and worker
+shutdown kill the process group including ffmpeg descendants. Lost jobs fail
+through existing local fallbacks; the bot never retries them using local CLI.
+Finished results expire after a minute and are deleted when consumed.
+
+`replicas: 1` and Deployment strategy `Recreate` prevent overlapping bot
+instances during rollout. A brief deployment interruption is expected. All
+containers run as UID/GID 1000 with privilege escalation disabled and Linux
+capabilities dropped. Startup/readiness/liveness probes check local process
+health, not external providers. A metadata ConfigMap named by commit and content
+hash is part of the Pod revision, so rollout undo restores all three images and announcements
+together. SQLite data is not rolled back by a Deployment rollback.
+
+GitHub infrastructure files are in `.github/`, with only the mandatory
+`workflows/` subdirectory. GitLab infrastructure is in `.gitlab/`, retaining
+its existing build targets, registry, and release behavior. `.gitlab-ci.yml`
+remains the GitLab entrypoint; the two build configurations are independent.
