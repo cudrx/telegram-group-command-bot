@@ -13,6 +13,23 @@ import {
 } from './support.js';
 
 describe('parseEnv defaults', () => {
+  test('parses media-service endpoints without enabling them by default', () => {
+    const raw = {
+      TELEGRAM_BOT_TOKEN: 'telegram-token',
+      LLM_API_KEY: 'llm-key'
+    };
+    expect(parseEnv(raw).mediaVideoUrl).toBeNull();
+    expect(parseEnv(raw).mediaGalleryUrl).toBeNull();
+    const env = parseEnv({
+      ...raw,
+      MEDIA_VIDEO_URL: 'http://127.0.0.1:8081',
+      MEDIA_GALLERY_URL: 'http://127.0.0.1:8082'
+    });
+    expect(env.mediaVideoUrl).toBe('http://127.0.0.1:8081');
+    expect(env.mediaGalleryUrl).toBe('http://127.0.0.1:8082');
+    expect(() => parseEnv({ ...raw, MEDIA_VIDEO_URL: 'bad-url' })).toThrow();
+  });
+
   test('applies v0 reply-only defaults for generic LLM settings', () => {
     const env = parseEnv({
       TELEGRAM_BOT_TOKEN: 'telegram-token',

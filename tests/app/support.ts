@@ -269,6 +269,8 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath,
+    mediaVideoUrl: null,
+    mediaGalleryUrl: null,
     redditCookieHeaderPath: overrides.redditCookieHeaderPath ?? null,
     redditCookiesPath:
       overrides.redditCookiesPath ??

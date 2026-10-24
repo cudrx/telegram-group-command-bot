@@ -41,6 +41,8 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
   SQLITE_PATH: z.string().min(1).default(storageConfig.sqlitePath),
+  MEDIA_VIDEO_URL: z.string().url().optional(),
+  MEDIA_GALLERY_URL: z.string().url().optional(),
   REDDIT_COOKIE_HEADER_PATH: z.string().min(1).optional(),
   REDDIT_COOKIES_PATH: z.string().min(1).optional(),
   INSTAGRAM_COOKIES_PATH: z.string().min(1).optional(),

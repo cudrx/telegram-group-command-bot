@@ -33,6 +33,8 @@ function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath: ':memory:',
+    mediaVideoUrl: null,
+    mediaGalleryUrl: null,
     redditCookieHeaderPath: null,
     redditCookiesPath: null,
     instagramCookiesPath: null,

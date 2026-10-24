@@ -43,6 +43,8 @@ export type ParsedEnv = {
   logLevel: 'debug' | 'info' | 'warn' | 'error';
   logColor: boolean;
   sqlitePath: string;
+  mediaVideoUrl: string | null;
+  mediaGalleryUrl: string | null;
   redditCookieHeaderPath: string | null;
   redditCookiesPath: string | null;
   instagramCookiesPath: string | null;

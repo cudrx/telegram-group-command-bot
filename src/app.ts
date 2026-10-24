@@ -15,6 +15,7 @@ import type { AppEnv } from './config/env/index.js';
 import { memeActionConfig } from './config/runtime/index.js';
 import { DatabaseClient } from './database/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
+import { createRemoteMediaExec } from './media/service-client.js';
 import {
   normalizeEditedTextMessage,
   normalizeTextMessage
@@ -26,6 +27,12 @@ type Application = {
 };
 
 export async function createApplication(env: AppEnv): Promise<Application> {
+  if (Boolean(env.mediaVideoUrl) !== Boolean(env.mediaGalleryUrl)) {
+    throw new Error(
+      'MEDIA_VIDEO_URL and MEDIA_GALLERY_URL must be configured together'
+    );
+  }
+
   const db = DatabaseClient.open(env.sqlitePath);
   const baseLogger = createLogger(
     {
@@ -69,6 +76,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     ...providers,
     telegramFileApi: bot.api,
     fetch: globalThis.fetch,
+    ...(env.mediaVideoUrl && env.mediaGalleryUrl
+      ? {
+          execFile: createRemoteMediaExec({
+            videoUrl: env.mediaVideoUrl,
+            galleryUrl: env.mediaGalleryUrl
+          })
+        }
+      : {}),
     bot: {
       userId: botInfo.id,
       username: botInfo.username ?? null,
