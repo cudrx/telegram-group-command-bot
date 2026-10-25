@@ -117,6 +117,11 @@ jobs:
           DEPLOY_METADATA_BRANCH: ${{ github.ref_name }}
           DEPLOY_METADATA_OUTPUT: ${{ env.DEPLOY_METADATA_FILE }}
 
+      - name: Install deployment dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gettext-base
+
       - name: Deploy and verify rollout
         run: bash .github/deploy.sh
 
