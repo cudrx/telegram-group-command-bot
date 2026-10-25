@@ -15,14 +15,11 @@ import type {
   GenerateAnswerResult
 } from '../../../src/llm/openai-compatible-client/index.js';
 import type { AppLogger } from '../../../src/logging/logger.js';
-import type {
-  LookupIntent,
-  LookupProvider
-} from '../../../src/lookup/types.js';
+import type { LookupProvider } from '../../../src/lookup/types.js';
 import type { OcrLanguage } from '../../../src/media/types.js';
 import { createEnv } from './env.js';
 import type { FakeDatabaseClient } from './fake-database.js';
-import { createLookupPlanResult, type createReplyResult } from './llm.js';
+import type { createReplyResult } from './llm.js';
 import { createLogger } from './logger.js';
 
 export function createOrchestrator(input: {
@@ -30,17 +27,12 @@ export function createOrchestrator(input: {
   qwen: {
     generateReply: (input: {
       assistantInstructions: string;
-      targetDisplayName: string;
+      targetDisplayName?: string;
       intent: AssistantIntent;
       currentDateTime: string;
       replyContext: unknown;
-      lookupContext?: unknown;
       mediaContext?: unknown;
     }) => Promise<ReturnType<typeof createReplyResult>>;
-    planLookup?: (input: {
-      intent: LookupIntent;
-      replyContext: unknown;
-    }) => Promise<ReturnType<typeof createLookupPlanResult>>;
     generateAnswer?: (
       input: GenerateAnswerInput
     ) => Promise<GenerateAnswerResult>;
@@ -156,29 +148,25 @@ export function createOrchestrator(input: {
         (async (answerInput: GenerateAnswerInput) => {
           const result = await input.qwen.generateReply({
             ...answerInput,
-            intent: 'answer',
-            lookupContext: null
+            intent: 'answer'
           });
 
           return {
-            decision: { mode: 'direct' as const, text: result.text },
+            decision: {
+              mode: 'direct' as const,
+              context: {
+                messageIds: answerInput.replyContext.priorContextMessages.map(
+                  (message) => message.messageId
+                )
+              },
+              text: result.text
+            },
             model: result.model,
             latencyMs: result.latencyMs,
             attemptCount: result.attemptCount,
             promptTokensEstimate: result.promptTokensEstimate
           };
-        }),
-      planLookup:
-        input.qwen.planLookup ??
-        vi.fn().mockResolvedValue(
-          createLookupPlanResult({
-            shouldLookup: false,
-            purpose: 'none',
-            reason: 'No lookup needed.',
-            queries: [],
-            confidence: 'low'
-          })
-        )
+        })
     },
     lookupProvider: input.lookupProvider ?? null,
     speechToTextProvider: input.speechToTextProvider as never,

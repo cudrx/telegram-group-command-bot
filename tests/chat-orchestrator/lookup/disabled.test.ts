@@ -1,97 +1,59 @@
-import { describe, expect, test, vi } from 'vitest';
+import { expect, test } from 'vitest';
 
-import {
-  createIncomingMessage,
-  createLookupPlanResult,
-  createOrchestrator,
-  createReplyResult,
-  FakeDatabaseClient
-} from '../support.js';
+import { createAnswerFlow } from '../support/answer-flow.js';
 
-describe('ChatOrchestrator lookup disabled paths', () => {
-  test('does not plan lookup for summarize', async () => {
-    const db = new FakeDatabaseClient();
-    const generateReply = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('коротко'));
-    const planLookup = vi.fn().mockResolvedValue(
-      createLookupPlanResult({
-        shouldLookup: true,
-        purpose: 'entity_grounding',
-        reason: 'Should not be called for summarize.',
-        queries: ['ignored'],
-        confidence: 'high'
-      })
-    );
-    const lookupProvider = {
-      search: vi.fn().mockResolvedValue({
-        provider: 'tavily',
-        query: 'ignored',
-        sources: [],
-        responseTimeMs: 1,
-        usageCredits: 1
-      })
-    };
-    const replyDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1001,
-      createdAt: '2026-04-03T12:00:30.000Z'
-    });
-    const orchestrator = createOrchestrator({
-      db,
-      qwen: { generateReply, planLookup },
-      replyDispatcher,
-      lookupProvider
-    });
+test('a summary request can be answered in one completion without lookup', async () => {
+  const flow = createAnswerFlow([
+    {
+      mode: 'direct',
+      context: { messageIds: [1, 2] },
+      text: 'Обсуждали базу и поездку.'
+    }
+  ]);
+  await flow.run('@fun_bot подведи итог обоих обсуждений');
+  expect(flow.requests).toHaveLength(1);
+  expect(flow.search).not.toHaveBeenCalled();
+  expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
+    expect.objectContaining({ text: 'Обсуждали базу и поездку.' })
+  );
+});
 
-    await orchestrator.handleIncomingMessage(
-      createIncomingMessage({
-        messageId: 2,
-        text: '/summarize',
-        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
-      })
-    );
+test('clarification does not trigger lookup or additional history resolution', async () => {
+  const flow = createAnswerFlow([
+    {
+      mode: 'clarify',
+      context: { messageIds: [] },
+      text: 'О каком обсуждении речь?'
+    }
+  ]);
+  await flow.run('@fun_bot почему так?');
+  expect(flow.requests).toHaveLength(1);
+  expect(flow.search).not.toHaveBeenCalled();
+  expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
+    expect.objectContaining({ text: 'О каком обсуждении речь?' })
+  );
+});
 
-    expect(planLookup).not.toHaveBeenCalled();
-    expect(lookupProvider.search).not.toHaveBeenCalled();
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        intent: 'summarize',
-        lookupContext: null
-      })
-    );
-  });
-
-  test('does not plan lookup when lookup provider is unavailable', async () => {
-    const db = new FakeDatabaseClient();
-    const generateReply = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('вердикт'));
-    const planLookup = vi.fn();
-    const replyDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1001,
-      createdAt: '2026-04-03T12:00:30.000Z'
-    });
-    const orchestrator = createOrchestrator({
-      db,
-      qwen: { generateReply, planLookup },
-      replyDispatcher,
-      lookupProvider: null
-    });
-
-    await orchestrator.handleIncomingMessage(
-      createIncomingMessage({
-        messageId: 2,
-        text: '/decide',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
-      })
-    );
-
-    expect(planLookup).not.toHaveBeenCalled();
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        intent: 'decide',
-        lookupContext: null
-      })
-    );
-  });
+test('research without a configured provider returns the existing verification fallback', async () => {
+  const flow = createAnswerFlow(
+    [
+      {
+        mode: 'research',
+        context: { messageIds: [1] },
+        resolvedQuestion: 'Вопрос',
+        purpose: 'fact_check',
+        focusClaim: 'Факт',
+        queries: ['PostgreSQL docs']
+      }
+    ],
+    { lookupDisabled: true }
+  );
+  await flow.run();
+  expect(flow.requests).toHaveLength(1);
+  expect(flow.search).not.toHaveBeenCalled();
+  expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      text: 'Не смог быстро проверить это по внешним источникам.'
+    })
+  );
 });

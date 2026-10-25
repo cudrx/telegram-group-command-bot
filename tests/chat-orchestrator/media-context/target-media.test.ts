@@ -71,8 +71,8 @@ describe('ChatOrchestrator media context target media', () => {
     const handling = orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMediaSnapshot: {
           messageId: 1,
@@ -144,8 +144,8 @@ describe('ChatOrchestrator media context target media', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMediaSnapshot: {
           messageId: 1,
@@ -245,8 +245,8 @@ describe('ChatOrchestrator media context target media', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMediaSnapshot: {
           messageId: 1,

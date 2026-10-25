@@ -9,7 +9,6 @@ export const lookupProviderConfig = {
   },
   defaults: {
     timeoutMs: 7000,
-    maxQueries: 1,
     maxResults: 3
   }
 } as const;

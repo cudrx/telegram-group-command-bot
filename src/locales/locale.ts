@@ -8,7 +8,6 @@ export const text = {
     displayName: 'Пруфик'
   },
   answer: {
-    usageFallback: 'Сделай reply на сообщение с вопросом и отправь /answer.',
     failedFallback: 'Не получилось ответить. Попробуй ещё раз.',
     lookupFailedFallback: 'Не смог быстро проверить это по внешним источникам.'
   },
@@ -93,15 +92,6 @@ export const text = {
     deployUpdateSystem: `You write concise, idiomatic Telegram release updates in ${language.targetLanguageName}. Infer the user-visible meaning from commit messages. Never translate commit messages literally. Use Telegram-compatible HTML only and never use Markdown.`,
     evalSystem: `You are a careful Telegram chat assistant. Answer in ${language.targetLanguageName}.`,
     sections: {
-      decide: {
-        positions: 'Позиции',
-        evidence: 'Аргументы',
-        verdict: 'Вердикт'
-      },
-      summarize: {
-        shortSummary: 'Кратко',
-        takeaway: 'Вывод'
-      },
       read: {
         original: 'Оригинал',
         translation: 'Перевод'

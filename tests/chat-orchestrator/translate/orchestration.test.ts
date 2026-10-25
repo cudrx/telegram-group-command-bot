@@ -3,7 +3,6 @@ import { describe, expect, test, vi } from 'vitest';
 import {
   createIncomingMessage,
   createLogger,
-  createLookupPlanResult,
   createOrchestrator,
   createReplyResult,
   FakeDatabaseClient
@@ -99,18 +98,9 @@ describe('ChatOrchestrator translate command', () => {
       messageId: 1001,
       createdAt: '2026-04-03T12:00:30.000Z'
     });
-    const planLookup = vi.fn().mockResolvedValue(
-      createLookupPlanResult({
-        shouldLookup: true,
-        purpose: 'entity_grounding',
-        reason: 'should not be called',
-        queries: ['Hello world'],
-        confidence: 'high'
-      })
-    );
     const orchestrator = createOrchestrator({
       db,
-      qwen: { generateReply, planLookup },
+      qwen: { generateReply },
       lookupProvider: {
         search: vi.fn().mockRejectedValue(new Error('should not lookup'))
       },
@@ -127,11 +117,9 @@ describe('ChatOrchestrator translate command', () => {
       })
     );
 
-    expect(planLookup).not.toHaveBeenCalled();
     expect(generateReply).toHaveBeenCalledWith(
       expect.objectContaining({
         intent: 'translate',
-        lookupContext: null,
         mediaContext: null,
         replyContext: expect.objectContaining({
           replyAnchorMessage: expect.objectContaining({

@@ -63,8 +63,8 @@ describe('createApplication message forwarding', () => {
       message: {
         message_id: 13,
         date: 1_744_000_030,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         from: {
           id: 123,
           is_bot: false,
@@ -198,8 +198,8 @@ describe('createApplication message forwarding', () => {
       message: {
         message_id: 15,
         date: 1_744_000_050,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         from: {
           id: 123,
           is_bot: false,

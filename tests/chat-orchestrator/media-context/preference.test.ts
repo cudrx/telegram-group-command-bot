@@ -9,7 +9,7 @@ import {
 } from '../support.js';
 
 describe('ChatOrchestrator media context preference', () => {
-  test('prefers OCR over vision description for nearby image summaries', async () => {
+  test('includes original OCR and image observations in neighboring media evidence', async () => {
     const db = new FakeDatabaseClient();
     db.saveIncomingMessage(
       createIncomingMessage({
@@ -98,8 +98,8 @@ describe('ChatOrchestrator media context preference', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 3,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 2
       })
     );
@@ -110,7 +110,7 @@ describe('ChatOrchestrator media context preference', () => {
           priorContextMessages: expect.arrayContaining([
             expect.objectContaining({
               messageId: 1,
-              text: '[media] ГОРЖУСЬ'
+              text: expect.stringContaining('OCR text: ГОРЖУСЬ')
             })
           ])
         })

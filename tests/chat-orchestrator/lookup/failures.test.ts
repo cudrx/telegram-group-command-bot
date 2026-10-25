@@ -1,165 +1,56 @@
-import { describe, expect, test, vi } from 'vitest';
+import { expect, test } from 'vitest';
 
-import {
-  createIncomingMessage,
-  createLookupPlanResult,
-  createOrchestrator,
-  createReplyResult,
-  FakeDatabaseClient
-} from '../support.js';
+import { createAnswerFlow } from '../support/answer-flow.js';
 
-describe('ChatOrchestrator lookup failure paths', () => {
-  test('passes failed lookup context to final reply when Tavily fails', async () => {
-    const db = new FakeDatabaseClient();
-    db.saveIncomingMessage(
-      createIncomingMessage({
-        messageId: 1,
-        text: 'кто лучше дора или мейби бэйби?',
-        createdAt: '2026-04-03T12:00:00.000Z'
-      })
-    );
+test.each([
+  ['malformed JSON', '{broken'],
+  [
+    'unavailable message ID',
+    { mode: 'direct', context: { messageIds: [9000] }, text: 'Wrong answer' }
+  ],
+  [
+    'model timeout',
+    Object.assign(new Error('timeout'), { name: 'APIConnectionTimeoutError' })
+  ],
+  [
+    'unsupported history retrieval',
+    { mode: 'retrieve_more', context: { messageIds: [] } }
+  ]
+])('fails safely without search or another completion after %s', async (_name, reply) => {
+  const flow = createAnswerFlow([reply]);
+  await flow.run();
+  expect(flow.requests).toHaveLength(1);
+  expect(flow.search).not.toHaveBeenCalled();
+  expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      text: 'Не получилось ответить. Попробуй ещё раз.'
+    })
+  );
+});
 
-    const generateReply = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('вердикт'));
-    const planLookup = vi.fn().mockResolvedValue(
-      createLookupPlanResult({
-        shouldLookup: true,
-        purpose: 'entity_grounding',
-        reason: 'Need to identify the artists.',
-        queries: ['Дора Мэйби Бэйби певицы кто такие'],
-        confidence: 'high'
-      })
-    );
-    const lookupProvider = {
-      search: vi.fn().mockRejectedValue(new Error('network down'))
-    };
-    const replyDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1001,
-      createdAt: '2026-04-03T12:00:30.000Z'
-    });
-    const orchestrator = createOrchestrator({
-      db,
-      qwen: { generateReply, planLookup },
-      replyDispatcher,
-      lookupProvider
-    });
-
-    await orchestrator.handleIncomingMessage(
-      createIncomingMessage({
-        messageId: 2,
-        text: '/decide',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
-      })
-    );
-
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lookupContext: expect.objectContaining({
-          status: 'failed',
-          errorMessage: 'network down'
-        })
-      })
-    );
-  });
-
-  test('continues with failed lookup context when planner fails', async () => {
-    const db = new FakeDatabaseClient();
-    const generateReply = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('вердикт без поиска'));
-    const planLookup = vi.fn().mockRejectedValue(new Error('planner quota'));
-    const lookupProvider = {
-      search: vi.fn()
-    };
-    const replyDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1001,
-      createdAt: '2026-04-03T12:00:30.000Z'
-    });
-    const orchestrator = createOrchestrator({
-      db,
-      qwen: { generateReply, planLookup },
-      replyDispatcher,
-      lookupProvider
-    });
-
-    await orchestrator.handleIncomingMessage(
-      createIncomingMessage({
-        messageId: 2,
-        text: '/decide',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
-      })
-    );
-
-    expect(lookupProvider.search).not.toHaveBeenCalled();
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lookupContext: expect.objectContaining({
-          status: 'failed',
-          provider: null,
-          query: null,
-          errorMessage: 'planner quota'
-        })
-      })
-    );
-    expect(replyDispatcher).toHaveBeenCalledWith({
-      chatId: 1,
-      replyToMessageId: 2,
-      text: 'вердикт без поиска'
-    });
-  });
-
-  test('continues with failed lookup context when planner output is malformed', async () => {
-    const db = new FakeDatabaseClient();
-    const generateReply = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('вердикт без поиска'));
-    const planLookup = vi.fn().mockResolvedValue({
-      status: 'failed',
-      decision: {
-        shouldLookup: false,
-        purpose: 'none',
-        reason: 'Lookup planner returned invalid JSON.',
-        queries: [],
-        confidence: 'low'
-      },
-      model: 'planner-model',
-      latencyMs: 5,
-      attemptCount: 1,
-      promptTokensEstimate: 30
-    });
-    const lookupProvider = {
-      search: vi.fn()
-    };
-    const replyDispatcher = vi.fn().mockResolvedValue({
-      messageId: 1001,
-      createdAt: '2026-04-03T12:00:30.000Z'
-    });
-    const orchestrator = createOrchestrator({
-      db,
-      qwen: { generateReply, planLookup },
-      replyDispatcher,
-      lookupProvider
-    });
-
-    await orchestrator.handleIncomingMessage(
-      createIncomingMessage({
-        messageId: 2,
-        text: '/decide',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
-      })
-    );
-
-    expect(lookupProvider.search).not.toHaveBeenCalled();
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lookupContext: expect.objectContaining({
-          status: 'failed',
-          provider: null,
-          query: null,
-          errorMessage: 'Lookup planner returned invalid JSON.'
-        })
-      })
-    );
-  });
+test('a failed required lookup does not generate an ungrounded answer', async () => {
+  const flow = createAnswerFlow(
+    [
+      {
+        mode: 'research',
+        context: { messageIds: [1] },
+        resolvedQuestion: 'Вопрос',
+        purpose: 'fact_check',
+        focusClaim: 'Факт',
+        queries: ['PostgreSQL docs']
+      }
+    ],
+    {
+      search: async () => {
+        throw new Error('network down');
+      }
+    }
+  );
+  await flow.run();
+  expect(flow.requests).toHaveLength(1);
+  expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      text: 'Не смог быстро проверить это по внешним источникам.'
+    })
+  );
 });

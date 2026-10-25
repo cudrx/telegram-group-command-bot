@@ -21,6 +21,8 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     logLevel: 'info',
     logColor: true,
     sqlitePath,
+    mediaVideoUrl: null,
+    mediaGalleryUrl: null,
     redditCookieHeaderPath: overrides.redditCookieHeaderPath ?? null,
     redditCookiesPath:
       overrides.redditCookiesPath ??
@@ -32,16 +34,12 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
       overrides.youtubeCookiesPath ??
       resolveDefaultCookiesPath(sqlitePath, 'youtube-cookies.txt'),
     answerContextLimit: 50,
-    summarizeContextLimit: 200,
-    decideContextLimit: 100,
     replyMinTypingMs: 0,
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000,
-    llmPlannerModel: 'planner-model',
     lookupProvider: 'tavily',
     tavilyApiKey: null,
     lookupTimeoutMs: 7000,
-    lookupMaxQueries: 1,
     lookupMaxResults: 3,
     ocrSpaceApiKey: null,
     sttProvider: 'gladia',

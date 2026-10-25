@@ -97,7 +97,7 @@ test('builds command reply context from the current command and recent human con
     chatId: 1,
     triggerMessageId: 102,
     contextLimit: 3,
-    intent: 'summarize',
+    intent: 'read',
     botUserId: 77
   });
 
@@ -159,7 +159,7 @@ test('uses a replied-to non-self bot message as answer anchor', () => {
   });
 });
 
-test("does not use this bot's own message as answer anchor", () => {
+test("uses this bot's own message as answer anchor", () => {
   const db = new FakeDatabaseClient();
 
   db.seedStoredMessages(1, [
@@ -194,7 +194,10 @@ test("does not use this bot's own message as answer anchor", () => {
     botUserId: 77
   });
 
-  expect(context.replyAnchorMessage).toBe(null);
+  expect(context.replyAnchorMessage).toMatchObject({
+    messageId: 98,
+    isBot: true
+  });
 });
 
 test('uses a replied-to non-self message as answer anchor', () => {
@@ -238,7 +241,7 @@ test('uses a replied-to non-self message as answer anchor', () => {
   });
 });
 
-test('uses previous non-self message as answer anchor when answer has no reply', () => {
+test('keeps previous messages as candidates without inventing a reply anchor', () => {
   const db = new FakeDatabaseClient();
 
   db.seedStoredMessages(1, [
@@ -273,10 +276,10 @@ test('uses previous non-self message as answer anchor when answer has no reply',
     botUserId: 77
   });
 
-  expect(context.replyAnchorMessage).toMatchObject({
-    messageId: 98,
-    text: 'кто такой джон голт?'
-  });
+  expect(context.replyAnchorMessage).toBeNull();
+  expect(context.priorContextMessages).toContainEqual(
+    expect.objectContaining({ messageId: 98 })
+  );
 });
 
 test("does not use this bot's previous message as answer anchor without reply", () => {
@@ -317,7 +320,7 @@ test("does not use this bot's previous message as answer anchor without reply", 
   expect(context.replyAnchorMessage).toBe(null);
 });
 
-test('ignores reply anchors for decide and summarize', () => {
+test('ignores reply anchors for local read jobs', () => {
   const db = new FakeDatabaseClient();
 
   db.seedStoredMessages(1, [
@@ -348,7 +351,7 @@ test('ignores reply anchors for decide and summarize', () => {
     chatId: 1,
     triggerMessageId: 99,
     contextLimit: 3,
-    intent: 'decide',
+    intent: 'read',
     botUserId: 77
   });
 
@@ -363,7 +366,7 @@ test('returns an empty reply context when the trigger message is missing', () =>
     chatId: 1,
     triggerMessageId: 102,
     contextLimit: 3,
-    intent: 'summarize',
+    intent: 'translate',
     botUserId: 77
   });
 
@@ -397,7 +400,7 @@ test('marks context as truncated when older human messages are omitted', () => {
     chatId: 1,
     triggerMessageId: 5,
     contextLimit: 3,
-    intent: 'decide',
+    intent: 'read',
     botUserId: 77
   });
 

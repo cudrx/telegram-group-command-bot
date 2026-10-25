@@ -16,8 +16,6 @@ export type AccessContext =
   | { kind: 'unauthorized' };
 
 export type AssistantIntent =
-  | 'summarize'
-  | 'decide'
   | 'read'
   | 'transcribe'
   | 'answer'
@@ -95,6 +93,7 @@ export type ReplyContext = {
   contextMetadata?: {
     truncated: boolean;
     includedMessageCount: number;
+    priorityMessageIds?: number[];
   };
 };
 

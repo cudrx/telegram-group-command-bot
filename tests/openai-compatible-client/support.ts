@@ -6,8 +6,6 @@ export function createClientConfig() {
     baseUrl: 'https://example.com',
     replyModel: 'reply-model',
     replyTemperature: 0.6,
-    plannerModel: 'planner-model',
-    lookupMaxQueries: 1,
     timeoutMs: 20_000,
     maxRetries: 1
   };
@@ -32,7 +30,7 @@ export function createOpenAiStub(content: string) {
 }
 
 export function createReplyInput(
-  intent: 'summarize' | 'decide' | 'read' | 'answer' = 'decide'
+  intent: 'translate' | 'read' = 'translate'
 ): Parameters<OpenAiCompatibleLlmClient['generateReply']>[0] {
   return {
     assistantInstructions: 'Assistant instructions',

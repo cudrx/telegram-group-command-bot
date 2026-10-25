@@ -20,6 +20,54 @@ import {
 describe('createApplication lifecycle', () => {
   installAppTestHooks();
 
+  test('waits for both media workers before announcements and Telegram polling', async () => {
+    const { createApplication } = await importCreateApplication();
+    const policy = createTestChatPolicy();
+    const app = await createApplication(
+      createEnv({
+        mediaVideoUrl: 'http://video:8081',
+        mediaGalleryUrl: 'http://gallery:8082',
+        telegramChatPolicies: [
+          {
+            ...policy,
+            features: { ...policy.features, deploy_announcements: true }
+          }
+        ]
+      })
+    );
+    let releaseVideo: (value: Response) => void = () => {};
+    let releaseGallery: (value: Response) => void = () => {};
+    const video = new Promise<Response>((resolve) => {
+      releaseVideo = resolve;
+    });
+    const gallery = new Promise<Response>((resolve) => {
+      releaseGallery = resolve;
+    });
+    const fetch = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) =>
+        String(input).includes('video') ? video : gallery
+      );
+    try {
+      const starting = app.start();
+      await Promise.resolve();
+      expect(botStart).not.toHaveBeenCalled();
+      expect(maybeAnnounceDeployUpdate).not.toHaveBeenCalled();
+      releaseVideo(new Response('OK'));
+      await Promise.resolve();
+      expect(botStart).not.toHaveBeenCalled();
+      releaseGallery(new Response('OK'));
+      await starting;
+      expect(maybeAnnounceDeployUpdate).toHaveBeenCalled();
+      expect(botStart).toHaveBeenCalled();
+    } finally {
+      releaseVideo(new Response('OK'));
+      releaseGallery(new Response('OK'));
+      fetch.mockRestore();
+      await app.stop();
+    }
+  });
+
   test('sends bot replies with Telegram HTML parse mode', async () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(createEnv());

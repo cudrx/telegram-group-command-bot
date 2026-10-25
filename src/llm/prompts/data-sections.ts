@@ -41,6 +41,9 @@ export function getIntentDataSections(input: {
         input.mediaContext?.visionInterpretation ??
           'No media interpretation context.'
       ),
+      targetAudioTranscript: formatJsonForPrompt(
+        input.mediaContext?.audioTranscript ?? null
+      ),
       nearbyChatContext: [
         formatReplyContextMetadata({
           messages: input.replyContext.priorContextMessages,
@@ -48,11 +51,9 @@ export function getIntentDataSections(input: {
         }),
         formatReplyContextMessages(input.replyContext.priorContextMessages)
       ].join('\n'),
-      currentCommandMessage: formatCommandMessage(
+      currentCommandMessage: formatSingleMessage(
         input.replyContext.triggerMessage
-      ),
-      targetLabel: 'TARGET_MESSAGE_TO_ANSWER',
-      commandName: input.intent
+      )
     });
   }
 
@@ -94,7 +95,7 @@ export function getIntentDataSections(input: {
     });
   }
 
-  if (input.intent === 'translate') {
+  {
     const translationContextMessages = input.replyContext.priorContextMessages
       .filter(
         (message) =>
@@ -122,19 +123,6 @@ export function getIntentDataSections(input: {
       formatReplyContextMessages(translationContextMessages)
     ].join('\n');
   }
-
-  return renderPromptTemplate(loadPrompt('systemGeneric'), {
-    currentCommandMessage: formatCommandMessage(
-      input.replyContext.triggerMessage
-    ),
-    chatContext: [
-      formatReplyContextMetadata({
-        messages: input.replyContext.priorContextMessages,
-        metadata: input.replyContext.contextMetadata
-      }),
-      formatReplyContextMessages(input.replyContext.priorContextMessages)
-    ].join('\n')
-  });
 }
 
 function formatTranslateBlocksForPrompt(

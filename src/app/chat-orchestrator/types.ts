@@ -5,19 +5,11 @@ import type {
   AssistantIntent,
   MediaMessageSnapshot,
   NormalizedMessage,
-  ReplyContext,
   ReplyGenerationIntent,
   StoredMessage
 } from '../../domain/models.js';
-import type {
-  GenerateAnswerInput,
-  GenerateAnswerResult,
-  LlmReplyResult,
-  LookupPlanResult
-} from '../../llm/openai-compatible-client/index.js';
-import type { DescribeMediaContext } from '../../llm/prompts.js';
 import type { AppLogger } from '../../logging/logger.js';
-import type { LookupIntent, LookupProvider } from '../../lookup/types.js';
+import type { LookupProvider } from '../../lookup/types.js';
 import type { MediaExecFile } from '../../media/exec.js';
 import type {
   OcrProvider,
@@ -103,23 +95,10 @@ export type EditMessageTextDispatcher = (input: {
   text: string;
 }) => Promise<void>;
 
-export type LlmClient = {
-  generateAnswer(input: GenerateAnswerInput): Promise<GenerateAnswerResult>;
-  generateReply(input: {
-    assistantInstructions: string;
-    targetDisplayName: string;
-    intent: ReplyGenerationIntent;
-    currentDateTime: string;
-    replyContext: ReplyContext;
-    lookupContext?: import('../../lookup/types.js').LookupContext | null;
-    mediaContext?: DescribeMediaContext | null;
-  }): Promise<LlmReplyResult>;
-  planLookup(input: {
-    intent: LookupIntent;
-    currentDateTime: string;
-    replyContext: ReplyContext;
-  }): Promise<LookupPlanResult>;
-};
+export type LlmClient = Pick<
+  import('../../llm/openai-compatible-client/index.js').OpenAiCompatibleLlmClient,
+  'generateAnswer' | 'generateReply'
+>;
 
 export type ReplyRequest = {
   chatId: number;

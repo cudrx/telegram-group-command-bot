@@ -7,6 +7,12 @@ export function printResult(result: EvalResult): void {
   console.log('');
   console.log('Rubric:');
 
+  if (result.conversation) {
+    console.log(
+      `${result.conversation.passed ? 'PASS' : 'FAIL'} conversation: ${JSON.stringify(result.conversation)}`
+    );
+  }
+
   for (const check of result.rubric.include) {
     console.log(
       `${check.passed ? 'PASS' : 'FAIL'} include any: ${check.group.join(' | ')}`
@@ -57,6 +63,11 @@ export function formatMarkdown(results: EvalResult[]): string {
       '',
       '### Rubric',
       '',
+      ...(result.conversation
+        ? [
+            `- ${result.conversation.passed ? 'PASS' : 'FAIL'} conversation: ${JSON.stringify(result.conversation)}`
+          ]
+        : []),
       ...result.rubric.include.map(
         (check) =>
           `- ${check.passed ? 'PASS' : 'FAIL'} include any: ${check.group.join(' | ')}`

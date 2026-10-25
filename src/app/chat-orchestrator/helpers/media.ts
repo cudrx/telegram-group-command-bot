@@ -4,7 +4,6 @@ import type { MediaMessageSnapshot } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import type { NormalizedMediaArtifact } from '../../../media/types.js';
 
-export const NEARBY_MEDIA_SCAN_LIMIT = mediaProviderConfig.nearbyScanLimit;
 export const IMAGE_DESCRIPTION_PROVIDER =
   mediaProviderConfig.providers.imageDescription;
 export const IMAGE_DESCRIPTION_ARTIFACT_KIND =

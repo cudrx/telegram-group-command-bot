@@ -16,6 +16,10 @@ import { memeActionConfig } from './config/runtime/index.js';
 import { DatabaseClient } from './database/index.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import {
+  createRemoteMediaExec,
+  waitForMediaServices
+} from './media/service-client.js';
+import {
   normalizeEditedTextMessage,
   normalizeTextMessage
 } from './transport/telegram/normalize-message.js';
@@ -26,6 +30,12 @@ type Application = {
 };
 
 export async function createApplication(env: AppEnv): Promise<Application> {
+  if (Boolean(env.mediaVideoUrl) !== Boolean(env.mediaGalleryUrl)) {
+    throw new Error(
+      'MEDIA_VIDEO_URL and MEDIA_GALLERY_URL must be configured together'
+    );
+  }
+
   const db = DatabaseClient.open(env.sqlitePath);
   const baseLogger = createLogger(
     {
@@ -69,6 +79,14 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     ...providers,
     telegramFileApi: bot.api,
     fetch: globalThis.fetch,
+    ...(env.mediaVideoUrl && env.mediaGalleryUrl
+      ? {
+          execFile: createRemoteMediaExec({
+            videoUrl: env.mediaVideoUrl,
+            galleryUrl: env.mediaGalleryUrl
+          })
+        }
+      : {}),
     bot: {
       userId: botInfo.id,
       username: botInfo.username ?? null,
@@ -195,6 +213,13 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
   return {
     async start() {
+      if (env.mediaVideoUrl && env.mediaGalleryUrl) {
+        await waitForMediaServices({
+          videoUrl: env.mediaVideoUrl,
+          galleryUrl: env.mediaGalleryUrl
+        });
+      }
+
       cleanupScheduler.start();
       const deployAnnouncementChatIds = env.telegramChatPolicies
         .filter((policy) => policy.features.deploy_announcements)

@@ -4,3 +4,6 @@
 data/
 dist/
 node_modules/
+.github/generated/
+.kubeconfig
+*.kubeconfig

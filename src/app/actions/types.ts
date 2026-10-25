@@ -1,9 +1,5 @@
 import type { ChatCommand } from '../../config/env/types.js';
-import type {
-  AccessContext,
-  AssistantIntent,
-  AuthorizedMode
-} from '../../domain/models.js';
+import type { AccessContext, AuthorizedMode } from '../../domain/models.js';
 import type { ChatOrchestratorMediaSupport } from '../chat-orchestrator/media/index.js';
 import type {
   ChatOrchestratorDeps,
@@ -18,7 +14,7 @@ export type ActionContext = {
 };
 
 export type ChatAction = {
-  intent: AssistantIntent;
+  intent: ChatCommand;
   commands: string[];
   modes: AuthorizedMode[];
   handle(ctx: ActionContext): Promise<void>;
@@ -34,7 +30,7 @@ export type ResolveCommandInput = {
 export type ResolvedAction = {
   action: ChatAction;
   commandText: string;
-  requiredCommand: ChatCommand | null;
+  requiredCommand: ChatCommand;
 };
 
 export type ActionRegistry = {

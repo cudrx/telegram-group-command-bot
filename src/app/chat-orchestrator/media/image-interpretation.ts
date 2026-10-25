@@ -37,7 +37,6 @@ export async function generateAndStoreVisionInterpretation(
       replyAnchorMessage: null,
       priorContextMessages: []
     },
-    lookupContext: null,
     mediaContext: {
       sourceCaption: input.media.caption,
       visionDescription: input.visionDescription,

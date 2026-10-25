@@ -14,9 +14,6 @@ describe('telegram test fixtures', () => {
       chatId: TEST_CONFIGURED_CHAT_ID,
       label: 'default',
       commands: {
-        answer: true,
-        summarize: true,
-        decide: true,
         translate: true,
         read: true,
         transcribe: true,
@@ -24,6 +21,7 @@ describe('telegram test fixtures', () => {
         sex: true
       },
       features: {
+        assistant: true,
         direct_links: true,
         deploy_announcements: false
       },

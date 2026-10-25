@@ -5,6 +5,7 @@ import type {
 } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import {
+  appendMediaSummaryToMessageText,
   artifactFromStoredMediaArtifact,
   buildTranscriptMediaContext,
   IMAGE_DESCRIPTION_ARTIFACT_KIND,
@@ -118,48 +119,37 @@ export function getTargetMediaSnapshot(
   return (
     request.replyToMediaSnapshot ??
     replyContext.replyAnchorMessage?.mediaSnapshot ??
+    (request.intent === 'answer'
+      ? replyContext.triggerMessage?.mediaSnapshot
+      : null) ??
     null
   );
 }
 
-export function getPreferredMediaSummary(
-  artifacts: StoredMediaArtifact[],
-  messageId: number,
-  mediaKind: MediaMessageSnapshot['mediaKind']
+export function getMediaEvidenceSummary(
+  artifacts: MediaEvidence[],
+  messageId: number
 ): string | null {
-  const matching = artifacts.filter(
-    (artifact) => artifact.telegramMessageId === messageId
-  );
-
-  if (matching.length === 0) {
-    return null;
-  }
-
-  if (mediaKind === 'photo' || mediaKind === 'document_image') {
-    return (
-      matching.find(
-        (artifact) =>
-          artifact.artifactKind === IMAGE_INTERPRETATION_ARTIFACT_KIND
-      )?.artifactText ??
-      matching.find(
-        (artifact) => artifact.artifactKind === OCR_TEXT_RU_ARTIFACT_KIND
-      )?.artifactText ??
-      matching.find(
-        (artifact) => artifact.artifactKind === OCR_TEXT_DEFAULT_ARTIFACT_KIND
-      )?.artifactText ??
-      matching.find(
-        (artifact) => artifact.artifactKind === IMAGE_DESCRIPTION_ARTIFACT_KIND
-      )?.artifactText ??
-      matching.find((artifact) => artifact.artifactKind === 'vision_raw')
-        ?.artifactText ??
-      null
+  const labels: Record<string, string> = {
+    transcript: 'Audio transcript',
+    [OCR_TEXT_RU_ARTIFACT_KIND]: 'OCR text',
+    [OCR_TEXT_DEFAULT_ARTIFACT_KIND]: 'OCR text (default language)',
+    [IMAGE_DESCRIPTION_ARTIFACT_KIND]: 'Image description',
+    [IMAGE_INTERPRETATION_ARTIFACT_KIND]: 'Model interpretation (unverified)'
+  };
+  const evidence = artifacts
+    .filter(
+      (artifact) =>
+        artifact.telegramMessageId === messageId &&
+        artifact.artifactText &&
+        labels[artifact.artifactKind]
+    )
+    .map(
+      (artifact) =>
+        `${labels[artifact.artifactKind]}: ${artifact.artifactText?.slice(0, 2000)}`
     );
-  }
 
-  return (
-    matching.find((artifact) => artifact.artifactKind === 'transcript')
-      ?.artifactText ?? null
-  );
+  return evidence.length ? evidence.join('\n') : null;
 }
 
 export function getCachedImageArtifact(
@@ -196,4 +186,30 @@ export function getLatestImageArtifact(
     provider: input.provider,
     artifactKind: input.artifactKind
   });
+}
+
+export type MediaEvidence = Pick<
+  StoredMediaArtifact,
+  'telegramMessageId' | 'artifactKind' | 'artifactText'
+>;
+
+export function enrichContextWithMediaEvidence(
+  context: ReplyContext,
+  artifacts: MediaEvidence[]
+): ReplyContext {
+  return {
+    ...context,
+    priorContextMessages: context.priorContextMessages.map((message) =>
+      message.mediaSnapshot
+        ? {
+            ...message,
+            text: appendMediaSummaryToMessageText(
+              message.text,
+              getMediaEvidenceSummary(artifacts, message.messageId) ??
+                'Recognition unavailable; do not infer media contents.'
+            )
+          }
+        : message
+    )
+  };
 }

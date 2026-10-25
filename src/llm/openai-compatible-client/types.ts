@@ -5,11 +5,6 @@ import type {
   ReplyGenerationIntent
 } from '../../domain/models.js';
 import type { AppLogger } from '../../logging/logger.js';
-import type {
-  LookupContext,
-  LookupDecision,
-  LookupIntent
-} from '../../lookup/types.js';
 import type { DescribeMediaContext } from '../prompts.js';
 
 export type LlmReplyResult = {
@@ -21,22 +16,11 @@ export type LlmReplyResult = {
   promptTokensEstimate: number;
 };
 
-export type LookupPlanResult = {
-  status: 'ok' | 'failed';
-  decision: LookupDecision;
-  model: string;
-  latencyMs: number;
-  attemptCount: number;
-  promptTokensEstimate: number;
-};
-
 export type LlmClientConfig = {
   apiKey: string;
   baseUrl: string;
   replyModel: string;
   replyTemperature: number;
-  plannerModel?: string;
-  lookupMaxQueries?: number;
   timeoutMs: number;
   maxRetries: number;
 };
@@ -51,15 +35,8 @@ export type ChatCompletionsCreate = OpenAI['chat']['completions']['create'];
 export type GenerateReplyInput = {
   assistantInstructions: string;
   targetDisplayName: string;
-  intent: ReplyGenerationIntent;
+  intent: Exclude<ReplyGenerationIntent, 'answer'>;
   currentDateTime: string;
   replyContext: ReplyContext;
-  lookupContext?: LookupContext | null;
   mediaContext?: DescribeMediaContext | null;
-};
-
-export type PlanLookupInput = {
-  intent: LookupIntent;
-  currentDateTime: string;
-  replyContext: ReplyContext;
 };

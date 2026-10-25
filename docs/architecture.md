@@ -2,27 +2,24 @@
 
 ## Scope
 
-The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, and explicit command flows. The only automatic trigger outside commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, YouTube Shorts links, and TikTok video links.
+The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, mention-driven assistant requests and explicit utility commands. Assistant requests require an explicit username mention. The automatic trigger outside assistant requests and commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, YouTube Shorts links, and TikTok video links.
 
 The bot responds to these commands:
 
-- `/summarize`
-- `/decide`
-- `/answer`
 - `/translate`
 - `/read`
 - `/transcribe`
 - `/meme`
 - `/sex`
 
-Regular bot mentions, regular private-chat text, unauthorized chats, and private messages from users other than the operator or link-only users do not start a reply flow. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `linkUserIds` in `telegram-access-config.json` can use only the direct-link flow.
+Explicit bot username mentions start an assistant reply in configured chats with `features.assistant` enabled and in the operator private chat. Ordinary messages, replies without a mention, unauthorized chats, and mentions from link-only private users do not start an assistant reply. Retired `/answer`, `/summarize`, and `/decide` commands are ignored. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `linkUserIds` in `telegram-access-config.json` can use only the direct-link flow.
 
 ## Invariants
 
 - Access checks run at the application layer before `ChatOrchestrator` and before SQLite writes.
 - The message log in `messages` is the main source of truth.
-- Prompt context excludes previous messages from this bot.
-- Messages from other bots are stored and can be reply anchors for `/answer` and `/translate`, but they are excluded from recent human-message context.
+- Assistant candidates can include previous messages from this bot, especially explicit reply ancestors. They are fallible conversation history, never authoritative facts. Utility translation retains its existing neighboring-human context.
+- Messages from other bots are stored and can be explicit assistant/translation reply targets or ancestors. Unrelated other-bot messages are excluded from assistant candidate scans.
 - Lookup context is added as untrusted evidence, not as instructions.
 - Media recognition results are stored as TTL artifacts; source files are temporary.
 - `/meme` and `/sex` keep downloaded Reddit media only in a temporary directory until Telegram dispatch completes; anti-repeat state stores post metadata.
@@ -65,9 +62,9 @@ Assembly helpers live in:
 Configuration is split into two layers:
 
 - `src/config/env/` reads the environment, validates deploy-specific values and secrets, and applies defaults.
-- Telegram chat access policy is loaded from the JSON file at `TELEGRAM_CHAT_CONFIG_PATH`. Each chat policy has a `commands` object for slash-command gating, a `features` object for non-command capabilities such as `direct_links` and `deploy_announcements`, and a `reddit_sources` object for chat-specific `/meme` and `/sex` subreddit lists.
+- Telegram chat access policy is loaded from the JSON file at `TELEGRAM_CHAT_CONFIG_PATH`. Each chat policy has a `commands` object for slash-command gating, a `features` object for non-command capabilities such as `assistant`, `direct_links`, and `deploy_announcements`, and a `reddit_sources` object for chat-specific `/meme` and `/sex` subreddit lists.
 - Global operator access settings are loaded from the JSON file at `TELEGRAM_ACCESS_CONFIG_PATH`.
-- `src/config/runtime/` stores non-secret runtime defaults: action settings (`answer`, `read`, `meme`, `sex`, `summarize`, `decide`), external provider settings, and storage settings.
+- `src/config/runtime/` stores non-secret runtime defaults: assistant settings (`answer`) and utility settings (`read`, `meme`, `sex`), external provider settings, and storage settings.
 - `src/locales/locale.ts` is the active localization module. Runtime code imports localized user-facing text and language-specific patterns from this file through neutral `text` and `patterns` exports, so switching the bot language is a file replacement/edit rather than a sweep through action code.
 
 Values that differ between environments go through the env schema. Values that describe local bot policy or provider contracts live in runtime config and are imported directly by consumers.
@@ -102,8 +99,9 @@ Command-flow orchestrator:
 - starts auto-read for supported media;
 - asks the action registry to resolve a command;
 - builds a shared request for the resolved action;
-- runs `action.handle(...)`;
-- ignores the message when no action is resolved.
+- runs `action.handle(...)` for utility commands;
+- routes explicit bot mentions through the shared assistant reply job when enabled;
+- otherwise preserves the direct-media/ignore flow.
 
 `index.ts` accepts normalized incoming messages. `reply-job.ts` manages LLM reply job execution, and `reply-generation.ts` builds LLM context and calls the model. Topical helper modules live in `src/app/chat-orchestrator/helpers/`.
 
@@ -125,14 +123,15 @@ SQLite layer:
 LLM layer:
 
 - prompt file registry;
+- one assistant behavior policy for answers, explanations, summaries, and disputes; retired summary/dispute policies and fixed output-section checks are removed;
 - prompt assembly and sanitization;
-- lookup planner;
+- assistant context resolution and research routing in the first completion;
 - OpenAI-compatible client;
 - retries, timeouts, and logging;
 - deploy announcement formatting;
 - reply generation.
 
-Static prompt text lives in `llm/`. The shared reply shell and lookup planner receive the current Moscow date and time in plain text so reply intents and lookup decisions resolve relative dates consistently. Transcript rows include message and reply-target IDs, plus metadata indicating whether the configured context window omitted older human messages.
+Static prompt text lives in `llm/`. Assistant and utility prompts receive the current Moscow date and time in plain text. Transcript rows include message IDs, authors, timestamps, and explicit reply IDs. The current mention text is the request, and an explicit reply is a separate target. Truncation metadata indicates incomplete candidate history. Assistant instructions and JSON contracts are sent as system data; conversation and web evidence are isolated in user data.
 
 ### `src/media`
 
@@ -154,21 +153,20 @@ Outbound voice:
 
 ## Main Message Flow
 
-1. `grammY` receives a message update.
-2. `normalizeTextMessage` builds a `NormalizedMessage`.
-3. The application access policy determines an `AccessContext` or rejects the update.
-4. `ChatOrchestrator` stores the message in SQLite.
-5. If the message has a supported media snapshot, the auto-read coordinator starts.
-6. The action registry resolves a command from registered action metadata.
-7. For configured chats, centralized command/feature gating checks whether the resolved command or direct-link flow is enabled for that chat.
-8. When no action is resolved, or the resolved behavior is disabled for that chat, the flow ends.
-9. `ChatOrchestrator` builds a request and calls `action.handle(...)`.
-10. `/read` runs a local TTS flow without the LLM.
-11. `/meme` and `/sex` run a separate flow that selects a Reddit top-month post from the current chat's configured `reddit_sources`, downloads image/video media, and sends it with a locally formatted caption.
-12. `/summarize`, `/decide`, `/answer`, and `/translate` use the shared LLM reply job. `/answer` makes one JSON-mode call that either answers directly or requests one web query; only the research route performs lookup and a second grounded call.
-13. The reply is formatted for Telegram HTML.
-14. `/answer` may be sent as voice when it passes the local TTS policy; local placeholder and fallback replies are text-only.
-15. The outgoing bot message is stored in SQLite with `output_mode`.
+1. `grammY` receives a message, normalizes Telegram text/caption and entity offsets, and checks access before persistence.
+2. `ChatOrchestrator` saves the update in SQLite; duplicate message IDs exit before any new job. Existing media auto-read starts when supported.
+3. The action registry resolves utility commands and applies per-chat command gating. Leading slash commands never trigger an assistant mention embedded in their arguments.
+4. An explicit username mention from a human in an assistant-enabled chat, or the operator private chat, starts the shared `answer` reply job. Bare mentions work; replies without mentions stay silent. Link-only users cannot start this flow.
+5. Without a handled command or assistant request, supported direct media links use the existing local flow.
+6. `buildReplyContext` delegates assistant candidate retrieval to `buildAssistantContext`. It uses a bounded recent scan, predecessors of an old reply target, lexical/author/recency hints, and stored explicit reply ancestors. Queries are scoped to the current chat and messages before the triggering update. Telegram reply snapshots can supply missing targets.
+7. Target media is recognized using the existing pipeline. Neighboring recognition is never awaited or started on demand. Cached OCR, description, interpretation, and transcript evidence enrich only supplied candidates. Missing recognition is labeled; interpretation is explicitly unverified. History is fitted once after enrichment, preserving retrieval priorities and the space left by mandatory prompt content.
+8. The first `generateAnswer` completion resolves the relevant candidate IDs and returns `direct`, `clarify`, or `research`. Direct answers, summaries, dispute assessments, and clarifications complete in this one call. No additional history retrieval is performed.
+9. IDs are validated against the current-chat candidate pool. For research, `selectAnswerContext` retains selected original messages, the explicit target, and available explicit parents; unrelated candidates are omitted.
+10. Research uses the existing lookup provider for one or two parallel queries. A required lookup failure returns the existing local verification fallback. Successful sources receive request-local IDs and enter the second grounded completion as untrusted evidence.
+11. The shared formatter/dispatcher sends the answer and stores it. Existing outbound voice policy applies to assistant answers; local fallbacks remain text.
+12. A clarification is an ordinary stored bot reply. The next explicit mention can reply to it and recover its parent request; plain replies do not start jobs.
+
+No new services, local models, background clustering, or database migration are required. Concurrent distinct requests use their own trigger-bounded context and correlation IDs. Existing per-request provider timeouts and transport retries remain in force.
 
 ## Edited Message Flow
 
@@ -181,12 +179,12 @@ Outbound voice:
 ## Lookup Flow
 
 - Lookup is available when `TAVILY_API_KEY` is set.
-- `/decide` uses the shared lookup planner. `/answer` combines routing and direct answering in its first JSON-mode call.
-- The provider has timeouts, maximum query count, and maximum result count.
-- `/answer` permits one lookup capped at three seconds. Provider failure returns a local unable-to-verify message instead of generating an ungrounded answer.
-- `/answer` sends assistant policy, mode rules, and the JSON output contract as the system message; chat, media, and lookup evidence are isolated in the user message as untrusted data.
-- Lookup results enter the prompt as a separate external-evidence block.
-- Grounded `/answer` output includes status, evidence quality, outcome, and request-local source IDs; unknown IDs are rejected.
+- Assistant context selection, clarification, direct generation, and search routing share the first JSON-mode completion.
+- Conversation ambiguity produces a concise clarification; external factual uncertainty may request research. Search is never used to infer missing chat discussions.
+- Research permits up to two parallel queries, each capped at three seconds, and then one grounded completion.
+- Provider failures preserve the existing verification fallback. The second query is optional when the primary one succeeds.
+- Grounded output includes status, evidence quality, outcome, and request-local source IDs; unknown IDs are rejected.
+- `/translate` does not use lookup.
 
 ## Media Flow
 
@@ -213,19 +211,24 @@ Behavior:
 
 ## Command Contracts
 
-### `/answer`
+### Mention-driven Assistant
 
-- Uses the replied-to target message; without a reply, the target is the latest message before the command.
-- Text after the command is ignored.
-- The reply anchor can be a human message or another bot's message, but not this bot's own message.
-- Can use lookup and media context from the target message.
-- A context-contained answer takes one LLM call. A research answer performs one or two parallel lookups and one additional grounded LLM call.
+- Explicit `@bot_username` mentions are the sole assistant trigger, including a bare mention.
+- The complete mention message defines the task; its reply target provides context without overriding the wording. A target can be a human, this bot, or another bot.
+- Answers, summaries, explanations, and dispute assessments use one request contract, with no user-facing mode commands.
+- Candidate retrieval is bounded by settings in `src/config/runtime/actions/answer.ts`: recent scan, candidate count, anchor-neighbor count, explicit reply depth, individual text size, selected-ID count, and estimated token budgets.
+- Selected messages retain original IDs, authors, times, and explicit links; heuristic relevance does not create durable conversation links. Long message text is explicitly marked when clipped.
+- The final prompt budget includes instructions, schema, conversation, target media, and web evidence. Optional history is removed before rejecting an oversized prompt. The local generation fallback applies only when mandatory input alone exceeds the limit. Token estimates are approximate UTF-8-size estimates, not provider token usage.
+- Missing subject/context returns `clarify` in the first completion. Users continue by mentioning the bot again, optionally as a reply. There is no `retrieve_more` route.
+- A context-contained answer uses one completion; research uses a second completion after lookup. Existing media recognition and configured transport retries are separate operations.
+- `features.assistant` controls access. Legacy `commands.answer`, `commands.summarize`, and `commands.decide` are accepted only for configuration compatibility: their logical OR supplies the flag when it is absent. The old commands are not registered.
+- Telegram privacy settings determine which ordinary messages are delivered and therefore available for context; the bot does not fetch inaccessible chat history.
 
 ### `/translate`
 
 - Runs as a reply to a target message and always translates into the target language.
 - Text after the command is ignored.
-- Can translate this bot's own messages; this exception supports the `/answer` -> `/translate` chain.
+- Can translate this bot's own messages; this exception supports the assistant reply -> `/translate` chain.
 - Receives up to three recent neighboring human messages as non-output context for resolving ambiguous wording.
 - Translates only target-message blocks: text, caption, image OCR text, audio/video-note transcript, or image description.
 - Each block is checked locally; blocks that already look like the target language are not sent to the LLM and are not duplicated in the reply.
@@ -252,18 +255,6 @@ Behavior:
 - Does not store transcript media artifacts; each invocation performs fresh recognition.
 - If Telegram file access, `ffmpeg`, or speech-to-text is unavailable or fails, the bot sends fallback text.
 
-### `/summarize`
-
-- Summarizes recent human messages.
-- Does not use the internet.
-- Excludes previous bot messages and other bots' messages from recent human-message context.
-
-### `/decide`
-
-- Judges a dispute in the visible recent-message context.
-- With lookup configured, it can verify facts, freshness, links, or external entities.
-- Should say when context or criteria are insufficient.
-
 ### `/meme` and `/sex`
 
 - Available as a regular chat command.
@@ -288,7 +279,7 @@ Behavior:
 - `ChatOrchestrator` gives command resolution priority in regular modes; for `private_link_sender`, a bot-command entity at the beginning of the message stops processing entirely. If no command is handled and direct links are enabled for that access context, the text is checked for Reddit post URLs, Reddit share links like `/r/<subreddit>/s/<token>`, Instagram Reel URLs, and YouTube Shorts-compatible URLs.
 - The resolver fetches Reddit post JSON through `/.json` with cookies and accepts public Reddit image, gallery, Reddit-hosted video, and embedded Streamable video posts. Instagram `/p/<shortcode>/` posts and TikTok Photo Mode links are resolved through `gallery-dl`; image-only results reuse the same image/gallery download and Telegram dispatch path. Mixed Instagram image/video carousels preserve source order and run as one existing Instagram video-queue job; every video item reuses the shared `yt-dlp`/`ffprobe`/`ffmpeg` pipeline before the mixed Telegram media groups are sent. Self/text posts are ignored.
 - NSFW and spoiler direct Reddit media are sent with Telegram's spoiler flag; for galleries, the flag is applied to every album item.
-- Direct Reddit video links are downloaded through standalone `yt-dlp` available on `PATH` from `/usr/local/bin/yt-dlp`, using the cookie file from `REDDIT_COOKIES_PATH`. The runtime image does not contain Python, `ffmpeg`, or `ffprobe`; deploy compose mounts official standalone `yt-dlp` and static `ffmpeg`/`ffprobe` binaries from `data/bin` into `/usr/local/bin`. Reddit `fallback_url` is used only as a video-post signal, not as a download URL.
+- Direct Reddit video links are downloaded through `yt-dlp` using `REDDIT_COOKIES_PATH`. In GitHub production, media commands go through an HTTP adapter to separate video and gallery containers. The video worker includes yt-dlp, ffmpeg, ffprobe, and Node.js for YouTube. The gallery worker resolves gallery JSON. The bot image includes neither Python nor these tools. Native/GitLab runs without worker URLs keep local CLI execution. Reddit `fallback_url` is only a video-post signal, not a download URL.
 - Instagram Reels are accepted as `/reel/<shortcode>/` or `/reels/<shortcode>/` URLs and are downloaded through `yt-dlp` with the cookie file from `INSTAGRAM_COOKIES_PATH`. Instagram carousel posts are accepted as `/p/<shortcode>/` and resolved through `gallery-dl` with the same cookies. Direct video URLs discovered inside mixed carousels are passed to the existing `yt-dlp` video pipeline rather than downloaded by separate carousel-specific code. For Reels, `yt-dlp` prefers HLS/m3u8 video + m4a audio before the shared Telegram normalization step.
 - TikTok `/photo/<id>` posts and photo-mode short links are resolved through `gallery-dl`. Still images are kept in source order, while the optional MP3 soundtrack is ignored. Ordinary `/video/<id>` links continue through `yt-dlp`.
 - If Instagram returns auth/access failures such as login-required or rate-limit responses, the bot stores a blocked source state in SQLite and sends a local unavailable fallback for that request. Later Instagram jobs are rejected before `yt-dlp` starts until the cookie file modification time changes.
@@ -326,3 +317,50 @@ Stores persistent runtime state for fragile external sources. The first current 
 
 Small runtime key-value state.
 - Deploy announcements are formatted once per new deploy `sha` and sent to every configured chat where `features.deploy_announcements` is enabled. Deploy metadata includes commit subjects, changed file paths, a short product overview extracted from README, and a size-limited diff of user-facing documentation. The formatter treats all inputs as factual source material, describes their user-visible meaning in idiomatic Russian instead of translating literally, and emits Telegram-compatible HTML without Markdown. When no concrete user-visible effect is supported, it still produces a neutral internal-improvements announcement without inventing specifics. SQLite stores one shared `last_announced_deploy_sha`, so the same deploy is not reformatted or resent after a successful announce cycle.
+
+## Production Containers
+
+GitHub production uses one K3s Deployment with one Pod and three containers:
+`bot`, `video`, and `gallery`. The containers are colocated because the pipeline
+shares media files. HTTP runs on loopback ports 8081 and 8082; no Kubernetes
+Service, Ingress, or public application port is needed for long polling.
+
+The bot creates per-operation temporary directories under `TMPDIR=/media`.
+All containers mount the same disk-backed `emptyDir` there. It survives an
+individual container restart but is discarded with the Pod. The `bot-data`
+PVC stores SQLite, cookies, and chat/access JSON configuration. Workers mount
+it read-only and copy cookie files to private per-job temporary files, so
+extractors cannot modify the operator's cookies or trigger spurious source
+unlocking. Cookie paths must resolve inside `/app/data`. If a yt-dlp cookie
+file is absent, the worker uses a private empty jar instead of rejecting the
+request. Existing files remain unchanged.
+
+The transport exposes POST `/jobs`, GET `/jobs/<id>`, DELETE `/jobs/<id>`, and
+GET `/health`. Operations cover metadata, download, probe, normalization,
+audio extraction, and gallery resolution. Job state is in memory; there is no
+broker or durable retry queue. Up to four CLI processes can run per worker,
+and the bot retains its existing video and normalization queues. A request's
+deadline covers submission and polling; timeout, cancellation, and worker
+shutdown kill the process group including ffmpeg descendants. Lost jobs fail
+through existing local fallbacks; the bot never retries them using local CLI.
+Finished results expire after a minute and are deleted when consumed. HTTP
+request bodies use streaming UTF-8 decoding so characters split across chunks
+reach the CLI intact.
+
+`replicas: 1` and Deployment strategy `Recreate` prevent overlapping bot
+instances during rollout. A brief deployment interruption is expected. All
+containers run as UID/GID 1000 with privilege escalation disabled and Linux
+capabilities dropped. Startup/readiness/liveness probes check local process
+health, not external providers. Before announcements and polling, the bot
+waits for both media health endpoints, with a 120-second startup deadline.
+CI exports each published image digest from Bake metadata, and both smoke
+checks and Deployment use those digests. The source commit is a Pod-template
+annotation (`telegram-bot/commit`), preserved by rollback. A metadata ConfigMap
+named by commit and content hash is part of the Pod revision, so rollout undo
+restores all three images and announcements together. SQLite data is not
+rolled back by a Deployment rollback.
+
+GitHub infrastructure files are in `.github/`, with only the mandatory
+`workflows/` subdirectory. GitLab infrastructure is in `.gitlab/`, retaining
+its existing build targets, registry, and release behavior. `.gitlab-ci.yml`
+remains the GitLab entrypoint; the two build configurations are independent.

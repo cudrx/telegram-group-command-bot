@@ -32,8 +32,6 @@ export function createLlmClient(input: {
       baseUrl: input.env.llmBaseUrl,
       replyModel: input.env.llmReplyModel,
       replyTemperature: input.env.llmReplyTemperature,
-      plannerModel: input.env.llmPlannerModel,
-      lookupMaxQueries: input.env.lookupMaxQueries,
       timeoutMs: input.env.llmTimeoutMs,
       maxRetries: input.env.llmMaxRetries
     },

@@ -21,7 +21,6 @@ export const envSchema = z.object({
     .string()
     .min(1)
     .default(llmProviderConfig.genericDefaults.replyModel),
-  LLM_PLANNER_MODEL: z.string().min(1).optional(),
   LLM_REPLY_TEMPERATURE: z.coerce
     .number()
     .min(0)
@@ -42,6 +41,8 @@ export const envSchema = z.object({
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   LOG_COLOR: stringBooleanSchema.default(true),
   SQLITE_PATH: z.string().min(1).default(storageConfig.sqlitePath),
+  MEDIA_VIDEO_URL: z.string().url().optional(),
+  MEDIA_GALLERY_URL: z.string().url().optional(),
   REDDIT_COOKIE_HEADER_PATH: z.string().min(1).optional(),
   REDDIT_COOKIES_PATH: z.string().min(1).optional(),
   INSTAGRAM_COOKIES_PATH: z.string().min(1).optional(),
@@ -55,12 +56,6 @@ export const envSchema = z.object({
     .int()
     .positive()
     .default(lookupProviderConfig.defaults.timeoutMs),
-  LOOKUP_MAX_QUERIES: z.coerce
-    .number()
-    .int()
-    .min(1)
-    .max(3)
-    .default(lookupProviderConfig.defaults.maxQueries),
   LOOKUP_MAX_RESULTS: z.coerce
     .number()
     .int()

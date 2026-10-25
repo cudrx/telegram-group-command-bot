@@ -1,5 +1,5 @@
-import { answerActionConfig } from '../../config/runtime/index.js';
 import { formatMoscowCurrentDateTime } from '../../llm/current-datetime.js';
+import { selectAnswerContext } from '../../llm/openai-compatible-client/answer.js';
 import type {
   GenerateAnswerInput,
   GenerateAnswerResult,
@@ -11,10 +11,8 @@ import { serializeError } from '../../logging/logger.js';
 import { buildReplyContext } from '../reply-context-builder.js';
 import {
   createLocalReplyResult,
-  getContextLimitForIntent,
-  withReplySnapshotFallback
+  getContextLimitForIntent
 } from './helpers/reply.js';
-import { buildLookupContext } from './lookup.js';
 import type { ChatOrchestratorMediaSupport } from './media/index.js';
 import { prepareTranslateReply } from './translate/index.js';
 import type { ChatOrchestratorDeps, ReplyJobRequest } from './types.js';
@@ -26,25 +24,15 @@ export async function executeReplyGeneration(input: {
   logger: ChatOrchestratorDeps['logger'];
 }): Promise<LlmReplyResult | null> {
   const { deps, mediaSupport, request, logger } = input;
-  let replyContext = withReplySnapshotFallback(
-    buildReplyContext({
-      db: deps.db,
-      chatId: request.chatId,
-      triggerMessageId: request.triggerMessageId,
-      contextLimit: getContextLimitForIntent(deps.env, request.intent),
-      intent: request.intent,
-      botUserId: deps.bot.userId
-    }),
-    {
-      intent: request.intent,
-      botUserId: deps.bot.userId,
-      replyToMessageSnapshot: request.replyToMessageSnapshot
-    }
-  );
-
-  if (request.intent === 'answer' && !replyContext.replyAnchorMessage) {
-    return createLocalReplyResult(text.answer.usageFallback);
-  }
+  let replyContext = buildReplyContext({
+    db: deps.db,
+    chatId: request.chatId,
+    triggerMessageId: request.triggerMessageId,
+    contextLimit: getContextLimitForIntent(deps.env, request.intent),
+    intent: request.intent,
+    botUserId: deps.bot.userId,
+    replyToMessageSnapshot: request.replyToMessageSnapshot
+  });
 
   if (request.intent === 'translate' && !replyContext.replyAnchorMessage) {
     return createLocalReplyResult(text.translate.usageFallback);
@@ -63,16 +51,9 @@ export async function executeReplyGeneration(input: {
     return null;
   }
 
-  await mediaSupport.waitForOptionalInFlightMedia(
+  replyContext = mediaSupport.enrichReplyContextWithNearbyMedia(
     request,
-    replyContext,
-    logger
-  );
-
-  replyContext = await mediaSupport.enrichReplyContextWithNearbyMedia(
-    request,
-    replyContext,
-    logger
+    replyContext
   );
   const targetMediaContext = await mediaSupport.buildTargetMediaContext(
     request,
@@ -101,7 +82,6 @@ export async function executeReplyGeneration(input: {
       deps,
       {
         assistantInstructions,
-        targetDisplayName: request.fromDisplayName,
         currentDateTime: formatMoscowCurrentDateTime(deps.now()),
         replyContext,
         mediaContext: targetMediaContext
@@ -110,20 +90,12 @@ export async function executeReplyGeneration(input: {
     );
   }
 
-  const lookupContext = await buildLookupContext(deps, {
-    intent: request.intent,
-    currentDateTime: formatMoscowCurrentDateTime(deps.now()),
-    replyContext,
-    logger
-  });
-
   return deps.qwen.generateReply({
     assistantInstructions,
     targetDisplayName: request.fromDisplayName,
     intent: request.intent,
     currentDateTime: formatMoscowCurrentDateTime(deps.now()),
     replyContext,
-    lookupContext,
     mediaContext: targetMediaContext
   });
 }
@@ -136,7 +108,7 @@ async function generateAnswer(
   try {
     const first = await deps.qwen.generateAnswer(input);
 
-    if (first.decision.mode === 'direct') {
+    if (first.decision.mode === 'direct' || first.decision.mode === 'clarify') {
       return toReplyResult(first.decision.text, first);
     }
 
@@ -145,58 +117,45 @@ async function generateAnswer(
     }
 
     const researchPlan = first.decision;
+    input = {
+      ...input,
+      replyContext: selectAnswerContext(
+        input.replyContext,
+        researchPlan.context.messageIds
+      )
+    };
 
-    if (!deps.lookupProvider) {
+    const lookupProvider = deps.lookupProvider;
+    if (!lookupProvider) {
       return createLocalReplyResult(text.answer.lookupFailedFallback);
     }
 
     const lookupResults = await Promise.allSettled(
       researchPlan.queries.map((query) =>
-        deps.lookupProvider?.search({
+        lookupProvider.search({
           query,
           maxResults: deps.env.lookupMaxResults,
-          timeoutMs: Math.min(
-            deps.env.lookupTimeoutMs,
-            answerActionConfig.lookupTimeoutMs
-          )
+          timeoutMs: deps.env.lookupTimeoutMs
         })
       )
     );
     const primaryLookup = lookupResults[0];
 
-    if (!primaryLookup || primaryLookup.status === 'rejected') {
-      logger.warn(
-        'answer_lookup_failed',
-        serializeError(
-          primaryLookup?.status === 'rejected'
-            ? primaryLookup.reason
-            : new Error('Required answer lookup returned no result.')
-        )
-      );
+    if (primaryLookup?.status === 'rejected') {
+      logger.warn('answer_lookup_failed', serializeError(primaryLookup.reason));
 
       return createLocalReplyResult(text.answer.lookupFailedFallback);
     }
 
     const lookups = lookupResults.flatMap((result) => {
-      if (result.status === 'fulfilled' && result.value) {
+      if (result.status === 'fulfilled') {
         return [result.value];
       }
 
-      logger.warn(
-        'answer_lookup_failed',
-        serializeError(
-          result.status === 'rejected'
-            ? result.reason
-            : new Error('Answer lookup returned no result.')
-        )
-      );
+      logger.warn('answer_lookup_failed', serializeError(result.reason));
 
       return [];
     });
-
-    if (lookups.length === 0) {
-      return createLocalReplyResult(text.answer.lookupFailedFallback);
-    }
 
     const sources = lookups.flatMap((lookup) =>
       lookup.sources.map((source) => ({ query: lookup.query, ...source }))

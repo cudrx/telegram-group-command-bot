@@ -16,8 +16,8 @@ describe('createActionRegistry', () => {
   test('resolves chat commands from action metadata', () => {
     const registry = createActionRegistry([
       action({
-        intent: 'answer',
-        commands: ['answer'],
+        intent: 'read',
+        commands: ['read'],
         modes: ['chat']
       })
     ]);
@@ -26,13 +26,13 @@ describe('createActionRegistry', () => {
       registry.resolveCommand({
         botUsername: 'fun_bot',
         mode: 'chat',
-        text: '/answer ignored arguments',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+        text: '/read ignored arguments',
+        entities: [{ type: 'bot_command', offset: 0, length: 5 }]
       })
     ).toMatchObject({
-      action: expect.objectContaining({ intent: 'answer' }),
-      commandText: '/answer',
-      requiredCommand: 'answer'
+      action: expect.objectContaining({ intent: 'read' }),
+      commandText: '/read',
+      requiredCommand: 'read'
     });
   });
 
@@ -62,7 +62,7 @@ describe('createActionRegistry', () => {
   test('ignores commands addressed to another bot', () => {
     const registry = createActionRegistry([
       action({
-        intent: 'decide',
+        intent: 'translate',
         commands: ['decide'],
         modes: ['chat']
       })
@@ -100,20 +100,17 @@ describe('createActionRegistry', () => {
   test('rejects duplicate command names', () => {
     expect(() =>
       createActionRegistry([
-        action({ intent: 'answer', commands: ['answer'], modes: ['chat'] }),
-        action({ intent: 'decide', commands: ['answer'], modes: ['chat'] })
+        action({ intent: 'read', commands: ['read'], modes: ['chat'] }),
+        action({ intent: 'translate', commands: ['read'], modes: ['chat'] })
       ])
-    ).toThrow('Duplicate action command: answer');
+    ).toThrow('Duplicate action command: read');
   });
 });
 
 describe('chatActionRegistry command policy', () => {
   test.each([
-    ['/summarize', 'summarize'],
-    ['/decide', 'decide'],
     ['/read', 'read'],
     ['/transcribe', 'transcribe'],
-    ['/answer', 'answer'],
     ['/translate', 'translate'],
     ['/meme', 'meme'],
     ['/sex', 'sex']
@@ -133,11 +130,8 @@ describe('chatActionRegistry command policy', () => {
   });
 
   test.each([
-    ['/summarize@fun_bot', 'summarize'],
-    ['/decide@fun_bot', 'decide'],
     ['/read@fun_bot', 'read'],
     ['/transcribe@fun_bot', 'transcribe'],
-    ['/answer@fun_bot', 'answer'],
     ['/translate@fun_bot', 'translate'],
     ['/meme@fun_bot', 'meme'],
     ['/sex@fun_bot', 'sex']
@@ -157,6 +151,12 @@ describe('chatActionRegistry command policy', () => {
   });
 
   test.each([
+    '/answer',
+    '/answer@fun_bot',
+    '/summarize',
+    '/summarize@fun_bot',
+    '/decide',
+    '/decide@fun_bot',
     '/explain',
     '/explain@fun_bot'
   ] as const)('returns none for removed %s command', (commandText) => {

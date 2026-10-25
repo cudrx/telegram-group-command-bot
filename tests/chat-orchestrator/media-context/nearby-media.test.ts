@@ -1,9 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 
 import {
-  createOcrProvider,
   createReplyDispatcher,
-  createSuccessfulDownloadDeps,
   createVisionProvider
 } from '../media-image/support.js';
 import {
@@ -81,8 +79,8 @@ describe('ChatOrchestrator media context nearby media', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 3,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 2
       })
     );
@@ -93,7 +91,7 @@ describe('ChatOrchestrator media context nearby media', () => {
           priorContextMessages: expect.arrayContaining([
             expect.objectContaining({
               messageId: 1,
-              text: '[media] привет из прошлого войса'
+              text: '[media] Audio transcript: привет из прошлого войса'
             })
           ])
         })
@@ -128,15 +126,14 @@ describe('ChatOrchestrator media context nearby media', () => {
       db,
       qwen: { generateReply },
       replyDispatcher: createReplyDispatcher(),
-      env: { summarizeContextLimit: 8 },
       telegramFileApi
     });
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 11,
-        text: '/summarize',
-        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
+        text: '@fun_bot подведи итог обсуждения',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -144,23 +141,22 @@ describe('ChatOrchestrator media context nearby media', () => {
     expect(generateReply).toHaveBeenCalled();
   });
 
-  test('summarize waits for in-flight media and includes successful summaries', async () => {
+  test('answers text without waiting for unrelated in-flight recognition', async () => {
     const db = new FakeDatabaseClient();
-    const { telegramFileApi, fetch } = createSuccessfulDownloadDeps();
-    const generateReply = vi
-      .fn()
-      .mockResolvedValue(createReplyResult('summary'));
+    let rejectFile!: (reason: Error) => void;
+    const file = new Promise<{ file_path: string }>((_resolve, reject) => {
+      rejectFile = reject;
+    });
+    const replyDispatcher = createReplyDispatcher();
     const orchestrator = createOrchestrator({
       db,
-      qwen: { generateReply },
-      replyDispatcher: createReplyDispatcher(),
-      env: { summarizeContextLimit: 8 },
-      visionProvider: createVisionProvider('новая картинка'),
-      ocrProvider: createOcrProvider(() => ''),
-      telegramFileApi,
-      fetch
+      qwen: {
+        generateReply: vi.fn().mockResolvedValue(createReplyResult('Четыре.'))
+      },
+      replyDispatcher,
+      visionProvider: createVisionProvider('облака'),
+      telegramFileApi: { getFile: () => file }
     });
-
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 10,
@@ -177,26 +173,29 @@ describe('ChatOrchestrator media context nearby media', () => {
         }
       })
     );
-
-    await orchestrator.handleIncomingMessage(
+    const handling = orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 11,
-        text: '/summarize',
-        entities: [{ type: 'bot_command', offset: 0, length: 10 }]
+        text: '@fun_bot сколько будет два плюс два?',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
-
-    expect(generateReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        replyContext: expect.objectContaining({
-          priorContextMessages: expect.arrayContaining([
-            expect.objectContaining({
-              messageId: 10,
-              text: '[media] summary'
-            })
-          ])
-        })
-      })
-    );
+    try {
+      await vi.waitFor(() =>
+        expect(replyDispatcher).toHaveBeenCalledWith(
+          expect.objectContaining({ text: 'Четыре.' })
+        )
+      );
+    } finally {
+      rejectFile(new Error('finish unrelated recognition'));
+      await handling;
+      await vi.waitFor(() =>
+        expect(
+          db.savedMediaArtifacts.some(
+            (artifact) => artifact.artifactStatus === 'failed'
+          )
+        ).toBe(true)
+      );
+    }
   });
 });

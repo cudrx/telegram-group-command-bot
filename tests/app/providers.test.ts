@@ -19,11 +19,9 @@ describe('createApplication providers', () => {
     const { createApplication } = await importCreateApplication();
     await createApplication(
       createEnv({
-        llmPlannerModel: 'planner-model',
         lookupProvider: 'tavily',
         tavilyApiKey: 'tvly-key',
         lookupTimeoutMs: 7000,
-        lookupMaxQueries: 1,
         lookupMaxResults: 3
       })
     );
@@ -34,8 +32,6 @@ describe('createApplication providers', () => {
         baseUrl: 'https://example.com',
         replyModel: 'reply-model',
         replyTemperature: 0.6,
-        plannerModel: 'planner-model',
-        lookupMaxQueries: 1,
         timeoutMs: 20_000,
         maxRetries: 1
       },

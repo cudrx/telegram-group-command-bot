@@ -57,8 +57,8 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, 1)
       })
@@ -109,8 +109,8 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, 1)
       })
@@ -161,8 +161,8 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, 1)
       })
@@ -206,8 +206,8 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, 1)
       })
@@ -246,8 +246,8 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }],
+        text: '@fun_bot',
+        entities: [{ type: 'mention', offset: 0, length: 8 }],
         replyToMessageId: 1,
         replyToMessageSnapshot: db.getMessageByTelegramMessageId(1, 1)
       })
@@ -260,7 +260,7 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     });
   });
 
-  test('sends local answer placeholders as text even when voice is eligible', async () => {
+  test('sends local generation failures as text even when voice is eligible', async () => {
     const db = new FakeDatabaseClient();
     const synthesize = vi.fn().mockResolvedValue({
       provider: 'yandex_speechkit',
@@ -276,7 +276,9 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     const orchestrator = createOrchestrator({
       db,
       qwen: {
-        generateReply: vi.fn().mockResolvedValue(createReplyResult('не надо'))
+        generateReply: vi
+          .fn()
+          .mockRejectedValue(new Error('provider unavailable'))
       },
       replyDispatcher,
       textToSpeechProvider: { synthesize },
@@ -293,8 +295,8 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
         messageId: 2,
-        text: '/answer кто сильнее лев или тигр',
-        entities: [{ type: 'bot_command', offset: 0, length: 7 }]
+        text: '@fun_bot кто сильнее лев или тигр',
+        entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
 
@@ -303,10 +305,10 @@ describe('ChatOrchestrator opportunistic outbound TTS', () => {
     expect(replyDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       replyToMessageId: 2,
-      text: 'Сделай reply на сообщение с вопросом и отправь /answer.'
+      text: 'Не получилось ответить. Попробуй ещё раз.'
     });
     expect(db.getMessageByTelegramMessageId(1, 1006)).toMatchObject({
-      text: 'Сделай reply на сообщение с вопросом и отправь /answer.',
+      text: 'Не получилось ответить. Попробуй ещё раз.',
       outputMode: 'text'
     });
   });

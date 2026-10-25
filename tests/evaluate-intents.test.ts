@@ -1,10 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  createEvalLookupContext,
+  createEvalLookupSources,
   evaluateRubric,
   filterFixtures,
   hasRubricFailures,
+  matchesLookupExpectation,
   parseEvalEnv
 } from '../scripts/evaluate-intents.js';
 import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
@@ -29,31 +30,40 @@ describe('evaluate-intents helpers', () => {
 
   test('adds fixture lookup context for lookup-backed eval cases', () => {
     const fixture = intentEvalFixtures.find(
-      (candidate) => candidate.id === 'answer-factual-question'
+      (candidate) => candidate.id === 'answer-research-current-release'
     );
 
     expect(fixture).toBeDefined();
 
     if (!fixture) {
-      throw new Error('Expected answer-factual-question fixture to exist.');
+      throw new Error(
+        'Expected answer-research-current-release fixture to exist.'
+      );
     }
 
-    const lookupContext = createEvalLookupContext(fixture);
-
-    expect(lookupContext).toMatchObject({
-      status: 'used',
-      provider: 'tavily',
-      intent: 'answer',
-      decision: {
-        shouldLookup: true,
-        purpose: 'entity_grounding'
-      }
-    });
-    expect(lookupContext?.sources.map((source) => source.title)).toContain(
-      'Владимир Путин'
+    const sources = createEvalLookupSources(fixture);
+    expect(sources.map((source) => source.title)).toContain(
+      'Auroralab Ledger release notes'
     );
-    expect(lookupContext?.decision.queries).toEqual(['Владимир Путин']);
-    expect(lookupContext?.sources.at(-1)?.content).toContain('Владимир Путин');
+    expect(sources.at(-1)?.content).toContain('4.2.1');
+    expect(
+      matchesLookupExpectation(fixture, {
+        purpose: 'freshness',
+        queries: ['Auroralab Ledger latest stable release']
+      })
+    ).toBe(true);
+    expect(
+      matchesLookupExpectation(fixture, {
+        purpose: 'freshness',
+        queries: ['other product']
+      })
+    ).toBe(false);
+    expect(
+      matchesLookupExpectation(fixture, {
+        purpose: 'fact_check',
+        queries: ['Auroralab Ledger']
+      })
+    ).toBe(false);
   });
 
   test('filters eval fixtures by id and intent', () => {
@@ -67,9 +77,9 @@ describe('evaluate-intents helpers', () => {
     expect(
       filterFixtures(intentEvalFixtures, {
         ids: new Set(),
-        intents: new Set(['summarize'])
+        intents: new Set(['translate'])
       }).map((fixture) => fixture.intent)
-    ).toEqual(['summarize']);
+    ).toEqual(['translate']);
   });
 
   test('parses only LLM settings for eval runs', () => {

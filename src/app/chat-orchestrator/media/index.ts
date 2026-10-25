@@ -5,16 +5,12 @@ import type {
 } from '../../../domain/models.js';
 import type { DescribeMediaContext } from '../../../llm/prompts.js';
 import type { AppLogger } from '../../../logging/logger.js';
-import {
-  appendMediaSummaryToMessageText,
-  NEARBY_MEDIA_SCAN_LIMIT
-} from '../helpers/media.js';
 import type { ChatOrchestratorDeps, ReplyRequest } from '../types.js';
 import { ensureAudioMediaContext } from './audio.js';
 import { MediaAutoReadCoordinator } from './auto-read.js';
 import {
+  enrichContextWithMediaEvidence,
   getCachedMediaContext,
-  getPreferredMediaSummary,
   getTargetMediaSnapshot
 } from './cache.js';
 import { ensureImageMediaContext } from './image.js';
@@ -64,69 +60,20 @@ export class ChatOrchestratorMediaSupport {
     return this.ensureMediaContext({ request, media: targetMedia, logger });
   }
 
-  async enrichReplyContextWithNearbyMedia(
+  enrichReplyContextWithNearbyMedia(
     request: ReplyRequest,
-    replyContext: ReplyContext,
-    _logger: AppLogger
-  ): Promise<ReplyContext> {
-    if (
-      request.intent !== 'decide' &&
-      request.intent !== 'answer' &&
-      request.intent !== 'summarize'
-    ) {
-      return replyContext;
-    }
+    context: ReplyContext
+  ): ReplyContext {
+    if (request.intent !== 'answer') return context;
 
-    const nearbyWindow = this.deps.db.getMessagesBefore(
-      request.chatId,
-      request.triggerMessageId,
-      NEARBY_MEDIA_SCAN_LIMIT
-    );
-    const nearbyMediaMessages = nearbyWindow.filter(
-      (message) => message.mediaSnapshot
-    );
-
-    const cachedArtifacts = this.deps.db.getSuccessfulMediaArtifactsForMessages(
-      {
-        chatId: request.chatId,
-        messageIds: nearbyMediaMessages.map((message) => message.messageId)
-      }
-    );
-    const messagesById = new Map<number, StoredMessage>();
-
-    for (const message of replyContext.priorContextMessages) {
-      messagesById.set(message.messageId, { ...message });
-    }
-
-    for (const message of nearbyMediaMessages) {
-      const mediaSnapshot = message.mediaSnapshot;
-
-      if (!mediaSnapshot) {
-        continue;
-      }
-
-      const summary = getPreferredMediaSummary(
-        cachedArtifacts,
-        message.messageId,
-        mediaSnapshot.mediaKind
-      );
-
-      if (!summary) {
-        continue;
-      }
-
-      messagesById.set(message.messageId, {
-        ...message,
-        text: appendMediaSummaryToMessageText(message.text, summary)
-      });
-    }
-
-    return {
-      ...replyContext,
-      priorContextMessages: Array.from(messagesById.values()).sort(
-        (left, right) => left.messageId - right.messageId
-      )
-    };
+    const messageIds = context.priorContextMessages
+      .filter((message) => message.mediaSnapshot)
+      .map((message) => message.messageId);
+    const artifacts = this.deps.db.getSuccessfulMediaArtifactsForMessages({
+      chatId: request.chatId,
+      messageIds
+    });
+    return enrichContextWithMediaEvidence(context, artifacts);
   }
 
   async waitForRequiredMedia(
@@ -156,31 +103,6 @@ export class ChatOrchestratorMediaSupport {
     return { ok: true };
   }
 
-  async waitForOptionalInFlightMedia(
-    request: ReplyRequest,
-    replyContext: ReplyContext,
-    logger: AppLogger
-  ): Promise<void> {
-    if (request.intent !== 'summarize') {
-      return;
-    }
-
-    const mediaItems = replyContext.priorContextMessages
-      .map((message) => message.mediaSnapshot ?? null)
-      .filter((media): media is MediaMessageSnapshot => Boolean(media));
-
-    await Promise.all(
-      mediaItems.map((media) =>
-        this.autoRead.ensureComplete({
-          request,
-          media,
-          logger,
-          startIfMissing: false
-        })
-      )
-    );
-  }
-
   private getRequiredMediaForIntent(
     request: ReplyRequest,
     replyContext: ReplyContext
@@ -188,12 +110,6 @@ export class ChatOrchestratorMediaSupport {
     if (request.intent === 'answer' || request.intent === 'translate') {
       const target = getTargetMediaSnapshot(request, replyContext);
       return target ? [target] : [];
-    }
-
-    if (request.intent === 'decide') {
-      return replyContext.priorContextMessages
-        .map((message) => message.mediaSnapshot ?? null)
-        .filter((media): media is MediaMessageSnapshot => Boolean(media));
     }
 
     return [];

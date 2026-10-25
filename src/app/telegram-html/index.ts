@@ -1,35 +1,18 @@
-import { text as localeText } from '../../locales/locale.js';
 import { escapeMarkdownTagContent, restoreMarkdownEscapes } from './escapes.js';
 
 const ALLOWED_TAGS = new Set(['b', 'i', 'code']);
 const TAG_PATTERN = /<\/?[a-zA-Z][^>]*>/g;
 
-type TelegramReplyIntent =
-  | 'summarize'
-  | 'decide'
-  | 'read'
-  | 'answer'
-  | 'translate';
-
-export function formatTelegramHtmlReply(
-  text: string,
-  options: { intent?: TelegramReplyIntent } = {}
-): string {
+export function formatTelegramHtmlReply(text: string): string {
   return restoreMarkdownEscapes(
-    sanitizeTelegramHtml(normalizeTelegramReplyText(text, options))
+    sanitizeTelegramHtml(normalizeTelegramReplyText(text))
   );
 }
 
-function normalizeTelegramReplyText(
-  text: string,
-  options: { intent?: TelegramReplyIntent }
-): string {
-  const lines = normalizeLineEndings(text)
+function normalizeTelegramReplyText(text: string): string {
+  return normalizeLineEndings(text)
     .split('\n')
-    .map((line) => normalizeLineForTelegram(line.trimEnd(), options))
-    .filter((line) => line !== null);
-
-  return addIntentSpacing(lines)
+    .map((line) => normalizeMarkdownLine(normalizeBulletLine(line.trimEnd())))
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -39,58 +22,8 @@ function normalizeLineEndings(text: string): string {
   return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
 }
 
-function normalizeLineForTelegram(
-  line: string,
-  options: { intent?: TelegramReplyIntent }
-): string | null {
-  const commonLine = normalizeCommonLine(line);
-  const intentLine = normalizeIntentLine(commonLine, options);
-
-  if (intentLine === null) return null;
-
-  return normalizeMarkdownLine(intentLine);
-}
-
-function normalizeCommonLine(line: string): string {
-  return normalizeBulletLine(line);
-}
-
-function normalizeIntentLine(
-  line: string,
-  options: { intent?: TelegramReplyIntent }
-): string | null {
-  switch (options.intent) {
-    case 'summarize':
-      return normalizeSummarizeLine(line);
-    default:
-      return line;
-  }
-}
-
-function addIntentSpacing(lines: string[]): string[] {
-  return lines;
-}
-
 function normalizeBulletLine(line: string): string {
   return line.replace(/^\s*[-*]\s+/, '• ').replace(/^\s*•\s+/, '• ');
-}
-
-function normalizeSummarizeLine(line: string): string | null {
-  if (/^\s*summary\s*:?\s*$/i.test(line)) {
-    return null;
-  }
-
-  const finalLabelMatch = /^(?:•\s+)?(?:takeaway|summary)\s*:\s*(.+)$/i.exec(
-    line
-  );
-
-  if (finalLabelMatch?.[1]) {
-    return `<b>${localeText.llm.sections.summarize.takeaway}</b> — ${lowercaseFirstLetter(
-      finalLabelMatch[1].trim()
-    )}`;
-  }
-
-  return line;
 }
 
 function normalizeMarkdownLine(line: string): string {
@@ -101,12 +34,6 @@ function normalizeMarkdownLine(line: string): string {
     .replace(/`([^`\n]+)`/g, (_match, content: string) => {
       return `<code>${escapeMarkdownTagContent(content)}</code>`;
     });
-}
-
-function lowercaseFirstLetter(text: string): string {
-  return text.replace(/^(\p{L})/u, (_match, first: string) =>
-    first.toLocaleLowerCase('ru-RU')
-  );
 }
 
 function sanitizeTelegramHtml(text: string): string {

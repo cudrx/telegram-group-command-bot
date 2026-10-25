@@ -33,7 +33,7 @@ target "bot" {
     arch = ["amd64", "arm64"]
   }
   context = "."
-  dockerfile = "docker/Dockerfile"
+  dockerfile = ".gitlab/Dockerfile"
   platforms = ["linux/${arch}"]
   args = {
     NODE_VERSION = NODE_VERSION

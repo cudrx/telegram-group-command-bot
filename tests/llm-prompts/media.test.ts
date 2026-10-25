@@ -1,7 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { buildIntentPrompt } from '../../src/llm/prompts.js';
-import { createPromptReplyContext } from './support.js';
+import { createPromptReplyContext, promptFor } from './support.js';
 
 const mediaContext = {
   sourceCaption: 'unique media caption',
@@ -22,7 +21,7 @@ describe('buildIntentPrompt media context', () => {
     'read',
     'answer'
   ] as const)('includes every supplied media artifact for %s', (intent) => {
-    const prompt = buildIntentPrompt({
+    const prompt = promptFor({
       assistantInstructions: 'custom assistant instructions',
       targetDisplayName: 'Tom',
       intent,
@@ -38,20 +37,18 @@ describe('buildIntentPrompt media context', () => {
       mediaContext.ocrTextDefault,
       mediaContext.visionRaw,
       mediaContext.visionInterpretation,
-      ...(intent === 'read' ? [mediaContext.audioTranscript.transcript] : [])
+      mediaContext.audioTranscript.transcript
     ];
 
     for (const value of expectedValues) {
       expect(prompt).toContain(value);
     }
-    if (intent === 'answer') {
-      expect(prompt).not.toContain(mediaContext.audioTranscript.transcript);
-    }
-    expect(prompt).not.toContain('command-only-secret');
+    if (intent === 'answer') expect(prompt).toContain('command-only-secret');
+    else expect(prompt).not.toContain('command-only-secret');
   });
 
   test('serializes absent media fields without leaking command arguments', () => {
-    const prompt = buildIntentPrompt({
+    const prompt = promptFor({
       assistantInstructions: 'custom assistant instructions',
       targetDisplayName: 'Tom',
       intent: 'read',

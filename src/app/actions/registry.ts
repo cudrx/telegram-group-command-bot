@@ -1,23 +1,9 @@
-import type { ChatCommand } from '../../config/env/types.js';
-import type { AssistantIntent } from '../../domain/models.js';
 import type {
   ActionRegistry,
   ChatAction,
   ResolveCommandInput,
   ResolvedAction
 } from './types.js';
-
-export const chatActionRequiredFeatures: Record<AssistantIntent, ChatCommand> =
-  {
-    answer: 'answer',
-    summarize: 'summarize',
-    decide: 'decide',
-    translate: 'translate',
-    read: 'read',
-    transcribe: 'transcribe',
-    meme: 'meme',
-    sex: 'sex'
-  };
 
 export function createActionRegistry(actions: ChatAction[]): ActionRegistry {
   const byCommand = new Map<string, ChatAction>();
@@ -63,7 +49,7 @@ export function createActionRegistry(actions: ChatAction[]): ActionRegistry {
       return {
         action,
         commandText,
-        requiredCommand: chatActionRequiredFeatures[action.intent]
+        requiredCommand: action.intent
       } satisfies ResolvedAction;
     }
   };

@@ -13,10 +13,6 @@ export const llmProviderConfig = {
     timeoutMs: '20000',
     maxRetries: '1'
   },
-  lookupPlanner: {
-    temperature: 0,
-    maxTokens: 500
-  },
   deployUpdate: {
     temperature: 0.4,
     maxTokens: 500

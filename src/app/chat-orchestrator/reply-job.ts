@@ -67,9 +67,7 @@ export async function runReplyJob(input: {
       result.text,
       request.intent
     );
-    const replyText = formatTelegramHtmlReply(generatedText, {
-      intent: request.intent
-    });
+    const replyText = formatTelegramHtmlReply(generatedText);
 
     const delivery = await dispatchGeneratedReply({
       deps,
