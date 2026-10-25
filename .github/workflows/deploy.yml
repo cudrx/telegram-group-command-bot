@@ -33,6 +33,7 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
       KUBECONFIG: ${{ github.workspace }}/.kubeconfig
       DEPLOY_METADATA_FILE: .github/generated/deploy-metadata.json
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,14 +48,54 @@ jobs:
       - name: Setup kubectl
         uses: azure/setup-kubectl@v4
         with:
-          version: ${{ vars.KUBECTL_VERSION || 'v1.35.0' }}
+          version: ${{ vars.KUBECTL_VERSION || 'v1.36.0' }}
 
       - name: Configure cluster credentials
         env:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         run: |
+          set -euo pipefail
           umask 077
+          test -n "$KUBE_CONFIG"
           printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG"
+
+      - name: Configure SSH tunnel
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+
+          mkdir -p "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/k3s-deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          chmod 700 "$HOME/.ssh"
+          chmod 600 "$HOME/.ssh/k3s-deploy"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -f -N \
+            -i "$HOME/.ssh/k3s-deploy" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ExitOnForwardFailure=yes \
+            -o ConnectTimeout=15 \
+            -L 127.0.0.1:16443:127.0.0.1:6443 \
+            github-deploy@185.21.10.93
+
+          echo "SSH tunnel established"
+
+          kubectl --request-timeout=15s auth whoami
+
+          kubectl --request-timeout=15s \
+            auth can-i patch deployment/telegram-bot \
+            -n telegram-bot | grep -qx yes
 
       - name: Read deployed commit
         id: deployed
@@ -78,4 +119,6 @@ jobs:
 
       - name: Remove cluster credentials
         if: always()
-        run: rm -f "$KUBECONFIG"
+        run: |
+          rm -f "$KUBECONFIG"
+          rm -f "$HOME/.ssh/k3s-deploy"
