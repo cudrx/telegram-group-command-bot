@@ -2,7 +2,7 @@
 
 A Telegram group assistant with utility commands built with TypeScript, grammY, SQLite, and OpenAI-compatible LLM providers.
 
-The bot stores chat history, answers explicit @mentions, runs utility commands, can use web lookup and media recognition when provider keys are configured, expands supported social media links locally, and can send selected replies as voice through Yandex SpeechKit.
+The bot stores chat history, answers explicit @mentions and replies to its messages, runs utility commands, can use web lookup and media recognition when provider keys are configured, expands supported social media links locally, and can send selected replies as voice through Yandex SpeechKit.
 
 ## What It Does
 
@@ -17,7 +17,7 @@ The bot stores chat history, answers explicit @mentions, runs utility commands, 
 - Queues heavy video jobs with bounded global and per-chat concurrency.
 - Keeps user-facing local fallbacks as text even when outbound voice is enabled.
 
-An explicit `@bot_username` mention starts the assistant in enabled groups or the operator private chat. A bare mention is supported; a reply supplies the target. Ordinary messages and replies without a mention do not trigger the assistant. Link-only private users cannot invoke it. Message edits update future context without triggering a reply.
+An explicit `@bot_username` mention or a reply to a message sent by this bot starts the assistant in enabled groups or the operator private chat. A bare mention is supported; replies supply the target and can continue the conversation without a mention. Ordinary messages and replies to other participants do not trigger the assistant. Link-only private users cannot invoke it. Message edits update future context without triggering a reply.
 
 ## Quick Start
 
@@ -65,7 +65,7 @@ for VPS setup, data migration, and GitHub UI settings.
 
 ## Assistant Requests
 
-Mention the actual bot username, for example `@hrupa_bot что здесь значит «мамонты»?`, `@hrupa_bot подведи итог обсуждения`, or `@hrupa_bot кто прав в споре?`. Use a reply to point to a specific message, including a previous bot answer. A bare mention also works. When the subject is unclear, the bot asks one short question; continue with another mention, optionally replying to that question.
+Mention the actual bot username, for example `@hrupa_bot что здесь значит «мамонты»?`, `@hrupa_bot подведи итог обсуждения`, or `@hrupa_bot кто прав в споре?`. Use a reply to point to a specific message, including a previous bot answer. A bare mention also works. When the subject is unclear, the bot asks one short question; continue by replying to that question without a mention, or send another mention.
 
 The assistant retrieves bounded conversation candidates and explicit reply chains, then resolves the relevant messages and answers in one LLM call. External verification adds up to two parallel searches and a second grounded LLM call. It does not perform additional history searches after the model decision. `/answer`, `/summarize`, and `/decide` are retired.
 

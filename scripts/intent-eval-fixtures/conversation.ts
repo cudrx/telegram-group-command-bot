@@ -166,10 +166,26 @@ export const conversationEvalFixtures: IntentEvalFixture[] = [
     rowMetadata: { 2: { userId: 77, isBot: true, replyToMessageId: 1 } },
     replyToMessageId: 2,
     request:
-      '@hrupa_bot почему ты назвал их богатыми? Исправь ответ с учётом определения выше.',
+      'Почему ты назвал их богатыми? Исправь ответ с учётом определения выше.',
     ids: [1, 2],
     include: [['обман', 'скам', 'мошен', 'доверчив']],
     exclude: [['обязательно богат']]
+  }),
+  conversation({
+    id: 'conversation-reply-to-clarification',
+    rows: [
+      ['Алиса', 'Помоги разобраться с ошибкой подключения к PostgreSQL.'],
+      ['Бот', 'Какой текст ошибки?']
+    ],
+    rowMetadata: { 2: { userId: 77, isBot: true, replyToMessageId: 1 } },
+    replyToMessageId: 2,
+    request: 'connection refused. Что это значит?',
+    ids: [1, 2],
+    include: [
+      ['PostgreSQL'],
+      ['подключ', 'соедин'],
+      ['сервер', 'порт', 'слушает']
+    ]
   }),
   conversation({
     id: 'conversation-missing-subject',

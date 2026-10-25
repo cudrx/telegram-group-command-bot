@@ -31,7 +31,7 @@ function setup() {
   return { db, generateAnswer, replyDispatcher, orchestrator };
 }
 
-describe('assistant mentions', () => {
+describe('assistant invocations', () => {
   test('a bare mention can ask for clarification without a target or another model call', async () => {
     const flow = setup();
     await flow.orchestrator.handleIncomingMessage(
@@ -46,13 +46,23 @@ describe('assistant mentions', () => {
     );
   });
 
-  test('passes the full request and accepts a reply to this bot', async () => {
+  test.each([
+    '@fun_bot почему богатые?',
+    'почему богатые?'
+  ])('continues a reply to this bot and preserves its parent request: %s', async (requestText) => {
     const flow = setup();
+    flow.db.saveIncomingMessage(
+      createIncomingMessage({
+        messageId: 1,
+        text: 'Здесь мамонт — тот, кого обманывают мошенники.'
+      })
+    );
     flow.db.saveBotMessage({
       chatId: 1,
       chatType: 'group',
       chatTitle: null,
-      messageId: 1,
+      messageId: 2,
+      replyToMessageId: 1,
       text: 'Мамонты — богатые люди.',
       userId: 77,
       displayName: 'Fun Bot',
@@ -60,20 +70,27 @@ describe('assistant mentions', () => {
     });
     await flow.orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        messageId: 2,
-        text: '@fun_bot почему богатые?',
-        replyToMessageId: 1,
-        entities: [{ type: 'mention', offset: 0, length: 8 }]
+        messageId: 3,
+        text: requestText,
+        replyToMessageId: 2,
+        replyToUserId: 77,
+        entities: requestText.startsWith('@')
+          ? [{ type: 'mention', offset: 0, length: 8 }]
+          : []
       })
     );
+    expect(flow.generateAnswer).toHaveBeenCalledOnce();
     expect(flow.generateAnswer).toHaveBeenCalledWith(
       expect.objectContaining({
         replyContext: expect.objectContaining({
           triggerMessage: expect.objectContaining({
-            text: '@fun_bot почему богатые?'
+            text: requestText
           }),
+          priorContextMessages: expect.arrayContaining([
+            expect.objectContaining({ messageId: 1 })
+          ]),
           replyAnchorMessage: expect.objectContaining({
-            messageId: 1,
+            messageId: 2,
             isBot: true
           })
         })
@@ -90,6 +107,8 @@ describe('assistant mentions', () => {
     await flow.orchestrator.handleIncomingMessage(
       createIncomingMessage({
         text,
+        replyToMessageId: 1,
+        replyToUserId: 77,
         entities: [{ type: 'bot_command', offset: 0, length: text.length }]
       })
     );
@@ -102,7 +121,20 @@ describe('assistant mentions', () => {
       text: '@other_bot привет',
       entities: [{ type: 'mention', offset: 0, length: 10 }]
     },
-    { text: 'reply без упоминания', replyToUserId: 77 },
+    { text: 'reply человеку', replyToMessageId: 1, replyToUserId: 42 },
+    { text: 'reply другому боту', replyToMessageId: 1, replyToUserId: 88 },
+    {
+      text: 'reply от бота',
+      replyToMessageId: 1,
+      replyToUserId: 77,
+      isBot: true
+    },
+    {
+      text: 'reply от link-only пользователя',
+      replyToMessageId: 1,
+      replyToUserId: 77,
+      authorizedMode: 'private_link_sender' as const
+    },
     {
       text: '@fun_bot',
       isBot: true,
@@ -121,12 +153,20 @@ describe('assistant mentions', () => {
     expect(flow.generateAnswer).not.toHaveBeenCalled();
   });
 
-  test('ignores mentions when assistant is disabled for the chat', async () => {
+  test.each([
+    'mention',
+    'reply'
+  ])('ignores %s when assistant is disabled for the chat', async (trigger) => {
     const flow = setup();
     await flow.orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        text: '@fun_bot',
-        entities: [{ type: 'mention', offset: 0, length: 8 }],
+        text: trigger === 'mention' ? '@fun_bot' : 'поясни',
+        entities:
+          trigger === 'mention'
+            ? [{ type: 'mention', offset: 0, length: 8 }]
+            : [],
+        replyToMessageId: trigger === 'reply' ? 1 : null,
+        replyToUserId: trigger === 'reply' ? 77 : null,
         accessContext: {
           kind: 'configured_chat',
           policy: createTestChatPolicy({

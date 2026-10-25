@@ -2,7 +2,7 @@
 
 ## Scope
 
-The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, mention-driven assistant requests and explicit utility commands. Assistant requests require an explicit username mention. The automatic trigger outside assistant requests and commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, YouTube Shorts links, and TikTok video links.
+The project is a single Telegram bot process using `grammY` long polling, a local SQLite database, an OpenAI-compatible LLM client, optional lookup/media/TTS providers, assistant requests triggered by mentions or replies and explicit utility commands. Assistant requests require an explicit username mention or a reply to this bot. The automatic trigger outside assistant requests and commands is media expansion for supported Reddit image/gallery/video post links, Instagram Reel links, YouTube Shorts links, and TikTok video links.
 
 The bot responds to these commands:
 
@@ -12,7 +12,7 @@ The bot responds to these commands:
 - `/meme`
 - `/sex`
 
-Explicit bot username mentions start an assistant reply in configured chats with `features.assistant` enabled and in the operator private chat. Ordinary messages, replies without a mention, unauthorized chats, and mentions from link-only private users do not start an assistant reply. Retired `/answer`, `/summarize`, and `/decide` commands are ignored. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `linkUserIds` in `telegram-access-config.json` can use only the direct-link flow.
+Explicit bot username mentions and replies to messages from this bot start an assistant reply in configured chats with `features.assistant` enabled and in the operator private chat. Ordinary messages, replies to other participants without a mention, unauthorized chats, and requests from link-only private users do not start an assistant reply. Retired `/answer`, `/summarize`, and `/decide` commands are ignored. Supported Reddit, Instagram Reel, and YouTube Shorts links in authorized chats start a local media flow without the LLM. Link-only users from `linkUserIds` in `telegram-access-config.json` can use only the direct-link flow.
 
 ## Invariants
 
@@ -100,7 +100,7 @@ Command-flow orchestrator:
 - asks the action registry to resolve a command;
 - builds a shared request for the resolved action;
 - runs `action.handle(...)` for utility commands;
-- routes explicit bot mentions through the shared assistant reply job when enabled;
+- routes explicit bot mentions and replies to this bot through the shared assistant reply job when enabled;
 - otherwise preserves the direct-media/ignore flow.
 
 `index.ts` accepts normalized incoming messages. `reply-job.ts` manages LLM reply job execution, and `reply-generation.ts` builds LLM context and calls the model. Topical helper modules live in `src/app/chat-orchestrator/helpers/`.
@@ -131,7 +131,7 @@ LLM layer:
 - deploy announcement formatting;
 - reply generation.
 
-Static prompt text lives in `llm/`. Assistant and utility prompts receive the current Moscow date and time in plain text. Transcript rows include message IDs, authors, timestamps, and explicit reply IDs. The current mention text is the request, and an explicit reply is a separate target. Truncation metadata indicates incomplete candidate history. Assistant instructions and JSON contracts are sent as system data; conversation and web evidence are isolated in user data.
+Static prompt text lives in `llm/`. Assistant and utility prompts receive the current Moscow date and time in plain text. Transcript rows include message IDs, authors, timestamps, and explicit reply IDs. The current user message is the request, and an explicit reply is a separate target. Truncation metadata indicates incomplete candidate history. Assistant instructions and JSON contracts are sent as system data; conversation and web evidence are isolated in user data.
 
 ### `src/media`
 
@@ -156,7 +156,7 @@ Outbound voice:
 1. `grammY` receives a message, normalizes Telegram text/caption and entity offsets, and checks access before persistence.
 2. `ChatOrchestrator` saves the update in SQLite; duplicate message IDs exit before any new job. Existing media auto-read starts when supported.
 3. The action registry resolves utility commands and applies per-chat command gating. Leading slash commands never trigger an assistant mention embedded in their arguments.
-4. An explicit username mention from a human in an assistant-enabled chat, or the operator private chat, starts the shared `answer` reply job. Bare mentions work; replies without mentions stay silent. Link-only users cannot start this flow.
+4. An explicit username mention or a reply to this bot from a human in an assistant-enabled chat, or the operator private chat, starts the shared `answer` reply job. Bare mentions work; replies to other participants without a mention stay silent. Link-only users cannot start this flow.
 5. Without a handled command or assistant request, supported direct media links use the existing local flow.
 6. `buildReplyContext` delegates assistant candidate retrieval to `buildAssistantContext`. It uses a bounded recent scan, predecessors of an old reply target, lexical/author/recency hints, and stored explicit reply ancestors. Queries are scoped to the current chat and messages before the triggering update. Telegram reply snapshots can supply missing targets.
 7. Target media is recognized using the existing pipeline. Neighboring recognition is never awaited or started on demand. Cached OCR, description, interpretation, and transcript evidence enrich only supplied candidates. Missing recognition is labeled; interpretation is explicitly unverified. History is fitted once after enrichment, preserving retrieval priorities and the space left by mandatory prompt content.
@@ -164,7 +164,7 @@ Outbound voice:
 9. IDs are validated against the current-chat candidate pool. For research, `selectAnswerContext` retains selected original messages, the explicit target, and available explicit parents; unrelated candidates are omitted.
 10. Research uses the existing lookup provider for one or two parallel queries. A required lookup failure returns the existing local verification fallback. Successful sources receive request-local IDs and enter the second grounded completion as untrusted evidence.
 11. The shared formatter/dispatcher sends the answer and stores it. Existing outbound voice policy applies to assistant answers; local fallbacks remain text.
-12. A clarification is an ordinary stored bot reply. The next explicit mention can reply to it and recover its parent request; plain replies do not start jobs.
+12. A clarification is an ordinary stored bot reply. A human can reply to it without a mention to continue the conversation and recover its parent request.
 
 No new services, local models, background clustering, or database migration are required. Concurrent distinct requests use their own trigger-bounded context and correlation IDs. Existing per-request provider timeouts and transport retries remain in force.
 
@@ -211,15 +211,15 @@ Behavior:
 
 ## Command Contracts
 
-### Mention-driven Assistant
+### Chat Assistant
 
-- Explicit `@bot_username` mentions are the sole assistant trigger, including a bare mention.
-- The complete mention message defines the task; its reply target provides context without overriding the wording. A target can be a human, this bot, or another bot.
+- Explicit `@bot_username` mentions, including a bare mention, and replies to messages sent by this bot trigger the assistant. Reply triggers use the Telegram sender ID rather than a display name or forwarded attribution.
+- The complete user message defines the task; its reply target provides context without overriding the wording. A target can be a human, this bot, or another bot.
 - Answers, summaries, explanations, and dispute assessments use one request contract, with no user-facing mode commands.
 - Candidate retrieval is bounded by settings in `src/config/runtime/actions/answer.ts`: recent scan, candidate count, anchor-neighbor count, explicit reply depth, individual text size, selected-ID count, and estimated token budgets.
 - Selected messages retain original IDs, authors, times, and explicit links; heuristic relevance does not create durable conversation links. Long message text is explicitly marked when clipped.
 - The final prompt budget includes instructions, schema, conversation, target media, and web evidence. Optional history is removed before rejecting an oversized prompt. The local generation fallback applies only when mandatory input alone exceeds the limit. Token estimates are approximate UTF-8-size estimates, not provider token usage.
-- Missing subject/context returns `clarify` in the first completion. Users continue by mentioning the bot again, optionally as a reply. There is no `retrieve_more` route.
+- Missing subject/context returns `clarify` in the first completion. Users continue by replying to the bot without a mention or mentioning it again. There is no `retrieve_more` route.
 - A context-contained answer uses one completion; research uses a second completion after lookup. Existing media recognition and configured transport retries are separate operations.
 - `features.assistant` controls access. Legacy `commands.answer`, `commands.summarize`, and `commands.decide` are accepted only for configuration compatibility: their logical OR supplies the flag when it is absent. The old commands are not registered.
 - Telegram privacy settings determine which ordinary messages are delivered and therefore available for context; the bot does not fetch inaccessible chat history.

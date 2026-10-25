@@ -25,6 +25,7 @@ describe('intent eval fixtures', () => {
         'conversation-old-reply-chain',
         'conversation-scam-slang',
         'conversation-corrects-own-answer',
+        'conversation-reply-to-clarification',
         'conversation-injection-is-data'
       ])
     );

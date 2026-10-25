@@ -73,22 +73,24 @@ export class ChatOrchestrator {
       entities: message.entities
     });
 
-    const assistantMention =
+    const assistantRequested =
       accessContext.kind !== 'private_link_sender' &&
       !hasLeadingBotCommand(message) &&
-      hasAssistantMention(message, this.deps.bot.username) &&
+      (hasAssistantMention(message, this.deps.bot.username) ||
+        (!message.isBot && message.replyToUserId === this.deps.bot.userId)) &&
       isFeatureEnabledForAccessContext(accessContext, 'assistant');
+
+    let decision = 'ignore';
+
+    if (resolvedAction) decision = 'command';
+    else if (assistantRequested) decision = 'assistant';
 
     logger.debug('incoming_message_evaluated', {
       commandText: resolvedAction?.commandText ?? null,
-      decision: resolvedAction
-        ? 'command'
-        : assistantMention
-          ? 'assistant'
-          : 'ignore',
+      decision,
       intent:
         resolvedAction?.action.intent ??
-        (assistantMention ? 'answer' : undefined)
+        (assistantRequested ? 'answer' : undefined)
     });
 
     if (
@@ -131,7 +133,7 @@ export class ChatOrchestrator {
       return;
     }
 
-    if (assistantMention) {
+    if (assistantRequested) {
       await runReplyJob({
         deps: this.deps,
         mediaSupport: this.mediaSupport,
