@@ -53,12 +53,16 @@ spec:
             limits: { memory: 512Mi }
           startupProbe:
             httpGet: { path: /health, port: 3000 }
+            timeoutSeconds: 5
             periodSeconds: 5
             failureThreshold: 36
           readinessProbe:
             httpGet: { path: /health, port: 3000 }
+            timeoutSeconds: 5
           livenessProbe:
             httpGet: { path: /health, port: 3000 }
+            timeoutSeconds: 5
+            failureThreshold: 5
             periodSeconds: 20
           volumeMounts:
             - { name: data, mountPath: /app/data }
@@ -79,9 +83,12 @@ spec:
           readinessProbe:
             exec:
               command: [node, -e, 'fetch("http://127.0.0.1:8081/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+            timeoutSeconds: 5
           livenessProbe:
             exec:
               command: [node, -e, 'fetch("http://127.0.0.1:8081/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+            timeoutSeconds: 5
+            failureThreshold: 5
             periodSeconds: 20
           volumeMounts:
             - { name: data, mountPath: /app/data, readOnly: true }
@@ -98,9 +105,12 @@ spec:
           readinessProbe:
             exec:
               command: [node, -e, 'fetch("http://127.0.0.1:8082/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+            timeoutSeconds: 5
           livenessProbe:
             exec:
               command: [node, -e, 'fetch("http://127.0.0.1:8082/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+            timeoutSeconds: 5
+            failureThreshold: 5
             periodSeconds: 20
           volumeMounts:
             - { name: data, mountPath: /app/data, readOnly: true }
