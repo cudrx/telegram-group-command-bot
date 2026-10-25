@@ -73,9 +73,12 @@ jobs:
           test "$result" = "yes"
 
           echo "=== Can read Kubernetes secrets? ==="
-          result=$(kubectl auth can-i get secrets -n telegram-bot)
-          echo "$result"
-          test "$result" = "no"
+          if kubectl auth can-i get secrets -n telegram-bot; then
+            echo "ERROR: GitHub deploy account has access to secrets!"
+            exit 1
+          else
+            echo "OK: Access to secrets is denied"
+          fi
 
           echo "=== Can access deployment? ==="
           kubectl -n telegram-bot get deployment telegram-bot --ignore-not-found
