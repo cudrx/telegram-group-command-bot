@@ -1,13 +1,12 @@
 name: Deploy
 
-# on:
-#   workflow_dispatch:
-#   push:
-#     branches: [main]
-#     paths-ignore: ['docs/**', 'README.md']
-
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - 'README.md'
 
 permissions:
   contents: read
