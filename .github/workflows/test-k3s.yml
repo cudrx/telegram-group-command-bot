@@ -1,0 +1,89 @@
+name: Test K3s Connection
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      KUBECONFIG: ${{ github.workspace }}/.kubeconfig
+
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: v1.36.0
+
+      - name: Configure kubeconfig
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$KUBE_CONFIG"
+          printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG"
+
+      - name: Start SSH tunnel
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          umask 077
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_KNOWN_HOSTS"
+
+          mkdir -p "$HOME/.ssh"
+          chmod 700 "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/k3s-deploy"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+
+          chmod 600 "$HOME/.ssh/k3s-deploy"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+          ssh -f -N \
+            -i "$HOME/.ssh/k3s-deploy" \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -o ExitOnForwardFailure=yes \
+            -o ConnectTimeout=15 \
+            -L 127.0.0.1:16443:127.0.0.1:6443 \
+            github-deploy@185.21.10.93
+
+          echo "SSH tunnel established"
+
+      - name: Test Kubernetes authentication
+        run: |
+          set -euo pipefail
+
+          echo "=== Current Kubernetes identity ==="
+          kubectl auth whoami
+
+          echo "=== Can update Telegram bot deployment? ==="
+          result=$(kubectl auth can-i patch deployment/telegram-bot -n telegram-bot)
+          echo "$result"
+          test "$result" = "yes"
+
+          echo "=== Can read Kubernetes secrets? ==="
+          result=$(kubectl auth can-i get secrets -n telegram-bot)
+          echo "$result"
+          test "$result" = "no"
+
+          echo "=== Can access deployment? ==="
+          kubectl -n telegram-bot get deployment telegram-bot --ignore-not-found
+
+          echo "K3s connection test passed!"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f "$KUBECONFIG"
+          rm -f "$HOME/.ssh/k3s-deploy"
