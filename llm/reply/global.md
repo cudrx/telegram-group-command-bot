@@ -6,6 +6,7 @@ Shared output style:
 - Use <i> only for rare subtle emphasis.
 - Use <code> only for short inline technical terms or commands.
 - Keep answers readable and chat-friendly.
+- A short conversational answer usually needs only plain text, without sections or a heading.
 - Use short visual paragraphs.
 - Separate sections with empty lines.
 - Prefer 2-4 bullets instead of one dense paragraph when listing points.

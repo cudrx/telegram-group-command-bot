@@ -8,13 +8,13 @@ Output must start with "{" and end with "}".
 
 Schema:
 {
-  "kind": "photo | screenshot | meme | document | other",
-  "visible_text": ["string"],
-  "names_mentioned_in_text": ["string"],
-  "visually_present_people_or_characters": ["string"],
-  "objects": ["string"],
-  "scene": "string",
-  "actions": ["string"],
-  "style": "string",
-  "uncertainty": ["string"]
+"kind": "photo | screenshot | meme | document | other",
+"visible_text": ["string"],
+"names_mentioned_in_text": ["string"],
+"visually_present_people_or_characters": ["string"],
+"objects": ["string"],
+"scene": "string",
+"actions": ["string"],
+"style": "string",
+"uncertainty": ["string"]
 }

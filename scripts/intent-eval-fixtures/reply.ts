@@ -40,6 +40,43 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     }
   }),
   createFixture({
+    id: 'answer-research-unfamiliar-slang',
+    intent: 'answer',
+    targetDisplayName: 'Алиса',
+    rows: [],
+    triggerText:
+      '@hrupa_bot проверь по источникам значение интернет-сленга «гунер». Это точно про стрелка?',
+    expectedMode: 'research',
+    expectedMessageIds: [],
+    lookupExpectation: {
+      shouldLookup: true,
+      purpose: 'entity_grounding',
+      includeTerms: [],
+      includeAnyTerms: ['гунер', 'gooner'],
+      sources: [
+        {
+          title: 'Synthetic internet slang glossary',
+          url: 'https://example.test/slang/gooner',
+          content:
+            'Synthetic evaluation source for the supplied chat example. «Гунер» (gooner) здесь — интернет-сленг о человеке, увлечённом порнографией и длительной мастурбацией. Это не gunner (стрелок) и не оценка конкретного участника чата. Анимешник — любитель аниме.',
+          score: 1
+        }
+      ]
+    },
+    evaluation: {
+      category: 'grounding',
+      origin: 'authored synthetic slang verification scenario',
+      criteria:
+        'Объяснить значение «гунер» по предоставленным источникам, не путать gooner с gunner (стрелком). Отрицание вроде «не означает стрелка» допустимо; оценивать смысл определения, а не наличие отдельных слов. Не выдавать тестовый источник за авторитетный словарь.',
+      requiredBotMessageIds: []
+    },
+    rubric: {
+      mustIncludeAny: [],
+      mustNotIncludeAny: [],
+      mustMatchRegex: ['[\\s\\S]+']
+    }
+  }),
+  createFixture({
     id: 'answer-research-current-release',
     intent: 'answer',
     targetDisplayName: 'Артём',

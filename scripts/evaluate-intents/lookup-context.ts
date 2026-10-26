@@ -22,6 +22,12 @@ export function matchesLookupExpectation(
       plan.queries.some((query) =>
         query.toLowerCase().includes(term.toLowerCase())
       )
-    )
+    ) &&
+    (!expected.includeAnyTerms ||
+      expected.includeAnyTerms.some((term) =>
+        plan.queries.some((query) =>
+          query.toLowerCase().includes(term.toLowerCase())
+        )
+      ))
   );
 }

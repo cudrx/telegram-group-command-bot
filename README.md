@@ -55,13 +55,13 @@ Telegram delivers to the bot.
 
 Utility commands are enabled per group:
 
-| Command | Action |
-| --- | --- |
-| `/translate` | Translate the replied-to text or recognized media into the configured target language. |
-| `/read` | Speak the replied-to text using Yandex SpeechKit. |
-| `/transcribe` | Transcribe the replied-to Telegram video using Gladia. |
-| `/meme` | Send fresh Reddit media from the chat's meme sources. |
-| `/sex` | Send Reddit media from a separate source list, with spoilers. |
+| Command       | Action                                                                                 |
+| ------------- | -------------------------------------------------------------------------------------- |
+| `/translate`  | Translate the replied-to text or recognized media into the configured target language. |
+| `/read`       | Speak the replied-to text using Yandex SpeechKit.                                      |
+| `/transcribe` | Transcribe the replied-to Telegram video using Gladia.                                 |
+| `/meme`       | Send fresh Reddit media from the chat's meme sources.                                  |
+| `/sex`        | Send Reddit media from a separate source list, with spoilers.                          |
 
 `features.direct_links` enables media expansion; `features.deploy_announcements`
 enables update notices. Direct media posts are sent without a reply; after

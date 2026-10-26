@@ -23,6 +23,13 @@ export type IntentEvalFixture = {
   expectedMode?: 'direct' | 'clarify' | 'research';
   expectedMessageIds?: number[];
   mediaContext?: DescribeMediaContext;
+  evaluation?: {
+    category: string;
+    origin: string;
+    criteria: string;
+    maxResponseChars?: number;
+    requiredBotMessageIds: number[];
+  };
   lookupExpectation?: {
     shouldLookup: boolean;
     purpose:
@@ -32,6 +39,7 @@ export type IntentEvalFixture = {
       | 'freshness'
       | 'link_extraction';
     includeTerms: string[];
+    includeAnyTerms?: string[];
     sources?: LookupSource[];
   };
   rubric: IntentEvalRubric;

@@ -12,6 +12,18 @@ export type EvalResult = {
   prompt: string;
   response: string;
   rubric: RubricResult;
+  evaluation?:
+    | {
+        category: string;
+        length: { actual: number; max: number | null; passed: boolean };
+        botContext: {
+          requiredIds: number[];
+          missingIds: number[];
+          passed: boolean;
+        };
+        semantic: { criteria: string; status: 'pending' | 'passed' | 'failed' };
+      }
+    | undefined;
   conversation?: {
     mode: string;
     selectedMessageIds: number[];

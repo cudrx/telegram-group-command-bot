@@ -17,19 +17,19 @@ Required: `TELEGRAM_BOT_TOKEN`, `LLM_API_KEY`, `TELEGRAM_CHAT_CONFIG_PATH`,
 and `TELEGRAM_ACCESS_CONFIG_PATH`. Replace `your-*` placeholders; remove unused
 optional keys or validation will reject them.
 
-| Settings | Purpose |
-| --- | --- |
-| `LLM_BASE_URL`, `LLM_REPLY_MODEL` | OpenAI-compatible endpoint and model. |
-| `LLM_REPLY_TEMPERATURE`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | Generation settings; retries do not apply to search. |
-| `SQLITE_PATH` | Database file; defaults to `data/bot.sqlite`. |
-| `MEDIA_VIDEO_URL`, `MEDIA_GALLERY_URL` | HTTP workers; configure both or neither. Neither means local CLI execution. |
-| `DEEPSEEK_API_KEY`, `TAVILY_API_KEY` | Search and optional failover. |
-| `LOOKUP_TIMEOUT_MS`, `LOOKUP_MAX_RESULTS` | Per-provider search timeout (default 7 seconds) and result limit. |
-| `GLADIA_API_KEY` | Voice/audio/video-note recognition and video transcription. |
-| `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY` | Image description and OCR. |
-| `YANDEX_SPEECHKIT_API_KEY` | Text-to-speech. |
-| `LOG_LEVEL`, `LOG_COLOR`, `LOG_LLM_TEXT` | Logging; LLM text logging contains previews, not full prompts/responses. |
-| `REPLY_MIN_TYPING_MS`, `REPLY_MAX_TYPING_MS`, `REPLY_TYPING_REFRESH_MS` | Telegram typing indication. |
+| Settings                                                                | Purpose                                                                     |
+| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `LLM_BASE_URL`, `LLM_REPLY_MODEL`                                       | OpenAI-compatible endpoint and model.                                       |
+| `LLM_REPLY_TEMPERATURE`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES`            | Generation settings; retries do not apply to search.                        |
+| `SQLITE_PATH`                                                           | Database file; defaults to `data/bot.sqlite`.                               |
+| `MEDIA_VIDEO_URL`, `MEDIA_GALLERY_URL`                                  | HTTP workers; configure both or neither. Neither means local CLI execution. |
+| `DEEPSEEK_API_KEY`, `TAVILY_API_KEY`                                    | Search and optional failover.                                               |
+| `LOOKUP_TIMEOUT_MS`, `LOOKUP_MAX_RESULTS`                               | Per-provider search timeout (default 7 seconds) and result limit.           |
+| `GLADIA_API_KEY`                                                        | Voice/audio/video-note recognition and video transcription.                 |
+| `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`   | Image description and OCR.                                                  |
+| `YANDEX_SPEECHKIT_API_KEY`                                              | Text-to-speech.                                                             |
+| `LOG_LEVEL`, `LOG_COLOR`, `LOG_LLM_TEXT`                                | Logging; LLM text logging contains previews, not full prompts/responses.    |
+| `REPLY_MIN_TYPING_MS`, `REPLY_MAX_TYPING_MS`, `REPLY_TYPING_REFRESH_MS` | Telegram typing indication.                                                 |
 
 Search reuses `LLM_API_KEY` only when `LLM_BASE_URL` has the official DeepSeek
 origin. Other LLM endpoints need a separate `DEEPSEEK_API_KEY` or Tavily key.
@@ -59,12 +59,12 @@ to receive ordinary group messages. Deleting source links also needs permissions
 
 ### Cookies and Video Tools
 
-| Setting | Used by |
-| --- | --- |
+| Setting                     | Used by                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------- |
 | `REDDIT_COOKIE_HEADER_PATH` | Bot HTTP requests for Reddit JSON/share links; takes precedence over Netscape cookies. |
-| `REDDIT_COOKIES_PATH` | Reddit HTTP requests without a raw header, and yt-dlp video extraction. |
-| `INSTAGRAM_COOKIES_PATH` | Instagram yt-dlp/gallery-dl extraction. |
-| `YOUTUBE_COOKIES_PATH` | YouTube yt-dlp extraction. |
+| `REDDIT_COOKIES_PATH`       | Reddit HTTP requests without a raw header, and yt-dlp video extraction.                |
+| `INSTAGRAM_COOKIES_PATH`    | Instagram yt-dlp/gallery-dl extraction.                                                |
+| `YOUTUBE_COOKIES_PATH`      | YouTube yt-dlp extraction.                                                             |
 
 Unset `REDDIT_COOKIE_HEADER_PATH` if you do not supply that file. A configured
 header rejected with HTTP 401/403 produces an admin notification. Updating it
@@ -121,15 +121,15 @@ and grounding against fixture web evidence; they do not test live search.
 Reports include prompts, selected IDs, route, calls, latency, and estimates.
 Lexical checks need human review for humor and conversational quality.
 
-Conversation evals compare 12 synthetic cases. Defaults are two repetitions
-of four variants (96 requests), with concurrency three, capped at four:
+Conversation evals default to two repetitions of four variants, with
+concurrency three, capped at four:
 
-| Variant | History/policy |
-| --- | --- |
-| A | Production history and instructions. |
-| B | Remove bot replies, including explicit bot targets. |
-| C | Keep bot replies only on the available triggering reply ancestry. |
-| D | Production history plus `llm/experiments/conversation-policy.md`. |
+| Variant | History/policy                                                    |
+| ------- | ----------------------------------------------------------------- |
+| A       | Production history and instructions.                              |
+| B       | Remove bot replies, including explicit bot targets.               |
+| C       | Keep bot replies only on the available triggering reply ancestry. |
+| D       | Production history plus `llm/experiments/conversation-policy.md`. |
 
 Filtering happens after production budget fitting and preserves human rows.
 This experiment checks the first completion only, without live search or a
@@ -145,7 +145,7 @@ To compare saved production instructions with the current version, replace
 npm run eval:conversation -- --baseline-manifest=.eval-runs/SAVED_RUN/manifest.json
 ```
 
-This defaults to A,D (48 requests): A uses the saved production prompt and D
+This defaults to A,D: A uses the saved production prompt and D
 uses current production instructions, without the experimental addition.
 User evidence must be byte-identical. Filters `--id`, `--variants`,
 `--repetitions`, and `--concurrency` limit the run.
@@ -293,11 +293,11 @@ Rotate the token by replacing its Secret and updating GitHub.
 In GitHub **Settings → Environments → production**, restrict deployment branches
 to `main` and configure:
 
-| Secret/variable | Value |
-| --- | --- |
-| `KUBE_CONFIG` | Complete scoped kubeconfig. |
-| `SSH_PRIVATE_KEY` | Private key for the VPS OS user. |
-| `SSH_KNOWN_HOSTS` | Verified SSH host-key entry for the workflow destination. |
+| Secret/variable              | Value                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------- |
+| `KUBE_CONFIG`                | Complete scoped kubeconfig.                                                                 |
+| `SSH_PRIVATE_KEY`            | Private key for the VPS OS user.                                                            |
+| `SSH_KNOWN_HOSTS`            | Verified SSH host-key entry for the workflow destination.                                   |
 | `KUBECTL_VERSION` (variable) | kubectl version matching the cluster minor version; Deploy currently defaults to `v1.36.0`. |
 
 Keep credential files out of Git and remove temporary local copies after

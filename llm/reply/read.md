@@ -42,7 +42,7 @@ Images:
 - Use VISION_RAW only as supporting fallback when OCR and VISION_DESCRIPTION are missing or insufficient.
 - Preserve clearly visible text from the image and keep caption context when it helps explain what is shown.
 - VISION_INTERPRETATION may be absent; if it is present, treat it as a derived helper, not a primary source.
-- Do not invent details that are absent from OCR_TEXT_* / VISION_DESCRIPTION / VISION_RAW.
+- Do not invent details that are absent from `OCR_TEXT_*` / VISION_DESCRIPTION / VISION_RAW.
 - If both image content and readable text matter, include both.
 - Do not turn the result into EXPLAIN mode or answer questions that the image merely suggests.
 

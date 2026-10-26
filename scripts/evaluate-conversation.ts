@@ -23,6 +23,7 @@ import {
 } from './evaluate-conversation/context.js';
 import { parseEvalEnv } from './evaluate-intents/env.js';
 import {
+  evaluateFixtureChecks,
   evaluateRubric,
   hasRubricFailures
 } from './evaluate-intents/scoring.js';
@@ -280,11 +281,23 @@ export async function main(): Promise<void> {
           const decision = generated.decision;
           const text = 'text' in decision ? decision.text : '';
           const rubric = evaluateRubric(text, item.fixture.rubric);
+          const evaluation = evaluateFixtureChecks(
+            item.fixture,
+            text,
+            job.messages
+          );
           const selectedIds =
             'context' in decision ? decision.context.messageIds : [];
           const hiddenSelectedIds = selectedIds.filter(
             (id) => !job.visibleIds.includes(id)
           );
+          const automaticChecks = {
+            expectedMode: decision.mode === item.fixture.expectedMode,
+            lexical: !hasRubricFailures(rubric),
+            length: evaluation?.length.passed ?? true,
+            botContextAvailable: evaluation?.botContext.passed ?? true,
+            visibleContextIds: hiddenSelectedIds.length === 0
+          };
           result = {
             id: item.fixture.id,
             category: item.category,
@@ -297,15 +310,12 @@ export async function main(): Promise<void> {
             latencyMs: Date.now() - started,
             promptTokensEstimate: job.promptTokensEstimate,
             humanHash: job.humanHash,
-            requiredBotContextAvailable: item.requiredBotMessageIds.every(
-              (id) => job.visibleIds.includes(id)
-            ),
-            automaticChecks: {
-              expectedMode: decision.mode === item.fixture.expectedMode,
-              lexical: !hasRubricFailures(rubric),
-              length: text.length <= item.maxResponseChars,
-              visibleContextIds: hiddenSelectedIds.length === 0
-            },
+            requiredBotContextAvailable: evaluation?.botContext.passed ?? true,
+            evaluation,
+            automaticChecks,
+            status: Object.values(automaticChecks).every(Boolean)
+              ? 'needs_review'
+              : 'failed',
             rubric,
             hiddenSelectedIds,
             responseChars: text.length
@@ -341,6 +351,7 @@ export async function main(): Promise<void> {
             variant,
             repeat,
             checks: result.automaticChecks,
+            status: result.status,
             error: result.error
           })
         );

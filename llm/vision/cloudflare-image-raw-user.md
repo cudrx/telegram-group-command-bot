@@ -1,4 +1,5 @@
 Describe the image in detail, including:
+
 - visible text
 - what is happening
 - observable scene details

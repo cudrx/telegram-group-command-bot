@@ -1,3 +1,4 @@
+import { getEvalStatus } from './scoring.js';
 import type { EvalResult } from './types.js';
 
 export function printResult(result: EvalResult): void {
@@ -6,6 +7,18 @@ export function printResult(result: EvalResult): void {
   console.log(result.response);
   console.log('');
   console.log('Rubric:');
+  console.log(`Result: ${getEvalStatus(result).toUpperCase()}`);
+  if (result.evaluation) {
+    console.log(
+      `${result.evaluation.length.passed ? 'PASS' : 'FAIL'} length: ${JSON.stringify(result.evaluation.length)}`
+    );
+    console.log(
+      `${result.evaluation.botContext.passed ? 'PASS' : 'FAIL'} bot context: ${JSON.stringify(result.evaluation.botContext)}`
+    );
+    console.log(
+      `Semantic review ${result.evaluation.semantic.status.toUpperCase()}: ${result.evaluation.semantic.criteria}`
+    );
+  }
 
   if (result.conversation) {
     console.log(
@@ -50,6 +63,16 @@ export function formatMarkdown(results: EvalResult[]): string {
     '',
     ...results.flatMap((result) => [
       `## ${result.id} (${result.intent})`,
+      '',
+      `Result: ${getEvalStatus(result).toUpperCase()}`,
+      ...(result.evaluation
+        ? [
+            `Category: ${result.evaluation.category}`,
+            `Length: ${JSON.stringify(result.evaluation.length)}`,
+            `Bot context: ${JSON.stringify(result.evaluation.botContext)}`,
+            `Semantic review ${result.evaluation.semantic.status.toUpperCase()}: ${result.evaluation.semantic.criteria}`
+          ]
+        : []),
       '',
       '### Prompt',
       '',

@@ -39,28 +39,53 @@ export function createFixture(input: {
   assistantInstructions?: string;
   lookupExpectation?: IntentEvalFixture['lookupExpectation'];
   mediaContext?: DescribeMediaContext;
+  evaluation?: IntentEvalFixture['evaluation'];
   rubric: IntentEvalFixture['rubric'];
 }): IntentEvalFixture {
   const authorIds = new Map(
-    [...new Set(input.rows.map((row) => row[1]))].map((author, index) => [
-      author,
-      index + 1
-    ])
+    [
+      ...new Set([...input.rows.map((row) => row[1]), input.targetDisplayName])
+    ].map((author, index) => [author, index + 1])
   );
+  for (const [index, row] of input.rows.entries()) {
+    const explicitId = input.rowMetadata?.[index + 1]?.userId;
+    if (explicitId != null) authorIds.set(row[1], explicitId);
+  }
   const priorContextMessages = input.rows.map<StoredMessage>(
     ([createdAt, senderDisplayName, text], index) => ({
       chatId: 1,
       messageId: index + 1,
-      userId: authorIds.get(senderDisplayName) ?? null,
+      userId:
+        senderDisplayName === 'Бот'
+          ? 77
+          : (authorIds.get(senderDisplayName) ?? null),
       senderDisplayName,
       text,
       createdAt,
-      isBot: false,
+      isBot: senderDisplayName === 'Бот',
       replyToMessageId: null,
       ...input.rowMetadata?.[index + 1]
     })
   );
-  const anchorMessageId = input.rows.length + 1;
+  const existingAnchor = input.replyAnchorText
+    ? [...priorContextMessages]
+        .reverse()
+        .find(
+          (message) =>
+            message.text === input.replyAnchorText &&
+            (input.replyAnchorIsBot === undefined ||
+              message.isBot === input.replyAnchorIsBot)
+        )
+    : undefined;
+  const newAnchor = Boolean(input.replyAnchorText && !existingAnchor);
+  const anchorMessageId = existingAnchor?.messageId ?? input.rows.length + 1;
+  const triggerMessageId = input.rows.length + (newAnchor ? 2 : 1);
+  const lastTime = Date.parse(
+    priorContextMessages.at(-1)?.createdAt ?? '2026-10-24T10:00:00Z'
+  );
+  const triggerTime = new Date(
+    lastTime + (newAnchor ? 2000 : 1000)
+  ).toISOString();
 
   const fixture: IntentEvalFixture = {
     id: input.id,
@@ -68,19 +93,15 @@ export function createFixture(input: {
     targetDisplayName: input.targetDisplayName,
     assistantInstructions:
       input.assistantInstructions ?? DEFAULT_ASSISTANT_INSTRUCTIONS,
-    currentDateTime: formatMoscowCurrentDateTime(
-      priorContextMessages.at(-1)?.createdAt ?? '2026-10-24T10:00:00Z'
-    ),
+    currentDateTime: formatMoscowCurrentDateTime(triggerTime),
     replyContext: {
       triggerMessage: {
         chatId: 1,
-        messageId: input.rows.length + (input.replyAnchorText ? 2 : 1),
-        userId: 999,
+        messageId: triggerMessageId,
+        userId: authorIds.get(input.targetDisplayName) ?? null,
         senderDisplayName: input.targetDisplayName,
         text: input.triggerText,
-        createdAt:
-          priorContextMessages[priorContextMessages.length - 1]?.createdAt ??
-          '2026-01-01T00:00:00.000Z',
+        createdAt: triggerTime,
         isBot: false,
         replyToMessageId:
           input.replyToMessageId ??
@@ -88,24 +109,23 @@ export function createFixture(input: {
       },
       replyAnchorMessage:
         input.replyAnchorText && usesReplyAnchor(input.intent)
-          ? {
+          ? (existingAnchor ?? {
               chatId: 1,
               messageId: anchorMessageId,
-              userId: 555,
-              senderDisplayName: 'Anchor User',
+              userId: input.replyAnchorIsBot ? 77 : 555,
+              senderDisplayName: input.replyAnchorIsBot ? 'Бот' : 'Anchor User',
               text: input.replyAnchorText,
-              createdAt:
-                priorContextMessages[priorContextMessages.length - 1]
-                  ?.createdAt ?? '2026-01-01T00:00:00.000Z',
+              createdAt: new Date(lastTime + 1000).toISOString(),
               isBot: input.replyAnchorIsBot ?? false,
               replyToMessageId: null
-            }
+            })
           : null,
       priorContextMessages
     },
     rubric: input.rubric
   };
 
+  if (input.evaluation) fixture.evaluation = input.evaluation;
   if (input.expectedMode) fixture.expectedMode = input.expectedMode;
   if (input.expectedMessageIds)
     fixture.expectedMessageIds = input.expectedMessageIds;
@@ -113,7 +133,7 @@ export function createFixture(input: {
   if (input.intent === 'answer') {
     const messages = [
       ...priorContextMessages,
-      fixture.replyContext.replyAnchorMessage,
+      ...(newAnchor ? [fixture.replyContext.replyAnchorMessage] : []),
       fixture.replyContext.triggerMessage
     ].filter((message) => message !== null);
     fixture.replyContext = enrichContextWithMediaEvidence(
@@ -131,7 +151,7 @@ export function createFixture(input: {
               .slice(-limit)
         },
         chatId: 1,
-        triggerMessageId: input.rows.length + (input.replyAnchorText ? 2 : 1),
+        triggerMessageId,
         contextLimit: answerActionConfig.contextLimit,
         intent: 'answer',
         botUserId: 77

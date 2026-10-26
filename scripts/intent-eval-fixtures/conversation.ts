@@ -44,7 +44,7 @@ export const conversationEvalFixtures: IntentEvalFixture[] = [
     intent: 'answer',
     targetDisplayName: 'Алиса',
     rows: Array.from({ length: 16 }, (_, i) => [
-      '2026-10-24T10:00:00Z',
+      new Date(Date.parse('2026-10-24T10:00:00Z') + i * 1000).toISOString(),
       'Борис',
       i === 0
         ? 'PostgreSQL выбрали для платежей: нужны транзакции, атомарность, согласованность и надёжность.'
@@ -89,8 +89,8 @@ export const conversationEvalFixtures: IntentEvalFixture[] = [
     id: 'conversation-audio-budget',
     intent: 'answer',
     targetDisplayName: 'Алиса',
-    rows: Array.from({ length: 20 }, () => [
-      '2026-10-24T10:00:00Z',
+    rows: Array.from({ length: 20 }, (_, i) => [
+      new Date(Date.parse('2026-10-24T10:00:00Z') + i * 1000).toISOString(),
       'Борис',
       'Посторонняя история. '.repeat(30)
     ]),
@@ -243,6 +243,7 @@ export const conversationEvalFixtures: IntentEvalFixture[] = [
     rows: [
       ['Алиса', 'Взяли поезд из-за низкой цены.'],
       ['Борис', 'А почему именно его?'],
+      // Synthetic load for ancestry retrieval beyond the recent-message scan.
       ...Array.from({ length: 140 }, (): [string, string] => [
         'Вера',
         'Обсуждаем погоду, к поездке это не относится.'

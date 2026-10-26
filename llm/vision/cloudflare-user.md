@@ -1,6 +1,7 @@
 Describe the image strictly based on observable facts.
 
 Rules:
+
 - Do not explain meaning
 - Do not interpret intent or context
 - Do not translate text

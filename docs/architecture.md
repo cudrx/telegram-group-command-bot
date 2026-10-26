@@ -2,18 +2,18 @@
 
 ## Components
 
-| Path | Responsibility |
-| --- | --- |
-| `src/app.ts` | grammY long polling, access checks, providers, dispatchers, and lifecycle. |
-| `src/app/chat-orchestrator/` | Persistence, command/assistant/link routing, context, and media jobs. |
-| `src/app/actions/` | Command registry and utility implementations. |
-| `src/llm/`, `llm/` | Provider client, prompt assembly, response validation, and static prompts. |
-| `src/database/` | SQLite migrations, queries, and retention cleanup. |
-| `src/media/` | Recognition providers, Telegram file access, and CLI worker transport. |
-| `src/tts/` | Speech cleanup, voice policy, and Yandex SpeechKit. |
-| `src/config/env/` | Environment and JSON access configuration validation. |
-| `src/config/runtime/` | Non-secret limits and feature/provider defaults. |
-| `src/locales/locale.ts` | User-facing text and language-specific patterns. |
+| Path                         | Responsibility                                                             |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| `src/app.ts`                 | grammY long polling, access checks, providers, dispatchers, and lifecycle. |
+| `src/app/chat-orchestrator/` | Persistence, command/assistant/link routing, context, and media jobs.      |
+| `src/app/actions/`           | Command registry and utility implementations.                              |
+| `src/llm/`, `llm/`           | Provider client, prompt assembly, response validation, and static prompts. |
+| `src/database/`              | SQLite migrations, queries, and retention cleanup.                         |
+| `src/media/`                 | Recognition providers, Telegram file access, and CLI worker transport.     |
+| `src/tts/`                   | Speech cleanup, voice policy, and Yandex SpeechKit.                        |
+| `src/config/env/`            | Environment and JSON access configuration validation.                      |
+| `src/config/runtime/`        | Non-secret limits and feature/provider defaults.                           |
+| `src/locales/locale.ts`      | User-facing text and language-specific patterns.                           |
 
 ## Message Routing
 
@@ -52,10 +52,10 @@ Current limits in [answer.ts](../src/config/runtime/actions/answer.ts):
 
 The first JSON-mode completion selects candidate IDs (at most 64) and returns:
 
-| Route | Work |
-| --- | --- |
-| `direct` | Answer from available context. |
-| `clarify` | Ask for missing context; the user can reply to the bot. |
+| Route      | Work                                                            |
+| ---------- | --------------------------------------------------------------- |
+| `direct`   | Answer from available context.                                  |
+| `clarify`  | Ask for missing context; the user can reply to the bot.         |
 | `research` | Run up to two parallel web queries, then a grounded completion. |
 
 Responses are validated locally. Unknown or cross-chat IDs are rejected.
@@ -76,12 +76,12 @@ Their legacy config flags only supply `features.assistant` when it is omitted.
 
 ## Utility Commands and Recognition
 
-| Command | Contract |
-| --- | --- |
-| `/translate` | Requires a reply. Translates target text, captions, OCR, transcripts, or descriptions; uses up to three neighboring human messages as context. Skips blocks already in the target language. No web search. |
-| `/read` | Requires replied-to text. Cleans it locally and applies TTS limits/cooldown. No LLM or recognition call. |
-| `/transcribe` | Requires a replied-to Telegram video, including one sent by the bot. Downloads it, extracts audio with ffmpeg, and transcribes through Gladia. No LLM or cached transcript artifact. |
-| `/meme`, `/sex` | Use the chat's `reddit_sources` lists. Try up to three subreddits' top-month listings, filter posts sent in the last 14 days, and try another candidate on failure. No LLM. |
+| Command         | Contract                                                                                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/translate`    | Requires a reply. Translates target text, captions, OCR, transcripts, or descriptions; uses up to three neighboring human messages as context. Skips blocks already in the target language. No web search. |
+| `/read`         | Requires replied-to text. Cleans it locally and applies TTS limits/cooldown. No LLM or recognition call.                                                                                                   |
+| `/transcribe`   | Requires a replied-to Telegram video, including one sent by the bot. Downloads it, extracts audio with ffmpeg, and transcribes through Gladia. No LLM or cached transcript artifact.                       |
+| `/meme`, `/sex` | Use the chat's `reddit_sources` lists. Try up to three subreddits' top-month listings, filter posts sent in the last 14 days, and try another candidate on failure. No LLM.                                |
 
 Recognition supports photos/image documents and voice/audio/video notes when
 provider keys are present. Images use Cloudflare Vision and OCR.space; audio
@@ -95,12 +95,12 @@ the requested operation requires them.
 
 ## Social Media Downloads
 
-| Source | Supported links and extraction |
-| --- | --- |
-| Reddit | Post and share links; images, GIFs, galleries, hosted video, and embedded Streamable. Post JSON resolves media; video uses yt-dlp on the permalink. |
-| Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video. |
-| YouTube | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges. |
-| TikTok | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored. |
+| Source    | Supported links and extraction                                                                                                                      |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reddit    | Post and share links; images, GIFs, galleries, hosted video, and embedded Streamable. Post JSON resolves media; video uses yt-dlp on the permalink. |
+| Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video.                                     |
+| YouTube   | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges.                                   |
+| TikTok    | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored.                                                         |
 
 Reddit HTTP requests prefer `REDDIT_COOKIE_HEADER_PATH` over Netscape cookies.
 Reddit video metadata and download commands use `REDDIT_COOKIES_PATH` with
@@ -129,14 +129,14 @@ size/duration rejections retain the original link and send a local explanation.
 
 ## Storage and Notifications
 
-| Table | Contents |
-| --- | --- |
-| `chats` | Chat metadata and reply/TTS state. |
-| `messages` | Incoming/outgoing messages, senders, reply links, edits, and media snapshots. |
-| `media_artifacts` | Recognition results, provider responses, failures, and expiry. |
-| `meme_posts` | Per-chat Reddit send history for anti-repeat selection. |
-| `source_states` | Instagram access lock and cookie modification time. |
-| `app_state` | Runtime values, including the last announced deployment SHA. |
+| Table             | Contents                                                                      |
+| ----------------- | ----------------------------------------------------------------------------- |
+| `chats`           | Chat metadata and reply/TTS state.                                            |
+| `messages`        | Incoming/outgoing messages, senders, reply links, edits, and media snapshots. |
+| `media_artifacts` | Recognition results, provider responses, failures, and expiry.                |
+| `meme_posts`      | Per-chat Reddit send history for anti-repeat selection.                       |
+| `source_states`   | Instagram access lock and cookie modification time.                           |
+| `app_state`       | Runtime values, including the last announced deployment SHA.                  |
 
 [Storage defaults](../src/config/runtime/storage.ts) retain messages and media
 artifacts for seven days; Reddit history lasts 14 days. Cleanup runs daily.

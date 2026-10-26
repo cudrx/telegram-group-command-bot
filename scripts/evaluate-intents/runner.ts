@@ -17,7 +17,11 @@ import {
   matchesLookupExpectation
 } from './lookup-context.js';
 import { formatMarkdown, printResult } from './reporting.js';
-import { evaluateRubric, hasRubricFailures } from './scoring.js';
+import {
+  evaluateFixtureChecks,
+  evaluateRubric,
+  getEvalStatus
+} from './scoring.js';
 import type { EvalResult } from './types.js';
 
 export async function main(): Promise<number> {
@@ -81,6 +85,11 @@ export async function main(): Promise<number> {
       prompt: answer?.prompt ?? prompt,
       response,
       rubric: evaluateRubric(response, fixture.rubric),
+      evaluation: evaluateFixtureChecks(
+        fixture,
+        response,
+        answer?.fittedMessages ?? []
+      ),
       ...(answer ? { conversation: answer.conversation } : {})
     };
 
@@ -90,7 +99,20 @@ export async function main(): Promise<number> {
 
   await writeFile(
     path.join(outputDir, 'assistant-intents.json'),
-    JSON.stringify({ generatedAt: new Date().toISOString(), results }, null, 2),
+    JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        settings: {
+          model: env.llmReplyModel,
+          temperature: env.llmReplyTemperature,
+          timeoutMs: 45_000,
+          maxRetries: 0
+        },
+        results
+      },
+      null,
+      2
+    ),
     'utf8'
   );
   await writeFile(
@@ -101,14 +123,31 @@ export async function main(): Promise<number> {
 
   console.log('');
   console.log(`Saved eval results to ${outputDir}`);
-
-  if (
-    results.some(
-      (result) =>
-        hasRubricFailures(result.rubric) ||
-        result.conversation?.passed === false
+  const categories = [
+    ...new Set(
+      results.map((result) => result.evaluation?.category ?? result.intent)
     )
-  ) {
+  ];
+  for (const category of categories) {
+    const group = results.filter(
+      (result) => (result.evaluation?.category ?? result.intent) === category
+    );
+    console.log(
+      JSON.stringify({
+        category,
+        total: group.length,
+        failed: group.filter((result) => getEvalStatus(result) === 'failed')
+          .length,
+        needsReview: group.filter(
+          (result) => getEvalStatus(result) === 'needs_review'
+        ).length,
+        passed: group.filter((result) => getEvalStatus(result) === 'passed')
+          .length
+      })
+    );
+  }
+
+  if (results.some((result) => getEvalStatus(result) === 'failed')) {
     process.exitCode = 1;
     console.error('One or more rubric checks failed.');
   }
@@ -122,6 +161,7 @@ async function evaluateAnswer(
 ): Promise<{
   response: string;
   prompt: string;
+  fittedMessages: ReturnType<typeof buildAnswerMessages>;
   conversation: NonNullable<EvalResult['conversation']>;
 }> {
   const input = {
@@ -176,6 +216,7 @@ async function evaluateAnswer(
     return {
       response: first.decision.text,
       prompt: JSON.stringify(prompts, null, 2),
+      fittedMessages: prompts[0] ?? [],
       conversation
     };
 
@@ -211,6 +252,7 @@ async function evaluateAnswer(
   return {
     response: grounded.decision.text,
     prompt: JSON.stringify(prompts, null, 2),
+    fittedMessages: prompts.at(-1) ?? [],
     conversation: {
       ...conversation,
       llmCalls: 2,
