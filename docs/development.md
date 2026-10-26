@@ -1,197 +1,157 @@
-# Development Guide
+# Development
 
-## Requirements
+## Local Setup
 
-- Node.js `22` LTS
-- npm `11+`
-- Telegram bot token
-- OpenAI-compatible LLM API key
+Use Node.js 24 and npm 11+. Follow the [quick start](../README.md#quick-start)
+to create `.env` and the two JSON config files before running migrations.
 
-## Main Files
+Native media features need `yt-dlp` (with `default,curl-cffi` extras),
+`gallery-dl`, `ffmpeg`, and `ffprobe` on PATH. YouTube also needs Node.js.
+Alternatively, run the [three-container Compose setup](#local-docker).
 
-- `README.md` - overview and quick start.
-- `docs/README.md` - Markdown documentation structure.
-- `docs/architecture.md` - architecture and flows.
-- `docs/development.md` - this guide.
-- `llm/assistant/base.md` - base assistant prompt.
-- `llm/` - static prompt files.
-- `src/app/actions/` - command action modules and command registry.
-- `src/llm/current-datetime.ts` - current Moscow date/time formatting for reply prompts.
-- `src/locales/locale.ts` - active user-facing text and language-specific patterns.
-- `src/config/env/` - environment schema, defaults, and validation.
-- `src/config/runtime/` - typed runtime defaults grouped by action and provider.
-- `scripts/` - migrations, eval scripts, and deploy metadata.
+## Configuration
 
-## Environment
+[Example environment](../config/examples/.env.example) and
+[environment schema](../src/config/env/schema.ts) list the supported settings.
+Required: `TELEGRAM_BOT_TOKEN`, `LLM_API_KEY`, `TELEGRAM_CHAT_CONFIG_PATH`,
+and `TELEGRAM_ACCESS_CONFIG_PATH`. Replace `your-*` placeholders; remove unused
+optional keys or validation will reject them.
 
-Required variables:
+| Settings | Purpose |
+| --- | --- |
+| `LLM_BASE_URL`, `LLM_REPLY_MODEL` | OpenAI-compatible endpoint and model. |
+| `LLM_REPLY_TEMPERATURE`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES` | Generation settings; retries do not apply to search. |
+| `SQLITE_PATH` | Database file; defaults to `data/bot.sqlite`. |
+| `MEDIA_VIDEO_URL`, `MEDIA_GALLERY_URL` | HTTP workers; configure both or neither. Neither means local CLI execution. |
+| `DEEPSEEK_API_KEY`, `TAVILY_API_KEY` | Search and optional failover. |
+| `LOOKUP_TIMEOUT_MS`, `LOOKUP_MAX_RESULTS` | Per-provider search timeout (default 7 seconds) and result limit. |
+| `GLADIA_API_KEY` | Voice/audio/video-note recognition and video transcription. |
+| `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY` | Image description and OCR. |
+| `YANDEX_SPEECHKIT_API_KEY` | Text-to-speech. |
+| `LOG_LEVEL`, `LOG_COLOR`, `LOG_LLM_TEXT` | Logging; LLM text logging contains previews, not full prompts/responses. |
+| `REPLY_MIN_TYPING_MS`, `REPLY_MAX_TYPING_MS`, `REPLY_TYPING_REFRESH_MS` | Telegram typing indication. |
 
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_CHAT_CONFIG_PATH`
-- `TELEGRAM_ACCESS_CONFIG_PATH`
-- `LLM_API_KEY`
+Search reuses `LLM_API_KEY` only when `LLM_BASE_URL` has the official DeepSeek
+origin. Other LLM endpoints need a separate `DEEPSEEK_API_KEY` or Tavily key.
+DeepSeek failures/empty results notify the admin and try Tavily once.
+Two research queries can run in parallel; sequential provider failover can
+take twice the configured timeout.
 
-Access and storage:
+### Telegram Access
 
-- `TELEGRAM_CHAT_CONFIG_PATH` - primary path to a JSON file with chat policies.
-- `TELEGRAM_ACCESS_CONFIG_PATH` - path to a JSON file with global operator access settings.
-- `SQLITE_PATH`
-- `REDDIT_COOKIE_HEADER_PATH` - optional file containing a browser `Cookie` header for Reddit requests. Takes priority over `REDDIT_COOKIES_PATH`. On HTTP 401/403, the bot notifies the admin to update this file.
-- `REDDIT_COOKIES_PATH` - optional path to Netscape cookies for Reddit listing/direct video requests.
-- `INSTAGRAM_COOKIES_PATH` - optional path to Netscape cookies for Instagram Reels.
-- `YOUTUBE_COOKIES_PATH` - optional path to Netscape cookies for YouTube Shorts.
+The chat config is an array; see the
+[example](../config/examples/telegram-chat-config.example.json).
 
-LLM:
+- `commands`: `translate`, `read`, `transcribe`, `meme`, `sex`.
+- `features`: `assistant`, `direct_links`, `deploy_announcements`.
+- `reddit_sources.meme` and `reddit_sources.sex`: per-chat subreddit lists,
+  required and non-empty when the matching command is enabled.
 
-- `LLM_BASE_URL`
-- `LLM_REPLY_MODEL`
-- `LLM_REPLY_TEMPERATURE`
-- `LLM_TIMEOUT_MS`
-- `LLM_MAX_RETRIES`
+Legacy `commands.answer/summarize/decide` flags only supply the assistant flag
+when `features.assistant` is omitted. Their slash commands are retired.
+Invalid entries, duplicate chat IDs, and unreadable config files fail startup.
 
-Behavior:
+The [access config](../config/examples/telegram-access-config.example.json)
+sets `adminUserId` and optional `linkUserIds`. The operator can use the assistant
+and links privately; link-only users cannot invoke the assistant or commands.
+Disable BotFather privacy mode or grant the necessary administrator access
+to receive ordinary group messages. Deleting source links also needs permissions.
 
-- `REPLY_MIN_TYPING_MS`
-- `REPLY_MAX_TYPING_MS`
-- `REPLY_TYPING_REFRESH_MS`
+### Cookies and Video Tools
 
-Lookup:
+| Setting | Used by |
+| --- | --- |
+| `REDDIT_COOKIE_HEADER_PATH` | Bot HTTP requests for Reddit JSON/share links; takes precedence over Netscape cookies. |
+| `REDDIT_COOKIES_PATH` | Reddit HTTP requests without a raw header, and yt-dlp video extraction. |
+| `INSTAGRAM_COOKIES_PATH` | Instagram yt-dlp/gallery-dl extraction. |
+| `YOUTUBE_COOKIES_PATH` | YouTube yt-dlp extraction. |
 
-- `DEEPSEEK_API_KEY` - optional separate key for DeepSeek Search. When omitted and `LLM_BASE_URL` has the official `https://api.deepseek.com` origin, search reuses `LLM_API_KEY`. With another LLM endpoint, set this separately to enable DeepSeek Search.
-- `TAVILY_API_KEY` - optional fallback search after a DeepSeek error or empty result; retained as the sole search provider when no DeepSeek key is available.
-- `LOOKUP_TIMEOUT_MS` - timeout per provider attempt, default 7,000 ms. DeepSeek and a subsequent Tavily attempt each receive this timeout; two research queries run in parallel. There are no search retries. `LLM_MAX_RETRIES` affects only LLM generation.
-- `LOOKUP_MAX_RESULTS`
+Unset `REDDIT_COOKIE_HEADER_PATH` if you do not supply that file. A configured
+header rejected with HTTP 401/403 produces an admin notification. Updating it
+does not update the Netscape file used by yt-dlp.
 
-Media and voice providers:
+Reddit metadata and downloads use `--impersonate chrome`. Both Dockerfiles
+install yt-dlp's `curl-cffi` extra. Workers copy cookies to private writable
+files with mode `0600` and remove them in `finally`; the read-only originals
+are preserved. An absent yt-dlp cookie file starts an empty private jar, which
+does not guarantee that the source will allow anonymous access.
 
-- `GLADIA_API_KEY` - audio/video-note transcription and `/transcribe`.
-- `CLOUDFLARE_AI_API_KEY` + `CLOUDFLARE_ACCOUNT_ID` - image description.
-- `OCR_SPACE_API_KEY` - OCR.
-- `YANDEX_SPEECHKIT_API_KEY` - outbound voice.
+Instagram auth/rate-limit failures lock the source in SQLite. Update its cookie
+file to allow another attempt; repeated requests alone do not clear the lock.
 
-Logging and runtime:
-
-- `NODE_ENV`
-- `LOG_LEVEL`
-- `LOG_COLOR`
-- `LOG_LLM_TEXT`
-
-`TELEGRAM_CHAT_CONFIG_PATH` should point to a JSON array of chat policies. Each policy includes:
-
-- `commands` - boolean flags for utility commands: `translate`, `read`, `transcribe`, `meme`, and `sex`. Retired `answer`, `summarize`, and `decide` keys are optional compatibility inputs; they do not register commands.
-- `features` - boolean flags for `assistant`, `direct_links`, and `deploy_announcements`. If `assistant` is omitted, it inherits the logical OR of legacy `commands.answer`, `commands.summarize`, and `commands.decide`; explicit true/false overrides those flags. With neither new nor legacy flags it defaults to false.
-- `reddit_sources` - optional per-chat subreddit lists for Reddit-backed commands:
-  - `meme` is required and must be non-empty when `commands.meme=true`
-  - `sex` is required and must be non-empty when `commands.sex=true`
-
-Unknown command names, unknown feature names, duplicate chat ids, invalid JSON, and unreadable files all fail startup.
-
-`TELEGRAM_ACCESS_CONFIG_PATH` should point to a JSON object with:
-
-- `adminUserId` - required Telegram user id of the global operator.
-- `linkUserIds` - optional array of Telegram user ids allowed to DM only supported direct media links.
-
-`config/examples/.env.example` contains placeholders. Environment validation rejects `your-*` values, so optional provider keys should either be replaced or removed/commented out.
-
-Runtime settings that are not secrets and do not require deploy-specific overrides live in `src/config/runtime/`. Values are grouped by scenario (`actions/answer`, `actions/read`, `actions/meme`, `actions/sex`) and external provider (`providers/llm`, `providers/media`, `providers/tts`, `providers/lookup`). Settings that differ between environments go through `src/config/env/schema.ts`; defaults come from runtime config.
-
-## Assistant Context and Evaluation
-
-`src/config/runtime/actions/answer.ts` holds experimental assistant context limits (the internal name does not register `/answer`): up to 80 candidates from a 128-message recent scan, up to 16 predecessors around an explicit target, and explicit reply ancestry up to 16 links. Heuristics prioritize reply ancestors, target neighbors, recency, request terms, and author participation. These scores are candidate retrieval hints, not confirmed conversation links. No full-history scan, background clustering, or extra retrieval round is used.
-
-History is fitted once after cached media enrichment, preserving retrieval priorities. It uses at most an estimated 8,000 tokens and only the remaining space within the 16,000-token full prompt budget after instructions, target media, schema, and web evidence. Individual message text is clipped at 6,000 characters with a visible marker. Optional history is dropped before rejecting a request; the local fallback applies only when mandatory input alone exceeds the budget. Unrelated media recognition does not block a reply; unfinished neighboring media is marked unavailable. Estimates use UTF-8 bytes divided by three, not a provider tokenizer or billed usage. Tune these settings against real chats, latency, and API usage.
-
-The first model decision is `direct`, `clarify`, or `research`, with numeric `context.messageIds` from the supplied candidate pool, capped at 64. Unknown/cross-chat IDs fail validation. The research call receives selected original messages and their available explicit parents. Direct answers and clarifications require one completion; research uses two, excluding configured transport retries and existing media recognition. A clarification does not search chat history or the web. Users continue by replying to the bot without a mention or sending another explicit mention.
-
-Assistant completions use `response_format: {type: 'json_object'}`. JSON mode ensures JSON syntax; the response schema is validated locally. The canonical context is `{"messageIds": [...]}`. A model-supplied array in `context` is wrapped into that object before the same numeric-ID, count, and candidate-membership checks. Strings, message objects, and unavailable IDs are rejected. This normalization does not make another model call.
-
-`npm run eval:intents -- --intent=answer` covers summaries, disputes, interleaved conversations, local slang, irony, previous bot corrections, replies to clarification questions without mentions, old reply chains, missing subjects, bare mentions, injection, and audio. Answer fixtures use production retrieval, cached-media enrichment, and prompt budget fitting, including media-priority and long-audio regression cases. Research checks cover the selected route, expected search purpose, and query terms before grounding against fixture evidence. Web evidence in this suite is fixture-provided; it tests LLM routing and grounding without making live Tavily calls. Reports retain the actual system/user prompts for each completion, route, selected IDs, context precision/recall against fixtures, call count, estimated prompt tokens, and LLM latency. Rubric checks are limited lexical checks and require human review for nuanced humor; they are not proof of production quality. Save a baseline from the previous revision before rollout when comparing quality and cost.
-
-`scripts/intent-eval-fixtures/social.ts` adds 12 authored synthetic scenarios for humor, intent changes, feedback, references to bot answers, speaker attribution, and factual pressure. They also run in the ordinary intent suite with production instructions. They are not exported production conversations.
-
-Run `npm run eval:conversation -- --dry-run` to inspect a comparison manifest without API calls. `npm run eval:conversation` loads `.env` and runs 96 requests: 12 scenarios, two repetitions, and four variants. A keeps production history and instructions; B removes all bot replies, including the explicit bot target; C keeps bot replies only along the triggering message's available explicit reply ancestry; D keeps production history and appends `llm/experiments/conversation-policy.md` to the system instructions. This experimental policy is never loaded by the running bot. Filter with `--id=social-memory-no-reply`, `--variants=A,D`, or `--repetitions=1`; concurrency defaults to three and is capped at four.
-
-The comparison uses production prompt assembly and response validation. It removes bot rows only after production prompt budget fitting, checks identical human-row hashes across variants, and never fills freed space with extra history. D must fit the existing prompt budget without refitting human history. Removal updates truncation metadata and candidate counts; explicit reply IDs remain, so a missing target is visible as unavailable context. The available-ID check also detects selections of removed rows. Research is evaluated only as a first-call route; this experiment makes no web or grounded follow-up calls.
-
-Each run saves exact prompts and criteria in `manifest.json`, model settings in `settings.json`, incremental `results.jsonl`, and completed `results.json` under `.eval-runs/conversation-<UTC timestamp>/`. Results include the API-reported model and token usage, latency, decisions, length checks, and lexical checks. Exit status reflects execution/schema failures; expected behavioral differences do not fail the experimental command. Qualitative reviews must be recorded separately and must identify their reviewer and whether the review was blinded. The initial pilot's `review.json` and `summary.json` were written after inspecting all responses; the runner does not regenerate them. See [research](research.md) for research sources.
-
-To compare an earlier production prompt with the current one, run `npm run eval:conversation -- --baseline-manifest=.eval-runs/<previous-run>/manifest.json`. This defaults to variants A,D and 48 requests. A uses the saved run's A/repetition-1 prompt for each case; D uses the actual current production prompt without appending experimental rules. Both require byte-identical user data, including bot history and media, and fail before API calls if fitting changes the evidence. The saved manifest must cover every requested case; `--id` can select a subset. The manifest records which baseline file was used and the exact system/user messages for every request. The old four-arm experiment remains available without this option. Keep saved baseline artifacts locally when repeating comparisons across prompt revisions.
-
-## Local Run
-
-```bash
-npm install
-mkdir -p data
-cp config/examples/.env.example .env
-cp config/examples/telegram-chat-config.example.json data/telegram-chat-config.json
-cp config/examples/telegram-access-config.example.json data/telegram-access-config.json
-npm run migrate
-npm run dev
-```
-
-Replace required values in `.env` before starting, then edit `data/telegram-chat-config.json` and `data/telegram-access-config.json` with your real Telegram ids, command flags, feature flags, and per-chat Reddit source lists for `/meme` and `/sex`.
-
-If you use a different OpenAI-compatible provider, change:
-
-```dotenv
-LLM_BASE_URL=https://api.deepseek.com
-LLM_REPLY_MODEL=deepseek-v4-flash
-```
-
-For detailed debugging:
-
-```dotenv
-LOG_LEVEL=debug
-LOG_LLM_TEXT=true
-LOG_COLOR=true
-```
-
-`LOG_LLM_TEXT=true` writes a compact trace and short preview, but not the full prompt/response.
-
-## NPM Scripts
-
-- `npm run dev` - local run through `tsx watch`.
-- `npm run migrate` - create or update the SQLite schema.
-- `npm run lint` - `biome check`.
-- `npm run lint:fix` - `biome check --write`.
-- `npm run format` - `biome format --write`.
-- `npm run typecheck` - `tsc --noEmit`.
-- `npm test` - `vitest run`.
-- `npm run build` - build the TypeScript project.
-- `npm start` - run the built application.
-- `npm run eval:intents` - full intent eval suite.
-- `npm run eval:intents -- --id=<fixture-id>` - one fixture.
-- `npm run eval:intents -- --intent=<intent>` - fixtures for one intent.
+Video limits and timeouts live in
+[reddit-media.ts](../src/config/runtime/actions/reddit-media.ts): 600 seconds,
+50 MB final size, 75 MB pre-download rejection for known selected-format sizes,
+two video jobs globally, one per chat. yt-dlp downloads are probed, normalized
+to H.264/AAC, and probed again before Telegram upload.
 
 ## Checks
-
-For regular changes:
 
 ```bash
 npm run lint
 npm run typecheck
 npm test
-```
-
-For runtime, build, or deploy changes:
-
-```bash
 npm run build
 ```
 
-For intent routing or prompt-contract changes:
+`npm run dev` watches source; `npm start` runs the build. `npm run migrate`
+applies database migrations. Use `npm run format` or `npm run lint:fix` to apply
+Biome fixes. Test native SQLite support with Node 24: database suites skip
+when the installed `better-sqlite3` binary cannot load.
+
+Keep user-facing strings and language patterns in `src/locales/locale.ts`.
+Add prompt behavior cases to eval fixtures; unit tests should cover assembly,
+validation, and escaping rather than exact instructional prose.
+
+## Evaluations
+
+Evals use configured LLM credentials and make API calls. Only the conversation
+runner has a `--dry-run` mode. Replace `FIXTURE_ID` with an ID from the fixtures:
 
 ```bash
 npm run eval:intents
+npm run eval:intents -- --intent=answer
+npm run eval:intents -- --id=FIXTURE_ID
+npm run eval:conversation -- --dry-run
+npm run eval:conversation -- --variants=A,D --repetitions=1
 ```
 
-Prompt unit tests cover executable composition behavior: loading registered files, inserting the selected runtime data, excluding data from inapplicable branches, escaping untrusted content, and building the provider request. They must not assert that prompt Markdown contains particular instructional sentences. Model-facing wording and output quality belong in eval fixtures rather than source-text assertions.
+Intent evals cover assistant routing, context selection, media enrichment,
+and grounding against fixture web evidence; they do not test live search.
+Reports include prompts, selected IDs, route, calls, latency, and estimates.
+Lexical checks need human review for humor and conversational quality.
 
-The reply-model prompt contract includes a `CURRENT_DATETIME` block with current Moscow date and time in plain text. This helps the LLM resolve relative dates correctly.
+Conversation evals compare 12 synthetic cases. Defaults are two repetitions
+of four variants (96 requests), with concurrency three, capped at four:
+
+| Variant | History/policy |
+| --- | --- |
+| A | Production history and instructions. |
+| B | Remove bot replies, including explicit bot targets. |
+| C | Keep bot replies only on the available triggering reply ancestry. |
+| D | Production history plus `llm/experiments/conversation-policy.md`. |
+
+Filtering happens after production budget fitting and preserves human rows.
+This experiment checks the first completion only, without live search or a
+grounded follow-up. The experimental policy is not loaded by the bot.
+Artifacts go to `.eval-runs/conversation-<UTC timestamp>/`: prompts in
+`manifest.json`, settings, incremental `results.jsonl`, and final `results.json`.
+Exit status covers execution/schema errors; qualitative reviews are separate.
+
+To compare saved production instructions with the current version, replace
+`SAVED_RUN` with the directory of the earlier run:
+
+```bash
+npm run eval:conversation -- --baseline-manifest=.eval-runs/SAVED_RUN/manifest.json
+```
+
+This defaults to A,D (48 requests): A uses the saved production prompt and D
+uses current production instructions, without the experimental addition.
+User evidence must be byte-identical. Filters `--id`, `--variants`,
+`--repetitions`, and `--concurrency` limit the run.
+See [research](research.md) for background reading.
 
 ## Local Docker
-
-Use the GitHub Compose file for local testing of all three containers:
 
 ```bash
 docker compose -f .github/compose.yml config --quiet
@@ -200,115 +160,49 @@ docker compose -f .github/compose.yml logs --tail=100 -f
 docker compose -f .github/compose.yml down
 ```
 
-All containers run as `node:node` (UID/GID 1000). The `data` bind mount must be
-writable by that user. Workers mount it read-only; they copy cookies before
-running extractors. Media files use a separate named volume mounted at
-`/media`. No media executables need to be placed in `data/bin`. There are no
-published ports. The first build downloads apt/pip packages; later builds
-cache tool installation separately from source compilation.
+The GitHub Dockerfile builds `bot`, `video`, and `gallery` targets. Containers
+run as UID/GID 1000. `data/` must be writable by that user; workers mount it
+read-only. Shared media uses a separate volume. No ports are published.
 
-GitHub's `.github/Dockerfile` has three runtime targets. `bot` contains the
-app and npm production dependencies. `video` contains the HTTP worker,
-ffmpeg/ffprobe, yt-dlp with its `curl-cffi` extra for Reddit Chrome impersonation,
-its EJS dependency, and Node.js. `gallery` contains the HTTP worker and
-gallery-dl. Worker images do not include the bot's npm packages.
-Tool versions are explicit build arguments and updates require an
-image rebuild. `USER node:node` controls runtime privileges; it does not
-reconfigure the host Docker daemon. No separate rootless BuildKit service is
-required. Native and GitLab runs keep local CLI execution unless both
-`MEDIA_VIDEO_URL` and `MEDIA_GALLERY_URL` are set.
-The GitLab image also installs the `curl-cffi` extra; native Reddit video
-downloads require a yt-dlp installation with that extra enabled.
-
-Reddit metadata and download commands both pass `--impersonate chrome` and
-use `REDDIT_COOKIES_PATH` (Netscape format). The raw header configured through
-`REDDIT_COOKIE_HEADER_PATH` only applies to the bot's HTTP requests. Each
-worker command uses an isolated temporary cookie copy with mode `0600`,
-removed in `finally`; the original cookie file remains unchanged even if it
-is read-only. Verify the rebuilt video image with:
+To check Reddit impersonation support:
 
 ```bash
-docker run --rm --entrypoint yt-dlp telegram-group-command-bot-video:reddit-impersonation --list-impersonate-targets
+docker compose -f .github/compose.yml run --rm --no-deps --entrypoint yt-dlp video --list-impersonate-targets
 ```
 
-Chrome must be available. After deployment, verify a complete video download
-and Telegram upload; successful metadata extraction alone is insufficient.
-
-Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same
-pipeline: `yt-dlp metadata -> duration/early-size caps -> yt-dlp download ->
-ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`.
-
-Videos longer than 600 seconds are not downloaded or converted, and downloaded files are checked again with `ffprobe`. Direct video sends for Reddit, Instagram Reels, YouTube Shorts, `/meme`, and `/sex` use a 50 MB file cap because this project uses the standard Telegram Bot API rather than a local Bot API server. `yt-dlp` metadata also has a conservative 75 MB pre-download reject cap for clearly oversized selected formats; unknown or borderline metadata still goes through the normal download and final-size checks. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and moves the moov atom to the beginning. After normalization, the bot probes the output dimensions and passes `duration`, `width`, `height`, and `supports_streaming` to Telegram `sendVideo`. YouTube Shorts use H.264 MP4 at `height<=854` to avoid oversized 720p/1080p variants for long Shorts. Reddit `fallback_url` and similar direct MP4 URLs are used only as metadata/video-post signals, not as download paths.
-
-Heavy video jobs are queued in-process with bounded concurrency so only a small
-number of video pipelines run at once across all chats, and only one such job
-may run at once per chat. If a video job cannot start immediately, the bot
-sends a short queue notice before the normal video status messages begin.
-
-Media subprocesses have explicit hard timeouts for metadata fetch, video
-download, probing, and normalization so a stuck `yt-dlp`, `ffprobe`, or
-`ffmpeg` process cannot hold a queue slot forever.
-
-Instagram has an additional source lock. If `yt-dlp` or `gallery-dl` returns auth/access
-failures such as login-required or rate-limit responses, the bot stores a
-persistent blocked state in SQLite and refuses new Instagram jobs before
-starting another extractor. The block clears automatically only after the cookie file at
-`INSTAGRAM_COOKIES_PATH` changes on disk.
+Chrome must be available via `curl_cffi`. Verify a full download and Telegram
+upload too; metadata extraction alone does not test the complete pipeline.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on non-main pushes, PRs to main, and manual
-runs. It is also a reusable workflow called by Deploy. It installs npm
-dependencies, runs lint/typecheck/tests, and builds three images in one Bake
-invocation. There is no dev/prod or architecture matrix; the runner's native
-Linux architecture is used. Images share build stages and separate GHA caches.
-Container smoke checks verify UID/GID, SQLite write access, CLI startup, HTTP
-jobs, H.264/AAC encoding, ffprobe JSON, and Opus extraction without external
-media sites. Main publishes commit-tagged images to GHCR, extracts each
-target's digest from Bake metadata, and smoke-tests those exact digests.
-Deployment and rollback use the same digest references, including repeated
-builds of one commit. Non-publishing CI smoke-tests locally loaded tags.
+GitHub [CI](../.github/workflows/ci.yml) runs on non-main pushes, PRs to main,
+manual runs, and calls from Deploy. Documentation-only pushes/PRs are excluded.
+It runs lint, typecheck, tests, builds all three images with Bake, and smoke-tests
+the containers without external media sites. Publishing uses GHCR commit tags;
+smoke tests and deployment use the resulting image digests.
 
-GitLab keeps its original pipeline, Dockerfile contents, dev/prod targets,
-architecture matrix, registry, and release jobs. Only paths changed:
-`.gitlab/Dockerfile` and `.gitlab/docker-bake.hcl` now sit alongside its CI
-files. No GitLab UI change is required.
+[Deploy](../.github/workflows/deploy.yml) runs on non-documentation pushes to
+`main` or manually from `main`. It calls CI, generates metadata, opens an SSH
+tunnel, and applies Kubernetes manifests. The GitLab pipeline is independent:
+its Bake file builds dev/prod images for amd64 and arm64; tagged releases publish
+release metadata. It does not perform the GitHub K3s deployment.
 
 ## Production on K3s
 
-This deployment targets one Linux amd64 VPS running K3s. It uses one Pod with
-three containers, one persistent data claim, and a temporary media `emptyDir`.
-There is no Helm, Argo CD, broker, Ingress, or load balancer. The production
-pipeline applies `.github/deployment.yml`, waits up to five minutes, and
-runs `rollout undo` on a failed update. Updates use `Recreate`: expect brief
-downtime, with no overlapping long-polling bot processes. Initial deployment
-failures have no previous revision to restore. Pod replacement discards
-unfinished jobs. Database backups remain necessary; rollback restores code
-and metadata, not database contents.
+The manifests target one Linux amd64 VPS. One Pod contains three containers;
+`Recreate` prevents overlapping polling bots but causes brief downtime.
+The data PVC uses K3s `local-path` storage (currently 1 GiB); temporary media uses
+a 2 GiB emptyDir. Keep backups outside the VPS. Rollback restores images and
+deploy metadata, not SQLite; Pod replacement discards unfinished jobs.
 
-### One-time VPS setup
+### Cluster and Data
 
-Install a single-node K3s server using the
-[official installation instructions](https://docs.k3s.io/quick-start). Set
-`--tls-san` to the VPS hostname/IP used by GitHub Actions. Traefik and ServiceLB
-are unnecessary for this bot and can be disabled:
+Install K3s using its [official guide](https://docs.k3s.io/quick-start).
+Traefik and ServiceLB are unnecessary. If using the kubeconfig example below,
+include `YOUR_VPS_HOST` in the API certificate with `--tls-san YOUR_VPS_HOST`.
 
-```bash
-curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
-sudo INSTALL_K3S_EXEC='server --disable traefik --disable servicelb --tls-san YOUR_VPS_HOST' sh /tmp/install-k3s.sh
-sudo k3s kubectl get nodes
-```
-
-The following setup commands run on the VPS as an administrator with its K3s
-kubeconfig. Keep `/etc/rancher/k3s/k3s.yaml` private; do not upload the admin
-kubeconfig into GitHub. The Kubernetes API at `https://YOUR_VPS_HOST:6443`
-needs to be reachable by the Actions runner with a valid TLS certificate.
-Application ports 3000/8081/8082 stay private.
-
-For example, run setup from a root shell on the VPS with
-`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` before using plain `kubectl`.
-
-From a checkout, create the namespace, local-path PVC, and scoped deploy role:
+Run setup on the VPS with an administrator kubeconfig, for example
+`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` in a root shell:
 
 ```bash
 kubectl apply -f .github/bootstrap.yml
@@ -318,22 +212,14 @@ kubectl -n telegram-bot create secret docker-registry ghcr \
   --docker-password=YOUR_READ_PACKAGES_TOKEN
 ```
 
-Prepare `.env` from `config/examples/.env.example`, with literal values
-without surrounding shell quotes for `--from-env-file`. Provider credentials
-stay in this Kubernetes Secret. JSON chat/access files and cookies stay in
-`/app/data` on the PVC. Defaults from the example resolve there. Custom cookie
-paths must also be inside `/app/data`. The `ghcr` token needs `read:packages`
-and access to all three image packages; a workflow's temporary GITHUB_TOKEN
-is not suitable for future cluster pulls. The PVC is 5 GiB with K3s's
-`local-path` storage class. Keep the PVC when redeploying. Back up its data
-outside the VPS: single-node storage does not survive losing the server.
+For `--from-env-file`, use literal values without shell quotes. Provider
+credentials belong in `bot-env`; JSON configs and cookies belong in `/app/data`
+on the PVC. Relative `data/...` paths in the example resolve there. Custom
+worker cookie paths must also stay within `/app/data`. The GHCR token needs
+`read:packages` and access to all three image packages.
 
-### Import existing data before first deployment
-
-Stop the old Compose bot before copying SQLite so no process writes to it.
-Back up the stopped `data` directory, including SQLite WAL/SHM files if present.
-Use a temporary Pod that mounts the claim; this also binds K3s local-path
-storage before the application starts:
+Before importing existing data, stop the old bot and back up `data/`, including
+SQLite WAL/SHM files. Use a temporary Pod to mount and populate the PVC:
 
 ```bash
 kubectl -n telegram-bot apply -f - <<'YAML'
@@ -361,27 +247,20 @@ kubectl -n telegram-bot exec data-import -- chown -R 1000:1000 /data
 kubectl -n telegram-bot delete pod data-import
 ```
 
-Copy your two JSON configuration files even for a fresh installation, plus
-cookie files required by your sources. An absent yt-dlp cookie file starts
-with a private empty jar; the operator file is never created or overwritten.
-`data/bin` is unnecessary. Do not restart the old bot after
-Kubernetes begins polling with the same token. The bot waits for both worker
-health endpoints before announcements and polling, retrying for up to 120
-seconds. If either stays unavailable, startup fails and Kubernetes restarts
-the bot. Verify the first deployment with a separate test chat before depending
-on it in the main group.
+Copy both JSON config files and required cookies, even for a fresh install.
+Do not run the old bot with the same token after Kubernetes starts polling.
+Keep the PVC when redeploying.
 
-### GitHub deployment credentials
+### Deployment Credentials
 
-`.github/bootstrap.yml` creates ServiceAccount `github-deploy` with permissions
-inside `telegram-bot` only. It can update the deployment and metadata ConfigMaps
-and inspect rollout state. It cannot read Secrets, delete PVCs, or administer
-the cluster. The workload itself does not mount Kubernetes API credentials.
+The workflows connect as the VPS OS user `github-deploy` and forward runner
+`127.0.0.1:16443` to VPS `127.0.0.1:6443`. Configure SSH key authentication
+and allow TCP forwarding for that user. The SSH destination is currently set
+in both `deploy.yml` and `test-k3s.yml`; update both when changing VPS.
 
-For this minimal VPS setup, create a manually managed service-account token
-for GitHub's kubeconfig. Rotate it by replacing the Secret and updating the
-GitHub environment secret. This is a static credential; a future OIDC setup
-can replace it without changing the workload.
+Kubernetes authentication is separate. Bootstrap creates ServiceAccount
+`github-deploy` with namespace-scoped deployment/metadata permissions, without
+Secret access. Export a scoped kubeconfig rather than the cluster-admin file:
 
 ```bash
 kubectl -n telegram-bot apply -f - <<'YAML'
@@ -398,7 +277,7 @@ umask 077
 token="$(kubectl -n telegram-bot get secret github-deploy-token -o jsonpath='{.data.token}' | base64 -d)"
 ca_file="$(mktemp)"
 kubectl -n telegram-bot get secret github-deploy-token -o jsonpath='{.data.ca\.crt}' | base64 -d > "$ca_file"
-kubectl --kubeconfig=github-deploy.kubeconfig config set-cluster k3s --server=https://YOUR_VPS_HOST:6443 --certificate-authority="$ca_file" --embed-certs=true
+kubectl --kubeconfig=github-deploy.kubeconfig config set-cluster k3s --server=https://127.0.0.1:16443 --tls-server-name=YOUR_VPS_HOST --certificate-authority="$ca_file" --embed-certs=true
 kubectl --kubeconfig=github-deploy.kubeconfig config set-credentials github-deploy --token="$token"
 kubectl --kubeconfig=github-deploy.kubeconfig config set-context production --cluster=k3s --user=github-deploy --namespace=telegram-bot
 kubectl --kubeconfig=github-deploy.kubeconfig config use-context production
@@ -406,75 +285,64 @@ rm -f "$ca_file"
 unset token
 ```
 
-Wait for Kubernetes to populate the token Secret before exporting it. Store
-`github-deploy.kubeconfig` securely; never commit it. After adding it to GitHub,
-remove the temporary local credential file.
+The kubeconfig endpoint must match the tunnel. The
+[`--tls-server-name` option](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_config/kubectl_config_set-cluster/)
+verifies the API certificate against its configured name.
+Rotate the token by replacing its Secret and updating GitHub.
 
-### GitHub UI
+In GitHub **Settings → Environments → production**, restrict deployment branches
+to `main` and configure:
 
-1. Repository **Settings → Environments**: create `production`, restrict its
-   deployment branches to `main`, and add environment secret **KUBE_CONFIG**
-   with the complete scoped kubeconfig above. Optional required reviewers can
-   gate deployments. Add environment variable **KUBECTL_VERSION** matching the
-   cluster's minor version (for example `v1.35.0` for a 1.35 cluster).
-2. **Settings → Actions → General**: enable Actions and allow the actions used
-   by these workflows. The Deploy workflow explicitly requests `packages: write`
-   to publish GHCR images using GITHUB_TOKEN; no registry write PAT is needed.
-3. Check each GHCR package grants this repository Actions access and grants
-   the cluster's read token/account pull access. Keep commit tags referenced
-   by retained Deployment revisions. Publishing new packages may require the
-   organization to allow package creation.
-4. Remove obsolete deployment secrets (`DEPLOY_HOST`, `DEPLOY_PORT`,
-   `DEPLOY_USER`, `DEPLOY_PATH`, `DEPLOY_SSH_KEY`, `SERVER_GHCR_USERNAME`,
-   `SERVER_GHCR_TOKEN`) after the first successful migration. They are no longer
-   used by GitHub Actions. GitLab UI needs no changes.
-5. Run **Actions → Deploy → Run workflow** on `main` for the first rollout.
-   Later non-documentation pushes to main deploy automatically.
+| Secret/variable | Value |
+| --- | --- |
+| `KUBE_CONFIG` | Complete scoped kubeconfig. |
+| `SSH_PRIVATE_KEY` | Private key for the VPS OS user. |
+| `SSH_KNOWN_HOSTS` | Verified SSH host-key entry for the workflow destination. |
+| `KUBECTL_VERSION` (variable) | kubectl version matching the cluster minor version; Deploy currently defaults to `v1.36.0`. |
 
-The deploy job no longer SSHs into the server, copies app assets, runs Compose,
-or prunes Docker images. It uses the Kubernetes API. Deploy metadata is a
-ConfigMap named by commit SHA and a content hash, mounted as
-`/app/data/deploy-metadata.json`. It retains the existing announcement format
-and SQLite deduplication. The Pod template stores the source commit in
-`telegram-bot/commit`; deployment metadata reads that annotation because image
-references now contain digests. Metadata ConfigMaps are not automatically pruned so
-rollback can still mount earlier ones. After retiring old revisions, an
-administrator can remove their unreferenced metadata ConfigMaps.
+Keep credential files out of Git and remove temporary local copies after
+saving them in GitHub. Ensure Actions can publish GHCR packages and the cluster
+can pull them. The **Test K3s Connection** workflow checks the tunnel and scoped
+permissions; it currently pins kubectl separately.
 
-Manual rollback:
+### Rollout and Recovery
+
+Run **Actions → Deploy → Run workflow** on `main` for the first rollout.
+Later non-documentation pushes to `main` deploy automatically.
+
+`.github/deploy.sh` mounts metadata from a ConfigMap named by commit and content
+hash, applies the Deployment, and waits up to five minutes. A failed rollout
+triggers undo when a previous Deployment exists. A failed apply or first
+deployment has no automatic rollback. Metadata ConfigMaps are retained for
+older revisions; remove only ones no retained revision uses.
+
+For manual inspection or rollback, use an administrator kubeconfig on the VPS
+(or open the SSH tunnel if using the exported deploy kubeconfig):
 
 ```bash
+kubectl -n telegram-bot get pods
+kubectl -n telegram-bot logs deployment/telegram-bot -c bot --tail=100
 kubectl -n telegram-bot rollout undo deployment/telegram-bot
 kubectl -n telegram-bot rollout status deployment/telegram-bot --timeout=300s
-kubectl -n telegram-bot logs deployment/telegram-bot -c bot --tail=100
 ```
+
+The bot waits up to 120 seconds for worker health before polling. Check both
+`video` and `gallery` container logs if startup fails.
 
 ## Manual Smoke Checks
 
-- Use a separate test bot and test group for Telegram smoke checks.
-- Start with explicit `@bot_username` questions, summary requests, disputes, and `/translate`, `/read`, `/transcribe`.
-- Check bare mentions, full requests, replies to old human messages, and corrections replying to bot answers. Confirm replies to this bot work without mentions, including clarification follow-ups; replies to other participants without mentions remain silent. Cover direct, clarification, and research routes, disabled `features.assistant`, and link-only private users.
-- Check two interleaved discussions and a question selecting only one, then a summary of both. Confirm `/answer`, `/summarize`, and `/decide` no longer trigger responses.
-- Disable BotFather privacy mode or configure administrator access so normal group messages reach the bot for context. Missing Telegram history cannot be reconstructed from API knowledge.
-- `/translate` and `/read` require a reply to the target message.
-- `/transcribe` requires a reply to a Telegram video message. It should work on videos sent by users and videos sent by this bot, ignore command arguments and links, extract audio with `ffmpeg`, return the transcript as text, and avoid creating `media_artifacts` rows.
-- `/translate` should return a local fallback for target-language content and translate other text/media blocks into the target language with source headings.
-- Editing an already stored message should update future context without sending a new reply by itself.
-- `/meme` and `/sex` make an external request to a Reddit top-month listing with auth from `REDDIT_COOKIE_HEADER_PATH` when present, otherwise from `REDDIT_COOKIES_PATH`. They select a fresh supported image/GIF/gallery/video post from their own subreddit pools, send media without replying to the command, download media to temporary files, and should clean them after successful dispatch and Telegram errors. Video posts require the video worker, or locally installed tools for native runs. Reddit NSFW/spoiler posts are allowed and sent with Telegram's spoiler flag; for galleries, the spoiler flag should be set on every item.
-- Reddit GIF smoke: send a Reddit post whose `url` is an `i.redd.it/*.gif` and has no MP4 variant. The original GIF should be downloaded within the 50 MB cap and uploaded via `sendAnimation`, with caption/spoiler preserved and the temporary file removed. GIF sending does not require yt-dlp or ffmpeg.
-- Reddit Streamable smoke: send a Reddit link to a post with a Streamable video. Verify that the bot sends the video with the Reddit caption.
-- Direct Reddit media link smoke: start the video worker (or install local CLI tools for native runs), configure `REDDIT_COOKIE_HEADER_PATH` or `REDDIT_COOKIES_PATH`, then send a Reddit post URL with image, GIF, gallery, or `reddit_video` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should send `sendPhoto`, `sendAnimation`, `sendMediaGroup`, or `sendVideo` without replying to the source message, include title/subreddit/upvotes, store post metadata, clean temporary files, and try to delete the source link message. Video sends should include the normalized file's `width`/`height`, `duration`, and `supports_streaming`. Reddit NSFW/spoiler media should be sent with Telegram's spoiler flag; for galleries, it should be set on every item. In groups, deleting the source message requires bot admin rights and disabled BotFather privacy mode when the link is sent without a command/mention.
-- Direct Instagram Reels smoke: configure `INSTAGRAM_COOKIES_PATH`, then send `https://www.instagram.com/reel/<shortcode>/` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, reject clearly oversized selected formats above 75 MB before download, download the Reel through `yt-dlp`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `inst: <nickname> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Reel is over 10 minutes, clearly over the pre-download size cap, or over 50 MB after download/normalization, the bot should reply with a local limit-specific error instead of sending video.
-- Direct Instagram/TikTok gallery smoke: start the gallery worker (or install gallery-dl locally for native runs), then send an Instagram `/p/<shortcode>/` carousel or TikTok `/photo/<id>` Photo Mode link. The bot should preserve source order, ignore TikTok soundtrack audio, download images with the normal per-image cap, and send one item or media groups split at Telegram's 10-item limit. For a mixed Instagram carousel, the whole operation should use the existing Instagram video queue, each video should pass through the shared `yt-dlp`/`ffprobe`/`ffmpeg` pipeline, and Telegram media groups should contain photos and videos in their original order. Temporary files should be cleaned and the source message deleted after a successful dispatch. Instagram extraction uses `INSTAGRAM_COOKIES_PATH` and the existing source lock.
-- Instagram lock smoke: with a deliberately stale `INSTAGRAM_COOKIES_PATH`, send a Reel URL and verify the bot replies with the local Instagram-unavailable fallback and stores a blocked source state. Without changing the cookie file, send another Reel URL and verify `yt-dlp` does not start again. Replace the cookie file on disk, then send a new Reel URL and verify the bot allows one fresh attempt.
-- Direct YouTube Shorts smoke: configure `YOUTUBE_COOKIES_PATH`, then send `https://youtu.be/<id>`, `https://www.youtube.com/watch?v=<id>`, or `https://www.youtube.com/shorts/<id>` in a configured chat with `direct_links: true`, the operator private chat, or a private chat with a user from `linkUserIds` in `telegram-access-config.json`. The bot should get metadata through `yt-dlp`, skip videos longer than 600 seconds, reject clearly oversized selected formats above 75 MB before download, download the Short as H.264 MP4 at `height<=854`, verify MP4 with `ffprobe`, normalize with `nice -n 19 ffmpeg -preset veryfast`, probe the normalized dimensions, send `sendVideo` without a reply using `width`/`height`, `duration`, and `supports_streaming`, caption it as `yt: <channel> · likes: <linked count>`, clean temporary files, and try to delete the source message. If the Short is over 10 minutes, clearly over the pre-download size cap, or over 50 MB after download/normalization, the bot should reply with a local limit-specific error instead of sending video.
-- YouTube Shorts require a runtime container with Node.js 24: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
-- Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration/early-size caps -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`. Videos longer than 600 seconds are not downloaded or converted. Selected formats clearly above 75 MB are rejected before download when metadata includes reliable sizes, unknown size metadata is allowed through, and videos larger than 50 MB after download or normalization are rejected. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`. The normalized output dimensions are passed to Telegram as `width`/`height`, with `duration` and `supports_streaming`.
-- Media providers run only when matching keys are configured.
-- Lookup smoke before production rollout should verify DeepSeek Search and, separately, Tavily access. DeepSeek failures and empty results send an admin WARN before trying Tavily. Full-page DeepSeek Fetch is not integrated.
+Use a separate test bot/chat and check:
 
-## Localization
-
-- Keep runtime user-facing text and language-specific regex patterns in `src/locales/locale.ts`.
-- Runtime code should import the neutral `text` and `patterns` exports instead of embedding localized strings.
-- When adding a new local fallback, label, assistant display name, or target-language detection pattern, add it to the locale file first and consume it from the feature code.
+- Assistant mentions, bare mentions, replies to its answers, interleaved topics,
+  clarification follow-ups, disabled features, and rejected private users.
+- `/translate`, `/read`, and `/transcribe` with valid and missing reply targets;
+  confirm video transcription also works on a video sent by the bot.
+- Edited messages change later context without sending another reply.
+- Reddit image/GIF/gallery/video and Streamable posts; Instagram Reels and
+  mixed carousels; YouTube Shorts; TikTok video and photo posts.
+- Captions, sender attribution, spoilers, album order, source-link deletion,
+  temporary-file cleanup, queue notices, and size/duration fallbacks.
+- Reddit Chrome impersonation with cookies through a full download/upload.
+  After an Instagram source lock, changing cookies permits another attempt.
+- Live DeepSeek Search and Tavily failover separately; fixture evals do not
+  verify provider access.
