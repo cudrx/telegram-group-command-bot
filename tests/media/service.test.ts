@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { once } from 'node:events';
+import { existsSync } from 'node:fs';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, request as httpRequest } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -40,9 +41,22 @@ if (url === 'fixture:hang') {
 } else {
   const cookies = args.indexOf('--cookies');
   const cookie = cookies < 0 || !fs.existsSync(args[cookies + 1]) ? null : fs.readFileSync(args[cookies + 1], 'utf8');
+  const cookieInfo = cookies < 0 ? {} : {
+    cookiePath: args[cookies + 1],
+    cookieMode: cookie === null ? null : fs.statSync(args[cookies + 1]).mode & 0o777
+  };
   if (cookies >= 0) fs.writeFileSync(args[cookies + 1], 'updated cookie');
   fs.writeFileSync('result.mp4', 'video bytes');
-  console.log(JSON.stringify({ cookie, args }));
+  const output = JSON.stringify({ cookie, args, ...cookieInfo });
+  if (url === 'fixture:cookie-fail') {
+    console.log(output);
+    console.error('Reddit API blocked');
+    process.exitCode = 3;
+  } else if (url === 'fixture:parallel') {
+    setTimeout(() => console.log(output), 100);
+  } else {
+    console.log(output);
+  }
 }
 `,
     { mode: 0o755 }
@@ -183,15 +197,74 @@ describe('media service over HTTP', () => {
     );
   });
 
-  test('copies cookies per job and preserves the operator cookie file', async () => {
+  test.each([
+    { stage: 'metadata', args: ['--dump-single-json'] },
+    { stage: 'download', args: [] }
+  ])('uses private writable cookies for $stage and removes them after success', async ({
+    args
+  }) => {
     const cookies = join(root, 'cookies.txt');
-    await writeFile(cookies, 'original cookie');
+    await writeFile(cookies, 'original cookie', { mode: 0o444 });
     const result = await client()(
       'yt-dlp',
-      ['--cookies', cookies, '--dump-single-json', 'fixture:ok'],
+      ['--cookies', cookies, ...args, 'fixture:ok'],
       { cwd: root }
     );
-    expect(JSON.parse(result.stdout).cookie).toBe('original cookie');
+    const output = JSON.parse(result.stdout);
+    expect(output.cookie).toBe('original cookie');
+    expect(output.cookiePath).not.toBe(cookies);
+    expect(output.cookieMode).toBe(0o600);
+    await expect
+      .poll(() => existsSync(join(output.cookiePath, '..')))
+      .toBe(false);
+    expect(await readFile(cookies, 'utf8')).toBe('original cookie');
+  });
+
+  test.each([
+    { stage: 'metadata', args: ['--dump-single-json'] },
+    { stage: 'download', args: [] }
+  ])('removes private cookies after yt-dlp fails during $stage', async ({
+    args
+  }) => {
+    const cookies = join(root, 'cookies.txt');
+    await writeFile(cookies, 'original cookie', { mode: 0o444 });
+    const error = await client()(
+      'yt-dlp',
+      ['--cookies', cookies, ...args, 'fixture:cookie-fail'],
+      { cwd: root }
+    ).catch((failure: unknown) => failure);
+    expect(error).toMatchObject({ code: 3, stderr: 'Reddit API blocked\n' });
+    const output = JSON.parse((error as { stdout: string }).stdout);
+    expect(output.cookie).toBe('original cookie');
+    expect(output.cookiePath).not.toBe(cookies);
+    expect(output.cookieMode).toBe(0o600);
+    await expect
+      .poll(() => existsSync(join(output.cookiePath, '..')))
+      .toBe(false);
+    expect(await readFile(cookies, 'utf8')).toBe('original cookie');
+  });
+
+  test('isolates cookie copies for parallel yt-dlp jobs', async () => {
+    const cookies = join(root, 'cookies.txt');
+    await writeFile(cookies, 'original cookie', { mode: 0o444 });
+    const results = await Promise.all(
+      [['--dump-single-json'], []].map((args) =>
+        client()(
+          'yt-dlp',
+          ['--cookies', cookies, ...args, 'fixture:parallel'],
+          { cwd: root }
+        )
+      )
+    );
+    const outputs = results.map((result) => JSON.parse(result.stdout));
+    expect(new Set(outputs.map((output) => output.cookiePath)).size).toBe(2);
+    for (const output of outputs) {
+      expect(output.cookie).toBe('original cookie');
+      expect(output.cookieMode).toBe(0o600);
+      await expect
+        .poll(() => existsSync(join(output.cookiePath, '..')))
+        .toBe(false);
+    }
     expect(await readFile(cookies, 'utf8')).toBe('original cookie');
   });
 

@@ -1,4 +1,4 @@
-import { copyFile, mkdtemp, realpath, rm } from 'node:fs/promises';
+import { chmod, copyFile, mkdtemp, realpath, rm } from 'node:fs/promises';
 import {
   createServer,
   type IncomingMessage,
@@ -116,6 +116,7 @@ export function createMediaService(config: ServiceConfig) {
         const copy = path.join(cookieDirectory, 'cookies.txt');
         try {
           await copyFile(cookies, copy);
+          await chmod(copy, 0o600);
         } catch (error) {
           if (
             tool !== 'yt-dlp' ||

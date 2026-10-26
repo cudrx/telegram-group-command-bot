@@ -48,6 +48,12 @@ header when a plain Netscape cookie file is not enough for subreddit listings.
 If Reddit rejects that header with HTTP 401/403, the bot warns the admin to
 refresh it.
 
+Reddit video metadata and downloads use Chrome impersonation with the Netscape
+cookie file from `REDDIT_COOKIES_PATH`; `REDDIT_COOKIE_HEADER_PATH` is only used
+for the bot's HTTP requests. The GitHub video image includes `curl_cffi` for
+impersonation. Workers use private writable cookie copies and preserve the
+original files on the read-only data volume.
+
 Production runs on a single VPS with K3s: one Pod contains the bot, a video
 worker (`yt-dlp`, `ffmpeg`, `ffprobe`, Node.js), and a `gallery-dl` worker.
 The bot waits for both workers before polling, then sends HTTP jobs over Pod

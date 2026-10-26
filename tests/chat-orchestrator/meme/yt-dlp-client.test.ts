@@ -21,6 +21,12 @@ describe('downloadRedditVideoWithYtDlp', () => {
           if (file === 'yt-dlp' && args.includes('--dump-single-json')) {
             expect(args).toContain('--cookies');
             expect(args).toContain(expectedCookiesPath);
+            expect(
+              args.slice(
+                args.indexOf('--impersonate'),
+                args.indexOf('--impersonate') + 2
+              )
+            ).toEqual(['--impersonate', 'chrome']);
 
             return {
               stdout: JSON.stringify({
@@ -59,6 +65,12 @@ describe('downloadRedditVideoWithYtDlp', () => {
           expect(file).toBe('yt-dlp');
           expect(args).toContain('--cookies');
           expect(args).toContain(expectedCookiesPath);
+          expect(
+            args.slice(
+              args.indexOf('--impersonate'),
+              args.indexOf('--impersonate') + 2
+            )
+          ).toEqual(['--impersonate', 'chrome']);
 
           const outputTemplate = args[args.indexOf('-o') + 1] ?? '';
           const tempDirectory = path.dirname(outputTemplate);

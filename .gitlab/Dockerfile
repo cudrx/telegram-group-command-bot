@@ -29,7 +29,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 RUN python3 -m venv /opt/media-tools \
-  && /opt/media-tools/bin/pip install --no-cache-dir 'yt-dlp[default]' gallery-dl
+  && /opt/media-tools/bin/pip install --no-cache-dir 'yt-dlp[default,curl-cffi]' gallery-dl
 
 ENV PATH="/opt/media-tools/bin:${PATH}"
 

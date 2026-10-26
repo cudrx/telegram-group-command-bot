@@ -30,7 +30,7 @@ FROM python AS video-tools
 ARG YT_DLP_VERSION=2026.10.21
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ffmpeg \
-  && pip install --no-cache-dir "yt-dlp[default]==${YT_DLP_VERSION}" \
+  && pip install --no-cache-dir "yt-dlp[default,curl-cffi]==${YT_DLP_VERSION}" \
   && rm -rf /var/lib/apt/lists/*
 
 FROM video-tools AS video

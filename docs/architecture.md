@@ -332,11 +332,16 @@ The bot creates per-operation temporary directories under `TMPDIR=/media`.
 All containers mount the same disk-backed `emptyDir` there. It survives an
 individual container restart but is discarded with the Pod. The `bot-data`
 PVC stores SQLite, cookies, and chat/access JSON configuration. Workers mount
-it read-only and copy cookie files to private per-job temporary files, so
-extractors cannot modify the operator's cookies or trigger spurious source
-unlocking. Cookie paths must resolve inside `/app/data`. If a yt-dlp cookie
-file is absent, the worker uses a private empty jar instead of rejecting the
-request. Existing files remain unchanged.
+it read-only and copy cookie files to private per-job temporary files with
+mode `0600`, so extractors cannot modify the operator's cookies or trigger
+spurious source unlocking. Cookie paths must resolve inside `/app/data`. If a
+yt-dlp cookie file is absent, the worker uses a private empty jar instead of
+rejecting the request. Existing files remain unchanged.
+
+Reddit metadata and download commands both use `--impersonate chrome` with
+`REDDIT_COOKIES_PATH`. Each command gets its own writable cookie copy in the
+worker, removed in `finally` on success or failure. The video image installs
+yt-dlp's `curl-cffi` extra; impersonation is not added to other platforms.
 
 The transport exposes POST `/jobs`, GET `/jobs/<id>`, DELETE `/jobs/<id>`, and
 GET `/health`. Operations cover metadata, download, probe, normalization,

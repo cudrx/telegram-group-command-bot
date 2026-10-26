@@ -209,13 +209,30 @@ cache tool installation separately from source compilation.
 
 GitHub's `.github/Dockerfile` has three runtime targets. `bot` contains the
 app and npm production dependencies. `video` contains the HTTP worker,
-ffmpeg/ffprobe, yt-dlp, its EJS dependency, and Node.js. `gallery` contains the
-HTTP worker and gallery-dl. Worker images do not include the bot's npm
-packages. Tool versions are explicit build arguments and updates require an
+ffmpeg/ffprobe, yt-dlp with its `curl-cffi` extra for Reddit Chrome impersonation,
+its EJS dependency, and Node.js. `gallery` contains the HTTP worker and
+gallery-dl. Worker images do not include the bot's npm packages.
+Tool versions are explicit build arguments and updates require an
 image rebuild. `USER node:node` controls runtime privileges; it does not
 reconfigure the host Docker daemon. No separate rootless BuildKit service is
 required. Native and GitLab runs keep local CLI execution unless both
 `MEDIA_VIDEO_URL` and `MEDIA_GALLERY_URL` are set.
+The GitLab image also installs the `curl-cffi` extra; native Reddit video
+downloads require a yt-dlp installation with that extra enabled.
+
+Reddit metadata and download commands both pass `--impersonate chrome` and
+use `REDDIT_COOKIES_PATH` (Netscape format). The raw header configured through
+`REDDIT_COOKIE_HEADER_PATH` only applies to the bot's HTTP requests. Each
+worker command uses an isolated temporary cookie copy with mode `0600`,
+removed in `finally`; the original cookie file remains unchanged even if it
+is read-only. Verify the rebuilt video image with:
+
+```bash
+docker run --rm --entrypoint yt-dlp telegram-group-command-bot-video:reddit-impersonation --list-impersonate-targets
+```
+
+Chrome must be available. After deployment, verify a complete video download
+and Telegram upload; successful metadata extraction alone is insufficient.
 
 Reddit-hosted video, Instagram Reels, and YouTube Shorts all use the same
 pipeline: `yt-dlp metadata -> duration/early-size caps -> yt-dlp download ->

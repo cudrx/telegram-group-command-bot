@@ -51,10 +51,18 @@ export async function downloadRedditVideoWithYtDlp(input: {
     input.redditCookiesPath ??
       path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt')
   );
+  const ytDlpArgs = [
+    '--impersonate',
+    'chrome',
+    '--cookies',
+    cookiesPath,
+    '-f',
+    REDDIT_FORMAT_SELECTOR
+  ];
   await input.processStatus?.stage('metadata');
   const metadata = await fetchYtDlpMetadata({
     execFile,
-    cookiesPath,
+    ytDlpArgs,
     url: reference.permalink
   });
   if (
@@ -76,7 +84,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
     maxDurationSeconds: DIRECT_VIDEO_MAX_DURATION_SECONDS,
     durationSeconds: metadata.durationSeconds ?? null,
     ...(input.processStatus ? { processStatus: input.processStatus } : {}),
-    ytDlpArgs: ['--cookies', cookiesPath, '-f', REDDIT_FORMAT_SELECTOR]
+    ytDlpArgs
   });
 
   return {
@@ -100,7 +108,7 @@ export async function downloadRedditVideoWithYtDlp(input: {
 
 async function fetchYtDlpMetadata(input: {
   execFile: MediaExecFile;
-  cookiesPath: string;
+  ytDlpArgs: string[];
   url: string;
 }): Promise<{
   id: string | null;
@@ -112,15 +120,7 @@ async function fetchYtDlpMetadata(input: {
 }> {
   const result = await input.execFile(
     YT_DLP_BIN,
-    [
-      '--cookies',
-      input.cookiesPath,
-      '-f',
-      REDDIT_FORMAT_SELECTOR,
-      '--dump-single-json',
-      '--no-playlist',
-      input.url
-    ],
+    [...input.ytDlpArgs, '--dump-single-json', '--no-playlist', input.url],
     {
       maxBuffer: MEDIA_EXEC_MAX_BUFFER,
       timeoutMs: redditMediaActionConfig.telegramMedia.metadataTimeoutMs
