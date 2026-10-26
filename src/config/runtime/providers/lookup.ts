@@ -1,5 +1,9 @@
 export const lookupProviderConfig = {
-  provider: 'tavily',
+  provider: 'deepseek',
+  deepseek: {
+    endpoint: 'https://api.deepseek.com/v1/tools/search',
+    maxQueryChars: 128
+  },
   tavily: {
     endpoint: 'https://api.tavily.com/search',
     searchDepth: 'basic',

@@ -38,6 +38,7 @@ export function createEnv(overrides: Partial<AppEnv> = {}): AppEnv {
     replyMaxTypingMs: 0,
     replyTypingRefreshMs: 4000,
     lookupProvider: 'tavily',
+    deepseekApiKey: null,
     tavilyApiKey: null,
     lookupTimeoutMs: 7000,
     lookupMaxResults: 3,

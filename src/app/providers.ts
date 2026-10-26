@@ -1,6 +1,7 @@
 import type { AppEnv } from '../config/env/index.js';
 import { OpenAiCompatibleLlmClient } from '../llm/openai-compatible-client/index.js';
 import type { AppLogger } from '../logging/logger.js';
+import { DeepSeekLookupProvider } from '../lookup/deepseek-lookup-provider.js';
 import { TavilyLookupProvider } from '../lookup/tavily-lookup-provider.js';
 import type { LookupProvider } from '../lookup/types.js';
 import { CloudflareVisionProvider } from '../media/cloudflare-vision-provider.js';
@@ -45,12 +46,12 @@ export function createLlmClient(input: {
   );
 }
 
-export function createOptionalProviders(env: AppEnv): OptionalProviders {
+export function createOptionalProviders(
+  env: AppEnv,
+  logger: AppLogger
+): OptionalProviders {
   return {
-    lookupProvider:
-      env.lookupProvider === 'tavily' && env.tavilyApiKey
-        ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
-        : null,
+    lookupProvider: createLookupProvider(env, logger),
     speechToTextProvider:
       env.sttProvider === 'gladia' && env.gladiaApiKey
         ? new GladiaTranscriptionProvider({ apiKey: env.gladiaApiKey })
@@ -73,4 +74,21 @@ export function createOptionalProviders(env: AppEnv): OptionalProviders {
           })
         : null
   };
+}
+
+function createLookupProvider(
+  env: AppEnv,
+  logger: AppLogger
+): LookupProvider | null {
+  const tavily = env.tavilyApiKey
+    ? new TavilyLookupProvider({ apiKey: env.tavilyApiKey })
+    : null;
+
+  if (env.lookupProvider !== 'deepseek' || !env.deepseekApiKey) return tavily;
+
+  return new DeepSeekLookupProvider({
+    apiKey: env.deepseekApiKey,
+    fallback: tavily,
+    logger: logger.child({ component: 'lookup' })
+  });
 }

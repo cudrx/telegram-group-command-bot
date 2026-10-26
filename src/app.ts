@@ -63,7 +63,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   });
   const logger = createNotifyingLogger(baseLogger, adminNotifier);
   const qwen = createLlmClient({ env, logger });
-  const providers = createOptionalProviders(env);
+  const providers = createOptionalProviders(env, logger);
   const telegramDispatchers = createTelegramDispatchers(bot.api);
   const memeFloodGate = createMemeFloodGate();
   const videoJobQueue = createVideoJobQueue({

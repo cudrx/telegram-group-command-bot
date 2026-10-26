@@ -12,7 +12,7 @@ export type LookupProviderSearchInput = {
 };
 
 export type LookupProviderSearchResult = {
-  provider: 'tavily';
+  provider: 'deepseek' | 'tavily';
   query: string;
   sources: LookupSource[];
   responseTimeMs: number | null;

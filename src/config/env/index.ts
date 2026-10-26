@@ -12,7 +12,7 @@ import {
   STT_PROVIDER,
   VISION_PROVIDER
 } from './constants.js';
-import { buildProviderEnv } from './provider-env.js';
+import { buildProviderEnv, resolveDeepSeekApiKey } from './provider-env.js';
 import { envSchema } from './schema.js';
 import type { AppEnv, ParsedEnv } from './types.js';
 import { normalizeTelegramChatEnv, validateParsedEnv } from './validators.js';
@@ -33,6 +33,7 @@ export function parseEnv(
 
   validateParsedEnv(parsed);
   const telegramChatEnv = normalizeTelegramChatEnv(parsed);
+  const deepseekApiKey = resolveDeepSeekApiKey(parsed);
 
   return {
     nodeEnv: parsed.NODE_ENV,
@@ -63,7 +64,8 @@ export function parseEnv(
     replyMinTypingMs: parsed.REPLY_MIN_TYPING_MS,
     replyMaxTypingMs: parsed.REPLY_MAX_TYPING_MS,
     replyTypingRefreshMs: parsed.REPLY_TYPING_REFRESH_MS,
-    lookupProvider: LOOKUP_PROVIDER,
+    lookupProvider: deepseekApiKey ? LOOKUP_PROVIDER : 'tavily',
+    deepseekApiKey,
     tavilyApiKey: parsed.TAVILY_API_KEY ?? null,
     lookupTimeoutMs: parsed.LOOKUP_TIMEOUT_MS,
     lookupMaxResults: parsed.LOOKUP_MAX_RESULTS,

@@ -51,6 +51,7 @@ export const envSchema = z.object({
   REPLY_MAX_TYPING_MS: z.coerce.number().int().min(0).default(2200),
   REPLY_TYPING_REFRESH_MS: z.coerce.number().int().min(1000).default(4000),
   TAVILY_API_KEY: z.string().min(1).optional(),
+  DEEPSEEK_API_KEY: z.string().min(1).optional(),
   LOOKUP_TIMEOUT_MS: z.coerce
     .number()
     .int()

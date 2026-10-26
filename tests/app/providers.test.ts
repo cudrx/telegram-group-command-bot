@@ -1,6 +1,7 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 
 import {
+  botSendMessage,
   chatOrchestratorConstructor,
   cloudflareVisionConstructor,
   createEnv,
@@ -14,6 +15,39 @@ import {
 
 describe('createApplication providers', () => {
   installAppTestHooks();
+
+  test('routes DeepSeek search warnings to the existing admin chat notifier', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json({ results: [] }))
+    );
+    try {
+      const { createApplication } = await importCreateApplication();
+      await createApplication(
+        createEnv({
+          lookupProvider: 'deepseek',
+          deepseekApiKey: 'deepseek-key',
+          tavilyApiKey: null
+        })
+      );
+      const deps = chatOrchestratorConstructor.mock.calls[0]?.[0];
+
+      await expect(
+        deps.lookupProvider.search({
+          query: 'test',
+          maxResults: 3,
+          timeoutMs: 7000
+        })
+      ).rejects.toThrow('no usable results');
+      expect(botSendMessage).toHaveBeenCalledWith(
+        900000222,
+        expect.stringContaining('WARN: deepseek_search_fallback:'),
+        { parse_mode: 'HTML' }
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 
   test('wires planner model and Tavily lookup provider when a key is configured', async () => {
     const { createApplication } = await importCreateApplication();

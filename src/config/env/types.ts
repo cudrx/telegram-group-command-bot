@@ -53,7 +53,8 @@ export type ParsedEnv = {
   replyMinTypingMs: number;
   replyMaxTypingMs: number;
   replyTypingRefreshMs: number;
-  lookupProvider: 'tavily';
+  lookupProvider: 'deepseek' | 'tavily';
+  deepseekApiKey: string | null;
   tavilyApiKey: string | null;
   lookupTimeoutMs: number;
   lookupMaxResults: number;

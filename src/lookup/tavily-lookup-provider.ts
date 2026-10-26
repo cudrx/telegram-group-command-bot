@@ -50,7 +50,7 @@ export class TavilyLookupProvider implements LookupProvider {
     const payload = (await response.json()) as TavilySearchResponse;
 
     return {
-      provider: lookupProviderConfig.provider,
+      provider: 'tavily',
       query: input.query,
       sources: normalizeResults(payload.results),
       responseTimeMs: toMilliseconds(payload.response_time),

@@ -1,4 +1,17 @@
-import { llmProviderConfig } from '../runtime/index.js';
+import { llmProviderConfig, lookupProviderConfig } from '../runtime/index.js';
+import type { ParsedRawEnv } from './schema.js';
+
+export function resolveDeepSeekApiKey(
+  env: Pick<ParsedRawEnv, 'DEEPSEEK_API_KEY' | 'LLM_API_KEY' | 'LLM_BASE_URL'>
+): string | null {
+  if (env.DEEPSEEK_API_KEY) return env.DEEPSEEK_API_KEY;
+
+  const llmOrigin = new URL(env.LLM_BASE_URL).origin;
+  const searchOrigin = new URL(lookupProviderConfig.deepseek.endpoint).origin;
+  if (llmOrigin !== searchOrigin) return null;
+
+  return env.LLM_API_KEY;
+}
 
 export function buildProviderEnv(rawEnv: Record<string, string | undefined>) {
   const usesGenericLlmVars =

@@ -57,8 +57,9 @@ Behavior:
 
 Lookup:
 
-- `TAVILY_API_KEY` - external verification for assistant requests when the first model call returns research.
-- `LOOKUP_TIMEOUT_MS` - timeout for each assistant search request, default 7,000 ms. The assistant uses this value directly without an additional scenario-specific cap; parallel searches share the same configured limit.
+- `DEEPSEEK_API_KEY` - optional separate key for DeepSeek Search. When omitted and `LLM_BASE_URL` has the official `https://api.deepseek.com` origin, search reuses `LLM_API_KEY`. With another LLM endpoint, set this separately to enable DeepSeek Search.
+- `TAVILY_API_KEY` - optional fallback search after a DeepSeek error or empty result; retained as the sole search provider when no DeepSeek key is available.
+- `LOOKUP_TIMEOUT_MS` - timeout per provider attempt, default 7,000 ms. DeepSeek and a subsequent Tavily attempt each receive this timeout; two research queries run in parallel. There are no search retries. `LLM_MAX_RETRIES` affects only LLM generation.
 - `LOOKUP_MAX_RESULTS`
 
 Media and voice providers:
@@ -453,7 +454,7 @@ kubectl -n telegram-bot logs deployment/telegram-bot -c bot --tail=100
 - YouTube Shorts require a runtime container with Node.js 24: `yt-dlp` runs with `--js-runtimes node` to solve YouTube EJS challenges.
 - Reddit video, Instagram Reels, and YouTube Shorts use a single pipeline: `yt-dlp metadata -> duration/early-size caps -> yt-dlp download -> ffprobe -> ffmpeg normalize -> ffprobe -> sendVideo`. Videos longer than 600 seconds are not downloaded or converted. Selected formats clearly above 75 MB are rejected before download when metadata includes reliable sizes, unknown size metadata is allowed through, and videos larger than 50 MB after download or normalization are rejected. Normalization runs one process at a time through `nice -n 19 ffmpeg -preset veryfast`, produces H.264/AAC MP4, `yuv420p`, `SAR 1:1`, `color_range tv`, removes metadata, and applies `+faststart`. The normalized output dimensions are passed to Telegram as `width`/`height`, with `duration` and `supports_streaming`.
 - Media providers run only when matching keys are configured.
-- Lookup smoke before production rollout can be done with a direct request to the Tavily API.
+- Lookup smoke before production rollout should verify DeepSeek Search and, separately, Tavily access. DeepSeek failures and empty results send an admin WARN before trying Tavily. Full-page DeepSeek Fetch is not integrated.
 
 ## Localization
 

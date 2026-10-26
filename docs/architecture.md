@@ -178,10 +178,12 @@ No new services, local models, background clustering, or database migration are 
 
 ## Lookup Flow
 
-- Lookup is available when `TAVILY_API_KEY` is set.
+- DeepSeek Search is the primary lookup provider. `DEEPSEEK_API_KEY` can configure it separately; otherwise an `LLM_API_KEY` configured for the official `https://api.deepseek.com` origin is reused. Other LLM provider keys are never sent to DeepSeek Search. With no DeepSeek key, a configured `TAVILY_API_KEY` retains Tavily-only lookup.
+- An error or no usable DeepSeek results emits `deepseek_search_fallback` through the existing admin-notifying WARN logger, then makes one Tavily request if its key is configured. There are no search retries; `LLM_MAX_RETRIES` applies only to LLM calls. Missing fallback credentials or a failed Tavily request preserve the existing local verification fallback.
+- DeepSeek requests use `need_content: false`; source evidence comes from `summary`, falling back to `snippet`. Full-page Fetch is not integrated. Queries outside DeepSeek's 128-Unicode-character limit go to Tavily without truncation, with the same warning.
 - Assistant context selection, clarification, direct generation, and search routing share the first JSON-mode completion.
 - Conversation ambiguity produces a concise clarification; external factual uncertainty may request research. Search is never used to infer missing chat discussions.
-- Research permits up to two parallel queries, each capped at three seconds, and then one grounded completion.
+- Research permits up to two parallel queries and then one grounded completion. Each provider attempt uses `LOOKUP_TIMEOUT_MS` (7,000 ms by default); sequential failover can take up to twice that timeout for one query.
 - Provider failures preserve the existing verification fallback. The second query is optional when the primary one succeeds.
 - Grounded output includes status, evidence quality, outcome, and request-local source IDs; unknown IDs are rejected.
 - `/translate` does not use lookup.

@@ -115,6 +115,11 @@ const telegramAccessConfigSchema = z
   }));
 
 export function validateParsedEnv(parsed: ParsedRawEnv): void {
+  if (parsed.DEEPSEEK_API_KEY && looksLikePlaceholder(parsed.DEEPSEEK_API_KEY))
+    throw new Error(
+      'DEEPSEEK_API_KEY contains a placeholder value. Replace it with a real DeepSeek API key before starting the bot.'
+    );
+
   if (parsed.REPLY_MIN_TYPING_MS > parsed.REPLY_MAX_TYPING_MS) {
     throw new Error(
       'REPLY_MIN_TYPING_MS must be less than or equal to REPLY_MAX_TYPING_MS.'
