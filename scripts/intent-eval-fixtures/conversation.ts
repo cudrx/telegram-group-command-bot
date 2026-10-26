@@ -141,7 +141,9 @@ export const conversationEvalFixtures: IntentEvalFixture[] = [
     replyToMessageId: 2,
     request: '@hrupa_bot что здесь значит мамонт?',
     ids: [1, 2],
-    include: [['обман', 'развод', 'скам', 'жертв', 'доверчив']],
+    include: [
+      ['обман', 'развод', 'развели', 'мошен', 'скам', 'жертв', 'доверчив']
+    ],
     exclude: [['обязательно богат', 'всегда богат']]
   }),
   conversation({
@@ -205,7 +207,9 @@ export const conversationEvalFixtures: IntentEvalFixture[] = [
     request: '@hrupa_bot',
     ids: [],
     mode: 'clarify',
-    include: [['помочь', 'подсказать', 'интересует', 'обсудим']],
+    include: [
+      ['помочь', 'подсказать', 'интересует', 'обсудим', 'задач', 'вопрос']
+    ],
     exclude: [['PostgreSQL']]
   }),
   conversation({

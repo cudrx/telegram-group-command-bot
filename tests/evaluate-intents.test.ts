@@ -11,6 +11,43 @@ import {
 import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
 
 describe('evaluate-intents helpers', () => {
+  test('rejects a correct number accompanied by a false denial of the previous bot error', () => {
+    const fixture = intentEvalFixtures.find(
+      (item) => item.id === 'social-truth-correct-own-error'
+    );
+    if (!fixture) throw new Error('Missing correction scenario');
+
+    expect(
+      hasRubricFailures(
+        evaluateRubric(
+          'Нет, ошибки не было: правильный ответ — 323.',
+          fixture.rubric
+        )
+      )
+    ).toBe(true);
+    expect(
+      hasRubricFailures(
+        evaluateRubric('Да, ошибся: 17 × 19 = 323.', fixture.rubric)
+      )
+    ).toBe(false);
+  });
+
+  test('accepts correct claim attribution with inflected participant names', () => {
+    const fixture = intentEvalFixtures.find(
+      (item) => item.id === 'social-intent-report-claims'
+    );
+    if (!fixture) throw new Error('Missing attribution scenario');
+
+    expect(
+      hasRubricFailures(
+        evaluateRubric(
+          'По сообщению Алисы, Борис назвал 19:00; Вера — 20:00.',
+          fixture.rubric
+        )
+      )
+    ).toBe(false);
+  });
+
   test('treats rubric regressions as failures', () => {
     const rubric = {
       mustIncludeAny: [['через десять']],

@@ -4,5 +4,6 @@ Return context as an object with a messageIds array, for example "context": {"me
 Return direct with the final answer when the request, selected chat context, media, or stable knowledge is enough. Both selecting context and answering happen in this single call.
 Return clarify with one short question when the subject or intended discussion cannot be determined. Do not use research to compensate for missing conversation context.
 Return research only when freshness, entity identity, a disputed factual claim, or a linked source materially affects correctness. Use the selected context to resolve the question before choosing one checkable focus claim. Return one neutral query by default, or two complementary queries only when they materially improve coverage. Never return more than two queries.
+For a current or latest version request, choose purpose freshness and focus on the latest stable release, even when the entity is unfamiliar.
 
 Return only JSON matching OUTPUT_CONTRACT.

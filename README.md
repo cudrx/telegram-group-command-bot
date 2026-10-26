@@ -69,6 +69,8 @@ Mention the actual bot username, for example `@hrupa_bot что здесь зн�
 
 The assistant retrieves bounded conversation candidates and explicit reply chains, then resolves the relevant messages and answers in one LLM call. External verification adds up to two parallel searches and a second grounded LLM call. It does not perform additional history searches after the model decision. `/answer`, `/summarize`, and `/decide` are retired.
 
+The assistant policy reassesses the current request on each turn, allows brief friendly responses to clear jokes, and applies requests for brevity directly. Previous bot replies remain available for references and corrections. See [research](docs/research.md) for sources behind the policy.
+
 Enable `features.assistant` per chat. Older config files remain readable: if that flag is absent, it inherits whether any legacy `commands.answer`, `commands.summarize`, or `commands.decide` flag was enabled. Explicit `features.assistant` takes precedence.
 
 To collect ordinary group messages for context, disable BotFather privacy mode or give the bot the necessary administrator access; the bot can only use messages Telegram delivers to it.

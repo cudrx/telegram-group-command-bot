@@ -8,5 +8,6 @@ Map of Markdown documents in this repository.
 - `docs/README.md` - this documentation map.
 - `docs/architecture.md` - architecture, invariants, main flows, and data model.
 - `docs/development.md` - local development, checks, CI/CD, Docker, and production notes.
+- `docs/research.md` - research sources and brief takeaways.
 - `llm/` - static prompt files.
 - `llm/assistant/base.md` - base assistant prompt.
