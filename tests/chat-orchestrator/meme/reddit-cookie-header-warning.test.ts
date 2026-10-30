@@ -3,7 +3,6 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, test, vi } from 'vitest';
 import { fetchRedditListingCandidates } from '../../../src/app/actions/meme/reddit-listing-client.js';
-import { fetchRedditPostCandidate } from '../../../src/app/actions/meme/reddit-post-client.js';
 import { createNotifyingLogger } from '../../../src/app/admin-notifier.js';
 import { createIncomingMessage } from '../../database/support.js';
 import { FakeDatabaseClient } from '../support/fake-database.js';
@@ -57,7 +56,7 @@ describe('Reddit cookie header rejection', () => {
 
   test.each([
     401, 403
-  ])('identifies HTTP %i for listings and posts without leaking cookies', async (status) => {
+  ])('identifies HTTP %i for listings without leaking cookies', async (status) => {
     const directory = await mkdtemp(
       path.join(os.tmpdir(), 'reddit-header-warning-')
     );
@@ -66,34 +65,18 @@ describe('Reddit cookie header rejection', () => {
     const fetch = vi.fn(async () => new Response('denied', { status }));
 
     try {
-      const requests = [
-        () =>
-          fetchRedditListingCandidates({
-            subreddit: 'memes',
-            count: 10,
-            redditCookieHeaderPath: headerPath,
-            fetch
-          }),
-        () =>
-          fetchRedditPostCandidate({
-            text: 'https://www.reddit.com/r/nba/comments/abc/post/',
-            redditCookieHeaderPath: headerPath,
-            fetch
-          }),
-        () =>
-          fetchRedditPostCandidate({
-            text: 'https://www.reddit.com/r/nba/s/token',
-            redditCookieHeaderPath: headerPath,
-            fetch
-          })
-      ];
-      for (const request of requests) {
-        await expect(request()).rejects.toMatchObject({
-          name: 'RedditCookieHeaderRejectedError',
-          status
+      const request = () =>
+        fetchRedditListingCandidates({
+          subreddit: 'memes',
+          count: 10,
+          redditCookieHeaderPath: headerPath,
+          fetch
         });
-        await expect(request()).rejects.not.toThrow('secret-session');
-      }
+      await expect(request()).rejects.toMatchObject({
+        name: 'RedditCookieHeaderRejectedError',
+        status
+      });
+      await expect(request()).rejects.not.toThrow('secret-session');
     } finally {
       await rm(directory, { recursive: true, force: true });
     }

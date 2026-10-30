@@ -45,6 +45,8 @@ export const text = {
       `Телеграм просит подождать ${retryAfterSeconds} сек. Попробуй позже.`,
     instagramUnavailableFallback:
       'Instagram временно недоступен. Попробуй позже.',
+    redditUnavailableFallback:
+      'Не удалось загрузить медиа из Reddit. Попробуй позже.',
     directVideoTooLongFallback: (maxMinutes: number) =>
       `Видео по ссылке слишком длинное: максимум ${maxMinutes} мин.`,
     directVideoTooLargeFallback: (maxMegabytes: number) =>

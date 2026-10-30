@@ -10,7 +10,8 @@ import { createOrchestrator } from '../../support/orchestrator.js';
 import {
   redditListing,
   videoProbeResult,
-  writeNormalizedVideo
+  writeNormalizedVideo,
+  writeRedditPostDump
 } from './support.js';
 
 describe('ChatOrchestrator /meme command — listing', () => {
@@ -321,6 +322,11 @@ describe('ChatOrchestrator /meme command — listing', () => {
           expect(file).toBe('yt-dlp');
 
           if (args.includes('--dump-single-json')) {
+            await writeRedditPostDump(options.cwd, {
+              id: 'post',
+              spoiler: false,
+              over_18: false
+            });
             return {
               stdout: JSON.stringify({
                 id: 'sex-video',
@@ -570,6 +576,11 @@ describe('ChatOrchestrator /meme command — listing', () => {
           expect(file).toBe('yt-dlp');
 
           if (args.includes('--dump-single-json')) {
+            await writeRedditPostDump(options.cwd, {
+              id: 'post',
+              spoiler: false,
+              over_18: false
+            });
             return {
               stdout: JSON.stringify({
                 id: 'vidfresh',

@@ -11,12 +11,109 @@ import { createIncomingMessage } from '../../../database/support.js';
 import { FakeDatabaseClient } from '../../support/fake-database.js';
 import { createOrchestrator } from '../../support/orchestrator.js';
 import {
-  redditPostResponse,
   videoProbeResult,
-  writeNormalizedVideo
+  writeNormalizedVideo,
+  writeRedditPostDump
 } from './support.js';
 
 describe('ChatOrchestrator /meme command — direct Reddit video', () => {
+  test.each([
+    'private_admin',
+    'private_link_sender'
+  ] as const)('downloads a Reddit share link directly through yt-dlp for %s', async (authorizedMode) => {
+    const sourceUrl = 'https://www.reddit.com/r/TikTokCringe/s/k3rMANLqQQ';
+    const canonicalUrl =
+      'https://www.reddit.com/r/TikTokCringe/comments/1xh1tsw/the_melodrama_of_it_all_give_me_a_break/';
+    const db = new FakeDatabaseClient();
+    const fetchMock = vi.fn().mockRejectedValue(new Error('HTTP must not run'));
+    const execFile = vi.fn(
+      async (
+        file: string,
+        args: string[],
+        options?: { cwd?: string | undefined }
+      ) => {
+        if (file === 'ffprobe') return videoProbeResult();
+        if (file === 'nice') return writeNormalizedVideo(args);
+
+        expect(file).toBe('yt-dlp');
+        expect(args).toContain('--impersonate');
+        expect(args).toContain('chrome');
+        if (args.includes('--dump-single-json')) {
+          await writeRedditPostDump(options?.cwd, {
+            id: '1xh1tsw',
+            spoiler: true,
+            over_18: false
+          });
+          expect(args).toContain(sourceUrl);
+
+          return {
+            stdout: JSON.stringify({
+              id: 'nativeVideoId',
+              display_id: '1xh1tsw',
+              channel_id: 'TikTokCringe',
+              title: 'The melodrama of it all',
+              webpage_url: canonicalUrl,
+              like_count: 123,
+              duration: 12
+            }),
+            stderr: ''
+          };
+        }
+
+        expect(args).toContain(canonicalUrl);
+        const output = args[args.indexOf('-o') + 1] ?? '';
+        await writeFile(
+          path.join(path.dirname(output), 'video.mp4'),
+          new Uint8Array([1])
+        );
+
+        return { stdout: '', stderr: '' };
+      }
+    );
+    const memeDispatcher = vi.fn().mockResolvedValue({
+      messageId: 510,
+      createdAt: '2026-10-30T12:00:00.000Z'
+    });
+    const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
+    const orchestrator = createOrchestrator({
+      db,
+      fetch: fetchMock,
+      execFile,
+      qwen: { generateReply: vi.fn() },
+      replyDispatcher: vi.fn(),
+      memeDispatcher,
+      deleteMessageDispatcher
+    });
+
+    await orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        text: sourceUrl,
+        authorizedMode,
+        chatType: 'private',
+        messageId: 42
+      })
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(memeDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reply: false,
+        hasSpoiler: true,
+        media: expect.objectContaining({ kind: 'video' }),
+        caption: `The melodrama of it all\n\nr/TikTokCringe · <a href="${canonicalUrl}">↑123</a>`
+      })
+    );
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: '1xh1tsw',
+      subreddit: 'TikTokCringe',
+      permalink: canonicalUrl
+    });
+    expect(deleteMessageDispatcher).toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 42
+    });
+  });
+
   test.each([
     'reddit',
     'streamable'
@@ -32,52 +129,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
     const db = new FakeDatabaseClient();
     const canonicalUrl =
       'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/';
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      new Response(
-        JSON.stringify([
-          {},
-          {
-            data: {
-              children: [
-                {
-                  data: {
-                    id: '1ti5fvt',
-                    subreddit: 'SipsTea',
-                    title: 'AI vs creativity from a pro-AI greedy corpo',
-                    permalink:
-                      '/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
-                    ups: 24123,
-                    over_18: true,
-                    spoiler: true,
-                    url:
-                      provider === 'streamable'
-                        ? 'https://streamable.com/idugt5'
-                        : 'https://v.redd.it/video123',
-                    is_video: provider === 'reddit',
-                    secure_media:
-                      provider === 'streamable'
-                        ? {
-                            type: 'streamable.com',
-                            oembed: {
-                              provider_name: 'Streamable',
-                              type: 'video'
-                            }
-                          }
-                        : {
-                            reddit_video: {
-                              fallback_url:
-                                'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
-                              duration: 42
-                            }
-                          }
-                  }
-                }
-              ]
-            }
-          }
-        ])
-      )
-    );
+    const fetchMock = vi.fn().mockRejectedValue(new Error('HTTP must not run'));
     const execFile = vi
       .fn()
       .mockImplementation(
@@ -93,10 +145,15 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
           expect(file).toBe('yt-dlp');
 
           if (args.includes('--dump-single-json')) {
+            await writeRedditPostDump(options.cwd, {
+              id: '1ti5fvt',
+              spoiler: true,
+              over_18: false
+            });
             expect(args).toContain(canonicalUrl);
             return {
               stdout: JSON.stringify({
-                id: '1ti5fvt',
+                id: provider === 'streamable' ? 'idugt5' : 'video123',
                 title: 'AI vs creativity from a pro-AI greedy corpo',
                 like_count: 24123,
                 duration: 42
@@ -163,12 +220,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       })
     );
 
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
-      'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/.json',
-      expect.any(Object)
-    );
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).not.toHaveBeenCalled();
     expect(execFile).toHaveBeenCalledTimes(5);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -191,7 +243,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       subreddit: 'SipsTea',
       telegramMessageId: 510,
       mediaKind: 'video',
-      mediaUrl: canonicalUrl,
+      mediaUrl: provider === 'streamable' ? 'yt-dlp:idugt5' : 'yt-dlp:video123',
       upvotes: 24123
     });
     expect(db.getMessageByTelegramMessageId(1, 510)).toMatchObject({
@@ -207,7 +259,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
     expect(existsSync(dispatchedFilePath)).toBe(false);
   });
 
-  test('logs and ignores direct Reddit video expansion failures', async () => {
+  test('reports failed Reddit extraction without deleting the source message', async () => {
     const db = new FakeDatabaseClient();
     const logger = {
       debug: vi.fn(),
@@ -217,12 +269,14 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       child: vi.fn()
     };
     logger.child.mockReturnValue(logger);
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response('rate limited', { status: 429 }));
+    const fetchMock = vi.fn().mockRejectedValue(new Error('HTTP must not run'));
     const execFile = vi.fn().mockRejectedValue(new Error('yt-dlp unavailable'));
     const memeDispatcher = vi.fn();
     const deleteMessageDispatcher = vi.fn();
+    const replyDispatcher = vi.fn().mockResolvedValue({
+      messageId: 700,
+      createdAt: '2026-10-30T12:00:00.000Z'
+    });
     const orchestrator = createOrchestrator({
       db,
       fetch: fetchMock,
@@ -231,7 +285,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       qwen: {
         generateReply: vi.fn()
       },
-      replyDispatcher: vi.fn(),
+      replyDispatcher,
       memeDispatcher,
       deleteMessageDispatcher
     });
@@ -247,12 +301,15 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
     ).resolves.toBeUndefined();
 
     expect(memeDispatcher).not.toHaveBeenCalled();
-    expect(deleteMessageDispatcher).not.toHaveBeenCalled();
-    expect(logger.warn).toHaveBeenCalledWith(
-      'reddit_video_resolution_failed',
+    expect(deleteMessageDispatcher).not.toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 43
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(replyDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
-        errorMessage:
-          'Reddit post request failed for https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/.json with status 429'
+        replyToMessageId: 43,
+        text: 'Не удалось загрузить медиа из Reddit. Попробуй позже.'
       })
     );
     expect(execFile).toHaveBeenCalledWith(
@@ -261,11 +318,12 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       expect.any(Object)
     );
     expect(logger.warn).toHaveBeenCalledWith(
-      'reddit_video_ytdlp_failed',
+      'reddit_media_failed',
       expect.objectContaining({
         errorMessage: 'yt-dlp unavailable'
       })
     );
+    expect(logger.warn).toHaveBeenCalledTimes(1);
   });
 
   test('replies with a size-specific fallback when Telegram rejects a direct Reddit video upload', async () => {
@@ -279,23 +337,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
     const db = new FakeDatabaseClient();
     const canonicalUrl =
       'https://www.reddit.com/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/';
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      redditPostResponse({
-        id: '1ti5fvt',
-        subreddit: 'SipsTea',
-        title: 'AI vs creativity from a pro-AI greedy corpo',
-        permalink:
-          '/r/SipsTea/comments/1ti5fvt/ai_vs_creativity_from_a_proai_greedy_corpo/',
-        ups: 24123,
-        secure_media: {
-          reddit_video: {
-            fallback_url:
-              'https://v.redd.it/video123/DASH_720.mp4?source=fallback',
-            duration: 42
-          }
-        }
-      })
-    );
+    const fetchMock = vi.fn().mockRejectedValue(new Error('HTTP must not run'));
     const execFile = vi
       .fn()
       .mockImplementation(
@@ -311,6 +353,11 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
           expect(file).toBe('yt-dlp');
 
           if (args.includes('--dump-single-json')) {
+            await writeRedditPostDump(options.cwd, {
+              id: '1ti5fvt',
+              spoiler: true,
+              over_18: false
+            });
             return {
               stdout: JSON.stringify({
                 id: '1ti5fvt',
@@ -385,21 +432,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
 
   test('replies with a duration-specific fallback for overlong direct Reddit videos', async () => {
     const db = new FakeDatabaseClient();
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      redditPostResponse({
-        id: 'longdirect',
-        subreddit: 'ForzaHorizon',
-        title: 'long direct video',
-        permalink: '/r/ForzaHorizon/comments/longdirect/long_direct_video/',
-        ups: 999,
-        secure_media: {
-          reddit_video: {
-            fallback_url: 'https://v.redd.it/longdirect/DASH_720.mp4',
-            duration: 601
-          }
-        }
-      })
-    );
+    const fetchMock = vi.fn().mockRejectedValue(new Error('HTTP must not run'));
     const replyDispatcher = vi.fn().mockResolvedValue({
       messageId: 701,
       createdAt: '2026-06-14T12:45:00.000Z'

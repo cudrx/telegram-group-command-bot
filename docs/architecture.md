@@ -97,15 +97,16 @@ the requested operation requires them.
 
 | Source    | Supported links and extraction                                                                                                                      |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reddit    | Post and share links; images, GIFs, galleries, hosted video, and embedded Streamable. Post JSON resolves media; video uses yt-dlp on the permalink. |
+| Reddit    | Post and share links: yt-dlp first; gallery-dl for images, GIFs, and galleries when video extraction fails. |
 | Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video.                                     |
 | YouTube   | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges.                                   |
 | TikTok    | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored.                                                         |
 
-Reddit HTTP requests prefer `REDDIT_COOKIE_HEADER_PATH` over Netscape cookies.
-Reddit video metadata and download commands use `REDDIT_COOKIES_PATH` with
-`--impersonate chrome`; this needs yt-dlp's `curl-cffi` extra.
-A rejected raw cookie header (HTTP 401/403) notifies the admin to refresh it.
+Reddit listings for `/meme` and `/sex` use HTTP and prefer
+`REDDIT_COOKIE_HEADER_PATH` over Netscape cookies. HTTP 401/403 with a raw cookie
+header notifies the admin to refresh it. Direct links use `REDDIT_COOKIES_PATH`
+with yt-dlp/gallery-dl. yt-dlp uses `--impersonate chrome`, which needs its
+`curl-cffi` extra. Download failures leave the source link and send an error reply.
 
 Video processing is `yt-dlp metadata → download → ffprobe → ffmpeg → ffprobe`.
 Metadata and download use the same format selector. Reject videos over
@@ -120,7 +121,8 @@ the cookie file's modification time allows a new attempt.
 
 Images, GIFs, galleries, and videos use Telegram's matching media methods.
 Temporary files are cleaned after dispatch. Reddit NSFW/spoiler flags are
-preserved; `/sex` forces spoilers. Successful Reddit sends update `meme_posts`;
+preserved; video metadata reads them from the post JSON saved by yt-dlp's
+`--write-pages`. `/sex` forces spoilers. Successful Reddit sends update `meme_posts`;
 other sources are stored as ordinary bot media messages.
 
 Direct expansion sends media without replying, then tries to delete the source

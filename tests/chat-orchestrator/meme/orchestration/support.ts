@@ -1,6 +1,25 @@
 import { writeFile } from 'node:fs/promises';
+import path from 'node:path';
 
 import { expect } from 'vitest';
+
+export async function writeRedditPostDump(
+  directory: string | undefined,
+  post: { id: string; spoiler: boolean; over_18: boolean }
+): Promise<void> {
+  if (!directory) throw new Error('Expected a metadata working directory');
+
+  await writeFile(
+    path.join(
+      directory,
+      `${post.id}_https_-_www.reddit.com_r_test_comments_${post.id}_.json.dump`
+    ),
+    JSON.stringify([
+      { data: { children: [{ data: post }] } },
+      { data: { children: [] } }
+    ])
+  );
+}
 
 export async function writeNormalizedVideo(args: string[]): Promise<{
   stdout: string;

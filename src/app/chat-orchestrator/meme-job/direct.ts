@@ -9,10 +9,9 @@ import {
   downloadInstagramReelWithYtDlp,
   extractInstagramErrorText
 } from '../../actions/meme/instagram-reel-client.js';
-import { fetchRedditPostCandidate } from '../../actions/meme/reddit-post-client.js';
+import { resolveRedditPostWithGalleryDl } from '../../actions/meme/reddit-post-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import { downloadTiktokWithYtDlp } from '../../actions/meme/tiktok-client.js';
-import type { MemePostCandidate } from '../../actions/meme/types.js';
 import {
   isDirectVideoTooLargeError,
   isDirectVideoTooLongError
@@ -319,95 +318,80 @@ function isTiktokGalleryCandidate(text: string): boolean {
 async function runDirectRedditVideoMemeJob(
   input: MemeJobInput & { text: string }
 ): Promise<boolean> {
-  let candidate: MemePostCandidate | null;
+  let videoDownloaded = false;
 
   try {
-    candidate = await fetchRedditPostCandidate({
-      text: input.text,
-      redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
-      sqlitePath: input.deps.env.sqlitePath,
-      redditCookiesPath: input.deps.env.redditCookiesPath,
-      ...(input.deps.fetch ? { fetch: input.deps.fetch } : {})
+    await runQueuedVideoJob({
+      job: input,
+      source: 'reddit',
+      run: () =>
+        runWithProcessStatus(
+          input.deps,
+          {
+            chatId: input.request.chatId,
+            status: { preset: 'video_pipeline' }
+          },
+          async (status) => {
+            const video = await downloadRedditVideoWithYtDlp({
+              text: input.text,
+              sqlitePath: input.deps.env.sqlitePath,
+              redditCookiesPath: input.deps.env.redditCookiesPath,
+              maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
+              processStatus: status,
+              ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+            });
+            if (!video)
+              throw new Error('Reddit video URL could not be resolved');
+
+            videoDownloaded = true;
+            await status.stage('upload');
+            await sendDownloadedCandidate(
+              input,
+              video.candidate,
+              video.downloaded,
+              {
+                reply: false,
+                ...getDirectMediaCaptionOptions(input)
+              }
+            );
+          }
+        )
     });
   } catch (error) {
-    input.logger.warn('reddit_video_resolution_failed', serializeError(error));
+    if (await handleDirectVideoFailure(input, error)) return true;
 
-    try {
-      const sentFallback = await runQueuedVideoJob({
-        job: input,
-        source: 'reddit',
-        run: () =>
-          runWithProcessStatus(
-            input.deps,
-            {
-              chatId: input.request.chatId,
-              status: {
-                preset: 'video_pipeline'
-              }
-            },
-            async (status) => {
-              const fallback = await downloadRedditVideoWithYtDlp({
-                text: input.text,
-                sqlitePath: input.deps.env.sqlitePath,
-                redditCookieHeaderPath: input.deps.env.redditCookieHeaderPath,
-                redditCookiesPath: input.deps.env.redditCookiesPath,
-                maxBytes: memeActionConfig.telegramMedia.videoMaxBytes,
-                ...(input.deps.fetch ? { fetch: input.deps.fetch } : {}),
-                processStatus: status,
-                ...(input.deps.execFile
-                  ? { execFile: input.deps.execFile }
-                  : {})
-              });
+    let failure = error;
+    if (!videoDownloaded) {
+      try {
+        const candidate = await resolveRedditPostWithGalleryDl({
+          text: input.text,
+          sqlitePath: input.deps.env.sqlitePath,
+          redditCookiesPath: input.deps.env.redditCookiesPath,
+          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
+        });
+        if (!candidate) return true;
+        if (candidate.media.kind !== 'video') {
+          await sendCandidate(input, candidate, {
+            reply: false,
+            ...getDirectMediaCaptionOptions(input)
+          });
+          await deleteSourceMessage(input);
+          return true;
+        }
+      } catch (galleryError) {
+        if (await handleDirectVideoFailure(input, galleryError)) return true;
 
-              if (!fallback) {
-                return false;
-              }
-
-              await status.stage('upload');
-              await sendDownloadedCandidate(
-                input,
-                fallback.candidate,
-                fallback.downloaded,
-                {
-                  reply: false,
-                  ...getDirectMediaCaptionOptions(input)
-                }
-              );
-
-              return true;
-            }
-          )
-      });
-      if (!sentFallback) return false;
-    } catch (fallbackError) {
-      if (await handleDirectVideoFailure(input, fallbackError)) {
-        return true;
+        failure = galleryError;
       }
-
-      input.logger.warn(
-        'reddit_video_ytdlp_failed',
-        serializeError(fallbackError)
-      );
-      return false;
     }
 
-    await deleteSourceMessage(input);
-    return true;
-  }
-
-  if (!candidate) return false;
-
-  try {
-    await sendCandidate(input, candidate, {
-      reply: false,
-      ...getDirectMediaCaptionOptions(input)
+    input.logger.warn('reddit_media_failed', serializeError(failure));
+    await dispatchTextReply({
+      deps: input.deps,
+      request: input.request,
+      text: text.meme.redditUnavailableFallback
     });
-  } catch (error) {
-    if (await handleDirectVideoFailure(input, error)) {
-      return true;
-    }
-
-    throw error;
+    return true;
   }
 
   await deleteSourceMessage(input);

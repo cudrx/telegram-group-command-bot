@@ -1,20 +1,18 @@
+import path from 'node:path';
+import { redditMediaActionConfig } from '../../../config/runtime/index.js';
 import {
-  assertRedditCookieHeaderAccepted,
-  readRedditCookieHeader
-} from './reddit-cookies.js';
+  execMediaFileDefault,
+  MEDIA_EXEC_MAX_BUFFER,
+  type MediaExecFile
+} from '../../../media/exec.js';
+import { resolveRuntimeFilePath } from './paths.js';
 import { resolveRedditPostMedia } from './reddit-post-resolver.js';
 import type { MemePostCandidate } from './types.js';
 
 type RedditPostReference = {
-  jsonUrl: string;
   permalink: string;
   redditPostId: string;
   subreddit: string;
-};
-
-const REDDIT_HEADERS = {
-  Accept: 'application/json',
-  'User-Agent': 'test-chatbot/0.1 by /u/local-test'
 };
 
 export function findRedditPostReference(
@@ -31,114 +29,44 @@ export function findRedditPostReference(
   return null;
 }
 
-export async function resolveRedditPostReference(input: {
+export async function resolveRedditPostWithGalleryDl(input: {
   text: string;
-  redditCookieHeaderPath?: string | null | undefined;
-  sqlitePath?: string | undefined;
+  sqlitePath: string;
   redditCookiesPath?: string | null | undefined;
-  fetch?: typeof fetch | undefined;
-}): Promise<RedditPostReference | null> {
-  const direct = findRedditPostReference(input.text);
-  if (direct) return direct;
+  execFile?: MediaExecFile | undefined;
+}): Promise<MemePostCandidate | null> {
+  const sourceUrl =
+    findRedditPostReference(input.text)?.permalink ??
+    findRedditShareUrl(input.text);
+  if (!sourceUrl) return null;
 
-  const shareUrl = findRedditShareUrl(input.text);
-  if (!shareUrl) return null;
-
-  const fetchImpl = input.fetch ?? globalThis.fetch;
-  const cookieHeader = await readRedditCookieHeader({
-    redditCookieHeaderPath: input.redditCookieHeaderPath,
-    sqlitePath: input.sqlitePath,
-    redditCookiesPath: input.redditCookiesPath
-  });
-  let response: Response;
-
-  try {
-    response = await fetchImpl(shareUrl, {
-      redirect: 'follow',
-      headers: createRedditHeaders(cookieHeader)
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    throw new Error(
-      `Reddit share link resolution failed for ${shareUrl}: ${message}`
-    );
-  }
-
-  const redirectedUrl = response.url;
-  const reference = redirectedUrl ? parseRedditPostUrl(redirectedUrl) : null;
-  if (reference) return reference;
-
-  assertRedditCookieHeaderAccepted(
-    response.status,
-    input.redditCookieHeaderPath,
-    cookieHeader
+  const cookiesPath = resolveRuntimeFilePath(
+    input.redditCookiesPath ??
+      path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt')
   );
-
-  return null;
-}
-
-export async function fetchRedditVideoCandidate(input: {
-  text: string;
-  redditCookieHeaderPath?: string | null | undefined;
-  sqlitePath?: string | undefined;
-  redditCookiesPath?: string | null | undefined;
-  fetch?: typeof fetch | undefined;
-}): Promise<MemePostCandidate | null> {
-  return fetchRedditPostCandidate(input);
-}
-
-export async function fetchRedditPostCandidate(input: {
-  text: string;
-  redditCookieHeaderPath?: string | null | undefined;
-  sqlitePath?: string | undefined;
-  redditCookiesPath?: string | null | undefined;
-  fetch?: typeof fetch | undefined;
-}): Promise<MemePostCandidate | null> {
-  const reference = await resolveRedditPostReference(input);
-
-  if (!reference) return null;
-
-  const fetchImpl = input.fetch ?? globalThis.fetch;
-  const cookieHeader = await readRedditCookieHeader({
-    redditCookieHeaderPath: input.redditCookieHeaderPath,
-    sqlitePath: input.sqlitePath,
-    redditCookiesPath: input.redditCookiesPath
-  });
-  let response: Response;
-
-  try {
-    response = await fetchImpl(reference.jsonUrl, {
-      headers: createRedditHeaders(cookieHeader)
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-
-    throw new Error(
-      `Reddit post request failed for ${reference.jsonUrl}: ${message}`
-    );
+  const execFile = input.execFile ?? execMediaFileDefault;
+  const result = await execFile(
+    'gallery-dl',
+    ['--cookies', cookiesPath, '--resolve-json', sourceUrl],
+    {
+      maxBuffer: MEDIA_EXEC_MAX_BUFFER,
+      timeoutMs: redditMediaActionConfig.telegramMedia.metadataTimeoutMs
+    }
+  );
+  const payload = JSON.parse(result.stdout) as unknown;
+  if (!Array.isArray(payload)) {
+    throw new Error('gallery-dl returned invalid Reddit metadata');
   }
 
-  if (!response.ok) {
-    assertRedditCookieHeaderAccepted(
-      response.status,
-      input.redditCookieHeaderPath,
-      cookieHeader
-    );
+  for (const row of payload) {
+    if (!Array.isArray(row) || row[0] !== 2 || !isRecord(row[1])) continue;
+    if (typeof row[1].id !== 'string' || typeof row[1].subreddit !== 'string')
+      continue;
 
-    throw new Error(
-      `Reddit post request failed for ${reference.jsonUrl} with status ${response.status}`
-    );
+    return resolveRedditPostMedia(row[1]);
   }
 
-  return toPostCandidate(await response.json());
-}
-
-function createRedditHeaders(cookieHeader: string | null): HeadersInit {
-  return {
-    ...REDDIT_HEADERS,
-    ...(cookieHeader ? { Cookie: cookieHeader } : {})
-  };
+  throw new Error('gallery-dl did not return Reddit post metadata');
 }
 
 export function findRedditShareUrl(text: string): string | null {
@@ -209,34 +137,10 @@ function parseRedditPostUrl(value: string): RedditPostReference | null {
   parsed.pathname = `/${parts.slice(0, subredditIndex + 5).join('/')}`;
 
   return {
-    jsonUrl: `${parsed.toString().replace(/\/$/, '')}/.json`,
     permalink: `${parsed.toString().replace(/\/$/, '')}/`,
     redditPostId: parts[subredditIndex + 3] as string,
     subreddit: parts[subredditIndex + 1] as string
   };
-}
-
-function toPostCandidate(payload: unknown): MemePostCandidate | null {
-  const post = getFirstPostData(payload);
-
-  if (!post) return null;
-
-  return resolveRedditPostMedia(post);
-}
-
-function getFirstPostData(payload: unknown): Record<string, unknown> | null {
-  if (!Array.isArray(payload)) return null;
-
-  for (const listing of payload) {
-    const data = isRecord(listing) ? listing.data : null;
-    const children = isRecord(data) ? data.children : null;
-    const child = Array.isArray(children) ? children[0] : null;
-    const postData = isRecord(child) ? child.data : null;
-
-    if (isRecord(postData)) return postData;
-  }
-
-  return null;
 }
 
 function isRedditHost(hostname: string): boolean {

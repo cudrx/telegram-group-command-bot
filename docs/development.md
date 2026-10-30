@@ -61,8 +61,8 @@ to receive ordinary group messages. Deleting source links also needs permissions
 
 | Setting                     | Used by                                                                                |
 | --------------------------- | -------------------------------------------------------------------------------------- |
-| `REDDIT_COOKIE_HEADER_PATH` | Bot HTTP requests for Reddit JSON/share links; takes precedence over Netscape cookies. |
-| `REDDIT_COOKIES_PATH`       | Reddit HTTP requests without a raw header, and yt-dlp video extraction.                |
+| `REDDIT_COOKIE_HEADER_PATH` | HTTP subreddit listings for `/meme` and `/sex`; takes precedence over Netscape cookies. |
+| `REDDIT_COOKIES_PATH`       | yt-dlp/gallery-dl extraction, and subreddit listings without a raw header.              |
 | `INSTAGRAM_COOKIES_PATH`    | Instagram yt-dlp/gallery-dl extraction.                                                |
 | `YOUTUBE_COOKIES_PATH`      | YouTube yt-dlp extraction.                                                             |
 
@@ -70,7 +70,7 @@ Unset `REDDIT_COOKIE_HEADER_PATH` if you do not supply that file. A configured
 header rejected with HTTP 401/403 produces an admin notification. Updating it
 does not update the Netscape file used by yt-dlp.
 
-Reddit metadata and downloads use `--impersonate chrome`. Both Dockerfiles
+Reddit video metadata and downloads use `--impersonate chrome`. Both Dockerfiles
 install yt-dlp's `curl-cffi` extra. Workers copy cookies to private writable
 files with mode `0600` and remove them in `finally`; the read-only originals
 are preserved. An absent yt-dlp cookie file starts an empty private jar, which
