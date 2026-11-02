@@ -9,7 +9,6 @@ import {
   downloadInstagramReelWithYtDlp,
   extractInstagramErrorText
 } from '../../actions/meme/instagram-reel-client.js';
-import { resolveRedditPostWithGalleryDl } from '../../actions/meme/reddit-post-client.js';
 import { dispatchMemeMedia } from '../../actions/meme/telegram-dispatcher.js';
 import { downloadTiktokWithYtDlp } from '../../actions/meme/tiktok-client.js';
 import {
@@ -32,11 +31,7 @@ import {
 import type { DirectMediaLinkKind } from '../direct-media-link.js';
 import { dispatchTextReply } from '../outbound-voice.js';
 import { downloadResolvedMedia } from './download.js';
-import {
-  type MemeJobInput,
-  sendCandidate,
-  sendDownloadedCandidate
-} from './send.js';
+import { type MemeJobInput, sendDownloadedCandidate } from './send.js';
 import { runQueuedVideoJob } from './video-job.js';
 
 export async function runDirectMediaMemeJob(
@@ -318,10 +313,8 @@ function isTiktokGalleryCandidate(text: string): boolean {
 async function runDirectRedditVideoMemeJob(
   input: MemeJobInput & { text: string }
 ): Promise<boolean> {
-  let videoDownloaded = false;
-
   try {
-    await runQueuedVideoJob({
+    const sent = await runQueuedVideoJob({
       job: input,
       source: 'reddit',
       run: () =>
@@ -332,7 +325,7 @@ async function runDirectRedditVideoMemeJob(
             status: { preset: 'video_pipeline' }
           },
           async (status) => {
-            const video = await downloadRedditVideoWithYtDlp({
+            const result = await downloadRedditVideoWithYtDlp({
               text: input.text,
               sqlitePath: input.deps.env.sqlitePath,
               redditCookiesPath: input.deps.env.redditCookiesPath,
@@ -340,61 +333,36 @@ async function runDirectRedditVideoMemeJob(
               processStatus: status,
               ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
             });
-            if (!video)
-              throw new Error('Reddit video URL could not be resolved');
+            if (!result) return false;
 
-            videoDownloaded = true;
+            const downloaded =
+              result.downloaded ??
+              (await downloadResolvedMedia(
+                input.deps,
+                result.candidate.media,
+                status
+              ));
             await status.stage('upload');
-            await sendDownloadedCandidate(
-              input,
-              video.candidate,
-              video.downloaded,
-              {
-                reply: false,
-                ...getDirectMediaCaptionOptions(input)
-              }
-            );
+            await sendDownloadedCandidate(input, result.candidate, downloaded, {
+              reply: false,
+              ...getDirectMediaCaptionOptions(input)
+            });
+            return true;
           }
         )
     });
+    if (sent) await deleteSourceMessage(input);
   } catch (error) {
     if (await handleDirectVideoFailure(input, error)) return true;
 
-    let failure = error;
-    if (!videoDownloaded) {
-      try {
-        const candidate = await resolveRedditPostWithGalleryDl({
-          text: input.text,
-          sqlitePath: input.deps.env.sqlitePath,
-          redditCookiesPath: input.deps.env.redditCookiesPath,
-          ...(input.deps.execFile ? { execFile: input.deps.execFile } : {})
-        });
-        if (!candidate) return true;
-        if (candidate.media.kind !== 'video') {
-          await sendCandidate(input, candidate, {
-            reply: false,
-            ...getDirectMediaCaptionOptions(input)
-          });
-          await deleteSourceMessage(input);
-          return true;
-        }
-      } catch (galleryError) {
-        if (await handleDirectVideoFailure(input, galleryError)) return true;
-
-        failure = galleryError;
-      }
-    }
-
-    input.logger.warn('reddit_media_failed', serializeError(failure));
+    input.logger.warn('reddit_media_failed', serializeError(error));
     await dispatchTextReply({
       deps: input.deps,
       request: input.request,
       text: text.meme.redditUnavailableFallback
     });
-    return true;
   }
 
-  await deleteSourceMessage(input);
   return true;
 }
 

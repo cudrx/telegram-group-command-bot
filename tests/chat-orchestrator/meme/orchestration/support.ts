@@ -5,7 +5,10 @@ import { expect } from 'vitest';
 
 export async function writeRedditPostDump(
   directory: string | undefined,
-  post: { id: string; spoiler: boolean; over_18: boolean }
+  post: { id: string; spoiler: boolean; over_18: boolean } & Record<
+    string,
+    unknown
+  >
 ): Promise<void> {
   if (!directory) throw new Error('Expected a metadata working directory');
 

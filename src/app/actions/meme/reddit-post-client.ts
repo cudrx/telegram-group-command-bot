@@ -1,14 +1,3 @@
-import path from 'node:path';
-import { redditMediaActionConfig } from '../../../config/runtime/index.js';
-import {
-  execMediaFileDefault,
-  MEDIA_EXEC_MAX_BUFFER,
-  type MediaExecFile
-} from '../../../media/exec.js';
-import { resolveRuntimeFilePath } from './paths.js';
-import { resolveRedditPostMedia } from './reddit-post-resolver.js';
-import type { MemePostCandidate } from './types.js';
-
 type RedditPostReference = {
   permalink: string;
   redditPostId: string;
@@ -27,46 +16,6 @@ export function findRedditPostReference(
   }
 
   return null;
-}
-
-export async function resolveRedditPostWithGalleryDl(input: {
-  text: string;
-  sqlitePath: string;
-  redditCookiesPath?: string | null | undefined;
-  execFile?: MediaExecFile | undefined;
-}): Promise<MemePostCandidate | null> {
-  const sourceUrl =
-    findRedditPostReference(input.text)?.permalink ??
-    findRedditShareUrl(input.text);
-  if (!sourceUrl) return null;
-
-  const cookiesPath = resolveRuntimeFilePath(
-    input.redditCookiesPath ??
-      path.join(path.dirname(input.sqlitePath), 'reddit-cookies.txt')
-  );
-  const execFile = input.execFile ?? execMediaFileDefault;
-  const result = await execFile(
-    'gallery-dl',
-    ['--cookies', cookiesPath, '--resolve-json', sourceUrl],
-    {
-      maxBuffer: MEDIA_EXEC_MAX_BUFFER,
-      timeoutMs: redditMediaActionConfig.telegramMedia.metadataTimeoutMs
-    }
-  );
-  const payload = JSON.parse(result.stdout) as unknown;
-  if (!Array.isArray(payload)) {
-    throw new Error('gallery-dl returned invalid Reddit metadata');
-  }
-
-  for (const row of payload) {
-    if (!Array.isArray(row) || row[0] !== 2 || !isRecord(row[1])) continue;
-    if (typeof row[1].id !== 'string' || typeof row[1].subreddit !== 'string')
-      continue;
-
-    return resolveRedditPostMedia(row[1]);
-  }
-
-  throw new Error('gallery-dl did not return Reddit post metadata');
 }
 
 export function findRedditShareUrl(text: string): string | null {
@@ -149,8 +98,4 @@ function isRedditHost(hostname: string): boolean {
 
 function stripTrailingPunctuation(value: string): string {
   return value.replace(/[),.]+$/u, '');
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object';
 }

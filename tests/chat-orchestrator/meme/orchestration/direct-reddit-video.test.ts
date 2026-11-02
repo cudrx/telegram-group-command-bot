@@ -317,6 +317,7 @@ describe('ChatOrchestrator /meme command — direct Reddit video', () => {
       expect.arrayContaining(['--dump-single-json']),
       expect.any(Object)
     );
+    expect(execFile).toHaveBeenCalledTimes(1);
     expect(logger.warn).toHaveBeenCalledWith(
       'reddit_media_failed',
       expect.objectContaining({

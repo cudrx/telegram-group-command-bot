@@ -12,6 +12,107 @@ describe('downloadRedditVideoWithYtDlp', () => {
   afterEach(() => vi.restoreAllMocks());
 
   test.each([
+    false,
+    true
+  ])('returns a saved image candidate without a video download (extractor fails: %s)', async (fails) => {
+    let directory: string | undefined;
+    const execFile = vi.fn<MediaExecFile>(async (_file, _args, options) => {
+      directory = options?.cwd;
+      await writeRedditPostDump(directory, {
+        id: '1xlp6jh',
+        subreddit: 'Dank',
+        title: 'Do it',
+        permalink: '/r/Dank/comments/1xlp6jh/do_it/',
+        spoiler: false,
+        over_18: false,
+        url: 'https://i.redd.it/60biyv2n05zh1.jpeg'
+      });
+      if (fails)
+        throw new Error(
+          'Unsupported URL: https://www.reddit.com/media?url=image'
+        );
+
+      return { stdout: JSON.stringify({ id: '1xlp6jh' }), stderr: '' };
+    });
+
+    const result = await downloadRedditVideoWithYtDlp({
+      text: 'https://www.reddit.com/r/Dank/s/cLN3m3qpuA',
+      sqlitePath: '/tmp/bot.sqlite',
+      maxBytes: 50_000_000,
+      execFile
+    });
+
+    expect(result).toMatchObject({
+      downloaded: null,
+      candidate: {
+        redditPostId: '1xlp6jh',
+        title: 'Do it',
+        permalink: 'https://www.reddit.com/r/Dank/comments/1xlp6jh/do_it/',
+        media: {
+          kind: 'image',
+          mediaUrl: 'https://i.redd.it/60biyv2n05zh1.jpeg',
+          extension: 'jpeg'
+        }
+      }
+    });
+    expect(execFile).toHaveBeenCalledTimes(1);
+    expect(directory).toBeTruthy();
+    expect(directory && existsSync(directory)).toBe(false);
+  });
+
+  test('preserves the extractor error when its Reddit dump is not JSON', async () => {
+    let directory: string | undefined;
+    const failure = new Error('Reddit API blocked');
+    const execFile: MediaExecFile = async (_file, _args, options) => {
+      directory = options?.cwd;
+      if (!directory) throw new Error('Missing working directory');
+      await writeFile(
+        path.join(directory, 'id_https_-_www.reddit.com_.json.dump'),
+        '<html>blocked</html>'
+      );
+      throw failure;
+    };
+
+    await expect(
+      downloadRedditVideoWithYtDlp({
+        text: 'https://www.reddit.com/r/Dank/s/cLN3m3qpuA',
+        sqlitePath: '/tmp/bot.sqlite',
+        maxBytes: 50_000_000,
+        execFile
+      })
+    ).rejects.toBe(failure);
+    expect(directory && existsSync(directory)).toBe(false);
+  });
+
+  test('does not replace a failed video with its static preview', async () => {
+    const failure = new Error('Video extraction failed');
+    const execFile: MediaExecFile = async (_file, _args, options) => {
+      await writeRedditPostDump(options?.cwd, {
+        id: 'vid1',
+        subreddit: 'videos',
+        title: 'video',
+        permalink: '/r/videos/comments/vid1/video/',
+        spoiler: false,
+        over_18: false,
+        is_video: true,
+        preview: {
+          images: [{ source: { url: 'https://preview.redd.it/thumbnail.jpg' } }]
+        }
+      });
+      throw failure;
+    };
+
+    await expect(
+      downloadRedditVideoWithYtDlp({
+        text: 'https://www.reddit.com/r/videos/comments/vid1/video/',
+        sqlitePath: '/tmp/bot.sqlite',
+        maxBytes: 50_000_000,
+        execFile
+      })
+    ).rejects.toBe(failure);
+  });
+
+  test.each([
     { share: false, spoiler: false, over18: false, wantSpoiler: false },
     { share: true, spoiler: false, over18: false, wantSpoiler: false },
     { share: true, spoiler: true, over18: false, wantSpoiler: true },
@@ -45,7 +146,17 @@ describe('downloadRedditVideoWithYtDlp', () => {
             await writeRedditPostDump(metadataDirectory, {
               id: '1u5ioqp',
               spoiler,
-              over_18: over18
+              over_18: over18,
+              subreddit: 'ForzaHorizon',
+              title: 'Forza track',
+              permalink: '/r/ForzaHorizon/comments/1u5ioqp/post/',
+              url: 'https://www.youtube.com/watch?v=embedded-video',
+              is_video: false,
+              preview: {
+                images: [
+                  { source: { url: 'https://preview.redd.it/thumbnail.jpg' } }
+                ]
+              }
             });
             expect(args).toContain('--cookies');
             expect(args).toContain(expectedCookiesPath);
@@ -142,7 +253,7 @@ describe('downloadRedditVideoWithYtDlp', () => {
     expect(result?.candidate.media.hasSpoiler ?? false).toBe(wantSpoiler);
     expect(metadataDirectory && existsSync(metadataDirectory)).toBe(false);
 
-    if (result?.downloaded.kind !== 'video') {
+    if (result?.downloaded?.kind !== 'video') {
       throw new Error('Expected Reddit video download result.');
     }
 

@@ -62,7 +62,7 @@ to receive ordinary group messages. Deleting source links also needs permissions
 | Setting                     | Used by                                                                                |
 | --------------------------- | -------------------------------------------------------------------------------------- |
 | `REDDIT_COOKIE_HEADER_PATH` | HTTP subreddit listings for `/meme` and `/sex`; takes precedence over Netscape cookies. |
-| `REDDIT_COOKIES_PATH`       | yt-dlp/gallery-dl extraction, and subreddit listings without a raw header.              |
+| `REDDIT_COOKIES_PATH`       | yt-dlp extraction, and subreddit listings without a raw header.                         |
 | `INSTAGRAM_COOKIES_PATH`    | Instagram yt-dlp/gallery-dl extraction.                                                |
 | `YOUTUBE_COOKIES_PATH`      | YouTube yt-dlp extraction.                                                             |
 
@@ -172,6 +172,8 @@ docker compose -f .github/compose.yml run --rm --no-deps --entrypoint yt-dlp vid
 
 Chrome must be available via `curl_cffi`. Verify a full download and Telegram
 upload too; metadata extraction alone does not test the complete pipeline.
+Check an image post and a gallery as well: saved Reddit JSON should allow both
+even when yt-dlp rejects the non-video URL, without a second Reddit API request.
 
 ## CI
 

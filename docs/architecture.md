@@ -97,7 +97,7 @@ the requested operation requires them.
 
 | Source    | Supported links and extraction                                                                                                                      |
 | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reddit    | Post and share links: yt-dlp first; gallery-dl for images, GIFs, and galleries when video extraction fails. |
+| Reddit    | Post and share links via yt-dlp; saved post JSON resolves images, GIFs, and galleries. |
 | Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video.                                     |
 | YouTube   | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges.                                   |
 | TikTok    | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored.                                                         |
@@ -105,8 +105,12 @@ the requested operation requires them.
 Reddit listings for `/meme` and `/sex` use HTTP and prefer
 `REDDIT_COOKIE_HEADER_PATH` over Netscape cookies. HTTP 401/403 with a raw cookie
 header notifies the admin to refresh it. Direct links use `REDDIT_COOKIES_PATH`
-with yt-dlp/gallery-dl. yt-dlp uses `--impersonate chrome`, which needs its
+with yt-dlp. It uses `--impersonate chrome`, which needs its
 `curl-cffi` extra. Download failures leave the source link and send an error reply.
+
+yt-dlp may save valid post JSON before rejecting a non-video URL. The bot reads
+that JSON before cleanup and uses the shared image/gallery downloader, preserving
+captions and spoiler flags without another Reddit API request.
 
 Video processing is `yt-dlp metadata → download → ffprobe → ffmpeg → ffprobe`.
 Metadata and download use the same format selector. Reject videos over

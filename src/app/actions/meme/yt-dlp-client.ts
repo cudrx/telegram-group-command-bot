@@ -14,6 +14,7 @@ import {
   findRedditPostReference,
   findRedditShareUrl
 } from './reddit-post-client.js';
+import { resolveRedditPostMedia } from './reddit-post-resolver.js';
 import type { DownloadedMemeMedia, MemePostCandidate } from './types.js';
 import {
   DIRECT_VIDEO_MAX_DURATION_SECONDS,
@@ -28,7 +29,8 @@ const REDDIT_FORMAT_SELECTOR =
 
 export type YtDlpRedditVideoResult = {
   candidate: MemePostCandidate;
-  downloaded: DownloadedMemeMedia;
+  // Non-video candidates use the shared image/gallery download pipeline.
+  downloaded: DownloadedMemeMedia | null;
 };
 
 export async function downloadRedditVideoWithYtDlp(input: {
@@ -63,6 +65,12 @@ export async function downloadRedditVideoWithYtDlp(input: {
     ytDlpArgs,
     url: sourceUrl
   });
+  if ('candidate' in metadata) {
+    return metadata.candidate
+      ? { candidate: metadata.candidate, downloaded: null }
+      : null;
+  }
+
   const reference =
     directReference ?? findRedditPostReference(metadata.webpageUrl ?? '');
   if (!reference) {
@@ -115,34 +123,51 @@ async function fetchYtDlpMetadata(input: {
   execFile: MediaExecFile;
   ytDlpArgs: string[];
   url: string;
-}): Promise<{
-  id: string | null;
-  webpageUrl: string | null;
-  title: string | null;
-  upvotes: number | null;
-  durationSeconds: number | null;
-  estimatedDownloadBytes: number | null;
-  hasSpoiler: boolean;
-}> {
+}): Promise<
+  | { candidate: MemePostCandidate | null }
+  | {
+      id: string | null;
+      webpageUrl: string | null;
+      title: string | null;
+      upvotes: number | null;
+      durationSeconds: number | null;
+      estimatedDownloadBytes: number | null;
+      hasSpoiler: boolean;
+    }
+> {
   const directory = await mkdtemp(path.join(os.tmpdir(), 'reddit-metadata-'));
   try {
-    const result = await input.execFile(
-      YT_DLP_BIN,
-      [
-        ...input.ytDlpArgs,
-        '--write-pages',
-        '--dump-single-json',
-        '--no-playlist',
-        input.url
-      ],
-      {
-        cwd: directory,
-        maxBuffer: MEDIA_EXEC_MAX_BUFFER,
-        timeoutMs: redditMediaActionConfig.telegramMedia.metadataTimeoutMs
-      }
-    );
+    const result = await input
+      .execFile(
+        YT_DLP_BIN,
+        [
+          ...input.ytDlpArgs,
+          '--write-pages',
+          '--dump-single-json',
+          '--no-playlist',
+          input.url
+        ],
+        {
+          cwd: directory,
+          maxBuffer: MEDIA_EXEC_MAX_BUFFER,
+          timeoutMs: redditMediaActionConfig.telegramMedia.metadataTimeoutMs
+        }
+      )
+      .catch((error: unknown) => ({ error }));
+
+    // Image/gallery posts can be saved before yt-dlp rejects their non-video URL.
+    const post = await readRedditPost(directory);
+    if (post?.is_self === true) return { candidate: null };
+
+    const candidate =
+      post && post.is_video !== true
+        ? resolveRedditPostMedia({ ...post, preview: null })
+        : null;
+    if (candidate && candidate.media.kind !== 'video') return { candidate };
+    if ('error' in result) throw result.error;
+    if (!post) throw new Error('yt-dlp did not save Reddit spoiler metadata');
+
     const payload = JSON.parse(result.stdout) as unknown;
-    const hasSpoiler = await readRedditSpoiler(directory);
 
     return {
       id: readString(payload, 'id'),
@@ -151,20 +176,27 @@ async function fetchYtDlpMetadata(input: {
       upvotes: readNumber(payload, 'like_count') ?? readNumber(payload, 'ups'),
       durationSeconds: readNumber(payload, 'duration'),
       estimatedDownloadBytes: readYtDlpRequestedDownloadBytes(payload),
-      hasSpoiler
+      hasSpoiler: post.spoiler === true || post.over_18 === true
     };
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 }
 
-async function readRedditSpoiler(directory: string): Promise<boolean> {
+async function readRedditPost(
+  directory: string
+): Promise<Record<string, unknown> | null> {
   for (const name of await readdir(directory)) {
     if (!name.includes('reddit.com_') || !name.endsWith('.json.dump')) continue;
 
-    const payload: unknown = JSON.parse(
-      await readFile(path.join(directory, name), 'utf8')
-    );
+    let payload: unknown;
+    try {
+      payload = JSON.parse(await readFile(path.join(directory, name), 'utf8'));
+    } catch (error) {
+      if (error instanceof SyntaxError) continue;
+
+      throw error;
+    }
     const listing = Array.isArray(payload) ? payload[0] : null;
     const data =
       isRecord(listing) && isRecord(listing.data) ? listing.data : null;
@@ -176,11 +208,11 @@ async function readRedditSpoiler(directory: string): Promise<boolean> {
       typeof post.spoiler === 'boolean' &&
       typeof post.over_18 === 'boolean'
     ) {
-      return post.spoiler || post.over_18;
+      return post;
     }
   }
 
-  throw new Error('yt-dlp did not save Reddit spoiler metadata');
+  return null;
 }
 
 function readString(value: unknown, key: string): string | null {

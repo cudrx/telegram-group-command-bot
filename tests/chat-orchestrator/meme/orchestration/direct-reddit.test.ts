@@ -1,8 +1,12 @@
 import { existsSync } from 'node:fs';
 import { describe, expect, test, vi } from 'vitest';
+import { createVideoJobQueue } from '../../../../src/app/video-job-queue.js';
+import type { MediaExecFile } from '../../../../src/media/exec.js';
 import { createIncomingMessage } from '../../../database/support.js';
 import { FakeDatabaseClient } from '../../support/fake-database.js';
+import { createLogger } from '../../support/logger.js';
 import { createOrchestrator } from '../../support/orchestrator.js';
+import { writeRedditPostDump } from './support.js';
 
 const cases = [
   {
@@ -68,10 +72,10 @@ const cases = [
   }
 ];
 
-describe('direct Reddit images through gallery-dl', () => {
+describe('direct Reddit media from saved yt-dlp responses', () => {
   test.each(
     cases
-  )('preserves $kind media, captions, history and cleanup without Reddit HTTP calls', async ({
+  )('sends $kind from saved Reddit JSON when yt-dlp rejects non-video media', async ({
     kind,
     sourceUrl,
     post,
@@ -79,43 +83,51 @@ describe('direct Reddit images through gallery-dl', () => {
     wantCaption
   }) => {
     const db = new FakeDatabaseClient();
-    const calls: string[] = [];
-    const execFile = vi.fn(async (file: string, args: string[]) => {
-      calls.push(file);
-      if (file === 'yt-dlp') throw new Error('No video formats');
-
-      expect(file).toBe('gallery-dl');
-      expect(args).toContain('--resolve-json');
-      expect(args).toContain(sourceUrl);
-      expect(args).toContain('/app/data/reddit-cookies.txt');
-
-      return { stdout: JSON.stringify([[2, post]]), stderr: '' };
+    const logger = createLogger();
+    const directories: string[] = [];
+    const execFile = vi.fn<MediaExecFile>(async (file, args, options) => {
+      expect(file).toBe('yt-dlp');
+      expect(args).toContain('--write-pages');
+      if (options?.cwd) directories.push(options.cwd);
+      await writeRedditPostDump(options?.cwd, {
+        spoiler: false,
+        over_18: false,
+        ...post
+      });
+      throw new Error(
+        'Unsupported URL: https://www.reddit.com/media?url=image'
+      );
     });
     const fetchMock = vi.fn(async (url: string | URL | Request) => {
       expect(mediaUrls).toContain(url);
-
-      return new Response(new Uint8Array([1, 2, 3]), {
-        headers: { 'Content-Length': '3' }
-      });
+      return new Response(new Uint8Array([1, 2, 3]));
     });
-    const dispatchedPaths: string[] = [];
+    const paths: string[] = [];
     const memeDispatcher = vi.fn(async (input) => {
-      dispatchedPaths.push(
+      paths.push(
         ...(input.media.kind === 'gallery'
           ? input.media.items.map((item: { filePath: string }) => item.filePath)
           : [input.media.filePath])
       );
-
-      return { messageId: 515, createdAt: '2026-10-30T12:00:00.000Z' };
+      expect(paths.every(existsSync)).toBe(true);
+      return { messageId: 515, createdAt: '2026-11-02T18:09:00.000Z' };
     });
     const deleteMessageDispatcher = vi.fn().mockResolvedValue(undefined);
     const orchestrator = createOrchestrator({
       db,
+      logger,
       execFile,
       fetch: fetchMock,
-      env: { sqlitePath: '/app/data/bot.sqlite' },
+      videoJobQueue: createVideoJobQueue({
+        maxConcurrentJobs: 2,
+        maxConcurrentJobsPerChat: 1,
+        logger
+      }),
       qwen: { generateReply: vi.fn() },
-      replyDispatcher: vi.fn(),
+      replyDispatcher: vi.fn().mockResolvedValue({
+        messageId: 516,
+        createdAt: '2026-11-02T18:09:00.000Z'
+      }),
       memeDispatcher,
       deleteMessageDispatcher
     });
@@ -128,14 +140,12 @@ describe('direct Reddit images through gallery-dl', () => {
       })
     );
 
-    expect(calls).toEqual(['yt-dlp', 'gallery-dl']);
-    expect(fetchMock).toHaveBeenCalledTimes(mediaUrls.length);
+    expect(execFile).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual(mediaUrls);
     expect(memeDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({
-        chatId: 1,
-        reply: false,
-        replyToMessageId: null,
         caption: wantCaption,
+        reply: false,
         media: expect.objectContaining({ kind }),
         ...(kind === 'gallery' ? { hasSpoiler: true } : {})
       })
@@ -146,45 +156,34 @@ describe('direct Reddit images through gallery-dl', () => {
         expect.objectContaining({ hasSpoiler: true })
       ]);
     }
+    expect(db.savedMemePosts[0]).toMatchObject({
+      redditPostId: post.id,
+      mediaKind: kind
+    });
     expect(deleteMessageDispatcher).toHaveBeenCalledWith({
       chatId: 1,
       messageId: 47
     });
-    expect(db.savedMemePosts[0]).toMatchObject({
-      redditPostId: post.id,
-      mediaKind: kind,
-      mediaUrl: kind === 'gallery' ? null : mediaUrls[0]
-    });
-    expect(dispatchedPaths).toHaveLength(mediaUrls.length);
-    expect(dispatchedPaths.every((filePath) => !existsSync(filePath))).toBe(
-      true
-    );
+    expect(paths).toHaveLength(mediaUrls.length);
+    expect([...paths, ...directories].every((p) => !existsSync(p))).toBe(true);
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 
   test('ignores a text-only Reddit post without deleting its source message', async () => {
     const db = new FakeDatabaseClient();
     const fetchMock = vi.fn().mockRejectedValue(new Error('HTTP must not run'));
-    const execFile = vi.fn(async (file: string) => {
-      if (file === 'yt-dlp') throw new Error('No video found');
-
-      expect(file).toBe('gallery-dl');
-
-      return {
-        stdout: JSON.stringify([
-          [
-            2,
-            {
-              id: 'selfdirect',
-              subreddit: 'memes',
-              title: 'text only',
-              permalink: '/r/memes/comments/selfdirect/text_only/',
-              is_self: true,
-              url: 'https://www.reddit.com/r/memes/comments/selfdirect/text_only/'
-            }
-          ]
-        ]),
-        stderr: ''
-      };
+    const execFile = vi.fn<MediaExecFile>(async (_file, _args, options) => {
+      await writeRedditPostDump(options?.cwd, {
+        id: 'selfdirect',
+        subreddit: 'memes',
+        title: 'text only',
+        permalink: '/r/memes/comments/selfdirect/text_only/',
+        is_self: true,
+        spoiler: false,
+        over_18: false,
+        url: 'https://www.reddit.com/r/memes/comments/selfdirect/text_only/'
+      });
+      throw new Error('No video found');
     });
     const memeDispatcher = vi.fn();
     const deleteMessageDispatcher = vi.fn();
@@ -193,20 +192,27 @@ describe('direct Reddit images through gallery-dl', () => {
       fetch: fetchMock,
       execFile,
       qwen: { generateReply: vi.fn() },
-      replyDispatcher: vi.fn(),
+      replyDispatcher: vi.fn().mockResolvedValue({
+        messageId: 516,
+        createdAt: '2026-11-02T18:09:00.000Z'
+      }),
       memeDispatcher,
       deleteMessageDispatcher
     });
 
     await orchestrator.handleIncomingMessage(
       createIncomingMessage({
-        text: 'https://www.reddit.com/r/memes/comments/selfdirect/text_only/'
+        text: 'https://www.reddit.com/r/memes/comments/selfdirect/text_only/',
+        messageId: 47
       })
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(memeDispatcher).not.toHaveBeenCalled();
-    expect(deleteMessageDispatcher).not.toHaveBeenCalled();
+    expect(deleteMessageDispatcher).not.toHaveBeenCalledWith({
+      chatId: 1,
+      messageId: 47
+    });
     expect(db.savedMemePosts).toEqual([]);
   });
 });

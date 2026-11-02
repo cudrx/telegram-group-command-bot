@@ -24,7 +24,7 @@ export async function downloadResolvedMedia(
       ...(deps.execFile ? { execFile: deps.execFile } : {})
     });
 
-    if (!result) {
+    if (!result?.downloaded) {
       throw new Error(`Reddit video could not be resolved: ${media.mediaUrl}`);
     }
 
