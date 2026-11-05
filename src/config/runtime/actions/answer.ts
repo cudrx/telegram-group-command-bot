@@ -1,5 +1,7 @@
 export const answerActionConfig = {
   contextLimit: 80,
+  validationRetries: 1,
+  clarificationMaxChars: 240,
   context: {
     scanLimit: 128,
     anchorNeighborLimit: 16,
@@ -13,6 +15,8 @@ export const answerActionConfig = {
       targetAncestor: 10_000
     },
     maxSelectedMessages: 64,
+    maxDiscussions: 16,
+    maxInferredLinks: 128,
     candidateTokenBudget: 8_000,
     maxPromptTokens: 16_000,
     maxMessageChars: 6_000

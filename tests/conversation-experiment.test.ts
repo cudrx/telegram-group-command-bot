@@ -2,8 +2,11 @@ import { describe, expect, test } from 'vitest';
 
 import {
   compareProductionPrompts,
+  filterVisibleContext,
   getReplyAncestorIds,
-  transformExperimentMessages
+  plannerMessagesForAttempt,
+  transformExperimentMessages,
+  withConversationPolicy
 } from '../scripts/evaluate-conversation/context.js';
 import { createFixture } from '../scripts/intent-eval-fixtures/factory.js';
 import { buildAnswerMessages } from '../src/llm/openai-compatible-client/answer.js';
@@ -140,4 +143,51 @@ describe('conversation experiment controls', () => {
       'Цитата actor=bot Бот внутри текста.'
     );
   });
+});
+
+test('filters the experiment context without restoring a hidden reply target', () => {
+  const context = filterVisibleContext(fixture.replyContext, [2, 4]);
+  expect(context.replyAnchorMessage).toBeNull();
+  expect(
+    context.priorContextMessages.map((message) => message.messageId)
+  ).toEqual([2]);
+  expect(context.triggerMessage?.text).toBe('Объясни второй пункт.');
+  expect(fixture.replyContext.replyAnchorMessage?.messageId).toBe(3);
+});
+
+test('preserves validation corrections when replacing the planner prompt', () => {
+  const messages = plannerMessagesForAttempt(
+    [
+      { role: 'system', content: 'Saved planner' },
+      { role: 'user', content: 'Filtered history' }
+    ],
+    [
+      { role: 'system', content: 'Current planner' },
+      { role: 'user', content: 'Full history' },
+      { role: 'user', content: 'VALIDATION_ERROR: invalid ID' }
+    ]
+  );
+  expect(messages).toEqual([
+    { role: 'system', content: 'Saved planner' },
+    { role: 'user', content: 'Filtered history' },
+    { role: 'user', content: 'VALIDATION_ERROR: invalid ID' }
+  ]);
+});
+
+test('adds experimental policy only to system messages without changing source prompts', () => {
+  const messages = [
+    { role: 'system' as const, content: 'Production policy' },
+    { role: 'user' as const, content: 'Chat data' }
+  ];
+  const changed = withConversationPolicy(messages, 'Short answers');
+  expect(changed).toEqual([
+    {
+      role: 'system',
+      content:
+        'Production policy\n\nCONVERSATION_POLICY_EXPERIMENT:\nShort answers'
+    },
+    { role: 'user', content: 'Chat data' }
+  ]);
+  expect(messages[0]?.content).toBe('Production policy');
+  expect(withConversationPolicy(messages, '')).toEqual(messages);
 });

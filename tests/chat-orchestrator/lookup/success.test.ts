@@ -1,17 +1,13 @@
 import { expect, test } from 'vitest';
+import { createConversationGraph } from '../../helpers/conversation-plan.js';
 
 import { createAnswerFlow } from '../support/answer-flow.js';
 
-test.each([
-  { shape: 'object', context: { messageIds: [1] } },
-  { shape: 'array', context: [1] }
-])('research generation receives only the selected discussion and web evidence with $shape context', async ({
-  context
-}) => {
+test('research receives only the selected discussion and web evidence', async () => {
   const flow = createAnswerFlow([
     {
       mode: 'research',
-      context,
+      ...createConversationGraph([1]),
       resolvedQuestion: 'Есть ли транзакции в PostgreSQL?',
       purpose: 'fact_check',
       focusClaim: 'PostgreSQL поддерживает транзакции',

@@ -18,6 +18,10 @@ import { buildAnswerMessages } from '../src/llm/openai-compatible-client/answer.
 describe('evaluate-intents helpers', () => {
   test.each([
     [
+      'answer-research-current-release',
+      'Не могу подтвердить по официальным источникам: доступен только синтетический тестовый источник.'
+    ],
+    [
       'answer-research-unfamiliar-slang',
       'Гунер — интернет-сленг о чрезмерном увлечении порнографией; слово не означает стрелка.'
     ],
@@ -46,6 +50,10 @@ describe('evaluate-intents helpers', () => {
   });
 
   test.each([
+    [
+      'answer-research-current-release',
+      'По официальной документации актуальная стабильная версия — 4.2.1.'
+    ],
     [
       'answer-research-unfamiliar-slang',
       'Гунер — это стрелок, увлекающийся порнографией.'

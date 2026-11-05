@@ -22,9 +22,11 @@ describe('prompt file registry', () => {
   test('keeps one source of truth for all prompt file paths', () => {
     expect(PROMPT_FILE_PATHS).toEqual({
       base: 'llm/assistant/base.md',
+      requestContext: 'llm/assistant/request-context.md',
       global: 'llm/reply/global.md',
       read: 'llm/reply/read.md',
       answer: 'llm/reply/answer.md',
+      answerResponse: 'llm/reply/answer-response.md',
       answerGrounded: 'llm/reply/answer-grounded.md',
       answerPreflight: 'llm/planner/answer-preflight.md',
       translate: 'llm/reply/translate.md',

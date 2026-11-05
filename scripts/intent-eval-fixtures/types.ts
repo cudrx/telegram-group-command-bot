@@ -22,6 +22,8 @@ export type IntentEvalFixture = {
   replyContext: ReplyContext;
   expectedMode?: 'direct' | 'clarify' | 'research';
   expectedMessageIds?: number[];
+  expectedDiscussions?: number[][];
+  expectedInferredLinks?: Array<{ from: number; to: number }>;
   mediaContext?: DescribeMediaContext;
   evaluation?: {
     category: string;

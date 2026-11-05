@@ -49,6 +49,7 @@ export function getEvalStatus(
 ): 'passed' | 'failed' | 'needs_review' {
   const evaluation = result.evaluation;
   if (
+    result.error !== undefined ||
     hasRubricFailures(result.rubric) ||
     result.conversation?.passed === false ||
     evaluation?.length.passed === false ||

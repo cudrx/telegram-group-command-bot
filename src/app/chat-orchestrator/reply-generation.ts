@@ -1,6 +1,8 @@
 import { formatMoscowCurrentDateTime } from '../../llm/current-datetime.js';
-import { selectAnswerContext } from '../../llm/openai-compatible-client/answer.js';
+import { getSelectedMessageIds } from '../../llm/openai-compatible-client/answer.js';
 import type {
+  AnswerResearchContext,
+  AnswerResearchPlan,
   GenerateAnswerInput,
   GenerateAnswerResult,
   LlmReplyResult
@@ -108,100 +110,101 @@ async function generateAnswer(
   try {
     const first = await deps.qwen.generateAnswer(input);
 
-    if (first.decision.mode === 'direct' || first.decision.mode === 'clarify') {
-      return toReplyResult(first.decision.text, first);
+    if (!('discussions' in first.decision)) {
+      throw new Error('Answer planner returned final output');
     }
 
-    if (first.decision.mode !== 'research') {
-      throw new Error('Answer preflight returned grounded output');
-    }
+    const plan = first.decision;
+    let finalInput: GenerateAnswerInput = { ...input, plan };
+    logger.debug('answer_context_planned', {
+      mode: plan.mode,
+      discussionCount: plan.discussions.length,
+      selectedDiscussionIds: plan.selectedDiscussionIds,
+      selectedMessageIds: getSelectedMessageIds(plan),
+      inferredLinkCount: plan.inferredLinks.length
+    });
 
-    const researchPlan = first.decision;
-    input = {
-      ...input,
-      replyContext: selectAnswerContext(
-        input.replyContext,
-        researchPlan.context.messageIds
-      )
-    };
-
-    const lookupProvider = deps.lookupProvider;
-    if (!lookupProvider) {
-      return createLocalReplyResult(text.answer.lookupFailedFallback);
-    }
-
-    const lookupResults = await Promise.allSettled(
-      researchPlan.queries.map((query) =>
-        lookupProvider.search({
-          query,
-          maxResults: deps.env.lookupMaxResults,
-          timeoutMs: deps.env.lookupTimeoutMs
-        })
-      )
-    );
-    const primaryLookup = lookupResults[0];
-
-    if (primaryLookup?.status === 'rejected') {
-      logger.warn('answer_lookup_failed', serializeError(primaryLookup.reason));
-
-      return createLocalReplyResult(text.answer.lookupFailedFallback);
-    }
-
-    const lookups = lookupResults.flatMap((result) => {
-      if (result.status === 'fulfilled') {
-        return [result.value];
+    if (plan.mode === 'research') {
+      const { resolvedQuestion, purpose, focusClaim, queries } = plan;
+      const researchPlan = { resolvedQuestion, purpose, focusClaim, queries };
+      const research = await lookupAnswerResearch(deps, researchPlan, logger);
+      if (!research) {
+        return createLocalReplyResult(text.answer.lookupFailedFallback);
       }
 
-      logger.warn('answer_lookup_failed', serializeError(result.reason));
-
-      return [];
-    });
-
-    const sources = lookups.flatMap((lookup) =>
-      lookup.sources.map((source) => ({ query: lookup.query, ...source }))
-    );
-
-    const second = await deps.qwen.generateAnswer({
-      ...input,
-      research: {
-        plan: researchPlan,
-        result: {
-          queries: researchPlan.queries,
-          sources: sources.map((source, index) => ({
-            id: `web_${index + 1}`,
-            ...source
-          }))
-        }
-      }
-    });
-
-    if (second.decision.mode !== 'grounded') {
-      throw new Error('Grounded answer returned preflight output');
+      finalInput = { ...finalInput, research };
     }
 
-    return toReplyResult(second.decision.text, {
-      ...second,
-      latencyMs: first.latencyMs + second.latencyMs,
-      attemptCount: first.attemptCount + second.attemptCount,
-      promptTokensEstimate:
-        first.promptTokensEstimate + second.promptTokensEstimate
-    });
+    const second = await deps.qwen.generateAnswer(finalInput);
+    if (!('text' in second.decision))
+      throw new Error('Answer generator returned planner output');
+
+    return combineAnswerResults(first, second, second.decision.text);
   } catch (error) {
     logger.warn('answer_generation_failed', serializeError(error));
     return createLocalReplyResult(text.answer.failedFallback);
   }
 }
 
-function toReplyResult(
-  textValue: string,
-  result: GenerateAnswerResult
+async function lookupAnswerResearch(
+  deps: ChatOrchestratorDeps,
+  plan: AnswerResearchPlan,
+  logger: ChatOrchestratorDeps['logger']
+): Promise<AnswerResearchContext | null> {
+  const lookupProvider = deps.lookupProvider;
+  if (!lookupProvider) return null;
+
+  const lookupResults = await Promise.allSettled(
+    plan.queries.map((query) =>
+      lookupProvider.search({
+        query,
+        maxResults: deps.env.lookupMaxResults,
+        timeoutMs: deps.env.lookupTimeoutMs
+      })
+    )
+  );
+  const primaryLookup = lookupResults[0];
+  if (primaryLookup?.status === 'rejected') {
+    logger.warn('answer_lookup_failed', serializeError(primaryLookup.reason));
+
+    return null;
+  }
+
+  const lookups = lookupResults.flatMap((result) => {
+    if (result.status === 'fulfilled') return [result.value];
+
+    logger.warn('answer_lookup_failed', serializeError(result.reason));
+
+    return [];
+  });
+  const sources = lookups.flatMap((lookup) =>
+    lookup.sources.map((source) => ({ query: lookup.query, ...source }))
+  );
+
+  return {
+    plan,
+    result: {
+      queries: plan.queries,
+      sources: sources.map((source, index) => ({
+        id: `web_${index + 1}`,
+        ...source
+      }))
+    }
+  };
+}
+
+function combineAnswerResults(
+  first: GenerateAnswerResult,
+  second: GenerateAnswerResult,
+  textValue: string
 ): LlmReplyResult {
   return {
     text: textValue,
-    model: result.model,
+    model: second.model,
     source: 'llm',
-    latencyMs: result.latencyMs,
-    attemptCount: result.attemptCount,
-    promptTokensEstimate: result.promptTokensEstimate
+    latencyMs: first.latencyMs + second.latencyMs,
+    attemptCount: first.attemptCount + second.attemptCount,
+    promptTokensEstimate:
+      first.promptTokensEstimate + second.promptTokensEstimate
   };
 }

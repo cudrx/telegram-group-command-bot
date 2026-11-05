@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-
 import type { LookupProvider } from '../../src/lookup/types.js';
+import { createConversationGraph } from '../helpers/conversation-plan.js';
 import {
   createIncomingMessage,
   createOrchestrator,
@@ -65,16 +65,17 @@ function setup(input: {
 }
 
 describe('ChatOrchestrator answer pipeline', () => {
-  test('direct path uses one model call and no lookup', async () => {
+  test('direct path uses two model calls and no lookup', async () => {
     const flow = setup({
       decisions: [
-        { mode: 'direct', context: { messageIds: [1] }, text: 'Ответ.' }
+        { mode: 'direct', ...createConversationGraph([1]) },
+        { mode: 'response', text: 'Ответ.' }
       ]
     });
 
     await flow.run();
 
-    expect(flow.generateAnswer).toHaveBeenCalledOnce();
+    expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
     expect(flow.generateReply).not.toHaveBeenCalled();
     expect(flow.lookupProvider?.search).not.toHaveBeenCalled();
     expect(flow.replyDispatcher).toHaveBeenCalledWith({
@@ -89,7 +90,7 @@ describe('ChatOrchestrator answer pipeline', () => {
   ])('research combines both lookups using the configured %d ms timeout', async (lookupTimeoutMs) => {
     const plan = {
       mode: 'research',
-      context: { messageIds: [1] },
+      ...createConversationGraph([1]),
       resolvedQuestion: 'Актуальный вопрос?',
       purpose: 'freshness',
       focusClaim: 'Актуальный факт',
@@ -172,7 +173,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       decisions: [
         {
           mode: 'research',
-          context: { messageIds: [1] },
+          ...createConversationGraph([1]),
           resolvedQuestion: 'Вопрос',
           purpose: 'freshness',
           focusClaim: 'Факт',
@@ -218,7 +219,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       decisions: [
         {
           mode: 'research',
-          context: { messageIds: [1] },
+          ...createConversationGraph([1]),
           resolvedQuestion: 'Вопрос',
           purpose: 'fact_check',
           focusClaim: 'Факт',
@@ -270,7 +271,7 @@ describe('ChatOrchestrator answer pipeline', () => {
       decisions: [
         {
           mode: 'research',
-          context: { messageIds: [1] },
+          ...createConversationGraph([1]),
           resolvedQuestion: 'Вопрос',
           purpose: 'fact_check',
           focusClaim: 'Факт',

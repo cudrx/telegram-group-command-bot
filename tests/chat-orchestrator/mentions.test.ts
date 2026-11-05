@@ -1,5 +1,9 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import type {
+  GenerateAnswerInput,
+  GenerateAnswerResult
+} from '../../src/llm/openai-compatible-client/index.js';
 import { createTestChatPolicy } from '../helpers/telegram-fixtures.js';
 import {
   createIncomingMessage,
@@ -10,14 +14,20 @@ import {
 
 function setup() {
   const db = new FakeDatabaseClient();
-  const generateAnswer = vi.fn().mockResolvedValue({
-    ...createReplyResult('Чем помочь?'),
-    decision: {
-      mode: 'clarify',
-      context: { messageIds: [] },
-      text: 'Чем помочь?'
-    }
-  });
+  const generateAnswer = vi.fn(
+    async (input: GenerateAnswerInput): Promise<GenerateAnswerResult> => ({
+      ...createReplyResult('Чем помочь?'),
+      decision: input.plan
+        ? { mode: 'response', text: 'Чем помочь?' }
+        : {
+            mode: 'clarify',
+            discussions: [],
+            inferredLinks: [],
+            selectedDiscussionIds: [],
+            ambiguity: 'Не указан предмет'
+          }
+    })
+  );
   const replyDispatcher = vi.fn().mockResolvedValue({
     messageId: 1000,
     createdAt: '2026-10-24T12:00:00Z'
@@ -32,7 +42,7 @@ function setup() {
 }
 
 describe('assistant invocations', () => {
-  test('a bare mention can ask for clarification without a target or another model call', async () => {
+  test('a bare mention can ask for clarification without a target', async () => {
     const flow = setup();
     await flow.orchestrator.handleIncomingMessage(
       createIncomingMessage({
@@ -40,7 +50,7 @@ describe('assistant invocations', () => {
         entities: [{ type: 'mention', offset: 0, length: 8 }]
       })
     );
-    expect(flow.generateAnswer).toHaveBeenCalledOnce();
+    expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
     expect(flow.replyDispatcher).toHaveBeenCalledWith(
       expect.objectContaining({ text: 'Чем помочь?' })
     );
@@ -79,7 +89,7 @@ describe('assistant invocations', () => {
           : []
       })
     );
-    expect(flow.generateAnswer).toHaveBeenCalledOnce();
+    expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
     expect(flow.generateAnswer).toHaveBeenCalledWith(
       expect.objectContaining({
         replyContext: expect.objectContaining({
@@ -188,7 +198,7 @@ describe('assistant invocations', () => {
       flow.orchestrator.handleIncomingMessage(message),
       flow.orchestrator.handleIncomingMessage(message)
     ]);
-    expect(flow.generateAnswer).toHaveBeenCalledOnce();
+    expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
     expect(
       flow.replyDispatcher.mock.calls.filter(
         ([input]) => input.text === 'Чем помочь?'

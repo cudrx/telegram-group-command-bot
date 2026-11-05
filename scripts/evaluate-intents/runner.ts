@@ -4,13 +4,14 @@ import path from 'node:path';
 import OpenAI from 'openai';
 import {
   buildAnswerMessages,
-  selectAnswerContext
+  type GenerateAnswerInput,
+  getSelectedMessageIds
 } from '../../src/llm/openai-compatible-client/answer.js';
 import { OpenAiCompatibleLlmClient } from '../../src/llm/openai-compatible-client/index.js';
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
 import { text } from '../../src/locales/locale.js';
 import { intentEvalFixtures } from '../intent-eval-fixtures.js';
-import { parseEvalEnv } from './env.js';
+import { type EvalEnv, parseEvalEnv } from './env.js';
 import { filterFixtures, parseEvalFilters } from './filters.js';
 import {
   createEvalLookupSources,
@@ -61,65 +62,34 @@ export async function main(): Promise<number> {
   );
 
   for (const fixture of selectedFixtures) {
-    const prompt =
-      fixture.intent === 'answer'
-        ? ''
-        : buildIntentPrompt({ ...fixture, intent: fixture.intent });
-    const answer =
-      fixture.intent === 'answer' ? await evaluateAnswer(llm, fixture) : null;
-    const response = answer
-      ? answer.response
-      : ((
-          await client.chat.completions.create({
-            model: env.llmReplyModel,
-            temperature: env.llmReplyTemperature,
-            messages: [
-              { role: 'system', content: text.llm.evalSystem },
-              { role: 'user', content: prompt }
-            ]
-          })
-        ).choices[0]?.message.content?.trim() ?? '');
-    const result = {
-      id: fixture.id,
-      intent: fixture.intent,
-      prompt: answer?.prompt ?? prompt,
-      response,
-      rubric: evaluateRubric(response, fixture.rubric),
-      evaluation: evaluateFixtureChecks(
-        fixture,
-        response,
-        answer?.fittedMessages ?? []
-      ),
-      ...(answer ? { conversation: answer.conversation } : {})
-    };
+    const result = await evaluateFixture(client, llm, fixture, env);
 
     results.push(result);
     printResult(result);
-  }
-
-  await writeFile(
-    path.join(outputDir, 'assistant-intents.json'),
-    JSON.stringify(
-      {
-        generatedAt: new Date().toISOString(),
-        settings: {
-          model: env.llmReplyModel,
-          temperature: env.llmReplyTemperature,
-          timeoutMs: 45_000,
-          maxRetries: 0
+    await writeFile(
+      path.join(outputDir, 'assistant-intents.json'),
+      JSON.stringify(
+        {
+          generatedAt: new Date().toISOString(),
+          settings: {
+            model: env.llmReplyModel,
+            temperature: env.llmReplyTemperature,
+            timeoutMs: 45_000,
+            maxRetries: 0
+          },
+          results
         },
-        results
-      },
-      null,
-      2
-    ),
-    'utf8'
-  );
-  await writeFile(
-    path.join(outputDir, 'assistant-intents.md'),
-    formatMarkdown(results),
-    'utf8'
-  );
+        null,
+        2
+      ),
+      'utf8'
+    );
+    await writeFile(
+      path.join(outputDir, 'assistant-intents.md'),
+      formatMarkdown(results),
+      'utf8'
+    );
+  }
 
   console.log('');
   console.log(`Saved eval results to ${outputDir}`);
@@ -149,13 +119,69 @@ export async function main(): Promise<number> {
 
   if (results.some((result) => getEvalStatus(result) === 'failed')) {
     process.exitCode = 1;
-    console.error('One or more rubric checks failed.');
+    console.error('One or more eval fixtures failed.');
   }
 
   return typeof process.exitCode === 'number' ? process.exitCode : 0;
 }
 
-async function evaluateAnswer(
+export async function evaluateFixture(
+  client: OpenAI,
+  llm: OpenAiCompatibleLlmClient,
+  fixture: (typeof intentEvalFixtures)[number],
+  env: Pick<EvalEnv, 'llmReplyModel' | 'llmReplyTemperature'>
+): Promise<EvalResult> {
+  try {
+    const prompt =
+      fixture.intent === 'answer'
+        ? ''
+        : buildIntentPrompt({ ...fixture, intent: fixture.intent });
+    const answer =
+      fixture.intent === 'answer' ? await evaluateAnswer(llm, fixture) : null;
+    let response: string;
+    if (answer) {
+      response = answer.response;
+    } else {
+      const completion = await client.chat.completions.create({
+        model: env.llmReplyModel,
+        temperature: env.llmReplyTemperature,
+        messages: [
+          { role: 'system', content: text.llm.evalSystem },
+          { role: 'user', content: prompt }
+        ]
+      });
+      response = completion.choices[0]?.message.content?.trim() ?? '';
+    }
+
+    return {
+      id: fixture.id,
+      intent: fixture.intent,
+      prompt: answer?.prompt ?? prompt,
+      response,
+      rubric: evaluateRubric(response, fixture.rubric),
+      evaluation: evaluateFixtureChecks(
+        fixture,
+        response,
+        answer?.fittedMessages ?? []
+      ),
+      ...(answer ? { conversation: answer.conversation } : {})
+    };
+  } catch (error) {
+    return {
+      id: fixture.id,
+      intent: fixture.intent,
+      prompt: '',
+      response: '',
+      rubric: evaluateRubric('', fixture.rubric),
+      error:
+        error instanceof Error
+          ? { name: error.name, message: error.message }
+          : { name: 'Error', message: String(error) }
+    };
+  }
+}
+
+export async function evaluateAnswer(
   llm: OpenAiCompatibleLlmClient,
   fixture: (typeof intentEvalFixtures)[number]
 ): Promise<{
@@ -174,10 +200,10 @@ async function evaluateAnswer(
   const first = await llm.generateAnswer(input);
   const expectsLookup = fixture.lookupExpectation?.shouldLookup ?? false;
 
-  if (first.decision.mode === 'grounded')
+  if (!('discussions' in first.decision))
     throw new Error(`${fixture.id}: invalid preflight mode`);
 
-  const selected = new Set(first.decision.context.messageIds);
+  const selected = new Set(getSelectedMessageIds(first.decision));
   const expected = fixture.expectedMessageIds
     ? new Set(fixture.expectedMessageIds)
     : null;
@@ -187,78 +213,89 @@ async function evaluateAnswer(
   const contextPassed =
     expected === null ||
     (selected.size === expected.size && relevantSelected === expected.size);
+  const plan = first.decision;
+  const discussionsPassed = (fixture.expectedDiscussions ?? []).every(
+    (expectedIds) =>
+      plan.discussions.some(
+        (discussion) =>
+          discussion.messageIds.length === expectedIds.length &&
+          expectedIds.every((id) => discussion.messageIds.includes(id))
+      )
+  );
+  const inferredLinksPassed = (fixture.expectedInferredLinks ?? []).every(
+    (expectedLink) =>
+      plan.inferredLinks.some(
+        (link) => link.from === expectedLink.from && link.to === expectedLink.to
+      )
+  );
+  const graphPassed = discussionsPassed && inferredLinksPassed;
+  let contextPrecision: number | null = null;
+  let contextRecall: number | null = null;
+  if (expected) {
+    contextPrecision = 1;
+    contextRecall = 1;
+    if (selected.size > 0) {
+      contextPrecision = relevantSelected / selected.size;
+    } else if (expected.size > 0) {
+      contextPrecision = 0;
+    }
+    if (expected.size > 0) contextRecall = relevantSelected / expected.size;
+  }
+
   const conversation: NonNullable<EvalResult['conversation']> = {
     mode: first.decision.mode,
+    discussions: plan.discussions,
+    inferredLinks: plan.inferredLinks,
+    graphPassed,
     selectedMessageIds: [...selected],
-    contextPrecision: expected
-      ? selected.size
-        ? relevantSelected / selected.size
-        : expected.size
-          ? 0
-          : 1
-      : null,
-    contextRecall: expected
-      ? expected.size
-        ? relevantSelected / expected.size
-        : 1
-      : null,
+    contextPrecision,
+    contextRecall,
     passed:
       contextPassed &&
+      graphPassed &&
       (fixture.expectedMode
         ? first.decision.mode === fixture.expectedMode
         : (first.decision.mode === 'research') === expectsLookup),
-    llmCalls: 1,
+    llmCalls: first.attemptCount,
     promptTokensEstimate: first.promptTokensEstimate,
     latencyMs: first.latencyMs
   };
 
-  if (first.decision.mode !== 'research')
-    return {
-      response: first.decision.text,
-      prompt: JSON.stringify(prompts, null, 2),
-      fittedMessages: prompts[0] ?? [],
-      conversation
-    };
-
-  const researchPlan = first.decision;
-  conversation.passed &&= matchesLookupExpectation(fixture, researchPlan);
-
-  const sources = createEvalLookupSources(fixture);
-  const groundedInput = {
-    ...input,
-    replyContext: selectAnswerContext(
-      input.replyContext,
-      first.decision.context.messageIds
-    ),
-    research: {
-      plan: researchPlan,
-      result: {
-        queries: researchPlan.queries,
-        sources: sources.map((source, index) => ({
-          id: `web_${index + 1}`,
-          query: researchPlan.queries[0] ?? '',
-          ...source
-        }))
+  let finalInput: GenerateAnswerInput = { ...input, plan };
+  if (plan.mode === 'research') {
+    const { resolvedQuestion, purpose, focusClaim, queries } = plan;
+    const researchPlan = { resolvedQuestion, purpose, focusClaim, queries };
+    conversation.passed &&= matchesLookupExpectation(fixture, researchPlan);
+    finalInput = {
+      ...finalInput,
+      research: {
+        plan: researchPlan,
+        result: {
+          queries,
+          sources: createEvalLookupSources(fixture).map((source, index) => ({
+            id: `web_${index + 1}`,
+            query: queries[0] ?? '',
+            ...source
+          }))
+        }
       }
-    }
-  };
-  prompts.push(buildAnswerMessages(groundedInput));
-  const grounded = await llm.generateAnswer(groundedInput);
-
-  if (grounded.decision.mode !== 'grounded') {
-    throw new Error(`${fixture.id}: grounded answer was not returned`);
+    };
   }
+  prompts.push(buildAnswerMessages(finalInput));
+  const final = await llm.generateAnswer(finalInput);
+  if (!('text' in final.decision))
+    throw new Error(`${fixture.id}: final answer was not returned`);
 
   return {
-    response: grounded.decision.text,
+    response: final.decision.text,
     prompt: JSON.stringify(prompts, null, 2),
     fittedMessages: prompts.at(-1) ?? [],
     conversation: {
       ...conversation,
-      llmCalls: 2,
+      llmCalls: first.attemptCount + final.attemptCount,
       promptTokensEstimate:
-        first.promptTokensEstimate + grounded.promptTokensEstimate,
-      latencyMs: first.latencyMs + grounded.latencyMs
+        first.promptTokensEstimate + final.promptTokensEstimate,
+      latencyMs: first.latencyMs + final.latencyMs
     }
   };
 }

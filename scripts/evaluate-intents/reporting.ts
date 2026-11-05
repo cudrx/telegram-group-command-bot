@@ -8,6 +8,8 @@ export function printResult(result: EvalResult): void {
   console.log('');
   console.log('Rubric:');
   console.log(`Result: ${getEvalStatus(result).toUpperCase()}`);
+  if (result.error)
+    console.log(`Error: ${result.error.name}: ${result.error.message}`);
   if (result.evaluation) {
     console.log(
       `${result.evaluation.length.passed ? 'PASS' : 'FAIL'} length: ${JSON.stringify(result.evaluation.length)}`
@@ -65,6 +67,9 @@ export function formatMarkdown(results: EvalResult[]): string {
       `## ${result.id} (${result.intent})`,
       '',
       `Result: ${getEvalStatus(result).toUpperCase()}`,
+      ...(result.error
+        ? [`Error: ${result.error.name}: ${result.error.message}`]
+        : []),
       ...(result.evaluation
         ? [
             `Category: ${result.evaluation.category}`,

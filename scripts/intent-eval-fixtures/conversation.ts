@@ -40,6 +40,55 @@ function conversation(input: {
 
 export const conversationEvalFixtures: IntentEvalFixture[] = [
   createFixture({
+    id: 'conversation-implicit-links-interleaved',
+    intent: 'answer',
+    targetDisplayName: 'Алиса',
+    rows: [
+      ['2026-11-05T10:00:00Z', 'Алиса', 'Нужна видеокарта для 1440p.'],
+      ['2026-11-05T10:00:01Z', 'Борис', 'Пиццу какую берём?'],
+      [
+        '2026-11-05T10:00:02Z',
+        'Вера',
+        'Для такого разрешения я бы смотрела на 16 ГБ.'
+      ],
+      ['2026-11-05T10:00:03Z', 'Алиса', 'Пепперони.'],
+      ['2026-11-05T10:00:04Z', 'Борис', 'А бюджет на карту какой?'],
+      ['2026-11-05T10:00:05Z', 'Алиса', 'До 60 тысяч.']
+    ],
+    triggerText:
+      '@bot перечисли требования к видеокарте, которые назвали участники',
+    expectedMode: 'direct',
+    expectedMessageIds: [1, 3, 5, 6],
+    expectedDiscussions: [[1, 3, 5, 6]],
+    expectedInferredLinks: [
+      { from: 3, to: 1 },
+      { from: 6, to: 5 }
+    ],
+    rubric: {
+      mustIncludeAny: [['1440'], ['16'], ['60']],
+      mustNotIncludeAny: [['пицц', 'пепперони']]
+    }
+  }),
+  createFixture({
+    id: 'conversation-topic-switch-in-reply',
+    intent: 'answer',
+    targetDisplayName: 'Алиса',
+    rows: [
+      ['2026-11-05T10:00:00Z', 'Алиса', 'Для платежей выбрали PostgreSQL.'],
+      ['2026-11-05T10:00:01Z', 'Борис', 'Кстати, пиццу какую берём?'],
+      ['2026-11-05T10:00:02Z', 'Вера', 'Пепперони.']
+    ],
+    rowMetadata: { 2: { replyToMessageId: 1 }, 3: { replyToMessageId: 2 } },
+    triggerText: '@bot какую пиццу предложили?',
+    expectedMode: 'direct',
+    expectedMessageIds: [2, 3],
+    expectedDiscussions: [[2, 3]],
+    rubric: {
+      mustIncludeAny: [['пепперони']],
+      mustNotIncludeAny: [['PostgreSQL', 'платеж']]
+    }
+  }),
+  createFixture({
     id: 'conversation-media-priority',
     intent: 'answer',
     targetDisplayName: 'Алиса',

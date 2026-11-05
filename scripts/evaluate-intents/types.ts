@@ -12,6 +12,7 @@ export type EvalResult = {
   prompt: string;
   response: string;
   rubric: RubricResult;
+  error?: { name: string; message: string };
   evaluation?:
     | {
         category: string;
@@ -26,6 +27,9 @@ export type EvalResult = {
     | undefined;
   conversation?: {
     mode: string;
+    discussions: Array<{ id: string; messageIds: number[] }>;
+    inferredLinks: Array<{ from: number; to: number }>;
+    graphPassed: boolean;
     selectedMessageIds: number[];
     contextPrecision: number | null;
     contextRecall: number | null;

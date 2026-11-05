@@ -5,6 +5,7 @@ import { buildAnswerMessages } from '../../src/llm/openai-compatible-client/answ
 import { OpenAiCompatibleLlmClient } from '../../src/llm/openai-compatible-client/index.js';
 import { estimateTokens } from '../../src/llm/openai-compatible-client/logging.js';
 import { loadAssistantInstructions } from '../../src/llm/prompt-files.js';
+import { createConversationGraph } from '../helpers/conversation-plan.js';
 import { createClientConfig, createReplyInput } from './support.js';
 
 const answerInput = (() => {
@@ -15,77 +16,20 @@ const answerInput = (() => {
 
 describe('OpenAiCompatibleLlmClient answer', () => {
   test.each([
-    { mode: 'direct', text: 'Ответ.' },
-    { mode: 'clarify', text: 'О чём речь?' },
-    {
-      mode: 'research',
-      resolvedQuestion: 'Есть ли транзакции в PostgreSQL?',
-      purpose: 'fact_check',
-      focusClaim: 'PostgreSQL поддерживает транзакции',
-      queries: ['PostgreSQL transactions docs']
-    }
-  ])('normalizes a numeric context array for $mode without another completion', async (decision) => {
-    let calls = 0;
+    'direct',
+    'clarify'
+  ] as const)('supports an empty graph for %s', async (mode) => {
+    const decision = {
+      mode,
+      ...createConversationGraph(),
+      ...(mode === 'clarify' ? { ambiguity: 'Missing subject' } : {})
+    };
     const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
-      chat: {
-        completions: {
-          create: async () => {
-            calls++;
-            return completion({ ...decision, context: [1] });
-          }
-        }
-      }
+      chat: { completions: { create: async () => completion(decision) } }
     } as never);
-    const result = await client.generateAnswer({
-      ...answerInput,
-      replyContext: {
-        ...answerInput.replyContext,
-        priorContextMessages: [
-          message(1, 'PostgreSQL поддерживает транзакции.')
-        ]
-      }
-    });
-    expect(result.decision).toMatchObject({
-      mode: decision.mode,
-      context: { messageIds: [1] }
-    });
-    expect(calls).toBe(1);
-  });
-
-  test('normalizes an empty context array for a request without history', async () => {
-    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
-      chat: {
-        completions: {
-          create: async () =>
-            completion({ mode: 'clarify', context: [], text: 'Чем помочь?' })
-        }
-      }
-    } as never);
-    await expect(client.generateAnswer(answerInput)).resolves.toMatchObject({
-      decision: {
-        mode: 'clarify',
-        context: { messageIds: [] },
-        text: 'Чем помочь?'
-      }
-    });
-  });
-
-  test.each([
-    ['1'],
-    [{ messageId: 1 }],
-    [0],
-    Array.from({ length: 65 }, () => 1),
-    [987654]
-  ])('rejects invalid or unavailable IDs in a context array: %j', async (...context) => {
-    const client = new OpenAiCompatibleLlmClient(createClientConfig(), {
-      chat: {
-        completions: {
-          create: async () =>
-            completion({ mode: 'direct', context, text: 'Ответ.' })
-        }
-      }
-    } as never);
-    await expect(client.generateAnswer(answerInput)).rejects.toThrow();
+    expect((await client.generateAnswer(answerInput)).decision).toEqual(
+      decision
+    );
   });
 
   test('keeps relevant older context when neighboring media fills the budget', () => {
@@ -162,7 +106,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
             calls++;
             return completion({
               mode: 'direct',
-              context: { messageIds: [] },
+              ...createConversationGraph([]),
               text: 'Ответ'
             });
           }
@@ -185,7 +129,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
           create: async () =>
             completion({
               mode: 'direct',
-              context: { messageIds: [20] },
+              ...createConversationGraph([20]),
               text: 'Ответ'
             })
         }
@@ -219,8 +163,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
           create: async () =>
             completion({
               mode: 'direct',
-              context: { messageIds: [987654] },
-              text: 'Ответ.'
+              ...createConversationGraph([987654])
             })
         }
       }
@@ -235,14 +178,14 @@ describe('OpenAiCompatibleLlmClient answer', () => {
           create: async () =>
             completion({
               mode: 'clarify',
-              context: { messageIds: [] },
-              text: 'О каком обсуждении речь?'
+              ...createConversationGraph([]),
+              ambiguity: 'Не указано обсуждение'
             })
         }
       }
     } as never);
     await expect(client.generateAnswer(answerInput)).resolves.toMatchObject({
-      decision: { mode: 'clarify', text: 'О каком обсуждении речь?' }
+      decision: { mode: 'clarify', ambiguity: 'Не указано обсуждение' }
     });
   });
 
@@ -255,8 +198,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
             messages = input.messages;
             return completion({
               mode: 'direct',
-              context: { messageIds: [] },
-              text: 'Ответ.'
+              ...createConversationGraph([])
             });
           }
         }
@@ -303,8 +245,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
             request = input;
             return completion({
               mode: 'direct',
-              context: { messageIds: [] },
-              text: 'Четыре.'
+              ...createConversationGraph([])
             });
           }
         }
@@ -314,8 +255,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
     await expect(client.generateAnswer(answerInput)).resolves.toMatchObject({
       decision: {
         mode: 'direct',
-        context: { messageIds: [] },
-        text: 'Четыре.'
+        ...createConversationGraph([])
       },
       model: 'reply-model'
     });
@@ -332,8 +272,7 @@ describe('OpenAiCompatibleLlmClient answer', () => {
             request = input;
             return completion({
               mode: 'direct',
-              context: { messageIds: [] },
-              text: 'Ответ.'
+              ...createConversationGraph([])
             });
           }
         }

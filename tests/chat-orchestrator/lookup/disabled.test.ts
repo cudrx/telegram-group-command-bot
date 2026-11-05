@@ -1,17 +1,18 @@
 import { expect, test } from 'vitest';
+import { createConversationGraph } from '../../helpers/conversation-plan.js';
 
 import { createAnswerFlow } from '../support/answer-flow.js';
 
-test('a summary request can be answered in one completion without lookup', async () => {
+test('a summary request can be answered in two completions without lookup', async () => {
   const flow = createAnswerFlow([
     {
       mode: 'direct',
-      context: { messageIds: [1, 2] },
-      text: 'Обсуждали базу и поездку.'
-    }
+      ...createConversationGraph([1, 2])
+    },
+    { mode: 'response', text: 'Обсуждали базу и поездку.' }
   ]);
   await flow.run('@fun_bot подведи итог обоих обсуждений');
-  expect(flow.requests).toHaveLength(1);
+  expect(flow.requests).toHaveLength(2);
   expect(flow.search).not.toHaveBeenCalled();
   expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
     expect.objectContaining({ text: 'Обсуждали базу и поездку.' })
@@ -22,12 +23,13 @@ test('clarification does not trigger lookup or additional history resolution', a
   const flow = createAnswerFlow([
     {
       mode: 'clarify',
-      context: { messageIds: [] },
-      text: 'О каком обсуждении речь?'
-    }
+      ...createConversationGraph(),
+      ambiguity: 'Не указано обсуждение'
+    },
+    { mode: 'response', text: 'О каком обсуждении речь?' }
   ]);
   await flow.run('@fun_bot почему так?');
-  expect(flow.requests).toHaveLength(1);
+  expect(flow.requests).toHaveLength(2);
   expect(flow.search).not.toHaveBeenCalled();
   expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
     expect.objectContaining({ text: 'О каком обсуждении речь?' })
@@ -39,7 +41,7 @@ test('research without a configured provider returns the existing verification f
     [
       {
         mode: 'research',
-        context: { messageIds: [1] },
+        ...createConversationGraph([1]),
         resolvedQuestion: 'Вопрос',
         purpose: 'fact_check',
         focusClaim: 'Факт',

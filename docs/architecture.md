@@ -50,19 +50,28 @@ Current limits in [answer.ts](../src/config/runtime/actions/answer.ts):
   total prompt budget. Estimates use UTF-8 size, not provider token usage.
   Drop optional history before rejecting oversized mandatory input.
 
-The first JSON-mode completion selects candidate IDs (at most 64) and returns:
+Two JSON-mode LLM calls per assistant request:
 
-| Route      | Work                                                            |
-| ---------- | --------------------------------------------------------------- |
-| `direct`   | Answer from available context.                                  |
-| `clarify`  | Ask for missing context; the user can reply to the bot.         |
-| `research` | Run up to two parallel web queries, then a grounded completion. |
+1. Planner: group discussions, select context, choose `direct`, `clarify`, or
+   `research` (one or two search queries).
+2. Generator: answer from the original request, explicit reply target, selected
+   messages/media, and graph. `research` adds web evidence between calls.
 
-Responses are validated locally. Unknown or cross-chat IDs are rejected.
-Research receives selected original messages and available explicit parents;
-there is no additional history search after the first decision. Conversation
-and web evidence are passed as untrusted data, separate from system instructions.
-Prompts include the current Moscow date and time.
+| Planner field           | Limit / contract                                                           |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `discussions`           | 16 groups; overlapping membership allowed.                                 |
+| `inferredLinks`         | 128 links, later → earlier within a group; separate from Telegram replies. |
+| `selectedDiscussionIds` | At most 64 distinct selected messages.                                     |
+
+Graphs are request-local. Reply ancestors must be selected explicitly.
+Unique group IDs are checked before normalization. Normalization removes
+CURRENT_REQUEST and inferred duplicates of Telegram replies; unavailable IDs
+and invalid links are rejected. Conversation, graph, and web evidence are
+untrusted data. Prompts use Moscow time.
+
+Each stage allows one corrective retry and shares `LLM_MAX_RETRIES` across
+transport attempts (default: three API attempts per stage). Clarifications are
+limited to 240 characters. Exhausted validation returns a local error.
 
 DeepSeek Search is primary when its key is available. It reuses `LLM_API_KEY`
 only for the official DeepSeek origin; otherwise it needs `DEEPSEEK_API_KEY`.
@@ -95,12 +104,12 @@ the requested operation requires them.
 
 ## Social Media Downloads
 
-| Source    | Supported links and extraction                                                                                                                      |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Reddit    | Post and share links via yt-dlp; saved post JSON resolves images, GIFs, and galleries. |
-| Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video.                                     |
-| YouTube   | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges.                                   |
-| TikTok    | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored.                                                         |
+| Source    | Supported links and extraction                                                                                    |
+| --------- | ----------------------------------------------------------------------------------------------------------------- |
+| Reddit    | Post and share links via yt-dlp; saved post JSON resolves images, GIFs, and galleries.                            |
+| Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video.   |
+| YouTube   | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges. |
+| TikTok    | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored.                       |
 
 Reddit listings for `/meme` and `/sex` use HTTP and prefer
 `REDDIT_COOKIE_HEADER_PATH` over Netscape cookies. HTTP 401/403 with a raw cookie

@@ -17,6 +17,7 @@ import type {
 import type { AppLogger } from '../../../src/logging/logger.js';
 import type { LookupProvider } from '../../../src/lookup/types.js';
 import type { OcrLanguage } from '../../../src/media/types.js';
+import { createConversationGraph } from '../../helpers/conversation-plan.js';
 import { createEnv } from './env.js';
 import type { FakeDatabaseClient } from './fake-database.js';
 import type { createReplyResult } from './llm.js';
@@ -146,25 +147,28 @@ export function createOrchestrator(input: {
       generateAnswer:
         input.qwen.generateAnswer ??
         (async (answerInput: GenerateAnswerInput) => {
+          if (!answerInput.plan) {
+            const ids = answerInput.replyContext.priorContextMessages.map(
+              (message) => message.messageId
+            );
+            return {
+              decision: {
+                mode: 'direct',
+                ...createConversationGraph(ids)
+              },
+              model: 'test-planner',
+              latencyMs: 1,
+              attemptCount: 1,
+              promptTokensEstimate: 1
+            };
+          }
           const result = await input.qwen.generateReply({
             ...answerInput,
             intent: 'answer'
           });
-
           return {
-            decision: {
-              mode: 'direct' as const,
-              context: {
-                messageIds: answerInput.replyContext.priorContextMessages.map(
-                  (message) => message.messageId
-                )
-              },
-              text: result.text
-            },
-            model: result.model,
-            latencyMs: result.latencyMs,
-            attemptCount: result.attemptCount,
-            promptTokensEstimate: result.promptTokensEstimate
+            ...result,
+            decision: { mode: 'response', text: result.text }
           };
         })
     },

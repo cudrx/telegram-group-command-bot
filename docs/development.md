@@ -59,12 +59,12 @@ to receive ordinary group messages. Deleting source links also needs permissions
 
 ### Cookies and Video Tools
 
-| Setting                     | Used by                                                                                |
-| --------------------------- | -------------------------------------------------------------------------------------- |
+| Setting                     | Used by                                                                                 |
+| --------------------------- | --------------------------------------------------------------------------------------- |
 | `REDDIT_COOKIE_HEADER_PATH` | HTTP subreddit listings for `/meme` and `/sex`; takes precedence over Netscape cookies. |
 | `REDDIT_COOKIES_PATH`       | yt-dlp extraction, and subreddit listings without a raw header.                         |
-| `INSTAGRAM_COOKIES_PATH`    | Instagram yt-dlp/gallery-dl extraction.                                                |
-| `YOUTUBE_COOKIES_PATH`      | YouTube yt-dlp extraction.                                                             |
+| `INSTAGRAM_COOKIES_PATH`    | Instagram yt-dlp/gallery-dl extraction.                                                 |
+| `YOUTUBE_COOKIES_PATH`      | YouTube yt-dlp extraction.                                                              |
 
 Unset `REDDIT_COOKIE_HEADER_PATH` if you do not supply that file. A configured
 header rejected with HTTP 401/403 produces an admin notification. Updating it
@@ -105,51 +105,46 @@ validation, and escaping rather than exact instructional prose.
 
 ## Evaluations
 
-Evals use configured LLM credentials and make API calls. Only the conversation
-runner has a `--dry-run` mode. Replace `FIXTURE_ID` with an ID from the fixtures:
+Both CLIs load `.env`; LLM calls are skipped with `--dry-run`.
+Use fixture IDs with `--id`:
 
 ```bash
-npm run eval:intents
 npm run eval:intents -- --intent=answer
 npm run eval:intents -- --id=FIXTURE_ID
 npm run eval:conversation -- --dry-run
 npm run eval:conversation -- --variants=A,D --repetitions=1
 ```
 
-Intent evals cover assistant routing, context selection, media enrichment,
-and grounding against fixture web evidence; they do not test live search.
-Reports include prompts, selected IDs, route, calls, latency, and estimates.
-Lexical checks need human review for humor and conversational quality.
+Intent evals check routing, discussion graphs, context selection, media, and
+answers against fixture web evidence; no live web search. Reports are saved
+under `.eval-runs/<UTC timestamp>/` after each fixture. Errors are recorded;
+remaining fixtures continue. Failures exit nonzero; `needs_review` requires
+manual semantic assessment.
 
-Conversation evals default to two repetitions of four variants, with
-concurrency three, capped at four:
+Conversation evals default to two repetitions, concurrency three (maximum four):
 
-| Variant | History/policy                                                    |
-| ------- | ----------------------------------------------------------------- |
-| A       | Production history and instructions.                              |
-| B       | Remove bot replies, including explicit bot targets.               |
-| C       | Keep bot replies only on the available triggering reply ancestry. |
-| D       | Production history plus `llm/experiments/conversation-policy.md`. |
+| Variant | Change                                                  |
+| ------- | ------------------------------------------------------- |
+| A       | Production prompts and history.                         |
+| B       | Remove all bot replies, including the explicit target.  |
+| C       | Keep bot replies only in the triggering reply ancestry. |
+| D       | Add `llm/experiments/conversation-policy.md`.           |
 
-Filtering happens after production budget fitting and preserves human rows.
-This experiment checks the first completion only, without live search or a
-grounded follow-up. The experimental policy is not loaded by the bot.
-Artifacts go to `.eval-runs/conversation-<UTC timestamp>/`: prompts in
-`manifest.json`, settings, incremental `results.jsonl`, and final `results.json`.
-Exit status covers execution/schema errors; qualitative reviews are separate.
+History variants apply after budget fitting and preserve human messages.
+`direct`/`clarify` run both LLM stages; `research` checks routing only.
+Artifacts: `.eval-runs/conversation-<UTC timestamp>/` with `manifest.json`,
+`settings.json`, `results.jsonl`, and `results.json`. Execution/schema errors
+exit nonzero; qualitative checks need review.
 
-To compare saved production instructions with the current version, replace
-`SAVED_RUN` with the directory of the earlier run:
+Compare a saved planner prompt (A) with the current one (D):
 
 ```bash
 npm run eval:conversation -- --baseline-manifest=.eval-runs/SAVED_RUN/manifest.json
 ```
 
-This defaults to A,D: A uses the saved production prompt and D
-uses current production instructions, without the experimental addition.
-User evidence must be byte-identical. Filters `--id`, `--variants`,
-`--repetitions`, and `--concurrency` limit the run.
-See [research](research.md) for background reading.
+Both use the current generator and identical user data. Manifests from the old
+single-call contract are incompatible. Filters: `--id`, `--variants`,
+`--repetitions`, `--concurrency`.
 
 ## Local Docker
 

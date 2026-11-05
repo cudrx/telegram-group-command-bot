@@ -3,6 +3,47 @@ import type { ReplyContext } from '../../src/domain/models.js';
 export type HistoryVariant = 'full' | 'omitted' | 'ancestors';
 export type ExperimentMessage = { role: 'system' | 'user'; content: string };
 
+export function filterVisibleContext(
+  context: ReplyContext,
+  messageIds: number[]
+): ReplyContext {
+  const visible = new Set(messageIds);
+  let anchor = context.replyAnchorMessage;
+  if (anchor && !visible.has(anchor.messageId)) anchor = null;
+
+  return {
+    ...context,
+    replyAnchorMessage: anchor,
+    priorContextMessages: context.priorContextMessages.filter((message) =>
+      visible.has(message.messageId)
+    )
+  };
+}
+
+export function plannerMessagesForAttempt(
+  prepared: ExperimentMessage[],
+  attempt: ExperimentMessage[]
+): ExperimentMessage[] {
+  const corrections = attempt.slice(2);
+  return [...prepared, ...corrections];
+}
+
+export function withConversationPolicy(
+  messages: ExperimentMessage[],
+  policy: string
+): ExperimentMessage[] {
+  if (!policy) return messages;
+
+  return messages.map((message) => {
+    if (message.role !== 'system') return message;
+
+    return {
+      ...message,
+      content: `${message.content}\n\nCONVERSATION_POLICY_EXPERIMENT:\n${policy}`
+    };
+  });
+}
+
 export function compareProductionPrompts(
   baseline: ExperimentMessage[],
   candidate: ExperimentMessage[],

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 
 import { main } from './evaluate-intents/runner.js';

@@ -17,6 +17,7 @@ import type {
 
 export type {
   AnswerDecision,
+  AnswerPlan,
   AnswerResearchContext,
   AnswerResearchPlan,
   GenerateAnswerInput,

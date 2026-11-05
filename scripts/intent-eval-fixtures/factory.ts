@@ -36,6 +36,8 @@ export function createFixture(input: {
   mediaArtifacts?: MediaEvidence[];
   expectedMode?: IntentEvalFixture['expectedMode'];
   expectedMessageIds?: number[];
+  expectedDiscussions?: number[][];
+  expectedInferredLinks?: Array<{ from: number; to: number }>;
   assistantInstructions?: string;
   lookupExpectation?: IntentEvalFixture['lookupExpectation'];
   mediaContext?: DescribeMediaContext;
@@ -126,6 +128,10 @@ export function createFixture(input: {
   };
 
   if (input.evaluation) fixture.evaluation = input.evaluation;
+  if (input.expectedDiscussions)
+    fixture.expectedDiscussions = input.expectedDiscussions;
+  if (input.expectedInferredLinks)
+    fixture.expectedInferredLinks = input.expectedInferredLinks;
   if (input.expectedMode) fixture.expectedMode = input.expectedMode;
   if (input.expectedMessageIds)
     fixture.expectedMessageIds = input.expectedMessageIds;

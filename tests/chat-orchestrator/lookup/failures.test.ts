@@ -1,4 +1,5 @@
 import { expect, test } from 'vitest';
+import { createConversationGraph } from '../../helpers/conversation-plan.js';
 
 import { createAnswerFlow } from '../support/answer-flow.js';
 
@@ -6,7 +7,7 @@ test.each([
   ['malformed JSON', '{broken'],
   [
     'unavailable message ID',
-    { mode: 'direct', context: { messageIds: [9000] }, text: 'Wrong answer' }
+    { mode: 'direct', ...createConversationGraph([9000]), text: 'Wrong answer' }
   ],
   [
     'model timeout',
@@ -14,12 +15,12 @@ test.each([
   ],
   [
     'unsupported history retrieval',
-    { mode: 'retrieve_more', context: { messageIds: [] } }
+    { mode: 'retrieve_more', ...createConversationGraph([]) }
   ]
-])('fails safely without search or another completion after %s', async (_name, reply) => {
-  const flow = createAnswerFlow([reply]);
+])('fails safely without search after exhausting attempts for %s', async (_name, reply) => {
+  const flow = createAnswerFlow([reply, reply]);
   await flow.run();
-  expect(flow.requests).toHaveLength(1);
+  expect(flow.requests).toHaveLength(reply instanceof Error ? 1 : 2);
   expect(flow.search).not.toHaveBeenCalled();
   expect(flow.replyDispatcher).toHaveBeenLastCalledWith(
     expect.objectContaining({
@@ -33,7 +34,7 @@ test('a failed required lookup does not generate an ungrounded answer', async ()
     [
       {
         mode: 'research',
-        context: { messageIds: [1] },
+        ...createConversationGraph([1]),
         resolvedQuestion: 'Вопрос',
         purpose: 'fact_check',
         focusClaim: 'Факт',

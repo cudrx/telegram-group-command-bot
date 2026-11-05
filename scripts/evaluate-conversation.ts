@@ -9,17 +9,21 @@ import OpenAI from 'openai';
 import { answerActionConfig } from '../src/config/runtime/index.js';
 import {
   buildAnswerMessages,
-  generateAnswer
+  generateAnswer,
+  getSelectedMessageIds
 } from '../src/llm/openai-compatible-client/answer.js';
 import { estimateTokens } from '../src/llm/openai-compatible-client/logging.js';
 import type { ChatCompletionsCreate } from '../src/llm/openai-compatible-client/types.js';
 import {
   compareProductionPrompts,
   type ExperimentMessage,
+  filterVisibleContext,
   getReplyAncestorIds,
   type HistoryVariant,
+  plannerMessagesForAttempt,
   readTranscriptRow,
-  transformExperimentMessages
+  transformExperimentMessages,
+  withConversationPolicy
 } from './evaluate-conversation/context.js';
 import { parseEvalEnv } from './evaluate-intents/env.js';
 import {
@@ -38,6 +42,10 @@ const variants = {
 
 type Variant = keyof typeof variants;
 type Case = (typeof socialEvalCases)[number];
+type ExperimentCompletionParams = Omit<
+  OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+  'messages'
+> & { messages: ExperimentMessage[] };
 
 function hash(value: string): string {
   return createHash('sha256').update(value).digest('hex');
@@ -62,16 +70,17 @@ function prepare(
   if (savedBaseline && variant !== 'A' && variant !== 'D')
     throw new Error('Production comparison supports only variants A,D');
 
-  const messages = savedBaseline
+  const history = savedBaseline
     ? compareProductionPrompts(savedBaseline, baseline, variant as 'A' | 'D')
     : transformExperimentMessages(
         baseline,
         config.history,
         getReplyAncestorIds(item.fixture.replyContext)
       );
-  const system = messages[0];
-  if (!savedBaseline && config.policy && system)
-    system.content += `\n\nCONVERSATION_POLICY_EXPERIMENT:\n${policy}`;
+  const messages = withConversationPolicy(
+    history,
+    !savedBaseline && config.policy ? policy : ''
+  );
 
   const humanHash = hash(JSON.stringify(humanRows(messages)));
   if (humanHash !== hash(JSON.stringify(humanRows(baseline))))
@@ -234,7 +243,8 @@ export async function main(): Promise<void> {
         timeoutMs: 45_000,
         retries: 0,
         thinking: 'disabled',
-        lookup: 'route only; no web calls',
+        lookup:
+          'route only; direct/clarify use a second completion; no web calls',
         productionPromptComparison: saved !== null
       },
       null,
@@ -260,34 +270,79 @@ export async function main(): Promise<void> {
         let actualModel: string | null = null;
         let usage: unknown = null;
         let raw: string | null = null;
-        const createCompletion = (async (params: Record<string, unknown>) => {
-          const completion = await client.chat.completions.create({
-            ...params,
-            messages: job.messages
-          } as never);
-          actualModel = completion.model;
-          usage = completion.usage;
-          raw = completion.choices[0]?.message.content ?? null;
+        let llmCalls = 0;
+        const visibleContext = filterVisibleContext(
+          item.fixture.replyContext,
+          job.visibleIds
+        );
+        const responsePolicy = !saved && variants[variant].policy ? policy : '';
 
-          return completion;
-        }) as unknown as ChatCompletionsCreate;
+        function completionWithMessages(
+          prepareMessages: (
+            messages: ExperimentMessage[]
+          ) => ExperimentMessage[]
+        ): ChatCompletionsCreate {
+          return (async (params: ExperimentCompletionParams) => {
+            const messages = prepareMessages(params.messages);
+            const tokens = estimateTokens(
+              messages.map((message) => message.content).join('\n\n')
+            );
+            if (tokens > answerActionConfig.context.maxPromptTokens)
+              throw new Error(
+                'Experimental prompt exceeds production token budget'
+              );
+
+            llmCalls++;
+            const completion = await client.chat.completions.create({
+              ...params,
+              messages
+            });
+            actualModel = completion.model;
+            usage = completion.usage;
+            raw = completion.choices[0]?.message.content ?? null;
+            return completion;
+          }) as unknown as ChatCompletionsCreate;
+        }
+
+        const plannerCompletion = completionWithMessages((messages) =>
+          plannerMessagesForAttempt(job.messages, messages)
+        );
+        const responseCompletion = completionWithMessages((messages) =>
+          withConversationPolicy(messages, responsePolicy)
+        );
         let result: Record<string, unknown>;
         try {
           const generated = await generateAnswer({
             config,
-            createCompletion,
-            request: item.fixture
+            createCompletion: plannerCompletion,
+            request: { ...item.fixture, replyContext: visibleContext }
           });
           const decision = generated.decision;
-          const text = 'text' in decision ? decision.text : '';
+          if (!('discussions' in decision))
+            throw new Error('Expected a discussion plan');
+          const finalRequest = {
+            ...item.fixture,
+            plan: decision,
+            replyContext: visibleContext
+          };
+          // This experiment measures conversation behavior without live lookup.
+          const final =
+            decision.mode === 'research'
+              ? null
+              : await generateAnswer({
+                  config,
+                  createCompletion: responseCompletion,
+                  request: finalRequest
+                });
+          const text =
+            final && 'text' in final.decision ? final.decision.text : '';
           const rubric = evaluateRubric(text, item.fixture.rubric);
           const evaluation = evaluateFixtureChecks(
             item.fixture,
             text,
             job.messages
           );
-          const selectedIds =
-            'context' in decision ? decision.context.messageIds : [];
+          const selectedIds = getSelectedMessageIds(decision);
           const hiddenSelectedIds = selectedIds.filter(
             (id) => !job.visibleIds.includes(id)
           );
@@ -308,7 +363,10 @@ export async function main(): Promise<void> {
             actualModel,
             usage,
             latencyMs: Date.now() - started,
-            promptTokensEstimate: job.promptTokensEstimate,
+            llmCalls,
+            promptTokensEstimate:
+              generated.promptTokensEstimate +
+              (final?.promptTokensEstimate ?? 0),
             humanHash: job.humanHash,
             requiredBotContextAvailable: evaluation?.botContext.passed ?? true,
             evaluation,

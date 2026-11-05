@@ -5,10 +5,12 @@ import { renderPromptTemplate } from './prompts/render.js';
 
 export const PROMPT_FILE_PATHS = {
   base: 'llm/assistant/base.md',
+  requestContext: 'llm/assistant/request-context.md',
   global: 'llm/reply/global.md',
   replyShell: 'llm/reply/shell.md',
   read: 'llm/reply/read.md',
   answer: 'llm/reply/answer.md',
+  answerResponse: 'llm/reply/answer-response.md',
   answerGrounded: 'llm/reply/answer-grounded.md',
   answerPreflight: 'llm/planner/answer-preflight.md',
   translate: 'llm/reply/translate.md',

@@ -99,8 +99,15 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         }
       ]
     },
+    evaluation: {
+      category: 'grounding',
+      origin: 'synthetic release-source authority scenario',
+      criteria:
+        'Не называть синтетический источник официальным и не утверждать, что реальная актуальная версия проверена. Допустим отказ подтвердить версию; если упоминается 4.2.1, атрибутировать её только переданному тестовому источнику.',
+      requiredBotMessageIds: []
+    },
     rubric: {
-      mustIncludeAny: [['4.2.1']],
+      mustIncludeAny: [],
       mustNotIncludeAny: [
         ['стабильная версия — 5.0.0', 'стабильная версия 5.0.0']
       ],
