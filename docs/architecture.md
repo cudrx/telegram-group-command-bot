@@ -39,6 +39,11 @@ The current message is the request; its explicit reply target supplies context.
 Retrieval stays within the chat and preserves message IDs, authors, timestamps,
 and reply links. Earlier bot answers remain fallible conversation history.
 
+Assistant tone guidance prefers restraint with mockery while allowing light
+situational teasing and proportionate comebacks to users teasing the bot.
+Profanity is strongly discouraged, with exceptionally rare expressive uses;
+aggression and personal attacks remain prohibited.
+
 Current limits in [answer.ts](../src/config/runtime/actions/answer.ts):
 
 - Scan 128 recent messages, add up to 16 predecessors of an old reply target,
