@@ -241,7 +241,7 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     replyAnchorText: 'Hello, see you tomorrow',
     rubric: {
       mustIncludeAny: [
-        ['Привет', 'Здравствуйте'],
+        ['Привет', 'Здравствуй', 'Здравствуйте'],
         ['увидимся', 'до завтра']
       ],
       mustIncludeAll: ['Текст сообщения:'],
@@ -252,6 +252,64 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
         ['I will', 'Here is']
       ],
       mustNotMatchRegex: ['\\*\\*[^*]+\\*\\*', '<b>', '(^|\\n)\\s*Summary\\s*:']
+    }
+  }),
+  createFixture({
+    id: 'translate-preserves-source-profanity',
+    intent: 'translate',
+    targetDisplayName: 'Артём',
+    rows: [],
+    triggerText: '/translate',
+    replyAnchorText: 'Fuck, I forgot the password again.',
+    evaluation: {
+      category: 'source-fidelity',
+      origin:
+        'synthetic regression scenario for shared and utility prompt boundaries',
+      criteria:
+        'Перевести исходную фразу, сохранив её грубый тон и мат. Не применять ограничение мата в собственной речи бота к переводимому источнику, не цензурировать и не добавлять комментариев. Сохранить заголовок блока.',
+      requiredBotMessageIds: []
+    },
+    rubric: {
+      mustIncludeAny: [['парол']],
+      mustIncludeAll: ['Текст сообщения:'],
+      mustNotIncludeAny: [
+        ['следи за языком', 'нецензурная лексика недопустима']
+      ],
+      mustMatchRegex: ['^Текст сообщения:\\s*[\\s\\S]+']
+    }
+  }),
+  createFixture({
+    id: 'read-extracts-question-without-answering',
+    intent: 'read',
+    targetDisplayName: 'Артём',
+    rows: [],
+    triggerText: '/read',
+    mediaContext: {
+      sourceCaption: null,
+      visionDescription: null,
+      ocrTextRu: null,
+      ocrTextDefault: null,
+      visionRaw: null,
+      visionInterpretation: null,
+      audioTranscript: {
+        transcript: 'What is two plus two? Fuck, I forgot again.',
+        language: 'en',
+        sourceDurationSeconds: 4
+      }
+    },
+    evaluation: {
+      category: 'source-fidelity',
+      origin:
+        'synthetic regression scenario for deduplicated READ instructions',
+      criteria:
+        'Воспроизвести английскую расшифровку вместе с вопросом и матом. Не отвечать на вопрос, не переводить, не цензурировать, не добавлять HTML или пояснений.',
+      requiredBotMessageIds: []
+    },
+    rubric: {
+      mustIncludeAny: [],
+      mustIncludeAll: ['What is two plus two?', 'Fuck, I forgot again.'],
+      mustNotIncludeAny: [['четыре', 'Четыре', '<b>', '<i>', '<code>']],
+      mustNotMatchRegex: ['\\b4\\b']
     }
   }),
   createFixture({

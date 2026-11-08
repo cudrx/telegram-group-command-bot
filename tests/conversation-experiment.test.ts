@@ -4,9 +4,9 @@ import {
   compareProductionPrompts,
   filterVisibleContext,
   getReplyAncestorIds,
+  parseExperimentVariants,
   plannerMessagesForAttempt,
-  transformExperimentMessages,
-  withConversationPolicy
+  transformExperimentMessages
 } from '../scripts/evaluate-conversation/context.js';
 import { createFixture } from '../scripts/intent-eval-fixtures/factory.js';
 import { buildAnswerMessages } from '../src/llm/openai-compatible-client/answer.js';
@@ -174,20 +174,19 @@ test('preserves validation corrections when replacing the planner prompt', () =>
   ]);
 });
 
-test('adds experimental policy only to system messages without changing source prompts', () => {
-  const messages = [
-    { role: 'system' as const, content: 'Production policy' },
-    { role: 'user' as const, content: 'Chat data' }
-  ];
-  const changed = withConversationPolicy(messages, 'Short answers');
-  expect(changed).toEqual([
-    {
-      role: 'system',
-      content:
-        'Production policy\n\nCONVERSATION_POLICY_EXPERIMENT:\nShort answers'
-    },
-    { role: 'user', content: 'Chat data' }
-  ]);
-  expect(messages[0]?.content).toBe('Production policy');
-  expect(withConversationPolicy(messages, '')).toEqual(messages);
+test('defaults to history variants, reserving D for a saved production comparison', () => {
+  expect(parseExperimentVariants(undefined, false)).toEqual(['A', 'B', 'C']);
+  expect(parseExperimentVariants(undefined, true)).toEqual(['A', 'D']);
+  expect(parseExperimentVariants('C,A', false)).toEqual(['C', 'A']);
+});
+
+test.each([
+  ['D', false],
+  ['A,A', false],
+  ['B', true],
+  ['X', false]
+])('rejects incompatible or duplicate variants: %s (baseline: %s)', (value, baseline) => {
+  expect(() =>
+    parseExperimentVariants(value as string, baseline as boolean)
+  ).toThrow('variants');
 });

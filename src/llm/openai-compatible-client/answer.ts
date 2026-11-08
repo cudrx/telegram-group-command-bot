@@ -177,14 +177,6 @@ function getOutputSchema(input: GenerateAnswerInput) {
   return input.plan.mode === 'clarify' ? clarificationSchema : responseSchema;
 }
 
-function getStagePrompt(input: GenerateAnswerInput): string {
-  if (input.research) return loadPrompt('answerGrounded');
-
-  if (input.plan) return loadPrompt('answerResponse');
-
-  return loadPrompt('answerPreflight');
-}
-
 export function buildAnswerMessages(
   input: GenerateAnswerInput
 ): Array<{ role: 'system' | 'user'; content: string }> {
@@ -213,15 +205,16 @@ function prepareAnswerRequest(input: GenerateAnswerInput) {
     ? selectAnswerContext(input.replyContext, getSelectedMessageIds(input.plan))
     : input.replyContext;
   const instructions = [
-    'You generate answers for a Telegram assistant.',
     input.assistantInstructions,
     loadPrompt('requestContext')
   ];
   if (input.plan || input.research) {
     instructions.push(loadPrompt('global'), loadPrompt('answer'));
+    if (input.research) instructions.push(loadPrompt('answerGrounded'));
+  } else {
+    instructions.push(loadPrompt('answerPreflight'));
   }
   instructions.push(
-    getStagePrompt(input),
     `Current date and time: ${input.currentDateTime}`,
     `OUTPUT_CONTRACT:\n${formatJsonForPrompt(z.toJSONSchema(schema))}`,
     'Return one valid JSON object matching OUTPUT_CONTRACT.'

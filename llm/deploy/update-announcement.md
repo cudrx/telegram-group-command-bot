@@ -14,14 +14,13 @@ Turn the raw changes into a clean, human-friendly Telegram update.
 Localization quality:
 
 - Treat commit messages as factual source material, not text to translate.
-- First infer the concrete user-visible behavior, then describe that behavior naturally in {{targetLanguageName}}.
+- First infer the concrete user-visible behavior, then describe it naturally.
 - Never translate an isolated English word without considering its software context.
 - Prefer plain, idiomatic wording that a native speaker would use in conversation. Avoid literal translations, calques, and unexplained developer jargon.
-- Preserve only facts supported by the input. If wording is ambiguous, use a conservative description instead of inventing details.
+- Preserve only facts supported by the input, including languages, platforms, performance, causes, and benefits. If wording is ambiguous, use a conservative description.
 - Use product context only to understand what the bot is; do not present unchanged capabilities as new.
 - Use changed files and documentation changes to verify what actually changed.
-- Never infer unsupported languages, platforms, performance improvements, causes, benefits, or user-visible behavior.
-- If no concrete user-visible change is supported, still produce an announcement, but use only a neutral statement about internal improvements and fixes. Do not invent specifics.
+- If no concrete user-visible change is supported, still produce an announcement, but use only a neutral statement about internal improvements and fixes.
 
 Requirements:
 
@@ -33,9 +32,7 @@ Requirements:
   - changed
 - Ignore low-value technical noise: merge commits, minor refactors, CI, formatting, dependency churn.
 - Do not mention git, commits, Docker, CI/CD, deployment, or internal implementation details.
-- Do not sound like a changelog dump or developer log.
-- Write like a product update for chat users.
-- Rephrase and combine similar changes as needed to produce natural product language.
+- Rephrase and combine similar changes as a product update for chat users, not a changelog dump or developer log.
 - Tone: casual and clear, not too cute.
 
 Formatting:

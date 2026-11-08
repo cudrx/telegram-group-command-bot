@@ -9,9 +9,8 @@ import {
 } from '../../src/llm/openai-compatible-client/answer.js';
 import { OpenAiCompatibleLlmClient } from '../../src/llm/openai-compatible-client/index.js';
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
-import { text } from '../../src/locales/locale.js';
 import { intentEvalFixtures } from '../intent-eval-fixtures.js';
-import { type EvalEnv, parseEvalEnv } from './env.js';
+import { parseEvalEnv } from './env.js';
 import { filterFixtures, parseEvalFilters } from './filters.js';
 import {
   createEvalLookupSources,
@@ -62,7 +61,7 @@ export async function main(): Promise<number> {
   );
 
   for (const fixture of selectedFixtures) {
-    const result = await evaluateFixture(client, llm, fixture, env);
+    const result = await evaluateFixture(llm, fixture);
 
     results.push(result);
     printResult(result);
@@ -126,37 +125,27 @@ export async function main(): Promise<number> {
 }
 
 export async function evaluateFixture(
-  client: OpenAI,
   llm: OpenAiCompatibleLlmClient,
-  fixture: (typeof intentEvalFixtures)[number],
-  env: Pick<EvalEnv, 'llmReplyModel' | 'llmReplyTemperature'>
+  fixture: (typeof intentEvalFixtures)[number]
 ): Promise<EvalResult> {
   try {
-    const prompt =
-      fixture.intent === 'answer'
-        ? ''
-        : buildIntentPrompt({ ...fixture, intent: fixture.intent });
-    const answer =
-      fixture.intent === 'answer' ? await evaluateAnswer(llm, fixture) : null;
+    let answer: Awaited<ReturnType<typeof evaluateAnswer>> | null = null;
+    let prompt: string;
     let response: string;
-    if (answer) {
+    if (fixture.intent === 'answer') {
+      answer = await evaluateAnswer(llm, fixture);
+      prompt = answer.prompt;
       response = answer.response;
     } else {
-      const completion = await client.chat.completions.create({
-        model: env.llmReplyModel,
-        temperature: env.llmReplyTemperature,
-        messages: [
-          { role: 'system', content: text.llm.evalSystem },
-          { role: 'user', content: prompt }
-        ]
-      });
-      response = completion.choices[0]?.message.content?.trim() ?? '';
+      const input = { ...fixture, intent: fixture.intent };
+      prompt = buildIntentPrompt(input);
+      response = (await llm.generateReply(input)).text;
     }
 
     return {
       id: fixture.id,
       intent: fixture.intent,
-      prompt: answer?.prompt ?? prompt,
+      prompt,
       response,
       rubric: evaluateRubric(response, fixture.rubric),
       evaluation: evaluateFixtureChecks(

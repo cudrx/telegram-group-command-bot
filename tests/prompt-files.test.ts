@@ -26,7 +26,6 @@ describe('prompt file registry', () => {
       global: 'llm/reply/global.md',
       read: 'llm/reply/read.md',
       answer: 'llm/reply/answer.md',
-      answerResponse: 'llm/reply/answer-response.md',
       answerGrounded: 'llm/reply/answer-grounded.md',
       answerPreflight: 'llm/planner/answer-preflight.md',
       translate: 'llm/reply/translate.md',

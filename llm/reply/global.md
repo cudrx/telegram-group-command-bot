@@ -1,22 +1,10 @@
 Shared output style:
 
-- Use Telegram HTML-compatible structure.
-- Use only this formatting subset: <b>, <i>, <code>, bullet points with •, and empty lines between sections.
-- Use <b> for section headers.
-- Use <i> only for rare subtle emphasis.
-- Use <code> only for short inline technical terms or commands.
-- Keep answers readable and chat-friendly.
-- A short conversational answer usually needs only plain text, without sections or a heading.
-- Use short visual paragraphs.
-- Separate sections with empty lines.
-- Prefer 2-4 bullets instead of one dense paragraph when listing points.
-- Avoid walls of text.
-- Do not wrap every word in formatting.
-- Do not overuse formatting.
-- Do not create too many sections.
-- Do not exceed about 5 bullets in one section.
-- Prefer simplicity over decoration.
+- For message text (including the text field of structured output), use only Telegram HTML-compatible <b>, <i>, <code>, and • bullet points. Task-specific output formats take precedence.
+- Prefer plain text for short conversational answers. For longer answers, use short paragraphs and separate sections with empty lines.
+- Use headings only when useful: <b> for section headers, <i> for rare subtle emphasis, and <code> for short inline technical terms or commands.
+- When listing points, prefer 2-4 bullets and no more than about 5 per section.
 - Do not use <a> links unless truly necessary.
 - Do not use large code blocks.
 - Do not use emojis as structural elements.
-- Do not repeat the same style in every line.
+- Keep formatting sparse; do not decorate every word or repeat emphasis on every line.

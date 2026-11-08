@@ -1,7 +1,27 @@
 import type { ReplyContext } from '../../src/domain/models.js';
 
 export type HistoryVariant = 'full' | 'omitted' | 'ancestors';
+export type ExperimentVariant = 'A' | 'B' | 'C' | 'D';
 export type ExperimentMessage = { role: 'system' | 'user'; content: string };
+
+export function parseExperimentVariants(
+  value: string | undefined,
+  hasBaseline: boolean
+): ExperimentVariant[] {
+  const allowed: ExperimentVariant[] = hasBaseline
+    ? ['A', 'D']
+    : ['A', 'B', 'C'];
+  const selected = (value ?? allowed.join(',')).split(
+    ','
+  ) as ExperimentVariant[];
+  if (
+    new Set(selected).size !== selected.length ||
+    selected.some((variant) => !allowed.includes(variant))
+  )
+    throw new Error(`variants must be a unique subset of ${allowed.join(',')}`);
+
+  return selected;
+}
 
 export function filterVisibleContext(
   context: ReplyContext,
@@ -26,22 +46,6 @@ export function plannerMessagesForAttempt(
 ): ExperimentMessage[] {
   const corrections = attempt.slice(2);
   return [...prepared, ...corrections];
-}
-
-export function withConversationPolicy(
-  messages: ExperimentMessage[],
-  policy: string
-): ExperimentMessage[] {
-  if (!policy) return messages;
-
-  return messages.map((message) => {
-    if (message.role !== 'system') return message;
-
-    return {
-      ...message,
-      content: `${message.content}\n\nCONVERSATION_POLICY_EXPERIMENT:\n${policy}`
-    };
-  });
 }
 
 export function compareProductionPrompts(

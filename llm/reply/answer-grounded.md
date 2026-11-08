@@ -9,5 +9,4 @@ test data and state the verification limit when it matters.
 
 First assess the focus claim, then decide whether evidence confirms, narrows,
 corrects, conflicts with, or cannot establish it. Report only source IDs used.
-Finally write the shortest natural answer, or clearly say what remains
-insufficient. Return only JSON matching OUTPUT_CONTRACT.
+Clearly say what remains insufficient when the evidence cannot establish the answer.

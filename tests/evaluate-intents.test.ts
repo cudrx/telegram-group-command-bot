@@ -16,6 +16,37 @@ import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
 import { buildAnswerMessages } from '../src/llm/openai-compatible-client/answer.js';
 
 describe('evaluate-intents helpers', () => {
+  test('accepts a singular greeting in a valid translation', () => {
+    const fixture = intentEvalFixtures.find(
+      (item) => item.id === 'translate-basic-message'
+    );
+    if (!fixture) throw new Error('Missing translate fixture');
+
+    expect(
+      hasRubricFailures(
+        evaluateRubric(
+          'Текст сообщения:\nЗдравствуй, до завтра',
+          fixture.rubric
+        )
+      )
+    ).toBe(false);
+  });
+
+  test.each([
+    ['What is two plus two?\n\nFuck, I forgot again.', false],
+    ['What is two plus two?', true],
+    ['What is two plus two?\n\nFuck, I forgot again.\n4', true]
+  ] as const)('scores READ source fidelity independently of paragraph breaks: %s', (response, failed) => {
+    const fixture = intentEvalFixtures.find(
+      (item) => item.id === 'read-extracts-question-without-answering'
+    );
+    if (!fixture) throw new Error('Missing READ fixture');
+
+    expect(hasRubricFailures(evaluateRubric(response, fixture.rubric))).toBe(
+      failed
+    );
+  });
+
   test.each([
     [
       'answer-research-current-release',
@@ -302,12 +333,19 @@ describe('evaluate-intents helpers', () => {
       }).map((fixture) => fixture.id)
     ).toEqual(['summarize-basic-discussion']);
 
+    const translations = filterFixtures(intentEvalFixtures, {
+      ids: new Set(),
+      intents: new Set(['translate'])
+    });
+    expect(translations.map((fixture) => fixture.id)).toEqual(
+      expect.arrayContaining([
+        'translate-basic-message',
+        'translate-preserves-source-profanity'
+      ])
+    );
     expect(
-      filterFixtures(intentEvalFixtures, {
-        ids: new Set(),
-        intents: new Set(['translate'])
-      }).map((fixture) => fixture.intent)
-    ).toEqual(['translate']);
+      translations.every((fixture) => fixture.intent === 'translate')
+    ).toBe(true);
   });
 
   test('parses only LLM settings for eval runs', () => {

@@ -105,14 +105,15 @@ validation, and escaping rather than exact instructional prose.
 
 ## Evaluations
 
-Both CLIs load `.env`; LLM calls are skipped with `--dry-run`.
+Both CLIs load `.env`. Only `eval:conversation` supports `--dry-run`, which
+prepares the experiment without LLM calls; `eval:intents` calls the model.
 Use fixture IDs with `--id`:
 
 ```bash
 npm run eval:intents -- --intent=answer
 npm run eval:intents -- --id=FIXTURE_ID
 npm run eval:conversation -- --dry-run
-npm run eval:conversation -- --variants=A,D --repetitions=1
+npm run eval:conversation -- --variants=A --repetitions=1
 ```
 
 Intent evals check routing, discussion graphs, context selection, media, and
@@ -123,12 +124,11 @@ manual semantic assessment.
 
 Conversation evals default to two repetitions, concurrency three (maximum four):
 
-| Variant | Change                                                  |
-| ------- | ------------------------------------------------------- |
-| A       | Production prompts and history.                         |
-| B       | Remove all bot replies, including the explicit target.  |
+| Variant | Change                                                 |
+| ------- | ------------------------------------------------------ |
+| A       | Production prompts and history.                        |
+| B       | Remove all bot replies, including the explicit target. |
 | C       | Keep bot replies only in the triggering reply ancestry. |
-| D       | Add `llm/experiments/conversation-policy.md`.           |
 
 History variants apply after budget fitting and preserve human messages.
 `direct`/`clarify` run both LLM stages; `research` checks routing only.
@@ -142,6 +142,9 @@ Compare a saved planner prompt (A) with the current one (D):
 npm run eval:conversation -- --baseline-manifest=.eval-runs/SAVED_RUN/manifest.json
 ```
 
+Variant D is available only with `--baseline-manifest`; it uses the current
+production planner against saved A prompts. The former experimental overlay
+has been merged into the production prompt and is no longer loaded.
 Both use the current generator and identical user data. Manifests from the old
 single-call contract are incompatible. Filters: `--id`, `--variants`,
 `--repetitions`, `--concurrency`.

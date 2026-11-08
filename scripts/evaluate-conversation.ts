@@ -20,10 +20,10 @@ import {
   filterVisibleContext,
   getReplyAncestorIds,
   type HistoryVariant,
+  parseExperimentVariants,
   plannerMessagesForAttempt,
   readTranscriptRow,
-  transformExperimentMessages,
-  withConversationPolicy
+  transformExperimentMessages
 } from './evaluate-conversation/context.js';
 import { parseEvalEnv } from './evaluate-intents/env.js';
 import {
@@ -34,11 +34,11 @@ import {
 import { socialEvalCases } from './intent-eval-fixtures/social.js';
 
 const variants = {
-  A: { history: 'full', policy: false },
-  B: { history: 'omitted', policy: false },
-  C: { history: 'ancestors', policy: false },
-  D: { history: 'full', policy: true }
-} satisfies Record<string, { history: HistoryVariant; policy: boolean }>;
+  A: { history: 'full' },
+  B: { history: 'omitted' },
+  C: { history: 'ancestors' },
+  D: { history: 'full' }
+} satisfies Record<string, { history: HistoryVariant }>;
 
 type Variant = keyof typeof variants;
 type Case = (typeof socialEvalCases)[number];
@@ -61,7 +61,6 @@ function humanRows(messages: ExperimentMessage[]): string[] {
 function prepare(
   item: Case,
   variant: Variant,
-  policy: string,
   savedBaseline?: ExperimentMessage[]
 ) {
   // Filter only AFTER production budget fitting. Freed space cannot admit new humans.
@@ -70,18 +69,13 @@ function prepare(
   if (savedBaseline && variant !== 'A' && variant !== 'D')
     throw new Error('Production comparison supports only variants A,D');
 
-  const history = savedBaseline
+  const messages = savedBaseline
     ? compareProductionPrompts(savedBaseline, baseline, variant as 'A' | 'D')
     : transformExperimentMessages(
         baseline,
         config.history,
         getReplyAncestorIds(item.fixture.replyContext)
       );
-  const messages = withConversationPolicy(
-    history,
-    !savedBaseline && config.policy ? policy : ''
-  );
-
   const humanHash = hash(JSON.stringify(humanRows(messages)));
   if (humanHash !== hash(JSON.stringify(humanRows(baseline))))
     throw new Error('Experiment changed fitted human history');
@@ -123,23 +117,16 @@ export async function main(): Promise<void> {
   if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 4)
     throw new Error('concurrency must be 1..4');
 
-  const selectedVariants = (
-    values.variants ?? (values['baseline-manifest'] ? 'A,D' : 'A,B,C,D')
-  ).split(',') as Variant[];
-  if (
-    new Set(selectedVariants).size !== selectedVariants.length ||
-    selectedVariants.some((variant) => !Object.hasOwn(variants, variant))
-  )
-    throw new Error('variants must be a unique subset of A,B,C,D');
+  const selectedVariants = parseExperimentVariants(
+    values.variants,
+    Boolean(values['baseline-manifest'])
+  );
 
   const cases = socialEvalCases.filter(
     (item) => !values.id || item.fixture.id === values.id
   );
   if (!cases.length) throw new Error('No matching scenarios');
 
-  const policy = values['baseline-manifest']
-    ? ''
-    : (await readFile('llm/experiments/conversation-policy.md', 'utf8')).trim();
   type SavedInput = {
     id: string;
     variant: string;
@@ -176,12 +163,7 @@ export async function main(): Promise<void> {
   ).flat();
   const prepared = jobs.map((job) => ({
     ...job,
-    ...prepare(
-      job.item,
-      job.variant,
-      policy,
-      savedBaselines.get(job.item.fixture.id)
-    )
+    ...prepare(job.item, job.variant, savedBaselines.get(job.item.fixture.id))
   }));
   const manifest = {
     generatedAt: new Date().toISOString(),
@@ -198,8 +180,6 @@ export async function main(): Promise<void> {
           D: { history: 'full', policy: 'current production' }
         }
       : variants,
-    policy: saved ? null : policy,
-    policySha256: saved ? null : hash(policy),
     cases: cases.map(({ fixture, ...metadata }) => ({
       id: fixture.id,
       ...metadata
@@ -275,7 +255,6 @@ export async function main(): Promise<void> {
           item.fixture.replyContext,
           job.visibleIds
         );
-        const responsePolicy = !saved && variants[variant].policy ? policy : '';
 
         function completionWithMessages(
           prepareMessages: (
@@ -307,8 +286,8 @@ export async function main(): Promise<void> {
         const plannerCompletion = completionWithMessages((messages) =>
           plannerMessagesForAttempt(job.messages, messages)
         );
-        const responseCompletion = completionWithMessages((messages) =>
-          withConversationPolicy(messages, responsePolicy)
+        const responseCompletion = completionWithMessages(
+          (messages) => messages
         );
         let result: Record<string, unknown>;
         try {
