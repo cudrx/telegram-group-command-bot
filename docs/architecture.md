@@ -108,8 +108,9 @@ gallery-dl. Workers expose `/health` and asynchronous `/jobs` endpoints on the
 private Compose network. Jobs are held in memory; timeout, cancellation, and
 shutdown terminate their subprocesses.
 
-All containers run as UID/GID 1000. Persistent files use `/app/data`, mounted
-read-only in workers. Announcement metadata is mounted at `/app/deploy`.
+Images default to UID/GID 1000. On the VPS, Compose uses UID/GID 0 inside
+rootless Docker, mapped to the host user `github-deploy` (UID 1001). Persistent
+files use `/app/data`, mounted read-only in workers. Announcement metadata is mounted at `/app/deploy`.
 `/media` is shared temporary storage. Workers copy cookies into private per-job
 files and remove them afterward.
 

@@ -33,7 +33,7 @@ jobs:
       GALLERY_IMAGE: ${{ needs.build.outputs.gallery-image }}
       SSH_HOST: ${{ vars.SSH_HOST }}
       SSH_USER: ${{ vars.SSH_USER || 'github-deploy' }}
-      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/srv/telegram-bot' }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/opt/telegram-bot' }}
 
     steps:
       - name: Checkout
@@ -74,7 +74,7 @@ jobs:
       - name: Deploy
         run: |
           set -euo pipefail
-          printf 'BOT_IMAGE=%s\nVIDEO_IMAGE=%s\nGALLERY_IMAGE=%s\n' \
+          printf 'CONTAINER_USER=0:0\nBOT_IMAGE=%s\nVIDEO_IMAGE=%s\nGALLERY_IMAGE=%s\n' \
             "$BOT_IMAGE" "$VIDEO_IMAGE" "$GALLERY_IMAGE" > .github/generated/images.env
           target="$SSH_USER@$SSH_HOST"
           options=(-oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=15)

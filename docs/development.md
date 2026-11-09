@@ -140,22 +140,35 @@ Conversation defaults are two repetitions and concurrency three; override with
 
 ### VPS Setup
 
-Prepare Linux amd64, Docker Engine, Compose **2.30.0+**, and Bash.
-The SSH deployment user needs Docker access and a GHCR login with read access
-to all three image packages. Enable Docker at boot. Default application path:
-`/srv/telegram-bot`. Service definitions are in
-[compose.yml](../compose.yml).
+Linux amd64, Compose 2.30.0+, user `github-deploy` (UID 1001, outside the
+`docker` group). Install rootless prerequisites and allocate subordinate IDs
+using [Docker's setup guide](https://docs.docker.com/engine/security/rootless/).
+Existing CPU/memory limits require cgroup v2 with CPU/memory delegation.
 
-| Path | Contents / permissions |
-| --- | --- |
-| `.env` | Literal `KEY=value` lines, without shell quotes; deployment-user ownership, mode 0600. |
-| `data/` | `bot.sqlite`, chat/access JSON, cookies, and persistent files; UID/GID 1000. |
-| `media/` | Shared temporary files; UID/GID 1000. |
-| `deploy/` | Generated announcement metadata, mounted read-only. |
+As administrator:
 
-Workers read cookies under `/app/data`. Create `data/` and `media/` and prepare
-`.env` before the first deploy. Actions uploads Compose, image references, and
-announcement metadata; application data stays on the VPS.
+```bash
+sudo loginctl enable-linger github-deploy
+sudo install -d -o github-deploy -g "$(id -gn github-deploy)" -m 0700 \
+  /opt/telegram-bot /opt/telegram-bot/data /opt/telegram-bot/media /opt/telegram-bot/deploy
+```
+
+Over SSH as `github-deploy`:
+
+```bash
+dockerd-rootless-setuptool.sh install
+systemctl --user enable --now docker
+docker --context rootless info
+```
+
+Use `install --force` if a rootful daemon already serves other workloads.
+The rootless socket is `/run/user/1001/docker.sock`; lingering enables boot startup.
+
+Keep existing data/secrets in `/opt/telegram-bot`, owned by `github-deploy`;
+directories 0700, `.env` and private files 0600. Back up before changing ownership
+and preserve SQLite WAL/SHM files and cookie modification times.
+`images.env` uses `CONTAINER_USER=0:0`: rootless UID 0 maps to host UID 1001.
+Local Compose defaults to `1000:1000`. Actions writes this setting automatically.
 
 ### GitHub Settings and CI/CD
 
@@ -166,7 +179,7 @@ In the `production` environment, keep `SSH_PRIVATE_KEY` and verified
 | --- | --- |
 | `SSH_HOST` | VPS hostname or IP. |
 | `SSH_USER` | Defaults to `github-deploy`. |
-| `DEPLOY_DIR` | Defaults to `/srv/telegram-bot`; absolute path using letters, digits, `/`, `_`, and `-`. |
+| `DEPLOY_DIR` | Defaults to `/opt/telegram-bot`; absolute path using letters, digits, `/`, `_`, and `-`. |
 
 [CI](../.github/workflows/ci.yml) runs code checks, builds three amd64 images,
 and smoke-tests them before publishing those same images to GHCR. PRs do not
@@ -181,10 +194,10 @@ fails the workflow without rolling back images or SQLite.
 
 ### Operations
 
-From the application directory, define:
+As `github-deploy`, from `/opt/telegram-bot`, define:
 
 ```bash
-compose() { docker compose --env-file images.env -f compose.yml "$@"; }
+compose() { docker --context rootless compose --env-file images.env -f compose.yml "$@"; }
 ```
 
 | Operation | Command |
@@ -213,19 +226,20 @@ Logs rotate at 3 × 10 MB per service. For abandoned temporary files, add a host
 cleanup policy (adjust the path for custom `DEPLOY_DIR`):
 
 ```bash
-printf '%s\n' 'd /srv/telegram-bot/media 0700 1000 1000 1d' | sudo tee /etc/tmpfiles.d/telegram-bot.conf >/dev/null
+printf '%s\n' 'd /opt/telegram-bot/media 0700 github-deploy - 1d' | sudo tee /etc/tmpfiles.d/telegram-bot.conf >/dev/null
 sudo systemctl enable --now systemd-tmpfiles-clean.timer
 ```
 
 ### Backup and Restore
 
-Pause deployments during maintenance. As root, from the application directory
-using the `compose` helper above:
+Pause deployments during maintenance. As `github-deploy`, from the application
+directory using the `compose` helper above:
 
 ```bash
 umask 077
+install -d -m 0700 "$HOME/backups"
 compose stop --timeout 30
-tar -czf /var/backups/telegram-bot-$(date -u +%Y%m%dT%H%M%SZ).tar.gz .env data compose.yml images.env deploy
+tar -czf "$HOME/backups/telegram-bot-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" .env data compose.yml images.env deploy
 compose up -d --no-build --wait --wait-timeout 300
 ```
 
@@ -235,8 +249,9 @@ it should return `ok`. Back up the whole stopped data directory, including
 WAL/SHM files when present.
 
 To restore, stop services and replace the whole `data/` directory with the
-saved copy, preserving UID/GID 1000. Restore `.env` if needed, validate, then
-start. Keep restored SQLite and its WAL/SHM together.
+saved copy, restoring ownership to `github-deploy` and private permissions as
+above. Restore `.env` if needed, validate, then start. Keep restored SQLite and
+its WAL/SHM together.
 
 ## Manual Smoke Checks
 

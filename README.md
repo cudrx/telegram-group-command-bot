@@ -35,8 +35,8 @@ or the three-container Docker setup:
 docker compose up -d --build
 ```
 
-The mounted `data/` directory must be writable by UID/GID 1000.
-See [development](docs/development.md) for configuration and native media tools.
+Local Docker uses UID/GID 1000 for `data/` and `media/`. For rootless Docker
+on the VPS, follow the [setup instructions](docs/development.md#vps-setup).
 
 ## Usage
 
@@ -67,7 +67,8 @@ the bot tries to delete the source link and credits its sender in groups.
 
 ## Deployment
 
-Production uses Compose services `bot`, `video`, and `gallery`. GitHub Actions
+Production uses rootless Docker under `github-deploy` and Compose services
+`bot`, `video`, and `gallery` in `/opt/telegram-bot`. GitHub Actions
 checks code and images, publishes to GHCR, and deploys image digests over SSH
 on non-documentation pushes to `main`.
 
