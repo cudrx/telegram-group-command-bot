@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import {
   createDeployMetadata,
+  readDeployCommits,
   writeDeployMetadata
 } from '../scripts/generate-deploy-metadata.js';
 
@@ -18,25 +19,17 @@ afterEach(() => {
 });
 
 describe('generate deploy metadata', () => {
-  test('creates metadata from a push commit range', () => {
-    const gitLog = vi
-      .fn()
-      .mockReturnValue('fix: captions\nfeat: announcements\n');
-
+  test('creates metadata from the selected commit log', () => {
     const metadata = createDeployMetadata({
-      beforeSha: 'before-sha',
       sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
       branch: 'main',
       now: () => '2026-04-19T10:00:00.000Z',
-      gitLog,
+      commitLog: 'fix: captions\nfeat: announcements\n',
       productContext: 'Telegram media bot.',
       changedFiles: ['src/media.ts'],
       documentationChanges: 'Media links are expanded.'
     });
 
-    expect(gitLog).toHaveBeenCalledWith(
-      'before-sha..f3f896a0c03d0c109db633a6182e798e8ca0b96f'
-    );
     expect(metadata).toEqual({
       sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
       shortSha: 'f3f896a',
@@ -49,46 +42,45 @@ describe('generate deploy metadata', () => {
     });
   });
 
-  test('prefers the currently deployed sha over the push commit range', () => {
-    const gitLog = vi
-      .fn()
-      .mockReturnValue(
-        [
-          'refactor: delete completed plans',
-          'refactor: simplify instruction routing',
-          'refactor: tighten standalone prompt wording',
-          'fix: captions'
-        ].join('\n')
-      );
+  test('reads the push commit range once', () => {
+    const gitLog = vi.fn().mockReturnValue('fix: captions\n');
+    const selected = readDeployCommits({
+      beforeSha: 'before-sha',
+      sha: 'current-sha',
+      gitLog
+    });
 
-    const metadata = createDeployMetadata({
+    expect(gitLog).toHaveBeenCalledExactlyOnceWith('before-sha..current-sha');
+    expect(selected).toEqual({
+      range: 'before-sha..current-sha',
+      output: 'fix: captions\n'
+    });
+  });
+
+  test('prefers the currently deployed sha over the push commit range', () => {
+    const gitLog = vi.fn().mockReturnValue('fix: captions\n');
+
+    const selected = readDeployCommits({
       deployedSha: 'deployed-sha',
       beforeSha: 'push-before-sha',
       sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
-      branch: 'main',
-      now: () => '2026-04-19T10:00:00.000Z',
       gitLog
     });
 
     expect(gitLog).toHaveBeenCalledWith(
       'deployed-sha..f3f896a0c03d0c109db633a6182e798e8ca0b96f'
     );
-    expect(metadata.commits).toEqual([
-      'refactor: delete completed plans',
-      'refactor: simplify instruction routing',
-      'refactor: tighten standalone prompt wording',
-      'fix: captions'
-    ]);
+    expect(selected.range).toBe(
+      'deployed-sha..f3f896a0c03d0c109db633a6182e798e8ca0b96f'
+    );
   });
 
   test('uses the current commit when before sha is all zeroes', () => {
     const gitLog = vi.fn().mockReturnValue('feat: first deploy\n');
 
-    createDeployMetadata({
+    readDeployCommits({
       beforeSha: '0000000000000000000000000000000000000000',
       sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
-      branch: 'main',
-      now: () => '2026-04-19T10:00:00.000Z',
       gitLog
     });
 
@@ -105,11 +97,9 @@ describe('generate deploy metadata', () => {
       })
       .mockReturnValueOnce('fix: current only\n');
 
-    const metadata = createDeployMetadata({
+    const selected = readDeployCommits({
       beforeSha: 'missing-before-sha',
       sha: 'f3f896a0c03d0c109db633a6182e798e8ca0b96f',
-      branch: 'main',
-      now: () => '2026-04-19T10:00:00.000Z',
       gitLog
     });
 
@@ -121,7 +111,11 @@ describe('generate deploy metadata', () => {
       2,
       'f3f896a0c03d0c109db633a6182e798e8ca0b96f^..f3f896a0c03d0c109db633a6182e798e8ca0b96f'
     );
-    expect(metadata.commits).toEqual(['fix: current only']);
+    expect(selected).toEqual({
+      range:
+        'f3f896a0c03d0c109db633a6182e798e8ca0b96f^..f3f896a0c03d0c109db633a6182e798e8ca0b96f',
+      output: 'fix: current only\n'
+    });
   });
 
   test('writes metadata JSON to disk', () => {

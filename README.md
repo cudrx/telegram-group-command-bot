@@ -35,8 +35,7 @@ or the three-container Docker setup:
 docker compose up -d --build
 ```
 
-Local Docker uses UID/GID 1000 for `data/` and `media/`. For rootless Docker
-on the VPS, follow the [setup instructions](docs/development.md#vps-setup).
+Docker uses UID/GID 1000 for `data/` and `media/`.
 
 ## Usage
 
@@ -67,7 +66,7 @@ the bot tries to delete the source link and credits its sender in groups.
 
 ## Deployment
 
-Production uses rootless Docker under `github-deploy` and Compose services
+Production uses system Docker Engine and Compose services
 `bot`, `video`, and `gallery` in `/opt/telegram-bot`. GitHub Actions
 checks code and images, publishes to GHCR, and deploys image digests over SSH
 on non-documentation pushes to `main`.

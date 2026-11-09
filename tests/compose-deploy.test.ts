@@ -22,10 +22,6 @@ function deploy(fail = '') {
 set -eu
 printf '%s\\n' "$*" >> "$TEST_ROOT/calls"
 case " $* " in
-  *" info "*)
-    [[ "$TEST_FAIL" != unavailable ]] || exit 1
-    if [[ "$TEST_FAIL" == rootful ]]; then printf '["name=seccomp"]';
-    else printf '["name=rootless","name=seccomp"]'; fi ;;
   *" config "*) [[ "$TEST_FAIL" != config ]] ;;
   *" pull "*) [[ "$TEST_FAIL" != pull ]] ;;
   *" run "*) [[ "$TEST_FAIL" != validation ]] ;;
@@ -40,8 +36,6 @@ esac
       cwd: root,
       env: {
         ...process.env,
-        DOCKER_CONTEXT: 'default',
-        DOCKER_HOST: 'unix:///var/run/docker.sock',
         PATH: `${root}/bin:${process.env.PATH}`,
         TEST_ROOT: root,
         TEST_FAIL: fail
@@ -78,25 +72,11 @@ describe('Compose deployment', () => {
     expect(result.data).toBe('existing database');
   });
 
-  test('selects the rootless context for every Docker command', () => {
+  test('uses standard Docker Compose for every command', () => {
     const result = deploy();
     expect(result.status, result.stderr).toBe(0);
     const calls = result.calls.trim().split('\n');
-    expect(calls.every((call) => call.startsWith('--context rootless '))).toBe(
-      true
-    );
-    expect(calls[0]).toContain('info --format');
-  });
-
-  test.each([
-    'unavailable',
-    'rootful'
-  ])('a %s Docker daemon cannot start a deployment', (failure) => {
-    const result = deploy(failure);
-    expect(result.status).not.toBe(0);
-    expect(result.calls).not.toContain(' compose ');
-    expect(result.stopped).toBe(false);
-    expect(result.data).toBe('existing database');
+    expect(calls.every((call) => call.startsWith('compose '))).toBe(true);
   });
 
   test.each([

@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-docker --context rootless info --format '{{json .SecurityOptions}}' | grep -q '"name=rootless"' || {
-  echo 'A running rootless Docker daemon is required' >&2; exit 1;
-}
-compose() { docker --context rootless compose --env-file images.env -f compose.yml "$@"; }
+compose() { docker compose --env-file images.env -f compose.yml "$@"; }
 trap 'compose ps --all; compose logs --no-color --tail=100' ERR
 
 compose config --quiet

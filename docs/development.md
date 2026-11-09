@@ -140,35 +140,21 @@ Conversation defaults are two repetitions and concurrency three; override with
 
 ### VPS Setup
 
-Linux amd64, Compose 2.30.0+, user `github-deploy` (UID 1001, outside the
-`docker` group). Install rootless prerequisites and allocate subordinate IDs
-using [Docker's setup guide](https://docs.docker.com/engine/security/rootless/).
-Existing CPU/memory limits require cgroup v2 with CPU/memory delegation.
-
-As administrator:
+Linux amd64, system Docker Engine and Compose 2.30.0+. Install Docker using
+the [official instructions](https://docs.docker.com/engine/install/), then:
 
 ```bash
-sudo loginctl enable-linger github-deploy
-sudo install -d -o github-deploy -g "$(id -gn github-deploy)" -m 0700 \
-  /opt/telegram-bot /opt/telegram-bot/data /opt/telegram-bot/media /opt/telegram-bot/deploy
+sudo systemctl enable --now docker.service containerd.service
+sudo usermod -aG docker github-deploy
+sudo install -d -o github-deploy -g "$(id -gn github-deploy)" -m 0755 \
+  /opt/telegram-bot /opt/telegram-bot/deploy
+sudo install -d -o 1000 -g 1000 -m 0700 /opt/telegram-bot/data /opt/telegram-bot/media
 ```
 
-Over SSH as `github-deploy`:
-
-```bash
-dockerd-rootless-setuptool.sh install
-systemctl --user enable --now docker
-docker --context rootless info
-```
-
-Use `install --force` if a rootful daemon already serves other workloads.
-The rootless socket is `/run/user/1001/docker.sock`; lingering enables boot startup.
-
-Keep existing data/secrets in `/opt/telegram-bot`, owned by `github-deploy`;
-directories 0700, `.env` and private files 0600. Back up before changing ownership
-and preserve SQLite WAL/SHM files and cookie modification times.
-`images.env` uses `CONTAINER_USER=0:0`: rootless UID 0 maps to host UID 1001.
-Local Compose defaults to `1000:1000`. Actions writes this setting automatically.
+Reconnect over SSH as `github-deploy` and check `docker info`.
+Keep `.env` owned by `github-deploy` (0600); SQLite, configs and cookies in
+`data/` owned by 1000:1000 (private files 0600). Metadata in `deploy/` must be
+readable by UID 1000 (directory 0755, JSON 0644).
 
 ### GitHub Settings and CI/CD
 
@@ -197,7 +183,7 @@ fails the workflow without rolling back images or SQLite.
 As `github-deploy`, from `/opt/telegram-bot`, define:
 
 ```bash
-compose() { docker --context rootless compose --env-file images.env -f compose.yml "$@"; }
+compose() { docker compose --env-file images.env -f compose.yml "$@"; }
 ```
 
 | Operation | Command |
@@ -226,20 +212,20 @@ Logs rotate at 3 × 10 MB per service. For abandoned temporary files, add a host
 cleanup policy (adjust the path for custom `DEPLOY_DIR`):
 
 ```bash
-printf '%s\n' 'd /opt/telegram-bot/media 0700 github-deploy - 1d' | sudo tee /etc/tmpfiles.d/telegram-bot.conf >/dev/null
+printf '%s\n' 'd /opt/telegram-bot/media 0700 1000 1000 1d' | sudo tee /etc/tmpfiles.d/telegram-bot.conf >/dev/null
 sudo systemctl enable --now systemd-tmpfiles-clean.timer
 ```
 
 ### Backup and Restore
 
-Pause deployments during maintenance. As `github-deploy`, from the application
-directory using the `compose` helper above:
+Pause deployments during maintenance. As an administrator with Docker and `sudo`
+access, from the application directory using the `compose` helper above:
 
 ```bash
 umask 077
 install -d -m 0700 "$HOME/backups"
 compose stop --timeout 30
-tar -czf "$HOME/backups/telegram-bot-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" .env data compose.yml images.env deploy
+sudo tar -czf "$HOME/backups/telegram-bot-$(date -u +%Y%m%dT%H%M%SZ).tar.gz" .env data compose.yml images.env deploy
 compose up -d --no-build --wait --wait-timeout 300
 ```
 
@@ -249,7 +235,7 @@ it should return `ok`. Back up the whole stopped data directory, including
 WAL/SHM files when present.
 
 To restore, stop services and replace the whole `data/` directory with the
-saved copy, restoring ownership to `github-deploy` and private permissions as
+saved copy, restoring ownership to 1000:1000 and private permissions as
 above. Restore `.env` if needed, validate, then start. Keep restored SQLite and
 its WAL/SHM together.
 

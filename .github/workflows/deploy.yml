@@ -74,7 +74,7 @@ jobs:
       - name: Deploy
         run: |
           set -euo pipefail
-          printf 'CONTAINER_USER=0:0\nBOT_IMAGE=%s\nVIDEO_IMAGE=%s\nGALLERY_IMAGE=%s\n' \
+          printf 'BOT_IMAGE=%s\nVIDEO_IMAGE=%s\nGALLERY_IMAGE=%s\n' \
             "$BOT_IMAGE" "$VIDEO_IMAGE" "$GALLERY_IMAGE" > .github/generated/images.env
           target="$SSH_USER@$SSH_HOST"
           options=(-oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=15)
