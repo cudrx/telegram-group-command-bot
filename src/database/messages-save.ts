@@ -1,4 +1,5 @@
 import type Database from 'better-sqlite3';
+import type { MessageGenerationKind } from '../domain/models.js';
 import { upsertChat } from './messages-chat.js';
 import type {
   BotOutputMode,
@@ -18,6 +19,7 @@ type SaveBotMessageInput = {
   displayName: string;
   replyToMessageId?: number | null;
   outputMode?: BotOutputMode;
+  generationKind?: MessageGenerationKind;
   mediaSnapshot?: MediaMessageSnapshot | null;
 };
 
@@ -147,9 +149,10 @@ export function saveBotMessage(
             from_first_name,
             from_last_name,
             from_display_name,
-            output_mode
+            output_mode,
+            generation_kind
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `
       )
       .run(
@@ -174,7 +177,8 @@ export function saveBotMessage(
         null,
         null,
         outgoing.displayName,
-        outgoing.outputMode ?? 'text'
+        outgoing.outputMode ?? 'text',
+        outgoing.generationKind ?? 'standard'
       );
 
     if (result.changes > 0) {

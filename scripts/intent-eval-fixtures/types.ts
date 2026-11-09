@@ -15,7 +15,9 @@ export type IntentEvalRubric = {
 
 export type IntentEvalFixture = {
   id: string;
-  intent: ReplyGenerationIntent;
+  intent: ReplyGenerationIntent | 'spontaneous';
+  spontaneousDraft?: string;
+  expectedSpontaneousAction?: 'send' | 'skip';
   targetDisplayName: string;
   assistantInstructions: string;
   currentDateTime: string;

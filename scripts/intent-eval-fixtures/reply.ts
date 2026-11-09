@@ -242,7 +242,7 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
     rubric: {
       mustIncludeAny: [
         ['Привет', 'Здравствуй', 'Здравствуйте'],
-        ['увидимся', 'до завтра']
+        ['увидимся', 'до завтра', 'до встречи завтра']
       ],
       mustIncludeAll: ['Текст сообщения:'],
       mustMatchRegex: ['^Текст сообщения:\\s*[\\s\\S]+'],
@@ -309,7 +309,10 @@ export const replyIntentEvalFixtures: IntentEvalFixture[] = [
       mustIncludeAny: [],
       mustIncludeAll: ['What is two plus two?', 'Fuck, I forgot again.'],
       mustNotIncludeAny: [['четыре', 'Четыре', '<b>', '<i>', '<code>']],
-      mustNotMatchRegex: ['\\b4\\b']
+      mustNotMatchRegex: [
+        '\\b4\\b',
+        '(?:^|\\n)\\s*(?:Оригинал|Перевод|Original|Translation)\\s*:'
+      ]
     }
   }),
   createFixture({

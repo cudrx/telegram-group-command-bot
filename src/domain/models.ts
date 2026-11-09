@@ -30,6 +30,8 @@ export type ReplyGenerationIntent = Exclude<
 
 export type BotOutputMode = 'text' | 'voice';
 
+export type MessageGenerationKind = 'standard' | 'spontaneous_markov_llm';
+
 export type NormalizedMessage = {
   chatId: number;
   chatType: ChatType;
@@ -82,6 +84,7 @@ export type StoredMessage = {
   editedAt?: string | null;
   isBot: boolean;
   outputMode?: BotOutputMode;
+  generationKind?: MessageGenerationKind;
   replyToMessageId: number | null;
   mediaSnapshot?: MediaMessageSnapshot | null;
 };

@@ -7,6 +7,11 @@ import {
 } from './answer.js';
 import { formatDeployUpdate } from './deploy-update.js';
 import { generateReply } from './reply.js';
+import {
+  type GenerateSpontaneousInput,
+  type GenerateSpontaneousResult,
+  generateSpontaneous
+} from './spontaneous.js';
 import type {
   ChatCompletionsCreate,
   GenerateReplyInput,
@@ -23,6 +28,10 @@ export type {
   GenerateAnswerInput,
   GenerateAnswerResult
 } from './answer.js';
+export type {
+  GenerateSpontaneousInput,
+  GenerateSpontaneousResult
+} from './spontaneous.js';
 export type {
   GenerateReplyInput,
   LlmClientConfig,
@@ -64,6 +73,17 @@ export class OpenAiCompatibleLlmClient {
 
   async generateReply(input: GenerateReplyInput): Promise<LlmReplyResult> {
     return generateReply({
+      config: this.config,
+      createCompletion: this.createCompletion,
+      options: this.options,
+      input
+    });
+  }
+
+  async generateSpontaneous(
+    input: GenerateSpontaneousInput
+  ): Promise<GenerateSpontaneousResult> {
+    return generateSpontaneous({
       config: this.config,
       createCompletion: this.createCompletion,
       options: this.options,

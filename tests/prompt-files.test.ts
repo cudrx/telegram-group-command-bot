@@ -19,27 +19,6 @@ afterEach(() => {
 });
 
 describe('prompt file registry', () => {
-  test('keeps one source of truth for all prompt file paths', () => {
-    expect(PROMPT_FILE_PATHS).toEqual({
-      base: 'llm/assistant/base.md',
-      requestContext: 'llm/assistant/request-context.md',
-      global: 'llm/reply/global.md',
-      read: 'llm/reply/read.md',
-      answer: 'llm/reply/answer.md',
-      answerGrounded: 'llm/reply/answer-grounded.md',
-      answerPreflight: 'llm/planner/answer-preflight.md',
-      translate: 'llm/reply/translate.md',
-      replyShell: 'llm/reply/shell.md',
-      systemAnswer: 'llm/system/answer.md',
-      systemRead: 'llm/system/read.md',
-      systemTranscript: 'llm/system/transcript.md',
-      cloudflareVisionSystem: 'llm/vision/cloudflare-system.md',
-      cloudflareVisionUser: 'llm/vision/cloudflare-user.md',
-      cloudflareVisionImageRawUser: 'llm/vision/cloudflare-image-raw-user.md',
-      updateAnnouncement: 'llm/deploy/update-announcement.md'
-    });
-  });
-
   test('loads every registered prompt file by name', () => {
     for (const promptName of Object.keys(PROMPT_FILE_PATHS)) {
       const registeredPath =

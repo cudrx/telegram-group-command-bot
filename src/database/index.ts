@@ -101,6 +101,7 @@ export class DatabaseClient {
     displayName: string;
     replyToMessageId?: number | null;
     outputMode?: 'text' | 'voice';
+    generationKind?: import('../domain/models.js').MessageGenerationKind;
     mediaSnapshot?: import('../domain/models.js').MediaMessageSnapshot | null;
   }): void {
     saveBotMessage(this.db, input);

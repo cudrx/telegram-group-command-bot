@@ -2,6 +2,13 @@
   {
     "chatId": -1001234567890,
     "label": "main",
+    "spontaneous": {
+      "enabled": false,
+      "probability": 0.03,
+      "cooldownSeconds": 900,
+      "minMessages": 20,
+      "maxAttemptsPerHour": 3
+    },
     "commands": {
       "meme": true,
       "read": true,

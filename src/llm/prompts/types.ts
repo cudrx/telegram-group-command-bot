@@ -3,7 +3,8 @@ import type { StoredMessage } from '../../domain/models.js';
 export type PromptMessage = Pick<
   StoredMessage,
   'messageId' | 'userId' | 'senderDisplayName' | 'text' | 'createdAt' | 'isBot'
-> & { replyToMessageId?: number | null };
+> &
+  Partial<Pick<StoredMessage, 'replyToMessageId' | 'generationKind'>>;
 
 export type DescribeMediaContext = {
   sourceCaption: string | null;

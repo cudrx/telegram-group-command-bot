@@ -7,6 +7,7 @@ import {
   isFeatureEnabledForAccessContext
 } from '../actions/index.js';
 import { hasAssistantMention } from '../assistant-mention.js';
+import { SpontaneousMessages } from '../spontaneous/index.js';
 import { detectDirectMediaLink } from './direct-media-link.js';
 import { ChatOrchestratorMediaSupport } from './media/index.js';
 import { runDirectMediaMemeJob } from './meme-job/direct.js';
@@ -26,9 +27,11 @@ export type {
 
 export class ChatOrchestrator {
   private readonly mediaSupport: ChatOrchestratorMediaSupport;
+  private readonly spontaneous: SpontaneousMessages;
 
   constructor(private readonly deps: ChatOrchestratorDeps) {
     this.mediaSupport = new ChatOrchestratorMediaSupport(deps);
+    this.spontaneous = new SpontaneousMessages(deps);
   }
 
   async handleIncomingMessage(message: IncomingMessage): Promise<void> {
@@ -124,39 +127,44 @@ export class ChatOrchestrator {
         replyToMediaSnapshot: message.replyToMediaSnapshot
       };
 
-      await resolvedAction.action.handle({
-        deps: this.deps,
-        mediaSupport: this.mediaSupport,
-        request,
-        logger
-      });
+      await this.spontaneous.runForeground(message.chatId, () =>
+        resolvedAction.action.handle({
+          deps: this.deps,
+          mediaSupport: this.mediaSupport,
+          request,
+          logger
+        })
+      );
       return;
     }
 
     if (assistantRequested) {
-      await runReplyJob({
-        deps: this.deps,
-        mediaSupport: this.mediaSupport,
-        request: {
-          chatId: message.chatId,
-          chatType: message.chatType,
-          chatTitle: message.chatTitle,
-          triggerMessageId: message.messageId,
-          fromUserId: message.fromUserId,
-          fromUsername: message.fromUsername,
-          fromDisplayName: message.fromDisplayName,
-          createdAt: message.createdAt,
-          intent: 'answer',
-          replyToMessageSnapshot: message.replyToMessageSnapshot,
-          replyToMediaSnapshot: message.replyToMediaSnapshot
-        },
-        logger
-      });
+      await this.spontaneous.runForeground(message.chatId, () =>
+        runReplyJob({
+          deps: this.deps,
+          mediaSupport: this.mediaSupport,
+          request: {
+            chatId: message.chatId,
+            chatType: message.chatType,
+            chatTitle: message.chatTitle,
+            triggerMessageId: message.messageId,
+            fromUserId: message.fromUserId,
+            fromUsername: message.fromUsername,
+            fromDisplayName: message.fromDisplayName,
+            createdAt: message.createdAt,
+            intent: 'answer',
+            replyToMessageSnapshot: message.replyToMessageSnapshot,
+            replyToMediaSnapshot: message.replyToMediaSnapshot
+          },
+          logger
+        })
+      );
       return;
     }
 
     const directMediaLink = detectDirectMediaLink(message.text);
     if (!directMediaLink) {
+      await this.spontaneous.tryRun(message, logger);
       return;
     }
 
@@ -177,18 +185,16 @@ export class ChatOrchestrator {
       replyToMessageSnapshot: message.replyToMessageSnapshot,
       replyToMediaSnapshot: message.replyToMediaSnapshot
     };
-    const handledDirectMedia = await runDirectMediaMemeJob({
-      deps: this.deps,
-      mediaSupport: this.mediaSupport,
-      request: directRedditVideoRequest,
-      kind: directMediaLink.kind,
-      text: message.text,
-      logger
-    });
-
-    if (handledDirectMedia) {
-      return;
-    }
+    await this.spontaneous.runForeground(message.chatId, () =>
+      runDirectMediaMemeJob({
+        deps: this.deps,
+        mediaSupport: this.mediaSupport,
+        request: directRedditVideoRequest,
+        kind: directMediaLink.kind,
+        text: message.text,
+        logger
+      })
+    );
   }
 }
 

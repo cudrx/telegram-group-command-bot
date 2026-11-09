@@ -57,6 +57,26 @@ and links privately; link-only users cannot invoke the assistant or commands.
 Disable BotFather privacy mode or grant the necessary administrator access
 to receive ordinary group messages. Deleting source links also needs permissions.
 
+### Spontaneous Messages
+
+Each chat entry accepts an optional `spontaneous` object:
+
+| Field | Default | Contract |
+| ----- | ------- | -------- |
+| `enabled` | `false` | Group chats only; independent of `features.assistant`. |
+| `probability` | `0.03` | Fraction in 0..1 per eligible message; 0 disables attempts. |
+| `cooldownSeconds` | `900` | Positive integer. |
+| `minMessages` | `20` | 1..1,000 new human text messages between attempts. |
+| `maxAttemptsPerHour` | `3` | 1..60 attempts in a rolling hour. |
+
+Restart after configuration changes. Skips, errors, and unsuccessful draft
+generation consume attempts; limits persist across restarts. Corpus retention
+follows normal message retention. Fixed generation and context limits are in
+[spontaneous.ts](../src/config/runtime/spontaneous.ts).
+
+Events: `spontaneous_skipped`, `spontaneous_adapted`, `spontaneous_sent`,
+`spontaneous_failed`.
+
 ### Cookies and Video Tools
 
 | Setting                     | Used by                                                                                 |
@@ -70,20 +90,15 @@ Unset `REDDIT_COOKIE_HEADER_PATH` if you do not supply that file. A configured
 header rejected with HTTP 401/403 produces an admin notification. Updating it
 does not update the Netscape file used by yt-dlp.
 
-Reddit video metadata and downloads use `--impersonate chrome`. Both Dockerfiles
-install yt-dlp's `curl-cffi` extra. Workers copy cookies to private writable
-files with mode `0600` and remove them in `finally`; the read-only originals
-are preserved. An absent yt-dlp cookie file starts an empty private jar, which
-does not guarantee that the source will allow anonymous access.
+Reddit extraction uses `--impersonate chrome`; both Dockerfiles install yt-dlp's
+`curl-cffi` extra. Workers use temporary writable cookie copies with mode `0600`.
+Missing yt-dlp cookie files start an empty private jar.
 
 Instagram auth/rate-limit failures lock the source in SQLite. Update its cookie
 file to allow another attempt; repeated requests alone do not clear the lock.
 
-Video limits and timeouts live in
-[reddit-media.ts](../src/config/runtime/actions/reddit-media.ts): 600 seconds,
-50 MB final size, 75 MB pre-download rejection for known selected-format sizes,
-two video jobs globally, one per chat. yt-dlp downloads are probed, normalized
-to H.264/AAC, and probed again before Telegram upload.
+Video limits and timeouts are configured in
+[reddit-media.ts](../src/config/runtime/actions/reddit-media.ts).
 
 ## Checks
 
@@ -112,6 +127,7 @@ Use fixture IDs with `--id`:
 ```bash
 npm run eval:intents -- --intent=answer
 npm run eval:intents -- --id=FIXTURE_ID
+npm run eval:intents -- --intent=spontaneous
 npm run eval:conversation -- --dry-run
 npm run eval:conversation -- --variants=A --repetitions=1
 ```
@@ -121,6 +137,12 @@ answers against fixture web evidence; no live web search. Reports are saved
 under `.eval-runs/<UTC timestamp>/` after each fixture. Errors are recorded;
 remaining fixtures continue. Failures exit nonzero; `needs_review` requires
 manual semantic assessment.
+
+Spontaneous fixtures check adaptation, send/skip decisions, schema validity,
+and one-call execution using fixed drafts. `spontaneous-followup-*` checks
+ordinary assistant behavior with labeled bot history. Semantic review covers
+context fit, draft retention, attribution, and task switching. Invalid output
+fails the eval even when production suppresses delivery.
 
 Conversation evals default to two repetitions, concurrency three (maximum four):
 
@@ -142,12 +164,9 @@ Compare a saved planner prompt (A) with the current one (D):
 npm run eval:conversation -- --baseline-manifest=.eval-runs/SAVED_RUN/manifest.json
 ```
 
-Variant D is available only with `--baseline-manifest`; it uses the current
-production planner against saved A prompts. The former experimental overlay
-has been merged into the production prompt and is no longer loaded.
-Both use the current generator and identical user data. Manifests from the old
-single-call contract are incompatible. Filters: `--id`, `--variants`,
-`--repetitions`, `--concurrency`.
+Variant D requires `--baseline-manifest` and compares the current planner with
+saved A prompts. Both use the current generator and identical user data.
+Filters: `--id`, `--variants`, `--repetitions`, `--concurrency`.
 
 ## Local Docker
 
@@ -168,10 +187,7 @@ To check Reddit impersonation support:
 docker compose -f .github/compose.yml run --rm --no-deps --entrypoint yt-dlp video --list-impersonate-targets
 ```
 
-Chrome must be available via `curl_cffi`. Verify a full download and Telegram
-upload too; metadata extraction alone does not test the complete pipeline.
-Check an image post and a gallery as well: saved Reddit JSON should allow both
-even when yt-dlp rejects the non-video URL, without a second Reddit API request.
+The output must list Chrome through `curl_cffi`.
 
 ## CI
 
@@ -197,9 +213,9 @@ deploy metadata, not SQLite; Pod replacement discards unfinished jobs.
 
 ### Cluster and Data
 
-Install K3s using its [official guide](https://docs.k3s.io/quick-start).
-Traefik and ServiceLB are unnecessary. If using the kubeconfig example below,
-include `YOUR_VPS_HOST` in the API certificate with `--tls-san YOUR_VPS_HOST`.
+Install K3s without Traefik or ServiceLB. Include `YOUR_VPS_HOST` in the API
+certificate with `--tls-san YOUR_VPS_HOST`. External references are listed in
+[research](research.md#operations).
 
 Run setup on the VPS with an administrator kubeconfig, for example
 `export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` in a root shell:
@@ -285,9 +301,8 @@ rm -f "$ca_file"
 unset token
 ```
 
-The kubeconfig endpoint must match the tunnel. The
-[`--tls-server-name` option](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_config/kubectl_config_set-cluster/)
-verifies the API certificate against its configured name.
+The kubeconfig endpoint must match the tunnel. `--tls-server-name` verifies
+the API certificate against `YOUR_VPS_HOST`.
 Rotate the token by replacing its Secret and updating GitHub.
 
 In GitHub **Settings → Environments → production**, restrict deployment branches
@@ -338,6 +353,8 @@ Use a separate test bot/chat and check:
 - `/translate`, `/read`, and `/transcribe` with valid and missing reply targets;
   confirm video transcription also works on a video sent by the bot.
 - Edited messages change later context without sending another reply.
+- Spontaneous generation, replies to generated messages, serious-context skips,
+  frequency limits, and disabled/private/idle chats.
 - Reddit image/GIF/gallery/video and Streamable posts; Instagram Reels and
   mixed carousels; YouTube Shorts; TikTok video and photo posts.
 - Captions, sender attribution, spoilers, album order, source-link deletion,

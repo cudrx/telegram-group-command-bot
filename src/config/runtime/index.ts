@@ -6,6 +6,7 @@ import { llmProviderConfig } from './providers/llm.js';
 import { lookupProviderConfig } from './providers/lookup.js';
 import { mediaProviderConfig } from './providers/media.js';
 import { ttsProviderConfig } from './providers/tts.js';
+import { spontaneousConfig } from './spontaneous.js';
 import { storageConfig } from './storage.js';
 
 export const runtimeConfig = {
@@ -22,7 +23,8 @@ export const runtimeConfig = {
     tts: ttsProviderConfig
   },
   localization: localizationConfig,
-  storage: storageConfig
+  storage: storageConfig,
+  spontaneous: spontaneousConfig
 } as const;
 
 export { answerActionConfig } from './actions/answer.js';
@@ -37,4 +39,5 @@ export { llmProviderConfig } from './providers/llm.js';
 export { lookupProviderConfig } from './providers/lookup.js';
 export { mediaProviderConfig } from './providers/media.js';
 export { ttsProviderConfig } from './providers/tts.js';
+export { spontaneousConfig } from './spontaneous.js';
 export { storageConfig } from './storage.js';

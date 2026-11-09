@@ -18,6 +18,10 @@ export function toStoredMessage(row: StoredMessageRow): StoredMessage {
     editedAt: row.editedAt ?? null,
     isBot: Boolean(row.isBot),
     outputMode: row.outputMode === 'voice' ? 'voice' : 'text',
+    generationKind:
+      row.generationKind === 'spontaneous_markov_llm'
+        ? 'spontaneous_markov_llm'
+        : 'standard',
     replyToMessageId: row.replyToMessageId,
     mediaSnapshot:
       row.mediaKind && row.mediaFileId

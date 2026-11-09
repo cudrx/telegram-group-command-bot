@@ -1,3 +1,5 @@
+import type { SpontaneousPolicy } from '../runtime/spontaneous.js';
+
 export const CHAT_COMMANDS = [
   'translate',
   'read',
@@ -22,6 +24,7 @@ export type ChatPolicy = {
   commands: Record<ChatCommand, boolean>;
   features: Record<ChatFeature, boolean>;
   reddit_sources: Partial<Record<RedditCommandSource, string[]>>;
+  spontaneous?: SpontaneousPolicy;
 };
 
 export type TelegramChatEnv = {

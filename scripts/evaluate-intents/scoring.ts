@@ -52,6 +52,7 @@ export function getEvalStatus(
     result.error !== undefined ||
     hasRubricFailures(result.rubric) ||
     result.conversation?.passed === false ||
+    result.spontaneous?.passed === false ||
     evaluation?.length.passed === false ||
     evaluation?.botContext.passed === false ||
     evaluation?.semantic.status === 'failed'

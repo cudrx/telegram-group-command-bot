@@ -8,6 +8,7 @@ import {
   getSelectedMessageIds
 } from '../../src/llm/openai-compatible-client/answer.js';
 import { OpenAiCompatibleLlmClient } from '../../src/llm/openai-compatible-client/index.js';
+import { buildSpontaneousMessages } from '../../src/llm/openai-compatible-client/spontaneous.js';
 import { buildIntentPrompt } from '../../src/llm/prompts.js';
 import { intentEvalFixtures } from '../intent-eval-fixtures.js';
 import { parseEvalEnv } from './env.js';
@@ -132,10 +133,44 @@ export async function evaluateFixture(
     let answer: Awaited<ReturnType<typeof evaluateAnswer>> | null = null;
     let prompt: string;
     let response: string;
+    let spontaneous: EvalResult['spontaneous'];
+    let fittedMessages: ReturnType<typeof buildAnswerMessages> = [];
     if (fixture.intent === 'answer') {
       answer = await evaluateAnswer(llm, fixture);
       prompt = answer.prompt;
       response = answer.response;
+    } else if (fixture.intent === 'spontaneous') {
+      if (!fixture.spontaneousDraft)
+        throw new Error('Spontaneous fixture is missing its draft');
+
+      const input = {
+        assistantInstructions: fixture.assistantInstructions,
+        currentDateTime: fixture.currentDateTime,
+        draft: fixture.spontaneousDraft,
+        messages: [
+          ...fixture.replyContext.priorContextMessages,
+          ...(fixture.replyContext.triggerMessage
+            ? [fixture.replyContext.triggerMessage]
+            : [])
+        ]
+      };
+      fittedMessages = buildSpontaneousMessages(input);
+      prompt = JSON.stringify(fittedMessages, null, 2);
+      const result = await llm.generateSpontaneous(input);
+      response =
+        result.decision.action === 'send' ? result.decision.text : '[skip]';
+      spontaneous = {
+        action: result.decision.action,
+        validOutput: result.validOutput,
+        passed:
+          result.validOutput &&
+          result.attemptCount === 1 &&
+          (!fixture.expectedSpontaneousAction ||
+            result.decision.action === fixture.expectedSpontaneousAction),
+        llmCalls: result.attemptCount,
+        promptTokensEstimate: result.promptTokensEstimate,
+        latencyMs: result.latencyMs
+      };
     } else {
       const input = { ...fixture, intent: fixture.intent };
       prompt = buildIntentPrompt(input);
@@ -151,9 +186,10 @@ export async function evaluateFixture(
       evaluation: evaluateFixtureChecks(
         fixture,
         response,
-        answer?.fittedMessages ?? []
+        answer?.fittedMessages ?? fittedMessages
       ),
-      ...(answer ? { conversation: answer.conversation } : {})
+      ...(answer ? { conversation: answer.conversation } : {}),
+      ...(spontaneous ? { spontaneous } : {})
     };
   } catch (error) {
     return {

@@ -144,6 +144,9 @@ export function createOrchestrator(input: {
     db: input.db as never,
     qwen: {
       ...input.qwen,
+      generateSpontaneous: async () => {
+        throw new Error('Unexpected spontaneous generation');
+      },
       generateAnswer:
         input.qwen.generateAnswer ??
         (async (answerInput: GenerateAnswerInput) => {

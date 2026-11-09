@@ -1,8 +1,6 @@
 import { answerActionConfig } from '../../config/runtime/index.js';
 import type { StoredMessage } from '../../domain/models.js';
 import { formatMoscowCurrentDateTime } from '../current-datetime.js';
-import { loadPrompt } from '../prompt-files.js';
-import { renderPromptTemplate } from './render.js';
 import { sanitizePromptText } from './sanitize.js';
 import type { PromptMessage } from './types.js';
 
@@ -13,7 +11,12 @@ export function formatConversationForLlm(messages: PromptMessage[]): string {
         ? `bot ${sanitizePromptText(message.senderDisplayName)}`
         : `user#${message.userId ?? 'unknown'} ${sanitizePromptText(message.senderDisplayName)}`;
 
-      return `[${formatMoscowCurrentDateTime(message.createdAt)}] messageId=${message.messageId} replyToMessageId=${message.replyToMessageId ?? 'null'} actor=${actor} content="${sanitizePromptText(message.text)}"`;
+      const origin =
+        message.isBot && message.generationKind === 'spontaneous_markov_llm'
+          ? ' generationKind=spontaneous_markov_llm'
+          : '';
+
+      return `[${formatMoscowCurrentDateTime(message.createdAt)}] messageId=${message.messageId} replyToMessageId=${message.replyToMessageId ?? 'null'} actor=${actor}${origin} content="${sanitizePromptText(message.text)}"`;
     })
     .join('\n');
 }
@@ -40,9 +43,11 @@ export function formatCommandMessage(message: PromptMessage | null): string {
 }
 
 export function formatReplyContextMessages(messages: PromptMessage[]): string {
-  return renderPromptTemplate(loadPrompt('systemTranscript'), {
-    transcript: formatConversationForLlm(messages)
-  });
+  return [
+    'BEGIN CHAT TRANSCRIPT',
+    formatConversationForLlm(messages),
+    'END CHAT TRANSCRIPT'
+  ].join('\n');
 }
 
 export function formatReplyContextMetadata(input: {

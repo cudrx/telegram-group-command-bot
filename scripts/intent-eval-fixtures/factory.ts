@@ -29,7 +29,11 @@ export function createFixture(input: {
     Partial<
       Pick<
         StoredMessage,
-        'userId' | 'isBot' | 'replyToMessageId' | 'mediaSnapshot'
+        | 'userId'
+        | 'isBot'
+        | 'replyToMessageId'
+        | 'mediaSnapshot'
+        | 'generationKind'
       >
     >
   >;

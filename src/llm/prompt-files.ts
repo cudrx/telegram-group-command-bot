@@ -13,11 +13,7 @@ export const PROMPT_FILE_PATHS = {
   answerGrounded: 'llm/reply/answer-grounded.md',
   answerPreflight: 'llm/planner/answer-preflight.md',
   translate: 'llm/reply/translate.md',
-  systemAnswer: 'llm/system/answer.md',
-  systemRead: 'llm/system/read.md',
-  systemTranscript: 'llm/system/transcript.md',
-  cloudflareVisionSystem: 'llm/vision/cloudflare-system.md',
-  cloudflareVisionUser: 'llm/vision/cloudflare-user.md',
+  spontaneous: 'llm/reply/spontaneous.md',
   cloudflareVisionImageRawUser: 'llm/vision/cloudflare-image-raw-user.md',
   updateAnnouncement: 'llm/deploy/update-announcement.md'
 } as const;

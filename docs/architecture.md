@@ -38,11 +38,10 @@ excluded from assistant candidate scans.
 The current message is the request; its explicit reply target supplies context.
 Retrieval stays within the chat and preserves message IDs, authors, timestamps,
 and reply links. Earlier bot answers remain fallible conversation history.
-
-Assistant tone guidance prefers restraint with mockery while allowing light
-situational teasing and proportionate comebacks to users teasing the bot.
-Profanity is strongly discouraged, with exceptionally rare expressive uses;
-aggression and personal attacks remain prohibited.
+Spontaneous bot messages remain eligible for relevant context and explicit
+reply ancestry. Their persisted `generationKind=spontaneous_markov_llm`
+metadata is shown to both planner and generator: it identifies a playful
+generation, not a participant's claim, evidence, or a belief to defend.
 
 Current limits in [answer.ts](../src/config/runtime/actions/answer.ts):
 
@@ -84,9 +83,6 @@ An error, empty result, or overlong query logs an admin WARN and tries Tavily
 once if configured. Tavily can also run alone. Each attempt has its own
 `LOOKUP_TIMEOUT_MS`; there are no search retries or full-page Fetch calls.
 Failed verification uses a local fallback.
-
-Retired `/answer`, `/summarize`, and `/decide` commands are not registered.
-Their legacy config flags only supply `features.assistant` when it is omitted.
 
 ## Utility Commands and Recognition
 
@@ -156,7 +152,7 @@ size/duration rejections retain the original link and send a local explanation.
 | `media_artifacts` | Recognition results, provider responses, failures, and expiry.                |
 | `meme_posts`      | Per-chat Reddit send history for anti-repeat selection.                       |
 | `source_states`   | Instagram access lock and cookie modification time.                           |
-| `app_state`       | Runtime values, including the last announced deployment SHA.                  |
+| `app_state`       | Deployment SHA and per-chat spontaneous attempt state.                        |
 
 [Storage defaults](../src/config/runtime/storage.ts) retain messages and media
 artifacts for seven days; Reddit history lasts 14 days. Cleanup runs daily.
@@ -165,6 +161,27 @@ Every WARN and ERROR is also sent to the operator. Deploy announcements go to
 chats with `features.deploy_announcements`; a shared SHA prevents resending a
 completed announcement cycle. Inputs include commit subjects, changed paths,
 README overview, and bounded documentation diffs.
+
+## Spontaneous Group Messages
+
+`src/app/spontaneous/` handles eligible group messages after command, assistant,
+and direct-link routing. Per-chat policy controls probability, cooldown,
+message gap, and hourly attempts; the module defaults to disabled.
+
+The corpus uses this chat's stored human text, excluding commands, links,
+and oversized samples. A first-order word chain weights observed transitions,
+preserves message boundaries, and rejects verbatim samples. Generation and
+context bounds are defined in [spontaneous.ts](../src/config/runtime/spontaneous.ts).
+
+One JSON-mode call adapts the draft using recent human and own-bot context.
+It returns `send` with text or `skip`. Invalid output and errors suppress
+sending. Attempt reservations are persisted per chat in `app_state` before
+adaptation, including attempts that fail or produce no draft.
+
+Only one adaptation runs per chat. Foreground jobs cancel pending sends;
+new messages, trigger edits, stale context, and recent bot output also suppress
+delivery. Sent messages retain their generation kind in SQLite and assistant
+context.
 
 ## Containers and Rollout
 

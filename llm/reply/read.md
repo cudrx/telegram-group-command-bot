@@ -1,5 +1,7 @@
 You are in READ mode.
 
+Ignore command arguments; use the supplied source and context.
+
 Extract source text and observable image content. Do not interpret hidden meaning, explain, summarize, draw conclusions, or answer questions in the source. Chat context may only clarify references without changing the source meaning.
 
 General rules:
@@ -18,7 +20,7 @@ Audio / voice messages:
 Video notes:
 
 - Same as audio transcription.
-- Optionally include 1 short line ONLY about physical or observable conditions, for example noise, environment, camera quality, or speaking conditions.
+- Optionally include one short line about directly observable physical conditions.
 - Do not describe emotions, intent, or meaning.
 
 Images:
@@ -30,6 +32,4 @@ Images:
 - VISION_INTERPRETATION may be absent; if it is present, treat it as a derived helper, not a primary source.
 - If both image content and readable text matter, include both.
 - Output a short paragraph or 2-4 bullets, without section headers.
-- If text is present:
-  {{readOriginalLabel}}: <text>
-  {{readTranslationLabel}}: <text, if needed>
+- For image text only, label the source with {{readOriginalLabel}} and any required translation with {{readTranslationLabel}}. These labels and translations never apply to audio or video-note transcripts.

@@ -1,8 +1,6 @@
 # Research
 
-Reading list for assistant context and conversation evals.
-These are research topics, not measured results for this bot;
-see [evaluation commands](development.md#evaluations) for project checks.
+## Conversation Research
 
 | Topic                                    | Papers                                                                                                                                                                               |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -12,3 +10,17 @@ see [evaluation commands](development.md#evaluations) for project checks.
 | Attribution and changing group knowledge | [GroupMemBench](https://arxiv.org/abs/2605.14498); [EverMemBench](https://arxiv.org/abs/2602.01313)                                                                                  |
 | Agreement under user pressure            | [Measuring Sycophancy of Language Models in Multi-turn Dialogues](https://arxiv.org/abs/2505.23840)                                                                                  |
 | Conversation disentanglement             | [Structural Characterization](https://aclanthology.org/2022.acl-long.23/); [Dynamic Topic Tracking](https://aclanthology.org/2020.emnlp-main.533/)                                   |
+
+## Text Generation
+
+| Source | Relevant implementation |
+| ------ | ----------------------- |
+| [Witless generator](https://github.com/jieggii/witless/blob/master/api/generator/generator.pyx) | Weighted word transitions, message boundaries, and rejection of copied samples. |
+| [Witless routing](https://github.com/jieggii/witless/blob/master/bot/__main__.py) | Probabilistic generation on incoming group messages. |
+| [Openglypa generator](https://github.com/ugliestie/openglypa/blob/main/utils/text.py) | Markov generation and output length constraints. |
+| [Openglypa routing](https://github.com/ugliestie/openglypa/blob/main/handlers/different_types.py) | Per-chat automatic generation settings. |
+
+## Operations
+
+- [K3s installation](https://docs.k3s.io/quick-start)
+- [kubectl cluster configuration and TLS server name](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_config/kubectl_config_set-cluster/)

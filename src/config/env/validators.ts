@@ -1,11 +1,40 @@
 import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 
+import { spontaneousConfig } from '../runtime/spontaneous.js';
 import { STT_PROVIDER, VISION_PROVIDER } from './constants.js';
 import type { ParsedRawEnv } from './schema.js';
 import type { ChatPolicy, TelegramChatEnv } from './types.js';
 
 const subredditListSchema = z.array(z.string().trim().min(1)).min(1);
+
+const spontaneousPolicySchema = z
+  .object({
+    enabled: z.boolean().default(spontaneousConfig.defaults.enabled),
+    probability: z
+      .number()
+      .min(0)
+      .max(1)
+      .default(spontaneousConfig.defaults.probability),
+    cooldownSeconds: z
+      .number()
+      .int()
+      .positive()
+      .default(spontaneousConfig.defaults.cooldownSeconds),
+    minMessages: z
+      .number()
+      .int()
+      .min(1)
+      .max(spontaneousConfig.corpusLimit)
+      .default(spontaneousConfig.defaults.minMessages),
+    maxAttemptsPerHour: z
+      .number()
+      .int()
+      .min(1)
+      .max(60)
+      .default(spontaneousConfig.defaults.maxAttemptsPerHour)
+  })
+  .strict();
 
 const chatCommandsSchema = z
   .object({
@@ -56,7 +85,8 @@ const chatPolicySchema = z
       .transform((value) => value ?? null),
     commands: chatCommandsSchema,
     features: chatFeaturesSchema,
-    reddit_sources: redditSourcesSchema
+    reddit_sources: redditSourcesSchema,
+    spontaneous: spontaneousPolicySchema.optional()
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -97,7 +127,8 @@ const chatPolicySchema = z
               value.commands.decide
           )
       },
-      reddit_sources: value.reddit_sources
+      reddit_sources: value.reddit_sources,
+      ...(value.spontaneous ? { spontaneous: value.spontaneous } : {})
     })
   );
 

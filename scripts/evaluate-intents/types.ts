@@ -13,6 +13,14 @@ export type EvalResult = {
   response: string;
   rubric: RubricResult;
   error?: { name: string; message: string };
+  spontaneous?: {
+    action: 'send' | 'skip';
+    validOutput: boolean;
+    passed: boolean;
+    llmCalls: number;
+    promptTokensEstimate: number;
+    latencyMs: number;
+  };
   evaluation?:
     | {
         category: string;

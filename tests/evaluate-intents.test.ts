@@ -16,25 +16,27 @@ import { intentEvalFixtures } from '../scripts/intent-eval-fixtures.js';
 import { buildAnswerMessages } from '../src/llm/openai-compatible-client/answer.js';
 
 describe('evaluate-intents helpers', () => {
-  test('accepts a singular greeting in a valid translation', () => {
+  test.each([
+    'Текст сообщения:\nЗдравствуй, до завтра',
+    'Текст сообщения:\nЗдравствуйте, до встречи завтра'
+  ])('accepts a valid greeting and farewell translation: %s', (response) => {
     const fixture = intentEvalFixtures.find(
       (item) => item.id === 'translate-basic-message'
     );
     if (!fixture) throw new Error('Missing translate fixture');
 
-    expect(
-      hasRubricFailures(
-        evaluateRubric(
-          'Текст сообщения:\nЗдравствуй, до завтра',
-          fixture.rubric
-        )
-      )
-    ).toBe(false);
+    expect(hasRubricFailures(evaluateRubric(response, fixture.rubric))).toBe(
+      false
+    );
   });
 
   test.each([
     ['What is two plus two?\n\nFuck, I forgot again.', false],
     ['What is two plus two?', true],
+    [
+      'Оригинал: What is two plus two? Fuck, I forgot again.\n\nПеревод: Сколько будет два плюс два? Чёрт, я опять забыл.',
+      true
+    ],
     ['What is two plus two?\n\nFuck, I forgot again.\n4', true]
   ] as const)('scores READ source fidelity independently of paragraph breaks: %s', (response, failed) => {
     const fixture = intentEvalFixtures.find(

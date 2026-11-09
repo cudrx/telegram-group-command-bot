@@ -28,6 +28,11 @@ export function printResult(result: EvalResult): void {
     );
   }
 
+  if (result.spontaneous)
+    console.log(
+      `${result.spontaneous.passed ? 'PASS' : 'FAIL'} spontaneous: ${JSON.stringify(result.spontaneous)}`
+    );
+
   for (const check of result.rubric.include) {
     console.log(
       `${check.passed ? 'PASS' : 'FAIL'} include any: ${check.group.join(' | ')}`
@@ -91,6 +96,11 @@ export function formatMarkdown(results: EvalResult[]): string {
       '',
       '### Rubric',
       '',
+      ...(result.spontaneous
+        ? [
+            `- ${result.spontaneous.passed ? 'PASS' : 'FAIL'} spontaneous: ${JSON.stringify(result.spontaneous)}`
+          ]
+        : []),
       ...(result.conversation
         ? [
             `- ${result.conversation.passed ? 'PASS' : 'FAIL'} conversation: ${JSON.stringify(result.conversation)}`

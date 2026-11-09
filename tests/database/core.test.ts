@@ -215,6 +215,7 @@ describeWithSqlite('DatabaseClient core', () => {
       'from_last_name',
       'from_display_name',
       'output_mode',
+      'generation_kind',
       'edited_at'
     ]);
 

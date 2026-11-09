@@ -97,7 +97,7 @@ export type EditMessageTextDispatcher = (input: {
 
 export type LlmClient = Pick<
   import('../../llm/openai-compatible-client/index.js').OpenAiCompatibleLlmClient,
-  'generateAnswer' | 'generateReply'
+  'generateAnswer' | 'generateReply' | 'generateSpontaneous'
 >;
 
 export type ReplyRequest = {

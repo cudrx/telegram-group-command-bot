@@ -8,6 +8,7 @@ OpenAI-compatible LLM providers.
 - Sends Reddit media through `/meme` and `/sex`.
 - Expands Reddit, Instagram, YouTube, and TikTok links without the LLM.
 - Recognizes images and audio when the corresponding providers are configured.
+- Optionally interjects with short, context-adapted Markov jokes in configured groups.
 
 ## Quick Start
 
@@ -48,6 +49,8 @@ username (`@bot_username объясни это`) or reply to a message from the 
 A bare mention also works. Reply to a participant's message with a mention
 to make it the target. Ordinary messages are stored for context without
 triggering an assistant reply; edits update stored text without a new reply.
+Set `spontaneous.enabled` per group to enable unsolicited Markov/LLM messages;
+see [configuration](docs/development.md#spontaneous-messages).
 
 To receive ordinary group messages, disable BotFather privacy mode or give
 the bot the necessary administrator access. Context only includes messages
@@ -76,7 +79,7 @@ unconfigured groups and other private users are rejected.
 - [Documentation index](docs/README.md)
 - [Architecture](docs/architecture.md): routing, context, media, and storage.
 - [Development](docs/development.md): configuration, tests, Docker, and K3s operations.
-- [Research](docs/research.md): reading list for conversation evals.
+- [Research](docs/research.md): papers, reference implementations, and external documentation.
 
 Production uses one K3s Pod with `bot`, `video`, and `gallery` containers.
 GitHub Actions deploys non-documentation changes pushed to `main`; PRs run CI.

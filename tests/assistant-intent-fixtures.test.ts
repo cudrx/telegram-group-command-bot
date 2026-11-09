@@ -106,7 +106,9 @@ describe('intent eval fixtures', () => {
       intentEvalFixtures.map((fixture) => fixture.intent)
     );
 
-    expect(coveredIntents).toEqual(new Set(['answer', 'translate', 'read']));
+    expect(coveredIntents).toEqual(
+      new Set(['answer', 'translate', 'read', 'spontaneous'])
+    );
     expect(intentEvalFixtures.map((fixture) => fixture.id)).toEqual(
       expect.arrayContaining([
         'answer-factual-question',

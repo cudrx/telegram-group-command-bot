@@ -22,7 +22,6 @@ export function buildIntentPrompt(input: {
   const dataSections = getIntentDataSections(input);
   return renderPromptTemplate(loadPrompt('replyShell'), {
     assistantInstructions: input.assistantInstructions,
-    assistantDisplayName: text.assistant.displayName,
     globalPrompt: loadPrompt('global'),
     targetDisplayName: sanitizePromptText(input.targetDisplayName),
     intent: input.intent,
