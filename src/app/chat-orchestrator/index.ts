@@ -76,11 +76,14 @@ export class ChatOrchestrator {
       entities: message.entities
     });
 
+    const replyToBotMedia = isReplyToBotMedia(message, this.deps);
     const assistantRequested =
       accessContext.kind !== 'private_link_sender' &&
       !hasLeadingBotCommand(message) &&
       (hasAssistantMention(message, this.deps.bot.username) ||
-        (!message.isBot && message.replyToUserId === this.deps.bot.userId)) &&
+        (!message.isBot &&
+          message.replyToUserId === this.deps.bot.userId &&
+          !replyToBotMedia)) &&
       isFeatureEnabledForAccessContext(accessContext, 'assistant');
 
     let decision = 'ignore';
@@ -196,6 +199,27 @@ export class ChatOrchestrator {
       })
     );
   }
+}
+
+function isReplyToBotMedia(
+  message: NormalizedMessage,
+  deps: ChatOrchestratorDeps
+): boolean {
+  if (message.replyToUserId !== deps.bot.userId) return false;
+
+  const mediaSnapshot =
+    message.replyToMediaSnapshot ??
+    message.replyToMessageSnapshot?.mediaSnapshot ??
+    (message.replyToMessageId != null
+      ? deps.db.getMessageByTelegramMessageId(
+          message.chatId,
+          message.replyToMessageId
+        )?.mediaSnapshot
+      : null);
+
+  return (
+    mediaSnapshot?.mediaKind === 'video' || mediaSnapshot?.mediaKind === 'photo'
+  );
 }
 
 function hasLeadingBotCommand(message: NormalizedMessage): boolean {

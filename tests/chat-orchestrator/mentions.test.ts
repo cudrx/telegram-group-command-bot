@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 
+import type { MediaMessageSnapshot } from '../../src/domain/models.js';
 import type {
   GenerateAnswerInput,
   GenerateAnswerResult
@@ -42,6 +43,82 @@ function setup() {
 }
 
 describe('assistant invocations', () => {
+  test.each([
+    ['video', 'telegram'],
+    ['photo', 'telegram'],
+    ['video', 'history'],
+    ['photo', 'history']
+  ] as const)('does not answer an ordinary reply to bot %s from %s', async (mediaKind, source) => {
+    const flow = setup();
+    const mediaSnapshot: MediaMessageSnapshot = {
+      messageId: 2,
+      mediaKind,
+      fileId: 'meme-file',
+      fileUniqueId: null,
+      mimeType: null,
+      fileSize: null,
+      durationSeconds: null,
+      caption: null
+    };
+    if (source === 'history') {
+      flow.db.saveBotMessage({
+        chatId: 1,
+        chatType: 'group',
+        chatTitle: null,
+        messageId: 2,
+        text: 'мем',
+        userId: 77,
+        displayName: 'Fun Bot',
+        createdAt: '2026-10-24T11:00:00Z',
+        mediaSnapshot
+      });
+    }
+    await flow.orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 3,
+        text: 'ахаха',
+        replyToMessageId: 2,
+        replyToUserId: 77,
+        replyToMediaSnapshot: source === 'telegram' ? mediaSnapshot : null
+      })
+    );
+    expect(flow.generateAnswer).not.toHaveBeenCalled();
+    expect(flow.replyDispatcher).not.toHaveBeenCalled();
+    expect(flow.db.getMessageByTelegramMessageId(1, 3)?.text).toBe('ахаха');
+  });
+
+  test.each([
+    ['video', '@fun_bot поясни мем'],
+    ['voice', 'почему?']
+  ] as const)('answers an explicit mention on %s or a conversational voice reply', async (mediaKind, text) => {
+    const flow = setup();
+    await flow.orchestrator.handleIncomingMessage(
+      createIncomingMessage({
+        messageId: 3,
+        text,
+        entities: text.startsWith('@')
+          ? [{ type: 'mention', offset: 0, length: 8 }]
+          : [],
+        replyToMessageId: 2,
+        replyToUserId: 77,
+        replyToMediaSnapshot: {
+          messageId: 2,
+          mediaKind,
+          fileId: 'bot-media',
+          fileUniqueId: null,
+          mimeType: null,
+          fileSize: null,
+          durationSeconds: null,
+          caption: null
+        }
+      })
+    );
+    expect(flow.generateAnswer).toHaveBeenCalledTimes(2);
+    expect(flow.replyDispatcher).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Чем помочь?' })
+    );
+  });
+
   test('a bare mention can ask for clarification without a target', async () => {
     const flow = setup();
     await flow.orchestrator.handleIncomingMessage(

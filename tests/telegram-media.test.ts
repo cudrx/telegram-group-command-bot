@@ -18,6 +18,26 @@ afterEach(async () => {
 });
 
 describe('extractReplyToMediaSnapshot', () => {
+  test('extracts a replied-to animation as video media', () => {
+    expect(
+      extractReplyToMediaSnapshot(
+        createMessage({
+          animation: {
+            file_id: 'animation-file',
+            file_unique_id: 'animation-unique',
+            duration: 4,
+            mime_type: 'video/mp4'
+          }
+        })
+      )
+    ).toMatchObject({
+      messageId: 90,
+      mediaKind: 'video',
+      fileId: 'animation-file',
+      durationSeconds: 4
+    });
+  });
+
   test('extracts replied-to voice media metadata', () => {
     expect(
       extractReplyToMediaSnapshot(

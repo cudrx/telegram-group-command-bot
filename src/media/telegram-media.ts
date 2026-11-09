@@ -14,6 +14,7 @@ type TelegramReplyMessage = NonNullable<Context['message']> & {
     voice?: TelegramFileMedia & { duration?: unknown };
     audio?: TelegramFileMedia & { duration?: unknown };
     video?: TelegramFileMedia & { duration?: unknown };
+    animation?: TelegramFileMedia & { duration?: unknown };
     video_note?: TelegramFileMedia & { duration?: unknown };
     photo?: TelegramPhotoSize[];
     document?: TelegramFileMedia & { file_name?: unknown };
@@ -55,6 +56,7 @@ export function extractMessageMediaSnapshot(message: {
   voice?: TelegramFileMedia & { duration?: unknown };
   audio?: TelegramFileMedia & { duration?: unknown };
   video?: TelegramFileMedia & { duration?: unknown };
+  animation?: TelegramFileMedia & { duration?: unknown };
   video_note?: TelegramFileMedia & { duration?: unknown };
   photo?: TelegramPhotoSize[];
   document?: TelegramFileMedia & { file_name?: unknown };
@@ -83,11 +85,13 @@ export function extractMessageMediaSnapshot(message: {
     });
   }
 
-  if (reply.video) {
+  const video = reply.video ?? reply.animation;
+
+  if (video) {
     return fromFileMedia({
       messageId: reply.message_id,
       mediaKind: 'video',
-      media: reply.video,
+      media: video,
       fallbackMimeType: 'video/mp4',
       caption
     });

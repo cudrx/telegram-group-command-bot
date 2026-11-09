@@ -111,6 +111,30 @@ function setup(overrides: Partial<SpontaneousPolicy> = {}) {
 }
 
 describeWithSqlite('spontaneous messages through the orchestrator', () => {
+  test('does not send a spontaneous response to a comment on bot media', async () => {
+    const h = setup();
+    h.seedChat();
+    await h.orchestrator.handleIncomingMessage({
+      ...h.message(),
+      replyToUserId: 77,
+      replyToMessageId: 90,
+      replyToMediaSnapshot: {
+        messageId: 90,
+        mediaKind: 'video',
+        fileId: 'meme-file',
+        fileUniqueId: null,
+        mimeType: 'video/mp4',
+        fileSize: null,
+        durationSeconds: 10,
+        caption: null
+      }
+    });
+    expect(h.generateAnswer).not.toHaveBeenCalled();
+    expect(h.generateSpontaneous).not.toHaveBeenCalled();
+    expect(h.replyDispatcher).not.toHaveBeenCalled();
+    expect(h.db.getMessageByTelegramMessageId(1, 100)).not.toBeNull();
+  });
+
   test('uses only same-chat humans for a draft, adapts once, and persists the labeled sent reply', async () => {
     const h = setup();
     h.seedChat();
