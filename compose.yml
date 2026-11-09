@@ -1,0 +1,90 @@
+name: telegram-bot
+
+x-service: &service
+  init: true
+  restart: unless-stopped
+  user: '1000:1000'
+  stop_grace_period: 30s
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging:
+    driver: json-file
+    options: { max-size: '10m', max-file: '3' }
+
+x-data: &data
+  type: bind
+  source: ./data
+  target: /app/data
+  bind: { create_host_path: false }
+
+x-media: &media
+  type: bind
+  source: ./media
+  target: /media
+  bind: { create_host_path: false }
+
+services:
+  bot:
+    <<: *service
+    image: ${BOT_IMAGE:-telegram-group-command-bot:local}
+    build: { context: ., dockerfile: .github/Dockerfile, target: bot }
+    mem_limit: 512m
+    env_file:
+      - path: ./.env
+        format: raw
+    environment:
+      NODE_ENV: production
+      LOG_COLOR: 'false'
+      SQLITE_PATH: /app/data/bot.sqlite
+      TMPDIR: /media
+      MEDIA_VIDEO_URL: http://video:8081
+      MEDIA_GALLERY_URL: http://gallery:8082
+    volumes:
+      - *data
+      - *media
+      - ./deploy:/app/deploy:ro
+    depends_on:
+      video: { condition: service_healthy }
+      gallery: { condition: service_healthy }
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3000/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 3s
+      start_period: 120s
+      retries: 12
+  video:
+    <<: *service
+    image: ${VIDEO_IMAGE:-telegram-group-command-bot-video:local}
+    build: { context: ., dockerfile: .github/Dockerfile, target: video }
+    mem_limit: 768m
+    cpus: 1
+    environment:
+      MEDIA_HOST: 0.0.0.0
+      TMPDIR: /media
+    volumes:
+      - <<: *data
+        read_only: true
+      - *media
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:8081/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 3s
+      retries: 12
+  gallery:
+    <<: *service
+    image: ${GALLERY_IMAGE:-telegram-group-command-bot-gallery:local}
+    build: { context: ., dockerfile: .github/Dockerfile, target: gallery }
+    mem_limit: 256m
+    cpus: 0.5
+    environment:
+      MEDIA_HOST: 0.0.0.0
+      TMPDIR: /media
+    volumes:
+      - <<: *data
+        read_only: true
+      - *media
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:8082/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 10s
+      timeout: 3s
+      retries: 12

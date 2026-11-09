@@ -22,6 +22,8 @@ export const botStop = vi.fn();
 export const botOn = vi.fn();
 export const botCatch = vi.fn();
 export const botUse = vi.fn();
+export const botApiUse = vi.fn();
+export const botIsRunning = vi.fn();
 export const botSendMessage = vi.fn();
 export const botEditMessageText = vi.fn();
 export const botSendVoice = vi.fn();
@@ -58,6 +60,7 @@ export const botState: {
 vi.mock('grammy', () => {
   class Bot {
     public readonly api = {
+      config: { use: botApiUse },
       getMe: botGetMe,
       getFile: botGetFile,
       sendMessage: botSendMessage,
@@ -103,6 +106,10 @@ vi.mock('grammy', () => {
 
     stop(): void {
       botStop();
+    }
+
+    isRunning(): boolean {
+      return botIsRunning();
     }
   }
 

@@ -1,89 +1,78 @@
 # Telegram Group Command Bot
 
-A Telegram group assistant built with TypeScript, grammY, SQLite, and
-OpenAI-compatible LLM providers.
+Telegram group assistant using TypeScript, grammY, SQLite, and an
+OpenAI-compatible LLM API.
 
-- Answers mentions and replies using stored chat context; can search the web.
-- Translates messages, reads text aloud, and transcribes Telegram videos.
-- Sends Reddit media through `/meme` and `/sex`.
-- Expands Reddit, Instagram, YouTube, and TikTok links without the LLM.
-- Recognizes images and audio when the corresponding providers are configured.
-- Optionally interjects with short, context-adapted Markov jokes in configured groups.
+- Answers mentions and replies using chat history and web search.
+- Translates messages, reads text aloud, and recognizes images and audio.
+- Downloads Reddit, Instagram, YouTube, and TikTok media.
+- Can send spontaneous messages generated from the group's vocabulary.
 
 ## Quick Start
 
-Requires Node.js 24, npm 11+, a Telegram bot token, and an LLM API key.
+Requires Node.js 24, a Telegram bot token, and an LLM API key.
 
 ```bash
 npm ci
-mkdir -p data
+mkdir -p data media
 cp config/examples/.env.example .env
 cp config/examples/telegram-chat-config.example.json data/telegram-chat-config.json
 cp config/examples/telegram-access-config.example.json data/telegram-access-config.json
 ```
 
-Edit `.env` and both JSON files before starting. Replace required placeholders;
-remove or comment out unused provider keys. Set real Telegram IDs and enable
-the commands and features you need. Enabled `meme`/`sex` commands require
-non-empty matching `reddit_sources` lists.
+Set real credentials in `.env`, group IDs in the chat config, and your Telegram
+user ID in the access config. Remove unused optional provider keys. Enable the
+commands you need; `/meme` and `/sex` require matching `reddit_sources` lists.
 
 ```bash
-npm run migrate
 npm run dev
 ```
 
-Media downloads need local CLI tools or the video/gallery workers. To run all
-three containers locally with those tools included:
+SQLite is created and migrated on startup. Media downloads require local tools
+or the three-container Docker setup:
 
 ```bash
-docker compose -f .github/compose.yml up -d --build
+docker compose up -d --build
 ```
 
 The mounted `data/` directory must be writable by UID/GID 1000.
-See [development](docs/development.md) for provider settings, cookies, and checks.
+See [development](docs/development.md) for configuration and native media tools.
 
-## Usage and Access
+## Usage
 
-In configured groups with `features.assistant` enabled, mention the actual bot
-username (`@bot_username объясни это`) or reply to a message from the bot.
-A bare mention also works. Reply to a participant's message with a mention
-to make it the target. Ordinary messages are stored for context without
-triggering an assistant reply; edits update stored text without a new reply.
-Set `spontaneous.enabled` per group to enable unsolicited Markov/LLM messages;
-see [configuration](docs/development.md#spontaneous-messages).
+In a configured group, mention the bot (`@your_bot explain this`) or reply to
+its message. To ask about another message, reply to it and mention the bot.
+Enable `features.assistant` for these replies. Ordinary messages are saved as
+context; edits update the saved text.
 
-To receive ordinary group messages, disable BotFather privacy mode or give
-the bot the necessary administrator access. Context only includes messages
-Telegram delivers to the bot.
+Disable BotFather privacy mode or give the bot administrator access to receive
+ordinary group messages. Deleting source links also requires permission.
 
-Utility commands are enabled per group:
+| Command | Action |
+| --- | --- |
+| `/translate` | Translate the replied-to text or media. |
+| `/read` | Read the replied-to text aloud with Yandex SpeechKit. |
+| `/transcribe` | Transcribe the replied-to Telegram video with Gladia. |
+| `/meme` | Send media from the chat's Reddit sources. |
+| `/sex` | Send media from a separate Reddit source list, with spoilers. |
 
-| Command       | Action                                                                                 |
-| ------------- | -------------------------------------------------------------------------------------- |
-| `/translate`  | Translate the replied-to text or recognized media into the configured target language. |
-| `/read`       | Speak the replied-to text using Yandex SpeechKit.                                      |
-| `/transcribe` | Transcribe the replied-to Telegram video using Gladia.                                 |
-| `/meme`       | Send fresh Reddit media from the chat's meme sources.                                  |
-| `/sex`        | Send Reddit media from a separate source list, with spoilers.                          |
+Commands are group-only. The operator can use the assistant and send media
+links privately; users in `linkUserIds` can send links only. Other private
+users and unconfigured groups are rejected.
 
-`features.direct_links` enables media expansion; `features.deploy_announcements`
-enables update notices. Direct media posts are sent without a reply; after
-success, the bot tries to delete the original link and credits its sender in groups.
+Per-chat `features.direct_links` enables media downloads. After sending media,
+the bot tries to delete the source link and credits its sender in groups.
+`spontaneous.enabled` enables unsolicited replies; see
+[settings](docs/development.md#spontaneous-messages).
 
-The operator's private chat supports the assistant and direct links. Users in
-`linkUserIds` can send direct links privately. Utility commands are group-only;
-unconfigured groups and other private users are rejected.
+## Deployment
 
-## Development and Deployment
+Production uses Compose services `bot`, `video`, and `gallery`. GitHub Actions
+checks code and images, publishes to GHCR, and deploys image digests over SSH
+on non-documentation pushes to `main`.
 
-- [Documentation index](docs/README.md)
-- [Architecture](docs/architecture.md): routing, context, media, and storage.
-- [Development](docs/development.md): configuration, tests, Docker, and K3s operations.
-- [Research](docs/research.md): papers, reference implementations, and external documentation.
-
-Production uses one K3s Pod with `bot`, `video`, and `gallery` containers.
-GitHub Actions deploys non-documentation changes pushed to `main`; PRs run CI.
-Deployment credentials and recovery commands are in the development guide.
+[Setup and operations](docs/development.md#production) ·
+[Architecture](docs/architecture.md) · [Documentation](docs/README.md)
 
 ## License
 

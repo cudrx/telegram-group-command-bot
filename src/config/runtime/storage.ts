@@ -1,6 +1,6 @@
 export const storageConfig = {
   sqlitePath: 'data/bot.sqlite',
-  deployMetadataFile: '/app/data/deploy-metadata.json',
+  deployMetadataFile: '/app/deploy/deploy-metadata.json',
   retention: {
     mediaArtifactDays: 7,
     messageDays: 7

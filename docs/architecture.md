@@ -1,208 +1,119 @@
 # Architecture
 
-## Components
+## Modules
 
-| Path                         | Responsibility                                                             |
-| ---------------------------- | -------------------------------------------------------------------------- |
-| `src/app.ts`                 | grammY long polling, access checks, providers, dispatchers, and lifecycle. |
-| `src/app/chat-orchestrator/` | Persistence, command/assistant/link routing, context, and media jobs.      |
-| `src/app/actions/`           | Command registry and utility implementations.                              |
-| `src/llm/`, `llm/`           | Provider client, prompt assembly, response validation, and static prompts. |
-| `src/database/`              | SQLite migrations, queries, and retention cleanup.                         |
-| `src/media/`                 | Recognition providers, Telegram file access, and CLI worker transport.     |
-| `src/tts/`                   | Speech cleanup, voice policy, and Yandex SpeechKit.                        |
-| `src/config/env/`            | Environment and JSON access configuration validation.                      |
-| `src/config/runtime/`        | Non-secret limits and feature/provider defaults.                           |
-| `src/locales/locale.ts`      | User-facing text and language-specific patterns.                           |
+| Path | Responsibility |
+| --- | --- |
+| `src/app.ts` | Telegram polling, providers, handlers, and lifecycle. |
+| `src/app/chat-orchestrator/` | Message persistence and command, assistant, and media jobs. |
+| `src/app/actions/` | Utility commands and media downloaders. |
+| `src/llm/`, `llm/` | API client, prompt assembly, templates, and response validation. |
+| `src/database/` | SQLite schema, migrations, queries, and retention. |
+| `src/media/` | Recognition providers and HTTP transport to media workers. |
+| `src/tts/` | Speech cleanup, voice reply selection, and SpeechKit. |
+| `src/config/` | Environment/JSON validation and runtime defaults. |
+| `src/locales/locale.ts` | User-facing text and language patterns. |
 
-## Message Routing
+## Message Flow
 
-1. Normalize a Telegram message and check access before writing to SQLite.
-2. Store the message; stop on duplicates. Start supported media recognition.
-3. Resolve a leading utility command and check the chat's command flag.
-4. Otherwise, a bot mention or a human reply to this bot starts the assistant
-   when enabled. A leading slash command suppresses the assistant trigger.
-5. Otherwise, expand a supported link if direct links are enabled.
+`app.ts` checks access before passing messages to the orchestrator:
 
-Configured groups use per-chat command and feature flags. The operator's
-private chat allows the assistant and links; `linkUserIds` allow links only.
-Utility actions are registered for group mode. Unauthorized updates are rejected.
+1. Save the message; stop on duplicates. Start supported media recognition.
+2. Run an enabled utility command if present.
+3. Otherwise, answer a mention or a human reply to the bot when the assistant
+   is enabled. A leading slash command suppresses this trigger.
+4. Otherwise, expand a supported media link when enabled.
+5. Otherwise, consider a spontaneous reply.
 
-Edits update existing incoming message text/captions and `edited_at`.
-They do not create missing messages or trigger new jobs. Other bots' messages
-can be stored and used as explicit targets; unrelated other-bot messages are
-excluded from assistant candidate scans.
+Edits update stored text and `edited_at` without starting a new job.
+Access rules and commands are described in the [README](../README.md#usage).
 
-## Assistant Context and Search
+## Assistant
 
-The current message is the request; its explicit reply target supplies context.
-Retrieval stays within the chat and preserves message IDs, authors, timestamps,
-and reply links. Earlier bot answers remain fallible conversation history.
-Spontaneous bot messages remain eligible for relevant context and explicit
-reply ancestry. Their persisted `generationKind=spontaneous_markov_llm`
-metadata is shown to both planner and generator: it identifies a playful
-generation, not a participant's claim, evidence, or a belief to defend.
+[assistant-context.ts](../src/app/assistant-context.ts) selects messages from
+the same chat using reply ancestry, word overlap, authors, and recency. The
+request and its explicit reply target are preserved when fitting the prompt
+budget. Context limits are in [answer.ts](../src/config/runtime/actions/answer.ts).
 
-Current limits in [answer.ts](../src/config/runtime/actions/answer.ts):
+An answer has two JSON-mode LLM stages:
 
-- Scan 128 recent messages, add up to 16 predecessors of an old reply target,
-  and follow explicit reply ancestry up to 16 links.
-- Keep up to 80 candidates, ranked by reply relationships, terms, author, and
-  recency. Heuristic relevance does not create stored conversation links.
-- Clip individual text at 6,000 characters and mark incomplete context.
-- Fit optional history within an estimated 8,000 tokens and a 16,000-token
-  total prompt budget. Estimates use UTF-8 size, not provider token usage.
-  Drop optional history before rejecting oversized mandatory input.
+1. The planner groups discussions, selects messages, and chooses `direct`,
+   `clarify`, or `research`.
+2. The generator produces the answer or clarification. `research` runs web
+   searches between the two stages and supplies their results to the generator.
 
-Two JSON-mode LLM calls per assistant request:
+The discussion graph exists for that request only. Model-generated links are
+validated separately from Telegram reply links. Spontaneous bot messages carry
+`generationKind=spontaneous_markov_llm` into context so their origin is explicit.
+Prompts use Moscow time. Response schemas and the corrective retry are in
+[answer.ts](../src/llm/openai-compatible-client/answer.ts).
 
-1. Planner: group discussions, select context, choose `direct`, `clarify`, or
-   `research` (one or two search queries).
-2. Generator: answer from the original request, explicit reply target, selected
-   messages/media, and graph. `research` adds web evidence between calls.
+Search uses DeepSeek when configured, with Tavily as fallback. Failure to
+complete required research produces a local error reply. Provider settings
+are in [development](development.md#providers).
 
-| Planner field           | Limit / contract                                                           |
-| ----------------------- | -------------------------------------------------------------------------- |
-| `discussions`           | 16 groups; overlapping membership allowed.                                 |
-| `inferredLinks`         | 128 links, later → earlier within a group; separate from Telegram replies. |
-| `selectedDiscussionIds` | At most 64 distinct selected messages.                                     |
+## Media
 
-Graphs are request-local. Reply ancestors must be selected explicitly.
-Unique group IDs are checked before normalization. Normalization removes
-CURRENT_REQUEST and inferred duplicates of Telegram replies; unavailable IDs
-and invalid links are rejected. Conversation, graph, and web evidence are
-untrusted data. Prompts use Moscow time.
+| Source | Extraction |
+| --- | --- |
+| Reddit | yt-dlp for posts/share links; saved post JSON resolves images and galleries. |
+| Instagram | yt-dlp for Reels; gallery-dl for posts and mixed carousels. |
+| YouTube | yt-dlp for short/watch/share URLs, with Node.js for challenges. |
+| TikTok | yt-dlp for video; gallery-dl for photo posts. |
 
-Each stage allows one corrective retry and shares `LLM_MAX_RETRIES` across
-transport attempts (default: three API attempts per stage). Clarifications are
-limited to 240 characters. Exhausted validation returns a local error.
+Video processing uses metadata lookup, download, ffprobe, and ffmpeg conversion
+to H.264/AAC MP4. The bot limits concurrent video jobs and serializes conversion.
+Limits and timeouts are in
+[reddit-media.ts](../src/config/runtime/actions/reddit-media.ts).
 
-DeepSeek Search is primary when its key is available. It reuses `LLM_API_KEY`
-only for the official DeepSeek origin; otherwise it needs `DEEPSEEK_API_KEY`.
-An error, empty result, or overlong query logs an admin WARN and tries Tavily
-once if configured. Tavily can also run alone. Each attempt has its own
-`LOOKUP_TIMEOUT_MS`; there are no search retries or full-page Fetch calls.
-Failed verification uses a local fallback.
+Photo/image recognition uses Cloudflare Vision and OCR.space; voice/audio
+recognition and video transcription use Gladia. Recognition results are cached
+in `media_artifacts`. Telegram videos are transcribed through `/transcribe`.
+Short assistant answers can be sent as voice according to
+[outbound-policy.ts](../src/tts/outbound-policy.ts).
 
-## Utility Commands and Recognition
+## Spontaneous Messages
 
-| Command         | Contract                                                                                                                                                                                                   |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/translate`    | Requires a reply. Translates target text, captions, OCR, transcripts, or descriptions; uses up to three neighboring human messages as context. Skips blocks already in the target language. No web search. |
-| `/read`         | Requires replied-to text. Cleans it locally and applies TTS limits/cooldown. No LLM or recognition call.                                                                                                   |
-| `/transcribe`   | Requires a replied-to Telegram video, including one sent by the bot. Downloads it, extracts audio with ffmpeg, and transcribes through Gladia. No LLM or cached transcript artifact.                       |
-| `/meme`, `/sex` | Use the chat's `reddit_sources` lists. Try up to three subreddits' top-month listings, filter posts sent in the last 14 days, and try another candidate on failure. No LLM.                                |
+[SpontaneousMessages](../src/app/spontaneous/index.ts) builds a word-chain draft
+from this chat's human messages, then makes one LLM call to adapt it or skip.
+Attempts are reserved in `app_state` before generation; failures consume them.
+Foreground jobs cancel pending sends. New messages, edits, or recent bot output
+can also suppress delivery. Policy settings are in
+[development](development.md#spontaneous-messages).
 
-Recognition supports photos/image documents and voice/audio/video notes when
-provider keys are present. Images use Cloudflare Vision and OCR.space; audio
-uses Gladia. Results and failures are TTL artifacts. Albums deduplicate image
-recognition by chat and media-group ID. Telegram videos are recognized only
-through explicit `/transcribe`.
+## Storage
 
-Reply text is decided before the outbound voice policy runs. Usage messages
-and local fallbacks stay text. Missing providers return local fallbacks where
-the requested operation requires them.
+| Table | Data |
+| --- | --- |
+| `chats` | Chat metadata and reply/voice state. |
+| `messages` | Messages, authors, reply links, edits, and media snapshots. |
+| `media_artifacts` | Recognition results and expiry. |
+| `meme_posts` | Per-chat Reddit send history. |
+| `source_states` | Instagram access lock and cookie modification time. |
+| `app_state` | Announcement SHA and spontaneous attempt history. |
 
-## Social Media Downloads
+SQLite migrations run on open. Cleanup runs at startup and daily: messages and
+recognition artifacts are retained for seven days, Reddit history for 14 days.
+Defaults are in [storage.ts](../src/config/runtime/storage.ts) and
+[reddit-media.ts](../src/config/runtime/actions/reddit-media.ts).
 
-| Source    | Supported links and extraction                                                                                    |
-| --------- | ----------------------------------------------------------------------------------------------------------------- |
-| Reddit    | Post and share links via yt-dlp; saved post JSON resolves images, GIFs, and galleries.                            |
-| Instagram | Reels via yt-dlp; `/p/` galleries via gallery-dl. Mixed carousels retain source order and normalize each video.   |
-| YouTube   | `youtu.be`, `watch?v=`, and `/shorts/` URLs normalized to Shorts. yt-dlp uses the Node.js runtime for challenges. |
-| TikTok    | Videos via yt-dlp; photo-mode links via gallery-dl. Optional gallery soundtrack is ignored.                       |
+Warnings/errors are sent to the operator. Deploy announcements use commit
+metadata and go to chats with `features.deploy_announcements`; the announced
+SHA is stored in SQLite.
 
-Reddit listings for `/meme` and `/sex` use HTTP and prefer
-`REDDIT_COOKIE_HEADER_PATH` over Netscape cookies. HTTP 401/403 with a raw cookie
-header notifies the admin to refresh it. Direct links use `REDDIT_COOKIES_PATH`
-with yt-dlp. It uses `--impersonate chrome`, which needs its
-`curl-cffi` extra. Download failures leave the source link and send an error reply.
+## Containers
 
-yt-dlp may save valid post JSON before rejecting a non-video URL. The bot reads
-that JSON before cleanup and uses the shared image/gallery downloader, preserving
-captions and spoiler flags without another Reddit API request.
+`bot` handles Telegram and SQLite; `video` runs yt-dlp/ffmpeg; `gallery` runs
+gallery-dl. Workers expose `/health` and asynchronous `/jobs` endpoints on the
+private Compose network. Jobs are held in memory; timeout, cancellation, and
+shutdown terminate their subprocesses.
 
-Video processing is `yt-dlp metadata → download → ffprobe → ffmpeg → ffprobe`.
-Metadata and download use the same format selector. Reject videos over
-600 seconds or known selected formats over 75 MB; enforce 50 MB after download
-and conversion. Normalize to H.264/AAC MP4 with Telegram dimensions/duration.
-Reddit fallback MP4 URLs identify video posts; they do not bypass extraction.
+All containers run as UID/GID 1000. Persistent files use `/app/data`, mounted
+read-only in workers. Announcement metadata is mounted at `/app/deploy`.
+`/media` is shared temporary storage. Workers copy cookies into private per-job
+files and remove them afterward.
 
-The queue allows two video jobs globally and one per chat; normalization runs
-one process at a time. Subprocess timeouts free queue slots on stuck tools.
-Instagram auth/rate-limit failures persist a source lock in SQLite; changing
-the cookie file's modification time allows a new attempt.
-
-Images, GIFs, galleries, and videos use Telegram's matching media methods.
-Temporary files are cleaned after dispatch. Reddit NSFW/spoiler flags are
-preserved; video metadata reads them from the post JSON saved by yt-dlp's
-`--write-pages`. `/sex` forces spoilers. Successful Reddit sends update `meme_posts`;
-other sources are stored as ordinary bot media messages.
-
-Direct expansion sends media without replying, then tries to delete the source
-link. Group captions credit the sender. Failed deletion leaves the media sent;
-size/duration rejections retain the original link and send a local explanation.
-
-## Storage and Notifications
-
-| Table             | Contents                                                                      |
-| ----------------- | ----------------------------------------------------------------------------- |
-| `chats`           | Chat metadata and reply/TTS state.                                            |
-| `messages`        | Incoming/outgoing messages, senders, reply links, edits, and media snapshots. |
-| `media_artifacts` | Recognition results, provider responses, failures, and expiry.                |
-| `meme_posts`      | Per-chat Reddit send history for anti-repeat selection.                       |
-| `source_states`   | Instagram access lock and cookie modification time.                           |
-| `app_state`       | Deployment SHA and per-chat spontaneous attempt state.                        |
-
-[Storage defaults](../src/config/runtime/storage.ts) retain messages and media
-artifacts for seven days; Reddit history lasts 14 days. Cleanup runs daily.
-
-Every WARN and ERROR is also sent to the operator. Deploy announcements go to
-chats with `features.deploy_announcements`; a shared SHA prevents resending a
-completed announcement cycle. Inputs include commit subjects, changed paths,
-README overview, and bounded documentation diffs.
-
-## Spontaneous Group Messages
-
-`src/app/spontaneous/` handles eligible group messages after command, assistant,
-and direct-link routing. Per-chat policy controls probability, cooldown,
-message gap, and hourly attempts; the module defaults to disabled.
-
-The corpus uses this chat's stored human text, excluding commands, links,
-and oversized samples. A first-order word chain weights observed transitions,
-preserves message boundaries, and rejects verbatim samples. Generation and
-context bounds are defined in [spontaneous.ts](../src/config/runtime/spontaneous.ts).
-
-One JSON-mode call adapts the draft using recent human and own-bot context.
-It returns `send` with text or `skip`. Invalid output and errors suppress
-sending. Attempt reservations are persisted per chat in `app_state` before
-adaptation, including attempts that fail or produce no draft.
-
-Only one adaptation runs per chat. Foreground jobs cancel pending sends;
-new messages, trigger edits, stale context, and recent bot output also suppress
-delivery. Sent messages retain their generation kind in SQLite and assistant
-context.
-
-## Containers and Rollout
-
-GitHub production has one K3s Pod with `bot`, `video`, and `gallery` containers,
-all running as UID/GID 1000. Workers listen on Pod loopback ports 8081/8082.
-The bot waits up to 120 seconds for them before announcements and polling.
-
-The `bot-data` PVC holds SQLite, JSON config, and cookies. Workers mount it
-read-only and copy cookies into per-command temporary directories with file
-mode `0600`, removed in `finally`. Missing yt-dlp cookie files start an empty
-private jar. Worker cookie paths must resolve within `/app/data`.
-A shared `/media` emptyDir holds temporary media and is discarded with the Pod.
-
-Workers expose `/health` and asynchronous `/jobs` endpoints for metadata,
-download, probe, normalization, audio extraction, and gallery resolution.
-Jobs live in memory, with up to four CLI processes per worker. Timeout,
-cancellation, or shutdown kills the process group. HTTP failures do not retry
-through local CLI. Native/GitLab runs use local tools when worker URLs are absent.
-
-Deployment uses one replica and `Recreate`, so rollout interrupts service
-without overlapping polling bots. Images are pinned by digest. A versioned
-metadata ConfigMap and `telegram-bot/commit` annotation belong to the Pod
-revision; rollback restores them with all three images, but does not restore
-SQLite. See [development](development.md#production-on-k3s) for operations.
+The bot waits for both workers before polling. Its `/health` returns 503 before
+the first successful `getUpdates`, after polling stops, or after 15 minutes
+without a successful poll. Empty responses count as success; the grace period
+allows long media handlers. See [operations](development.md#production).

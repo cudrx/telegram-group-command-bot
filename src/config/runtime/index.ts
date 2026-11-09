@@ -9,7 +9,13 @@ import { ttsProviderConfig } from './providers/tts.js';
 import { spontaneousConfig } from './spontaneous.js';
 import { storageConfig } from './storage.js';
 
+export const healthConfig = {
+  // Simple polling waits for message handlers, including long media jobs.
+  pollingStaleMs: 15 * 60_000
+} as const;
+
 export const runtimeConfig = {
+  health: healthConfig,
   actions: {
     answer: answerActionConfig,
     meme: memeActionConfig,

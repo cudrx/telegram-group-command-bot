@@ -14,6 +14,7 @@ import { createVideoJobQueue } from './app/video-job-queue.js';
 import type { AppEnv } from './config/env/index.js';
 import { memeActionConfig } from './config/runtime/index.js';
 import { DatabaseClient } from './database/index.js';
+import { createPollingHealth } from './health-server.js';
 import { createLogger, serializeError } from './logging/logger.js';
 import {
   createRemoteMediaExec,
@@ -27,6 +28,7 @@ import {
 type Application = {
   start(): Promise<void>;
   stop(): Promise<void>;
+  isHealthy(): boolean;
 };
 
 export async function createApplication(env: AppEnv): Promise<Application> {
@@ -48,6 +50,8 @@ export async function createApplication(env: AppEnv): Promise<Application> {
     }
   );
   const bot = new Bot(env.telegramBotToken);
+  const pollingHealth = createPollingHealth(() => bot.isRunning());
+  bot.api.config.use(pollingHealth.transformer);
   const botInfo = await bot.api.getMe();
   baseLogger.info('bot_initialized', {
     botUserId: botInfo.id,
@@ -212,6 +216,7 @@ export async function createApplication(env: AppEnv): Promise<Application> {
   });
 
   return {
+    isHealthy: pollingHealth.isHealthy,
     async start() {
       if (env.mediaVideoUrl && env.mediaGalleryUrl) {
         await waitForMediaServices({
@@ -249,8 +254,11 @@ export async function createApplication(env: AppEnv): Promise<Application> {
 
     async stop() {
       cleanupScheduler.stop();
-      bot.stop();
-      db.close();
+      try {
+        await bot.stop();
+      } finally {
+        db.close();
+      }
     }
   };
 }

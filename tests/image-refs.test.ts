@@ -1,11 +1,28 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, test } from 'vitest';
 
-function selectImages(metadata: Record<string, unknown>, publish = true) {
+function selectImages(metadata: Record<string, unknown>) {
   const root = mkdtempSync(join(tmpdir(), 'image-refs-test-'));
+  mkdirSync(join(root, 'bin'));
+  writeFileSync(
+    join(root, 'bin/docker'),
+    `#!${process.execPath}
+const image = process.argv.at(-1);
+const target = image.includes('-video:') ? 'video' : image.includes('-gallery:') ? 'gallery' : 'bot';
+const digest = JSON.parse(process.env.TEST_METADATA)[target]?.['containerimage.digest'];
+console.log(JSON.stringify(digest ? [image.split(':')[0] + '@' + digest] : []));
+`,
+    { mode: 0o755 }
+  );
   const output = join(root, 'output');
   const result = spawnSync(
     process.execPath,
@@ -15,8 +32,8 @@ function selectImages(metadata: Record<string, unknown>, publish = true) {
         ...process.env,
         IMAGE_PREFIX: 'ghcr.io/example/bot',
         IMAGE_TAG: 'same-commit',
-        PUBLISH: String(publish),
-        BUILD_METADATA: JSON.stringify(metadata),
+        PATH: `${root}/bin:${process.env.PATH}`,
+        TEST_METADATA: JSON.stringify(metadata),
         GITHUB_OUTPUT: output
       },
       encoding: 'utf8'
@@ -24,7 +41,7 @@ function selectImages(metadata: Record<string, unknown>, publish = true) {
   );
   const refs = result.status === 0 ? readFileSync(output, 'utf8') : '';
   rmSync(root, { recursive: true, force: true });
-  return { status: result.status, refs };
+  return { status: result.status, refs, stderr: result.stderr };
 }
 
 const metadata = {
@@ -34,9 +51,9 @@ const metadata = {
 };
 
 describe('CI image references', () => {
-  test('exports the exact published digests for smoke checks and deployment', () => {
+  test('exports digests of the tested images after they have been pushed', () => {
     const result = selectImages(metadata);
-    expect(result.status).toBe(0);
+    expect(result.status, result.stderr).toBe(0);
     expect(result.refs).toBe(
       `bot-image=ghcr.io/example/bot@sha256:${'a'.repeat(64)}\nvideo-image=ghcr.io/example/bot-video@sha256:${'b'.repeat(64)}\ngallery-image=ghcr.io/example/bot-gallery@sha256:${'c'.repeat(64)}\n`
     );
@@ -57,13 +74,5 @@ describe('CI image references', () => {
     expect(
       selectImages({ bot: metadata.bot, video: metadata.video }).status
     ).not.toBe(0);
-  });
-
-  test('uses locally loaded tags for non-publishing CI builds', () => {
-    const result = selectImages({}, false);
-    expect(result.status).toBe(0);
-    expect(result.refs).toContain(
-      'video-image=ghcr.io/example/bot-video:same-commit\n'
-    );
   });
 });

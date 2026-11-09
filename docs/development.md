@@ -2,105 +2,99 @@
 
 ## Local Setup
 
-Use Node.js 24 and npm 11+. Follow the [quick start](../README.md#quick-start)
-to create `.env` and the two JSON config files before running migrations.
+Follow the [quick start](../README.md#quick-start).
+`npm run dev` watches source; `npm run build && npm start` runs the compiled bot.
+Startup applies SQLite migrations; `npm run migrate` runs them separately.
 
-Native media features need `yt-dlp` (with `default,curl-cffi` extras),
-`gallery-dl`, `ffmpeg`, and `ffprobe` on PATH. YouTube also needs Node.js.
-Alternatively, run the [three-container Compose setup](#local-docker).
+Native media downloads need `yt-dlp[default,curl-cffi]`, `gallery-dl`, `ffmpeg`,
+and `ffprobe`. To use the Docker images:
+
+```bash
+docker compose up -d --build
+docker compose logs --tail=100 -f
+```
+
+`data/` must be writable by UID/GID 1000. Temporary media is shared through
+`media/`. Both worker URLs must be set to use HTTP workers; without them, the
+bot runs local CLI tools.
 
 ## Configuration
 
-[Example environment](../config/examples/.env.example) and
-[environment schema](../src/config/env/schema.ts) list the supported settings.
-Required: `TELEGRAM_BOT_TOKEN`, `LLM_API_KEY`, `TELEGRAM_CHAT_CONFIG_PATH`,
-and `TELEGRAM_ACCESS_CONFIG_PATH`. Replace `your-*` placeholders; remove unused
-optional keys or validation will reject them.
+The [environment example](../config/examples/.env.example) lists common settings.
+Required: `TELEGRAM_BOT_TOKEN`, `LLM_API_KEY`, `TELEGRAM_CHAT_CONFIG_PATH`, and
+`TELEGRAM_ACCESS_CONFIG_PATH`. Remove unused optional provider placeholders.
+The full environment schema is in [schema.ts](../src/config/env/schema.ts);
+fixed defaults and limits are in [runtime/](../src/config/runtime/).
 
-| Settings                                                                | Purpose                                                                     |
-| ----------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| `LLM_BASE_URL`, `LLM_REPLY_MODEL`                                       | OpenAI-compatible endpoint and model.                                       |
-| `LLM_REPLY_TEMPERATURE`, `LLM_TIMEOUT_MS`, `LLM_MAX_RETRIES`            | Generation settings; retries do not apply to search.                        |
-| `SQLITE_PATH`                                                           | Database file; defaults to `data/bot.sqlite`.                               |
-| `MEDIA_VIDEO_URL`, `MEDIA_GALLERY_URL`                                  | HTTP workers; configure both or neither. Neither means local CLI execution. |
-| `DEEPSEEK_API_KEY`, `TAVILY_API_KEY`                                    | Search and optional failover.                                               |
-| `LOOKUP_TIMEOUT_MS`, `LOOKUP_MAX_RESULTS`                               | Per-provider search timeout (default 7 seconds) and result limit.           |
-| `GLADIA_API_KEY`                                                        | Voice/audio/video-note recognition and video transcription.                 |
-| `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `OCR_SPACE_API_KEY`   | Image description and OCR.                                                  |
-| `YANDEX_SPEECHKIT_API_KEY`                                              | Text-to-speech.                                                             |
-| `LOG_LEVEL`, `LOG_COLOR`, `LOG_LLM_TEXT`                                | Logging; LLM text logging contains previews, not full prompts/responses.    |
-| `REPLY_MIN_TYPING_MS`, `REPLY_MAX_TYPING_MS`, `REPLY_TYPING_REFRESH_MS` | Telegram typing indication.                                                 |
+### Providers
 
-Search reuses `LLM_API_KEY` only when `LLM_BASE_URL` has the official DeepSeek
-origin. Other LLM endpoints need a separate `DEEPSEEK_API_KEY` or Tavily key.
-DeepSeek failures/empty results notify the admin and try Tavily once.
-Two research queries can run in parallel; sequential provider failover can
-take twice the configured timeout.
+| Variables | Service |
+| --- | --- |
+| `LLM_BASE_URL`, `LLM_REPLY_MODEL`, `LLM_API_KEY` | OpenAI-compatible generation. |
+| `DEEPSEEK_API_KEY`, `TAVILY_API_KEY` | Web search. |
+| `GLADIA_API_KEY` | Audio/video transcription. |
+| `CLOUDFLARE_AI_API_KEY`, `CLOUDFLARE_ACCOUNT_ID` | Image descriptions. |
+| `OCR_SPACE_API_KEY` | OCR. |
+| `YANDEX_SPEECHKIT_API_KEY` | Text-to-speech. |
+
+DeepSeek Search reuses `LLM_API_KEY` when the LLM endpoint has the official
+DeepSeek origin; other endpoints need `DEEPSEEK_API_KEY` or Tavily. DeepSeek
+failures and empty results try Tavily when configured. `LOOKUP_TIMEOUT_MS`
+applies per provider attempt.
 
 ### Telegram Access
 
-The chat config is an array; see the
-[example](../config/examples/telegram-chat-config.example.json).
-
-- `commands`: `translate`, `read`, `transcribe`, `meme`, `sex`.
-- `features`: `assistant`, `direct_links`, `deploy_announcements`.
-- `reddit_sources.meme` and `reddit_sources.sex`: per-chat subreddit lists,
-  required and non-empty when the matching command is enabled.
-
-Legacy `commands.answer/summarize/decide` flags only supply the assistant flag
-when `features.assistant` is omitted. Their slash commands are retired.
-Invalid entries, duplicate chat IDs, and unreadable config files fail startup.
+The [chat config](../config/examples/telegram-chat-config.example.json) is an
+array of groups. Each entry sets command flags, feature flags, and Reddit source
+lists. Enabled `/meme` and `/sex` require non-empty `reddit_sources.meme` and
+`reddit_sources.sex`, respectively. `features.deploy_announcements` enables
+update notices.
 
 The [access config](../config/examples/telegram-access-config.example.json)
-sets `adminUserId` and optional `linkUserIds`. The operator can use the assistant
-and links privately; link-only users cannot invoke the assistant or commands.
-Disable BotFather privacy mode or grant the necessary administrator access
-to receive ordinary group messages. Deleting source links also needs permissions.
+sets `adminUserId` and `linkUserIds`. See the [README](../README.md#usage) for
+access and invocation rules. Invalid JSON, duplicate chat IDs, and unknown
+fields fail startup. Restart the bot after configuration changes.
 
 ### Spontaneous Messages
 
-Each chat entry accepts an optional `spontaneous` object:
+Each chat entry can include `spontaneous`:
 
-| Field | Default | Contract |
-| ----- | ------- | -------- |
-| `enabled` | `false` | Group chats only; independent of `features.assistant`. |
-| `probability` | `0.03` | Fraction in 0..1 per eligible message; 0 disables attempts. |
-| `cooldownSeconds` | `900` | Positive integer. |
-| `minMessages` | `20` | 1..1,000 new human text messages between attempts. |
-| `maxAttemptsPerHour` | `3` | 1..60 attempts in a rolling hour. |
+| Field | Default | Meaning |
+| --- | --- | --- |
+| `enabled` | `false` | Allow unsolicited messages in this group. |
+| `probability` | `0.03` | Chance per eligible message, from 0 to 1. |
+| `cooldownSeconds` | `900` | Minimum interval between attempts. |
+| `minMessages` | `20` | New human text messages required between attempts. |
+| `maxAttemptsPerHour` | `3` | Attempt limit in a rolling hour. |
 
-Restart after configuration changes. Skips, errors, and unsuccessful draft
-generation consume attempts; limits persist across restarts. Corpus retention
-follows normal message retention. Fixed generation and context limits are in
+Attempts include skips and failures and persist across restarts. This setting
+is independent of `features.assistant`. Draft/context limits are in
 [spontaneous.ts](../src/config/runtime/spontaneous.ts).
 
-Events: `spontaneous_skipped`, `spontaneous_adapted`, `spontaneous_sent`,
-`spontaneous_failed`.
+### Cookies
 
-### Cookies and Video Tools
+| Variable | File format and use |
+| --- | --- |
+| `REDDIT_COOKIE_HEADER_PATH` | Raw Cookie header for subreddit listings; takes precedence over Netscape cookies. |
+| `REDDIT_COOKIES_PATH` | Netscape cookies for yt-dlp and listings without a raw header. |
+| `INSTAGRAM_COOKIES_PATH` | Netscape cookies for Instagram downloads. |
+| `YOUTUBE_COOKIES_PATH` | Netscape cookies for YouTube downloads. |
 
-| Setting                     | Used by                                                                                 |
-| --------------------------- | --------------------------------------------------------------------------------------- |
-| `REDDIT_COOKIE_HEADER_PATH` | HTTP subreddit listings for `/meme` and `/sex`; takes precedence over Netscape cookies. |
-| `REDDIT_COOKIES_PATH`       | yt-dlp extraction, and subreddit listings without a raw header.                         |
-| `INSTAGRAM_COOKIES_PATH`    | Instagram yt-dlp/gallery-dl extraction.                                                 |
-| `YOUTUBE_COOKIES_PATH`      | YouTube yt-dlp extraction.                                                              |
+Remove `REDDIT_COOKIE_HEADER_PATH` if that file is absent. Listings require the
+chosen cookie file to be readable. HTTP 401/403 with a raw header notifies the
+operator to refresh it. Updating the header does not update the Netscape file.
+Instagram auth/rate-limit failures lock the source until its cookie file's
+modification time changes.
 
-Unset `REDDIT_COOKIE_HEADER_PATH` if you do not supply that file. A configured
-header rejected with HTTP 401/403 produces an admin notification. Updating it
-does not update the Netscape file used by yt-dlp.
+Reddit yt-dlp extraction requires Chrome impersonation. Check the installed tool:
 
-Reddit extraction uses `--impersonate chrome`; both Dockerfiles install yt-dlp's
-`curl-cffi` extra. Workers use temporary writable cookie copies with mode `0600`.
-Missing yt-dlp cookie files start an empty private jar.
+```bash
+docker compose run --rm --no-deps --entrypoint yt-dlp video --list-impersonate-targets
+```
 
-Instagram auth/rate-limit failures lock the source in SQLite. Update its cookie
-file to allow another attempt; repeated requests alone do not clear the lock.
+The output should list Chrome through `curl_cffi`.
 
-Video limits and timeouts are configured in
-[reddit-media.ts](../src/config/runtime/actions/reddit-media.ts).
-
-## Checks
+## Checks and Evals
 
 ```bash
 npm run lint
@@ -109,257 +103,148 @@ npm test
 npm run build
 ```
 
-`npm run dev` watches source; `npm start` runs the build. `npm run migrate`
-applies database migrations. Use `npm run format` or `npm run lint:fix` to apply
-Biome fixes. Test native SQLite support with Node 24: database suites skip
-when the installed `better-sqlite3` binary cannot load.
+Biome fixes are available through `npm run lint:fix`. Database tests skip if
+the native `better-sqlite3` binding cannot load; run checks with Node.js 24.
 
-Keep user-facing strings and language patterns in `src/locales/locale.ts`.
-Add prompt behavior cases to eval fixtures; unit tests should cover assembly,
-validation, and escaping rather than exact instructional prose.
-
-## Evaluations
-
-Both CLIs load `.env`. Only `eval:conversation` supports `--dry-run`, which
-prepares the experiment without LLM calls; `eval:intents` calls the model.
-Use fixture IDs with `--id`:
+Evals load `.env` and call the configured LLM. Intent evals use fixture search
+results; conversation evals test research routing without running a live search.
+Only conversation evals support `--dry-run`:
 
 ```bash
 npm run eval:intents -- --intent=answer
-npm run eval:intents -- --id=FIXTURE_ID
 npm run eval:intents -- --intent=spontaneous
 npm run eval:conversation -- --dry-run
-npm run eval:conversation -- --variants=A --repetitions=1
+npm run eval:conversation -- --id=FIXTURE_ID --variants=A --repetitions=1
 ```
 
-Intent evals check routing, discussion graphs, context selection, media, and
-answers against fixture web evidence; no live web search. Reports are saved
-under `.eval-runs/<UTC timestamp>/` after each fixture. Errors are recorded;
-remaining fixtures continue. Failures exit nonzero; `needs_review` requires
-manual semantic assessment.
+Reports go to `.eval-runs/`. Intent results marked `needs_review` need manual
+semantic review. Conversation evals compare these history variants:
 
-Spontaneous fixtures check adaptation, send/skip decisions, schema validity,
-and one-call execution using fixed drafts. `spontaneous-followup-*` checks
-ordinary assistant behavior with labeled bot history. Semantic review covers
-context fit, draft retention, attribution, and task switching. Invalid output
-fails the eval even when production suppresses delivery.
+| Variant | Input |
+| --- | --- |
+| A | Production history and prompts. |
+| B | History without bot messages. |
+| C | Bot messages only in the trigger's reply ancestry. |
+| D | Current planner prompt against saved A inputs. |
 
-Conversation evals default to two repetitions, concurrency three (maximum four):
-
-| Variant | Change                                                 |
-| ------- | ------------------------------------------------------ |
-| A       | Production prompts and history.                        |
-| B       | Remove all bot replies, including the explicit target. |
-| C       | Keep bot replies only in the triggering reply ancestry. |
-
-History variants apply after budget fitting and preserve human messages.
-`direct`/`clarify` run both LLM stages; `research` checks routing only.
-Artifacts: `.eval-runs/conversation-<UTC timestamp>/` with `manifest.json`,
-`settings.json`, `results.jsonl`, and `results.json`. Execution/schema errors
-exit nonzero; qualitative checks need review.
-
-Compare a saved planner prompt (A) with the current one (D):
+D requires a baseline manifest:
 
 ```bash
 npm run eval:conversation -- --baseline-manifest=.eval-runs/SAVED_RUN/manifest.json
 ```
 
-Variant D requires `--baseline-manifest` and compares the current planner with
-saved A prompts. Both use the current generator and identical user data.
-Filters: `--id`, `--variants`, `--repetitions`, `--concurrency`.
+Conversation defaults are two repetitions and concurrency three; override with
+`--repetitions` and `--concurrency`. Review the generated answers in the reports.
 
-## Local Docker
+## Production
+
+### VPS Setup
+
+Prepare Linux amd64, Docker Engine, Compose **2.30.0+**, and Bash.
+The SSH deployment user needs Docker access and a GHCR login with read access
+to all three image packages. Enable Docker at boot. Default application path:
+`/srv/telegram-bot`. Service definitions are in
+[compose.yml](../compose.yml).
+
+| Path | Contents / permissions |
+| --- | --- |
+| `.env` | Literal `KEY=value` lines, without shell quotes; deployment-user ownership, mode 0600. |
+| `data/` | `bot.sqlite`, chat/access JSON, cookies, and persistent files; UID/GID 1000. |
+| `media/` | Shared temporary files; UID/GID 1000. |
+| `deploy/` | Generated announcement metadata, mounted read-only. |
+
+Workers read cookies under `/app/data`. Create `data/` and `media/` and prepare
+`.env` before the first deploy. Actions uploads Compose, image references, and
+announcement metadata; application data stays on the VPS.
+
+### GitHub Settings and CI/CD
+
+In the `production` environment, keep `SSH_PRIVATE_KEY` and verified
+`SSH_KNOWN_HOSTS`; restrict deployment to `main`. Repository Actions variables:
+
+| Variable | Value |
+| --- | --- |
+| `SSH_HOST` | VPS hostname or IP. |
+| `SSH_USER` | Defaults to `github-deploy`. |
+| `DEPLOY_DIR` | Defaults to `/srv/telegram-bot`; absolute path using letters, digits, `/`, `_`, and `-`. |
+
+[CI](../.github/workflows/ci.yml) runs code checks, builds three amd64 images,
+and smoke-tests them before publishing those same images to GHCR. PRs do not
+publish. [Deploy](../.github/workflows/deploy.yml) runs on non-documentation
+pushes to `main` or manually through **Actions → Deploy**. GitLab CI builds
+its own images independently.
+
+Deployment pulls image digests and validates configuration, stops services,
+then starts the new version and waits for health. Actions concurrency
+prevents overlapping deployments. Failure prints state/logs and
+fails the workflow without rolling back images or SQLite.
+
+### Operations
+
+From the application directory, define:
 
 ```bash
-docker compose -f .github/compose.yml config --quiet
-docker compose -f .github/compose.yml up -d --build
-docker compose -f .github/compose.yml logs --tail=100 -f
-docker compose -f .github/compose.yml down
+compose() { docker compose --env-file images.env -f compose.yml "$@"; }
 ```
 
-The GitHub Dockerfile builds `bot`, `video`, and `gallery` targets. Containers
-run as UID/GID 1000. `data/` must be writable by that user; workers mount it
-read-only. Shared media uses a separate volume. No ports are published.
+| Operation | Command |
+| --- | --- |
+| Status | `compose ps --all` |
+| Logs | `compose logs --tail=100 -f` |
+| Stop | `compose stop` |
+| Start | `compose up -d --no-build --wait --wait-timeout 300` |
+| Restart a worker | `compose restart video` |
 
-To check Reddit impersonation support:
+After editing `.env` or JSON, validate and recreate the bot:
 
 ```bash
-docker compose -f .github/compose.yml run --rm --no-deps --entrypoint yt-dlp video --list-impersonate-targets
+compose config --quiet
+compose run --rm --no-deps --entrypoint node bot --input-type=module -e \
+  'import { getEnv } from "./dist/src/config/env/index.js"; getEnv();'
+compose up -d --no-deps --no-build --force-recreate --wait --wait-timeout 300 bot
 ```
 
-The output must list Chrome through `curl_cffi`.
+`config --quiet` avoids printing secrets. The validator does not poll Telegram
+or open SQLite. Docker restarts exited containers; intentionally stopped
+containers stay stopped after reboot. Health failure alone does not restart
+them; see [healthcheck behavior](architecture.md#containers).
 
-## CI
-
-GitHub [CI](../.github/workflows/ci.yml) runs on non-main pushes, PRs to main,
-manual runs, and calls from Deploy. Documentation-only pushes/PRs are excluded.
-It runs lint, typecheck, tests, builds all three images with Bake, and smoke-tests
-the containers without external media sites. Publishing uses GHCR commit tags;
-smoke tests and deployment use the resulting image digests.
-
-[Deploy](../.github/workflows/deploy.yml) runs on non-documentation pushes to
-`main` or manually from `main`. It calls CI, generates metadata, opens an SSH
-tunnel, and applies Kubernetes manifests. The GitLab pipeline is independent:
-its Bake file builds dev/prod images for amd64 and arm64; tagged releases publish
-release metadata. It does not perform the GitHub K3s deployment.
-
-## Production on K3s
-
-The manifests target one Linux amd64 VPS. One Pod contains three containers;
-`Recreate` prevents overlapping polling bots but causes brief downtime.
-The data PVC uses K3s `local-path` storage (currently 1 GiB); temporary media uses
-a 2 GiB emptyDir. Keep backups outside the VPS. Rollback restores images and
-deploy metadata, not SQLite; Pod replacement discards unfinished jobs.
-
-### Cluster and Data
-
-Install K3s without Traefik or ServiceLB. Include `YOUR_VPS_HOST` in the API
-certificate with `--tls-san YOUR_VPS_HOST`. External references are listed in
-[research](research.md#operations).
-
-Run setup on the VPS with an administrator kubeconfig, for example
-`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` in a root shell:
+Logs rotate at 3 × 10 MB per service. For abandoned temporary files, add a host
+cleanup policy (adjust the path for custom `DEPLOY_DIR`):
 
 ```bash
-kubectl apply -f .github/bootstrap.yml
-kubectl -n telegram-bot create secret generic bot-env --from-env-file=.env
-kubectl -n telegram-bot create secret docker-registry ghcr \
-  --docker-server=ghcr.io --docker-username=YOUR_GITHUB_USER \
-  --docker-password=YOUR_READ_PACKAGES_TOKEN
+printf '%s\n' 'd /srv/telegram-bot/media 0700 1000 1000 1d' | sudo tee /etc/tmpfiles.d/telegram-bot.conf >/dev/null
+sudo systemctl enable --now systemd-tmpfiles-clean.timer
 ```
 
-For `--from-env-file`, use literal values without shell quotes. Provider
-credentials belong in `bot-env`; JSON configs and cookies belong in `/app/data`
-on the PVC. Relative `data/...` paths in the example resolve there. Custom
-worker cookie paths must also stay within `/app/data`. The GHCR token needs
-`read:packages` and access to all three image packages.
+### Backup and Restore
 
-Before importing existing data, stop the old bot and back up `data/`, including
-SQLite WAL/SHM files. Use a temporary Pod to mount and populate the PVC:
+Pause deployments during maintenance. As root, from the application directory
+using the `compose` helper above:
 
 ```bash
-kubectl -n telegram-bot apply -f - <<'YAML'
-apiVersion: v1
-kind: Pod
-metadata:
-  name: data-import
-spec:
-  automountServiceAccountToken: false
-  restartPolicy: Never
-  containers:
-    - name: import
-      image: busybox:1.37.0
-      command: [sh, -c, 'sleep 3600']
-      volumeMounts:
-        - { name: data, mountPath: /data }
-  volumes:
-    - name: data
-      persistentVolumeClaim:
-        claimName: bot-data
-YAML
-kubectl -n telegram-bot wait --for=condition=Ready pod/data-import --timeout=120s
-kubectl -n telegram-bot cp data/. data-import:/data
-kubectl -n telegram-bot exec data-import -- chown -R 1000:1000 /data
-kubectl -n telegram-bot delete pod data-import
-```
-
-Copy both JSON config files and required cookies, even for a fresh install.
-Do not run the old bot with the same token after Kubernetes starts polling.
-Keep the PVC when redeploying.
-
-### Deployment Credentials
-
-The workflows connect as the VPS OS user `github-deploy` and forward runner
-`127.0.0.1:16443` to VPS `127.0.0.1:6443`. Configure SSH key authentication
-and allow TCP forwarding for that user. The SSH destination is currently set
-in both `deploy.yml` and `test-k3s.yml`; update both when changing VPS.
-
-Kubernetes authentication is separate. Bootstrap creates ServiceAccount
-`github-deploy` with namespace-scoped deployment/metadata permissions, without
-Secret access. Export a scoped kubeconfig rather than the cluster-admin file:
-
-```bash
-kubectl -n telegram-bot apply -f - <<'YAML'
-apiVersion: v1
-kind: Secret
-metadata:
-  name: github-deploy-token
-  annotations:
-    kubernetes.io/service-account.name: github-deploy
-type: kubernetes.io/service-account-token
-YAML
-kubectl -n telegram-bot wait --for=jsonpath='{.data.token}' secret/github-deploy-token --timeout=60s
 umask 077
-token="$(kubectl -n telegram-bot get secret github-deploy-token -o jsonpath='{.data.token}' | base64 -d)"
-ca_file="$(mktemp)"
-kubectl -n telegram-bot get secret github-deploy-token -o jsonpath='{.data.ca\.crt}' | base64 -d > "$ca_file"
-kubectl --kubeconfig=github-deploy.kubeconfig config set-cluster k3s --server=https://127.0.0.1:16443 --tls-server-name=YOUR_VPS_HOST --certificate-authority="$ca_file" --embed-certs=true
-kubectl --kubeconfig=github-deploy.kubeconfig config set-credentials github-deploy --token="$token"
-kubectl --kubeconfig=github-deploy.kubeconfig config set-context production --cluster=k3s --user=github-deploy --namespace=telegram-bot
-kubectl --kubeconfig=github-deploy.kubeconfig config use-context production
-rm -f "$ca_file"
-unset token
+compose stop --timeout 30
+tar -czf /var/backups/telegram-bot-$(date -u +%Y%m%dT%H%M%SZ).tar.gz .env data compose.yml images.env deploy
+compose up -d --no-build --wait --wait-timeout 300
 ```
 
-The kubeconfig endpoint must match the tunnel. `--tls-server-name` verifies
-the API certificate against `YOUR_VPS_HOST`.
-Rotate the token by replacing its Secret and updating GitHub.
+Keep a protected copy off-VPS. Test extraction and run
+`sqlite3 data/bot.sqlite 'PRAGMA quick_check;'` on the extracted database;
+it should return `ok`. Back up the whole stopped data directory, including
+WAL/SHM files when present.
 
-In GitHub **Settings → Environments → production**, restrict deployment branches
-to `main` and configure:
-
-| Secret/variable              | Value                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| `KUBE_CONFIG`                | Complete scoped kubeconfig.                                                                 |
-| `SSH_PRIVATE_KEY`            | Private key for the VPS OS user.                                                            |
-| `SSH_KNOWN_HOSTS`            | Verified SSH host-key entry for the workflow destination.                                   |
-| `KUBECTL_VERSION` (variable) | kubectl version matching the cluster minor version; Deploy currently defaults to `v1.36.0`. |
-
-Keep credential files out of Git and remove temporary local copies after
-saving them in GitHub. Ensure Actions can publish GHCR packages and the cluster
-can pull them. The **Test K3s Connection** workflow checks the tunnel and scoped
-permissions; it currently pins kubectl separately.
-
-### Rollout and Recovery
-
-Run **Actions → Deploy → Run workflow** on `main` for the first rollout.
-Later non-documentation pushes to `main` deploy automatically.
-
-`.github/deploy.sh` mounts metadata from a ConfigMap named by commit and content
-hash, applies the Deployment, and waits up to five minutes. A failed rollout
-triggers undo when a previous Deployment exists. A failed apply or first
-deployment has no automatic rollback. Metadata ConfigMaps are retained for
-older revisions; remove only ones no retained revision uses.
-
-For manual inspection or rollback, use an administrator kubeconfig on the VPS
-(or open the SSH tunnel if using the exported deploy kubeconfig):
-
-```bash
-kubectl -n telegram-bot get pods
-kubectl -n telegram-bot logs deployment/telegram-bot -c bot --tail=100
-kubectl -n telegram-bot rollout undo deployment/telegram-bot
-kubectl -n telegram-bot rollout status deployment/telegram-bot --timeout=300s
-```
-
-The bot waits up to 120 seconds for worker health before polling. Check both
-`video` and `gallery` container logs if startup fails.
+To restore, stop services and replace the whole `data/` directory with the
+saved copy, preserving UID/GID 1000. Restore `.env` if needed, validate, then
+start. Keep restored SQLite and its WAL/SHM together.
 
 ## Manual Smoke Checks
 
-Use a separate test bot/chat and check:
+Use a test bot/chat to check:
 
-- Assistant mentions, bare mentions, replies to its answers, interleaved topics,
-  clarification follow-ups, disabled features, and rejected private users.
-- `/translate`, `/read`, and `/transcribe` with valid and missing reply targets;
-  confirm video transcription also works on a video sent by the bot.
-- Edited messages change later context without sending another reply.
-- Spontaneous generation, replies to generated messages, serious-context skips,
-  frequency limits, and disabled/private/idle chats.
-- Reddit image/GIF/gallery/video and Streamable posts; Instagram Reels and
-  mixed carousels; YouTube Shorts; TikTok video and photo posts.
-- Captions, sender attribution, spoilers, album order, source-link deletion,
-  temporary-file cleanup, queue notices, and size/duration fallbacks.
-- Reddit Chrome impersonation with cookies through a full download/upload.
-  After an Instagram source lock, changing cookies permits another attempt.
-- Live DeepSeek Search and Tavily failover separately; fixture evals do not
-  verify provider access.
+- Assistant mentions/replies, edited context, and access restrictions.
+- `/translate`, `/read`, and `/transcribe`, including missing reply targets.
+- Spontaneous messages, disabled groups, frequency limits, and replies to them.
+- Reddit image/GIF/gallery/video; Instagram Reels/carousels; YouTube and TikTok.
+- Captions, spoilers, album order, source deletion, cleanup, and size limits.
+- Enabled providers, search fallback, and cookie refresh after an auth failure.

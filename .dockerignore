@@ -14,3 +14,7 @@ preferences
 .codex
 .kubeconfig
 *.kubeconfig
+
+media
+deploy
+images.env

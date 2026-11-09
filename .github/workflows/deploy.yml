@@ -4,13 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - 'README.md'
+    paths-ignore: ['docs/**', 'README.md']
 
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: deploy-main
@@ -19,22 +16,24 @@ concurrency:
 jobs:
   build:
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/ci.yml
     with:
       publish: true
 
   deploy:
     needs: build
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
     env:
       BOT_IMAGE: ${{ needs.build.outputs.bot-image }}
       VIDEO_IMAGE: ${{ needs.build.outputs.video-image }}
       GALLERY_IMAGE: ${{ needs.build.outputs.gallery-image }}
-      IMAGE_TAG: ${{ github.sha }}
-      KUBECONFIG: ${{ github.workspace }}/.kubeconfig
-      DEPLOY_METADATA_FILE: .github/generated/deploy-metadata.json
+      SSH_HOST: ${{ vars.SSH_HOST }}
+      SSH_USER: ${{ vars.SSH_USER || 'github-deploy' }}
+      DEPLOY_DIR: ${{ vars.DEPLOY_DIR || '/srv/telegram-bot' }}
 
     steps:
       - name: Checkout
@@ -47,85 +46,47 @@ jobs:
         with:
           node-version: 24
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v4
-        with:
-          version: ${{ vars.KUBECTL_VERSION || 'v1.36.0' }}
-
-      - name: Configure cluster credentials
+      - name: Generate deploy metadata
+        run: node --experimental-strip-types scripts/generate-deploy-metadata.ts
         env:
-          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
-        run: |
-          set -euo pipefail
-          umask 077
-          test -n "$KUBE_CONFIG"
-          printf '%s' "$KUBE_CONFIG" > "$KUBECONFIG"
+          DEPLOY_METADATA_BEFORE_SHA: ${{ github.event.before || '' }}
+          DEPLOY_METADATA_SHA: ${{ github.sha }}
+          DEPLOY_METADATA_BRANCH: ${{ github.ref_name }}
+          DEPLOY_METADATA_OUTPUT: .github/generated/deploy-metadata.json
 
-      - name: Configure SSH tunnel
+      - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
           set -euo pipefail
           umask 077
-
           test -n "$SSH_PRIVATE_KEY"
           test -n "$SSH_KNOWN_HOSTS"
-
+          test -n "$SSH_HOST"
+          [[ "$DEPLOY_DIR" =~ ^/[a-zA-Z0-9/_-]+$ && "$DEPLOY_DIR" != / ]]
           mkdir -p "$HOME/.ssh"
-
-          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/k3s-deploy"
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
-
           chmod 700 "$HOME/.ssh"
-          chmod 600 "$HOME/.ssh/k3s-deploy"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          printf '%s\n' "$SSH_PRIVATE_KEY" > "$HOME/.ssh/id_ed25519"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/id_ed25519"
 
-          ssh -f -N \
-            -i "$HOME/.ssh/k3s-deploy" \
-            -o IdentitiesOnly=yes \
-            -o BatchMode=yes \
-            -o StrictHostKeyChecking=yes \
-            -o ExitOnForwardFailure=yes \
-            -o ConnectTimeout=15 \
-            -L 127.0.0.1:16443:127.0.0.1:6443 \
-            github-deploy@185.21.10.93
-
-          echo "SSH tunnel established"
-
-          kubectl --request-timeout=15s auth whoami
-
-          kubectl --request-timeout=15s \
-            auth can-i patch deployment/telegram-bot \
-            -n telegram-bot | grep -qx yes
-
-      - name: Read deployed commit
-        id: deployed
+      - name: Deploy
         run: |
-          sha="$(kubectl -n telegram-bot get deployment telegram-bot --ignore-not-found -o jsonpath='{.spec.template.metadata.annotations.telegram-bot/commit}')"
-          if [[ -n "$sha" ]]; then
-            echo "sha=${sha}" >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          printf 'BOT_IMAGE=%s\nVIDEO_IMAGE=%s\nGALLERY_IMAGE=%s\n' \
+            "$BOT_IMAGE" "$VIDEO_IMAGE" "$GALLERY_IMAGE" > .github/generated/images.env
+          target="$SSH_USER@$SSH_HOST"
+          options=(-oBatchMode=yes -oStrictHostKeyChecking=yes -oConnectTimeout=15)
+          # shellcheck disable=SC2029
+          ssh "${options[@]}" "$target" "mkdir -p '$DEPLOY_DIR/deploy'"
+          scp "${options[@]}" \
+            compose.yml .github/deploy.sh .github/generated/images.env "$target:$DEPLOY_DIR/"
+          scp "${options[@]}" \
+            .github/generated/deploy-metadata.json "$target:$DEPLOY_DIR/deploy/"
+          # shellcheck disable=SC2029
+          ssh "${options[@]}" "$target" "cd '$DEPLOY_DIR' && bash deploy.sh"
 
-      - name: Generate deploy metadata
-        run: node --experimental-strip-types scripts/generate-deploy-metadata.ts
-        env:
-          DEPLOY_METADATA_DEPLOYED_SHA: ${{ steps.deployed.outputs.sha }}
-          DEPLOY_METADATA_BEFORE_SHA: ${{ github.event.before || '' }}
-          DEPLOY_METADATA_SHA: ${{ github.sha }}
-          DEPLOY_METADATA_BRANCH: ${{ github.ref_name }}
-          DEPLOY_METADATA_OUTPUT: ${{ env.DEPLOY_METADATA_FILE }}
-
-      - name: Install deployment dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gettext-base
-
-      - name: Deploy and verify rollout
-        run: bash .github/deploy.sh
-
-      - name: Remove cluster credentials
+      - name: Remove SSH key
         if: always()
-        run: |
-          rm -f "$KUBECONFIG"
-          rm -f "$HOME/.ssh/k3s-deploy"
+        run: rm -f "$HOME/.ssh/id_ed25519"

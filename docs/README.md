@@ -1,8 +1,6 @@
 # Documentation
 
-| Document | Contents |
-| -------- | -------- |
-| [Project README](../README.md) | Setup and usage. |
-| [Development](development.md) | Configuration, checks, evals, and deployment. |
-| [Architecture](architecture.md) | Routing, context, media, storage, and containers. |
-| [Research](research.md) | Papers, reference implementations, and external documentation. |
+- [README](../README.md): setup and bot commands.
+- [Development](development.md): configuration, checks, evals, and deployment.
+- [Architecture](architecture.md): routing, context, media workers, and storage.
+- [Research](research.md): papers and reference implementations.
