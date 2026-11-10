@@ -12,9 +12,8 @@ const stateSchema = z
   })
   .strict();
 
-// Reserving synchronously before any await prevents concurrent calls from
-// spending the same slot. State survives restarts in the existing app_state.
-export function reserveSpontaneousAttempt(input: {
+// Prepare and reserve in the same synchronous turn, before awaiting the LLM.
+export function prepareSpontaneousAttempt(input: {
   db: Pick<DatabaseClient, 'getAppState' | 'setAppState'>;
   chatId: number;
   triggerMessageId: number;
@@ -22,7 +21,7 @@ export function reserveSpontaneousAttempt(input: {
   messages: StoredMessage[];
   policy: SpontaneousPolicy;
   random: () => number;
-}): boolean {
+}): { reserve(): void } | null {
   const key = `spontaneous:${input.chatId}`;
   const raw = input.db.getAppState(key);
   const state = raw ? stateSchema.parse(JSON.parse(raw)) : null;
@@ -42,17 +41,19 @@ export function reserveSpontaneousAttempt(input: {
     newMessages < input.policy.minMessages ||
     input.random() >= input.policy.probability
   )
-    return false;
+    return null;
 
-  input.db.setAppState(
-    key,
-    JSON.stringify({
-      lastAttemptAt: nowMs,
-      lastMessageId: input.triggerMessageId,
-      attempts: [...attempts, nowMs]
-    }),
-    input.now
-  );
-
-  return true;
+  return {
+    reserve() {
+      input.db.setAppState(
+        key,
+        JSON.stringify({
+          lastAttemptAt: nowMs,
+          lastMessageId: input.triggerMessageId,
+          attempts: [...attempts, nowMs]
+        }),
+        input.now
+      );
+    }
+  };
 }

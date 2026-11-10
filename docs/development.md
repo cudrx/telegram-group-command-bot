@@ -67,9 +67,11 @@ Each chat entry can include `spontaneous`:
 | `minMessages` | `20` | New human text messages required between attempts. |
 | `maxAttemptsPerHour` | `3` | Attempt limit in a rolling hour. |
 
-Attempts include skips and failures and persist across restarts. This setting
+LLM attempts include skips and failures and persist across restarts. This setting
 is independent of `features.assistant`. Draft/context limits are in
 [spontaneous.ts](../src/config/runtime/spontaneous.ts).
+Unsent attempts notify the admin with stage, reason, and elapsed time; repeated
+`no_draft` notices are limited to one per `cooldownSeconds` per chat.
 
 ### Cookies
 

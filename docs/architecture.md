@@ -76,7 +76,7 @@ Short assistant answers can be sent as voice according to
 
 [SpontaneousMessages](../src/app/spontaneous/index.ts) builds a word-chain draft
 from this chat's human messages, then makes one LLM call to adapt it or skip.
-Attempts are reserved in `app_state` before generation; failures consume them.
+Attempts are reserved in `app_state` after building a draft, before the LLM call.
 Foreground jobs cancel pending sends. New messages, edits, or recent bot output
 can also suppress delivery. Policy settings are in
 [development](development.md#spontaneous-messages).

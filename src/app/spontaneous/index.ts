@@ -10,13 +10,25 @@ import type {
 } from '../chat-orchestrator/types.js';
 import { formatTelegramHtmlReply } from '../telegram-html/index.js';
 import { generateMarkovDraft } from './markov.js';
-import { reserveSpontaneousAttempt } from './policy.js';
+import { prepareSpontaneousAttempt } from './policy.js';
 
 const LINK = /https?:\/\/|www\.|t\.me\//i;
+
+type AttemptStage = 'prepare' | 'draft' | 'llm' | 'send' | 'persist';
+type NotSentReason =
+  | 'no_draft'
+  | 'invalid_output'
+  | 'model_skip'
+  | 'foreground_job'
+  | 'context_changed'
+  | 'stale'
+  | 'recent_bot_output'
+  | 'error';
 
 export class SpontaneousMessages {
   private readonly inFlight = new Map<number, { cancelled: boolean }>();
   private readonly foreground = new Map<number, number>();
+  private readonly lastNoDraftNotice = new Map<number, number>();
 
   constructor(private readonly deps: ChatOrchestratorDeps) {}
 
@@ -55,8 +67,42 @@ export class SpontaneousMessages {
     )
       return;
 
+    const policy = access.policy.spontaneous;
     const token = { cancelled: false };
     this.inFlight.set(message.chatId, token);
+    let startedAt: number | null = null;
+    let stage: AttemptStage = 'prepare';
+    let delivered = false;
+    const reportNotSent = (reason: NotSentReason, error?: unknown) => {
+      const elapsedMs = startedAt === null ? 0 : Date.now() - startedAt;
+      const errorFields = error === undefined ? null : serializeError(error);
+      const detail =
+        typeof errorFields?.errorMessage === 'string'
+          ? ` error=${errorFields.errorMessage.slice(0, 500)}`
+          : '';
+      const fields = {
+        ...(errorFields ? { error: errorFields } : {}),
+        chatId: message.chatId,
+        messageId: message.messageId,
+        stage,
+        reason,
+        elapsedMs,
+        message: `chatId=${message.chatId} messageId=${message.messageId} stage=${stage} reason=${reason} elapsedMs=${elapsedMs}${detail}`
+      };
+      if (reason === 'no_draft') {
+        const nowMs = Date.parse(this.deps.now());
+        const last = this.lastNoDraftNotice.get(message.chatId);
+        if (
+          last !== undefined &&
+          nowMs - last < policy.cooldownSeconds * 1000
+        ) {
+          logger.info('spontaneous_not_sent', fields);
+          return;
+        }
+        this.lastNoDraftNotice.set(message.chatId, nowMs);
+      }
+      logger.warn('spontaneous_not_sent', fields);
+    };
     try {
       const now = this.deps.now();
       if (
@@ -82,25 +128,31 @@ export class SpontaneousMessages {
         );
       if (new Set(samples).size < spontaneousConfig.minSamples) return;
 
-      if (
-        !reserveSpontaneousAttempt({
-          db: this.deps.db,
-          chatId: message.chatId,
-          triggerMessageId: message.messageId,
-          now,
-          messages: history,
-          policy: access.policy.spontaneous,
-          random: this.deps.random
-        })
-      )
-        return;
+      const attempt = prepareSpontaneousAttempt({
+        db: this.deps.db,
+        chatId: message.chatId,
+        triggerMessageId: message.messageId,
+        now,
+        messages: history,
+        policy,
+        random: this.deps.random
+      });
+      if (!attempt) return;
 
+      startedAt = Date.now();
+      stage = 'draft';
+      logger.info('spontaneous_attempt_started', {
+        chatId: message.chatId,
+        messageId: message.messageId
+      });
       const draft = generateMarkovDraft(samples, this.deps.random);
       if (!draft) {
-        logger.debug('spontaneous_skipped', { reason: 'no_draft' });
+        reportNotSent('no_draft');
         return;
       }
+      attempt.reserve();
       const context = recentContext(history, this.deps.bot.userId);
+      stage = 'llm';
       const result = await this.deps.qwen.generateSpontaneous({
         assistantInstructions: loadAssistantInstructions(),
         currentDateTime: formatMoscowCurrentDateTime(now),
@@ -115,21 +167,40 @@ export class SpontaneousMessages {
         attemptCount: result.attemptCount,
         promptTokensEstimate: result.promptTokensEstimate
       });
-      if (
-        result.decision.action === 'skip' ||
-        !result.validOutput ||
-        token.cancelled ||
-        !this.contextUnchanged(message) ||
-        !this.isFresh(message, this.deps.now()) ||
-        !this.botHasBeenQuiet(message.chatId, this.deps.now())
-      )
+      if (!result.validOutput || result.decision.action === 'skip') {
+        reportNotSent(result.validOutput ? 'model_skip' : 'invalid_output');
         return;
+      }
+      const deliveryNow = this.deps.now();
+      if (token.cancelled) {
+        reportNotSent('foreground_job');
 
+        return;
+      }
+      if (!this.contextUnchanged(message)) {
+        reportNotSent('context_changed');
+
+        return;
+      }
+      if (!this.isFresh(message, deliveryNow)) {
+        reportNotSent('stale');
+
+        return;
+      }
+      if (!this.botHasBeenQuiet(message.chatId, deliveryNow)) {
+        reportNotSent('recent_bot_output');
+
+        return;
+      }
+
+      stage = 'send';
       const sent = await this.deps.replyDispatcher({
         chatId: message.chatId,
         reply: false,
         text: formatTelegramHtmlReply(result.decision.text)
       });
+      delivered = true;
+      stage = 'persist';
       this.deps.db.saveBotMessage({
         chatId: message.chatId,
         chatType: message.chatType,
@@ -144,7 +215,15 @@ export class SpontaneousMessages {
       });
       logger.info('spontaneous_sent', { sentMessageId: sent.messageId });
     } catch (error) {
-      logger.warn('spontaneous_failed', serializeError(error));
+      if (startedAt !== null && !delivered) reportNotSent('error', error);
+      else
+        logger.warn('spontaneous_failed', {
+          ...serializeError(error),
+          chatId: message.chatId,
+          messageId: message.messageId,
+          stage,
+          delivered
+        });
     } finally {
       this.inFlight.delete(message.chatId);
     }

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
+import {
+  createAdminNotifier,
+  createNotifyingLogger
+} from '../../src/app/admin-notifier.js';
 import { ChatOrchestrator } from '../../src/app/chat-orchestrator/index.js';
 import type { ChatOrchestratorDeps } from '../../src/app/chat-orchestrator/types.js';
 import {
@@ -110,7 +114,150 @@ function setup(overrides: Partial<SpontaneousPolicy> = {}) {
   };
 }
 
+function captureAdminNotifications(h: ReturnType<typeof setup>) {
+  const sent: Array<{ chatId: number; text: string }> = [];
+  h.deps.logger = createNotifyingLogger(
+    h.deps.logger,
+    createAdminNotifier({
+      adminChatId: 999,
+      sendMessage: async (message) => {
+        sent.push(message);
+      }
+    })
+  );
+
+  return sent;
+}
+
 describeWithSqlite('spontaneous messages through the orchestrator', () => {
+  test('a failed Markov draft does not consume quota and reports the failure to the admin', async () => {
+    const h = setup();
+    const notifications = captureAdminNotifications(h);
+    for (let id = 1; id <= 24; id++)
+      h.db.saveIncomingMessage(
+        createIncomingMessage({
+          messageId: id,
+          text: `слово${id} окончание${id}`,
+          createdAt: h.deps.now()
+        })
+      );
+    await h.orchestrator.handleIncomingMessage(h.message());
+    expect(h.generateSpontaneous).not.toHaveBeenCalled();
+    expect(h.db.getAppState('spontaneous:1')).toBeNull();
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.chatId).toBe(999);
+    expect(notifications[0]?.text).toContain('reason=no_draft');
+    expect(notifications[0]?.text).toContain('chatId=1');
+    expect(notifications[0]?.text).toContain('messageId=100');
+    expect(notifications[0]?.text).toContain('stage=draft');
+    expect(notifications[0]?.text).toContain('elapsedMs=');
+  });
+
+  test('repeated draft failures do not flood the admin or delay recovery when usable history arrives', async () => {
+    const h = setup();
+    const notifications = captureAdminNotifications(h);
+    for (let id = 1; id <= 24; id++)
+      h.db.saveIncomingMessage(
+        createIncomingMessage({
+          messageId: id,
+          text: `слово${id} окончание${id}`,
+          createdAt: h.deps.now()
+        })
+      );
+    await h.orchestrator.handleIncomingMessage(h.message());
+    await h.orchestrator.handleIncomingMessage(h.message(101));
+    expect(notifications).toHaveLength(1);
+    expect(h.db.getAppState('spontaneous:1')).toBeNull();
+    for (let id = 102; id <= 125; id++)
+      h.db.saveIncomingMessage(
+        createIncomingMessage({
+          messageId: id,
+          text: `${id % 2 ? 'наш сервер танцует' : 'твой сервер грустит'} ${id}`,
+          createdAt: h.deps.now()
+        })
+      );
+    await h.orchestrator.handleIncomingMessage(h.message(126));
+    expect(h.generateSpontaneous).toHaveBeenCalledTimes(1);
+    expect(h.replyDispatcher).toHaveBeenCalledTimes(1);
+  });
+
+  test.each([
+    ['model_skip', { action: 'skip' }, true],
+    ['invalid_output', { action: 'skip' }, false]
+  ] as const)('notifies the admin when adaptation ends without a send: %s', async (reason, decision, validOutput) => {
+    const h = setup();
+    h.seedChat();
+    const notifications = captureAdminNotifications(h);
+    h.generateSpontaneous.mockResolvedValue({
+      ...h.result,
+      decision,
+      validOutput
+    });
+    await h.orchestrator.handleIncomingMessage(h.message());
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.text).toContain(`reason=${reason}`);
+    expect(notifications[0]?.text).toContain('stage=llm');
+    expect(h.replyDispatcher).not.toHaveBeenCalled();
+    expect(
+      JSON.parse(h.db.getAppState('spontaneous:1') ?? '{}').attempts
+    ).toHaveLength(1);
+  });
+
+  test.each([
+    'llm',
+    'send'
+  ] as const)('notifies the admin of the failing stage: %s', async (stage) => {
+    const h = setup();
+    h.seedChat();
+    const notifications = captureAdminNotifications(h);
+    if (stage === 'llm')
+      h.generateSpontaneous.mockRejectedValue(new Error('provider timed out'));
+    else h.replyDispatcher.mockRejectedValue(new Error('Telegram failed'));
+    await h.orchestrator.handleIncomingMessage(h.message());
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.text).toContain(`stage=${stage}`);
+    expect(notifications[0]?.text).toContain('reason=error');
+    expect(notifications[0]?.text).toContain(
+      stage === 'llm' ? 'provider timed out' : 'Telegram failed'
+    );
+  });
+
+  test('does not notify the admin for probability rejection or successful delivery', async () => {
+    const h = setup();
+    h.seedChat();
+    const notifications = captureAdminNotifications(h);
+    h.policy.spontaneous = {
+      ...spontaneousConfig.defaults,
+      enabled: true,
+      probability: 0
+    };
+    await h.orchestrator.handleIncomingMessage(h.message());
+    h.policy.spontaneous.probability = 1;
+    await h.orchestrator.handleIncomingMessage(h.message(101));
+    expect(h.replyDispatcher).toHaveBeenCalledTimes(1);
+    expect(notifications).toHaveLength(0);
+  });
+
+  test('reports context cancellation after an in-flight adaptation', async () => {
+    const h = setup();
+    h.seedChat();
+    const notifications = captureAdminNotifications(h);
+    let finish!: (result: GenerateSpontaneousResult) => void;
+    h.generateSpontaneous.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const pending = h.orchestrator.handleIncomingMessage(h.message());
+    await h.orchestrator.handleIncomingMessage(h.message(101));
+    finish(h.result);
+    await pending;
+    expect(h.replyDispatcher).not.toHaveBeenCalled();
+    expect(notifications).toHaveLength(1);
+    expect(notifications[0]?.text).toContain('reason=context_changed');
+  });
+
   test('does not send a spontaneous response to a comment on bot media', async () => {
     const h = setup();
     h.seedChat();
